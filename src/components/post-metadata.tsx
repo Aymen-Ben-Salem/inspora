@@ -11,6 +11,10 @@ import {
   postNavigationControlClassName,
 } from "./post-close-button";
 import type { PostDialogCloseMode } from "./post-dialog";
+import { TrackedOriginalLink } from "./tracked-original-link";
+
+const originalLinkClassName =
+  "focus-ring inline-flex h-9 w-full items-center justify-center rounded-full bg-[#262626] px-3 text-[15px] font-medium leading-normal tracking-[0.036px] text-white transition-colors hover:bg-black xl:h-[38px] xl:text-[16px] min-[1700px]:h-[42px] min-[1700px]:px-[14px] min-[1700px]:text-[18px]";
 
 type AdjacentPost = Pick<Post, "slug" | "title">;
 
@@ -147,14 +151,7 @@ export function PostMetadata({
             </p>
           </div>
 
-          <a
-            href={post.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="focus-ring inline-flex h-9 w-full items-center justify-center rounded-full bg-[#262626] px-3 text-[15px] font-medium leading-normal tracking-[0.036px] text-white transition-colors hover:bg-black xl:h-[38px] xl:text-[16px] min-[1700px]:h-[42px] min-[1700px]:px-[14px] min-[1700px]:text-[18px]"
-          >
-            View original
-          </a>
+          <TrackedOriginalLink post={post} className={originalLinkClassName} />
         </div>
 
         <div className="mt-auto flex flex-col items-center gap-2 pt-10 xl:pt-12 min-[1700px]:gap-[10px] min-[1700px]:pt-16">

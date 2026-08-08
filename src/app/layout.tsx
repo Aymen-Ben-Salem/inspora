@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
+
+import { AnalyticsConsent } from "@/components/analytics-consent";
 
 import "./globals.css";
 
@@ -38,6 +40,9 @@ export default function RootLayout({
       <body className="font-[family-name:var(--font-inter)]">
         {children}
         {modal}
+        <Suspense fallback={null}>
+          <AnalyticsConsent />
+        </Suspense>
         <Analytics />
       </body>
     </html>

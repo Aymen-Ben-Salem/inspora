@@ -2,6 +2,9 @@
 
 import { FormEvent, useState } from "react";
 
+import { captureAnalyticsEvent } from "@/analytics/client";
+import { ANALYTICS_EVENTS } from "@/analytics/events";
+
 type Status = "idle" | "pending" | "success" | "error";
 
 export function NewsletterForm({ compact = false }: { compact?: boolean }) {
@@ -45,6 +48,9 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
       form.reset();
       setStatus("success");
       setMessage("You're on the list.");
+      captureAnalyticsEvent(ANALYTICS_EVENTS.newsletterSubscribed, {
+        source: compact ? "header" : "post-detail",
+      });
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Could not subscribe right now.");

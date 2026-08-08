@@ -1,5 +1,6 @@
 import type { Post } from "@/domain/post";
 
+import { PostAnalytics } from "./post-analytics";
 import { PostGallery } from "./post-gallery";
 import { PostMetadata } from "./post-metadata";
 import type { PostDialogCloseMode } from "./post-dialog";
@@ -22,6 +23,7 @@ export function PostDetail({
       data-post-dialog-post-id={post.id}
       className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
     >
+      <PostAnalytics post={post} />
       <PostGallery post={post} overlay />
       <PostMetadata
         post={post}

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createPostHogTools,
   fillDailyAnalytics,
   isAnalyticsRange,
+  mapAnalyticsBreakdownRows,
   resolvePostHogApiHost,
   toAnalyticsNumber,
 } from "./posthog-data";
@@ -48,5 +50,33 @@ describe("PostHog analytics data", () => {
       postOpens: 2,
     });
     expect(daily[6]?.date).toBe("2026-08-08");
+  });
+
+  it("maps ranked breakdowns with a readable fallback", () => {
+    expect(
+      mapAnalyticsBreakdownRows(
+        [
+          ["Tunisia", "8", 12],
+          ["", 2, "3"],
+        ],
+        "Direct or unknown",
+      ),
+    ).toEqual([
+      { label: "Tunisia", visitors: 8, pageviews: 12 },
+      { label: "Direct or unknown", visitors: 2, pageviews: 3 },
+    ]);
+  });
+
+  it("creates project-specific links to PostHog's deeper tools", () => {
+    const tools = createPostHogTools({
+      apiHost: "https://eu.posthog.com/",
+      projectId: "123",
+    });
+
+    expect(tools.map((tool) => tool.href)).toEqual([
+      "https://eu.posthog.com/project/123/web",
+      "https://eu.posthog.com/project/123/heatmaps",
+      "https://eu.posthog.com/project/123/web/vitals",
+    ]);
   });
 });

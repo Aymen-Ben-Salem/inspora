@@ -9,7 +9,9 @@ import {
   ANALYTICS_RANGES,
   isAnalyticsRange,
   type AdminAnalytics,
+  type AnalyticsBreakdown,
   type AnalyticsRange,
+  type PostHogTool,
 } from "@/analytics/posthog-data";
 
 type AnalyticsPageProps = {
@@ -65,12 +67,41 @@ function UnavailableState() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: number }) {
+type MetricFormat = "decimal" | "duration" | "number" | "percent";
+
+function formatDuration(seconds: number) {
+  const rounded = Math.max(0, Math.round(seconds));
+  if (rounded < 60) return `${rounded}s`;
+
+  const minutes = Math.floor(rounded / 60);
+  const remainingSeconds = rounded % 60;
+  return remainingSeconds === 0 ? `${minutes}m` : `${minutes}m ${remainingSeconds}s`;
+}
+
+function formatMetric(value: number, format: MetricFormat) {
+  if (format === "duration") return formatDuration(value);
+  if (format === "percent") return `${value.toFixed(1)}%`;
+  if (format === "decimal") return value.toFixed(1);
+  return compactNumber.format(value);
+}
+
+function MetricCard({
+  format = "number",
+  label,
+  value,
+}: {
+  format?: MetricFormat;
+  label: string;
+  value: number;
+}) {
   return (
     <article className="min-w-0 bg-white p-5 sm:p-6">
       <p className="text-xs uppercase tracking-[0.12em] text-[#777]">{label}</p>
-      <p className="mt-4 text-3xl font-medium tracking-[-0.05em] sm:text-4xl" title={exactNumber.format(value)}>
-        {compactNumber.format(value)}
+      <p
+        className="mt-4 text-3xl font-medium tracking-[-0.05em] tabular-nums sm:text-4xl"
+        title={format === "number" ? exactNumber.format(value) : undefined}
+      >
+        {formatMetric(value, format)}
       </p>
     </article>
   );
@@ -165,6 +196,97 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
   );
 }
 
+function RankedBreakdown({
+  emptyMessage,
+  eyebrow,
+  items,
+  note,
+  title,
+}: {
+  emptyMessage: string;
+  eyebrow: string;
+  items: AnalyticsBreakdown[];
+  note?: string;
+  title: string;
+}) {
+  const maximum = Math.max(1, ...items.map((item) => item.visitors));
+
+  return (
+    <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+      <p className="text-xs uppercase tracking-[0.16em] text-[#777]">{eyebrow}</p>
+      <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">{title}</h2>
+      {items.length === 0 ? (
+        <p className="py-16 text-center text-sm text-[#888]">{emptyMessage}</p>
+      ) : (
+        <ol className="mt-6 divide-y divide-black/10">
+          {items.map((item, index) => (
+            <li key={`${item.label}-${index}`} className="relative overflow-hidden py-4">
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-2 left-0 rounded-md bg-[#f1f1ee]"
+                style={{ width: `${Math.max(4, (item.visitors / maximum) * 100)}%` }}
+              />
+              <div className="relative flex min-w-0 items-center gap-3 px-3">
+                <span className="w-5 shrink-0 text-xs text-[#999]">{index + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {item.label}
+                </span>
+                <span
+                  className="shrink-0 text-xs tabular-nums text-[#777]"
+                  title={`${exactNumber.format(item.visitors)} visitors, ${exactNumber.format(item.pageviews)} pageviews`}
+                >
+                  {compactNumber.format(item.visitors)} visitors · {compactNumber.format(item.pageviews)} views
+                </span>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {note ? <p className="mt-4 text-xs leading-5 text-[#888]">{note}</p> : null}
+    </section>
+  );
+}
+
+function PostHogTools({ tools }: { tools: PostHogTool[] }) {
+  return (
+    <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Explore deeper</p>
+        <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">PostHog tools</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#777]">
+          Open the interactive views for investigation that does not fit into a compact report.
+        </p>
+      </div>
+      <div className="mt-6 grid overflow-hidden rounded-xl border border-black/10 bg-black/10 md:grid-cols-3">
+        {tools.map((tool) => (
+          <a
+            key={tool.label}
+            href={tool.href}
+            target="_blank"
+            rel="noreferrer"
+            className="focus-ring group min-h-36 bg-white p-5 transition-colors hover:bg-[#f7f7f4]"
+          >
+            <span className="flex items-center justify-between gap-4 text-sm font-medium">
+              {tool.label}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                className="size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              >
+                <path d="M6 14 14 6m0 0H8m6 0v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span className="mt-3 block max-w-xs text-xs leading-5 text-[#777]">
+              {tool.description}
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const { days } = await searchParams;
   const range = parseRange(days);
@@ -209,17 +331,45 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       {failed ? <UnavailableState /> : null}
       {analytics ? (
         <>
-          <section className="grid overflow-hidden rounded-2xl border border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid overflow-hidden rounded-2xl border border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard label="Pageviews" value={analytics.summary.pageviews} />
             <MetricCard label="Visitors" value={analytics.summary.uniqueVisitors} />
+            <MetricCard label="Sessions" value={analytics.summary.sessions} />
+            <MetricCard label="Bounce rate" value={analytics.summary.bounceRate} format="percent" />
+            <MetricCard label="Average visit" value={analytics.summary.averageSessionDuration} format="duration" />
+            <MetricCard label="Views per session" value={analytics.summary.viewsPerSession} format="decimal" />
             <MetricCard label="Post opens" value={analytics.summary.postOpens} />
             <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
             <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
           </section>
-          <div className="grid gap-7 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-            <ActivityChart analytics={analytics} />
+          <ActivityChart analytics={analytics} />
+          <div className="grid gap-7 xl:grid-cols-2">
             <TopPosts analytics={analytics} />
+            <RankedBreakdown
+              eyebrow="Audience"
+              title="Top countries"
+              items={analytics.topCountries}
+              emptyMessage="Country data will appear after visitors allow analytics."
+              note="Location is available only for visitors who allow analytics; limited mode removes the IP before GeoIP enrichment."
+            />
+            <RankedBreakdown
+              eyebrow="Acquisition"
+              title="Top referrers"
+              items={analytics.topReferrers}
+              emptyMessage="Traffic sources will appear here."
+            />
+            <RankedBreakdown
+              eyebrow="Audience"
+              title="Devices"
+              items={analytics.topDevices}
+              emptyMessage="Device data will appear here."
+            />
           </div>
+          <PostHogTools tools={analytics.tools} />
+          <aside className="rounded-xl bg-[#ecece8] px-4 py-3 text-xs leading-5 text-[#777]">
+            Multi-day visitor totals can be higher for people using limited analytics because
+            their anonymous identifier rotates daily. Session replay remains disabled.
+          </aside>
           <p className="text-right text-xs text-[#999]">
             Cached for five minutes · Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(analytics.generatedAt))}
           </p>

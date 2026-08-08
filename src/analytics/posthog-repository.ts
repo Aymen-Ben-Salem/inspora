@@ -5,7 +5,9 @@ import { z } from "zod";
 
 import { ANALYTICS_EVENTS } from "./events";
 import {
+  createPostHogTools,
   fillDailyAnalytics,
+  mapAnalyticsBreakdownRows,
   resolvePostHogApiHost,
   toAnalyticsNumber,
   type AdminAnalytics,
@@ -85,7 +87,15 @@ export async function getAdminAnalytics(
   if (!configuration) throw new Error("PostHog admin analytics is not configured.");
 
   const interval = `INTERVAL ${rangeDays} DAY`;
-  const [summaryRows, dailyRows, topPostRows] = await Promise.all([
+  const [
+    summaryRows,
+    sessionRows,
+    dailyRows,
+    topPostRows,
+    countryRows,
+    referrerRows,
+    deviceRows,
+  ] = await Promise.all([
     runHogQlQuery(
       configuration,
       "Inspora admin summary",
@@ -97,6 +107,26 @@ export async function getAdminAnalytics(
         countIf(event = '${ANALYTICS_EVENTS.newsletterSubscribed}') AS subscriptions
       FROM events
       WHERE timestamp >= now() - ${interval}`,
+    ),
+    runHogQlQuery(
+      configuration,
+      "Inspora admin session health",
+      `SELECT
+        count() AS sessions,
+        avg(if(pageview_count = 1, 1, 0)) * 100 AS bounce_rate,
+        avg(session_duration) AS average_session_duration,
+        avg(pageview_count) AS views_per_session
+      FROM (
+        SELECT
+          toString(properties.$session_id) AS session_id,
+          countIf(event = '$pageview') AS pageview_count,
+          dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
+        FROM events
+        WHERE timestamp >= now() - ${interval}
+          AND notEmpty(toString(properties.$session_id))
+        GROUP BY session_id
+        HAVING pageview_count > 0
+      )`,
     ),
     runHogQlQuery(
       configuration,
@@ -127,9 +157,53 @@ export async function getAdminAnalytics(
       ORDER BY opens DESC
       LIMIT 8`,
     ),
+    runHogQlQuery(
+      configuration,
+      "Inspora admin top countries",
+      `SELECT
+        toString(properties.$geoip_country_name) AS country,
+        uniq(distinct_id) AS visitors,
+        count() AS pageviews
+      FROM events
+      WHERE event = '$pageview'
+        AND timestamp >= now() - ${interval}
+        AND notEmpty(country)
+      GROUP BY country
+      ORDER BY visitors DESC, pageviews DESC
+      LIMIT 8`,
+    ),
+    runHogQlQuery(
+      configuration,
+      "Inspora admin top referrers",
+      `SELECT
+        toString(properties.$referring_domain) AS referrer,
+        uniq(distinct_id) AS visitors,
+        count() AS pageviews
+      FROM events
+      WHERE event = '$pageview'
+        AND timestamp >= now() - ${interval}
+      GROUP BY referrer
+      ORDER BY visitors DESC, pageviews DESC
+      LIMIT 8`,
+    ),
+    runHogQlQuery(
+      configuration,
+      "Inspora admin top devices",
+      `SELECT
+        toString(properties.$device_type) AS device,
+        uniq(distinct_id) AS visitors,
+        count() AS pageviews
+      FROM events
+      WHERE event = '$pageview'
+        AND timestamp >= now() - ${interval}
+      GROUP BY device
+      ORDER BY visitors DESC, pageviews DESC
+      LIMIT 8`,
+    ),
   ]);
 
   const summary = summaryRows[0] ?? [];
+  const sessions = sessionRows[0] ?? [];
 
   return {
     rangeDays,
@@ -137,6 +211,10 @@ export async function getAdminAnalytics(
     summary: {
       pageviews: toAnalyticsNumber(summary[0]),
       uniqueVisitors: toAnalyticsNumber(summary[1]),
+      sessions: toAnalyticsNumber(sessions[0]),
+      bounceRate: toAnalyticsNumber(sessions[1]),
+      averageSessionDuration: toAnalyticsNumber(sessions[2]),
+      viewsPerSession: toAnalyticsNumber(sessions[3]),
       postOpens: toAnalyticsNumber(summary[2]),
       sourceClicks: toAnalyticsNumber(summary[3]),
       subscriptions: toAnalyticsNumber(summary[4]),
@@ -148,5 +226,12 @@ export async function getAdminAnalytics(
       slug: String(row[2] ?? ""),
       opens: toAnalyticsNumber(row[3]),
     })),
+    topCountries: mapAnalyticsBreakdownRows(countryRows, "Unknown country"),
+    topReferrers: mapAnalyticsBreakdownRows(
+      referrerRows,
+      "Direct or unknown",
+    ),
+    topDevices: mapAnalyticsBreakdownRows(deviceRows, "Unknown device"),
+    tools: createPostHogTools(configuration),
   };
 }

@@ -5,6 +5,10 @@ export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 export type AnalyticsSummary = {
   pageviews: number;
   uniqueVisitors: number;
+  sessions: number;
+  bounceRate: number;
+  averageSessionDuration: number;
+  viewsPerSession: number;
   postOpens: number;
   sourceClicks: number;
   subscriptions: number;
@@ -24,12 +28,28 @@ export type TopPostAnalytics = {
   opens: number;
 };
 
+export type AnalyticsBreakdown = {
+  label: string;
+  visitors: number;
+  pageviews: number;
+};
+
+export type PostHogTool = {
+  description: string;
+  href: string;
+  label: string;
+};
+
 export type AdminAnalytics = {
   rangeDays: AnalyticsRange;
   generatedAt: string;
   summary: AnalyticsSummary;
   daily: DailyAnalytics[];
   topPosts: TopPostAnalytics[];
+  topCountries: AnalyticsBreakdown[];
+  topReferrers: AnalyticsBreakdown[];
+  topDevices: AnalyticsBreakdown[];
+  tools: PostHogTool[];
 };
 
 export function isAnalyticsRange(value: number): value is AnalyticsRange {
@@ -57,6 +77,49 @@ export function toAnalyticsNumber(value: unknown) {
     if (Number.isFinite(parsed)) return parsed;
   }
   return 0;
+}
+
+export function mapAnalyticsBreakdownRows(
+  rows: unknown[][],
+  fallbackLabel: string,
+): AnalyticsBreakdown[] {
+  return rows.map((row) => {
+    const rawLabel = String(row[0] ?? "").trim();
+
+    return {
+      label: rawLabel || fallbackLabel,
+      visitors: toAnalyticsNumber(row[1]),
+      pageviews: toAnalyticsNumber(row[2]),
+    };
+  });
+}
+
+export function createPostHogTools({
+  apiHost,
+  projectId,
+}: {
+  apiHost: string;
+  projectId: string;
+}): PostHogTool[] {
+  const projectUrl = `${apiHost.replace(/\/$/, "")}/project/${encodeURIComponent(projectId)}`;
+
+  return [
+    {
+      label: "Web analytics",
+      description: "Explore paths, channels, live traffic, and conversion goals.",
+      href: `${projectUrl}/web`,
+    },
+    {
+      label: "Heatmaps",
+      description: "Inspect click, movement, rage-click, and scroll-depth patterns.",
+      href: `${projectUrl}/heatmaps`,
+    },
+    {
+      label: "Web vitals",
+      description: "Review LCP, CLS, INP, and FCP performance by page.",
+      href: `${projectUrl}/web/vitals`,
+    },
+  ];
 }
 
 function toDateKey(value: unknown) {

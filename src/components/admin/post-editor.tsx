@@ -134,6 +134,7 @@ export function PostEditor({
                 storageProvider: undefined,
                 storageKey: undefined,
                 mimeType: undefined,
+                sourceMimeType: undefined,
                 sizeBytes: undefined,
                 variants: undefined,
                 posterStorageKey: undefined,
@@ -354,6 +355,11 @@ export function PostEditor({
                   url={item.url}
                   posterUrl={item.posterUrl}
                   alt={item.alt || `Media ${index + 1} preview`}
+                  maxDisplayWidth={
+                    item.sourceMimeType === "image/gif"
+                      ? Number(item.width) || undefined
+                      : undefined
+                  }
                   controls={item.type === "video"}
                   className="aspect-[4/3] min-h-56 lg:aspect-auto lg:h-full"
                 />

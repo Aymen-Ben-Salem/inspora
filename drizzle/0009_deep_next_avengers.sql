@@ -1,0 +1,1 @@
+ALTER TABLE "post_media" ADD COLUMN "source_mime_type" text;

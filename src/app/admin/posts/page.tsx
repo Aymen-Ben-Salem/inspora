@@ -111,6 +111,9 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
                     url={cover?.url ?? ""}
                     posterUrl={cover?.posterUrl}
                     alt={cover?.alt || `${post.title} cover`}
+                    maxDisplayWidth={
+                      cover?.sourceMimeType === "image/gif" ? cover.width : undefined
+                    }
                     className="size-full"
                   />
                   <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

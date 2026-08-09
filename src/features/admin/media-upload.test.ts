@@ -17,6 +17,7 @@ describe("media upload limits", () => {
 
   it("limits creator avatars to image uploads", () => {
     expect(isAcceptedUploadForKind("creator-avatar", "image/png")).toBe(true);
+    expect(isAcceptedUploadForKind("creator-avatar", "image/gif")).toBe(false);
     expect(isAcceptedUploadForKind("creator-avatar", "video/mp4")).toBe(false);
     expect(isAcceptedUploadForKind("post-media", "video/mp4")).toBe(true);
   });

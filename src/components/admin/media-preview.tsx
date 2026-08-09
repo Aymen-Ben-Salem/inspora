@@ -11,6 +11,7 @@ type AdminMediaPreviewProps = {
   alt?: string;
   controls?: boolean;
   className?: string;
+  maxDisplayWidth?: number;
 };
 
 function EmptyPreview({ isError }: { isError: boolean }) {
@@ -39,13 +40,18 @@ export function AdminMediaPreview({
   alt = "",
   controls = false,
   className = "",
+  maxDisplayWidth,
 }: AdminMediaPreviewProps) {
   const [failedSource, setFailedSource] = useState<string>();
   const source = type === "video" ? (posterUrl || url) : url;
   const hasError = Boolean(source && failedSource === source);
 
   return (
-    <div className={`relative overflow-hidden bg-[#ececea] ${className}`}>
+    <div
+      className={`relative overflow-hidden bg-[#ececea] ${
+        maxDisplayWidth ? "flex items-center justify-center" : ""
+      } ${className}`}
+    >
       {!url || hasError ? (
         <EmptyPreview isError={hasError} />
       ) : type === "video" ? (
@@ -58,7 +64,16 @@ export function AdminMediaPreview({
           preload="metadata"
           aria-label={alt || "Post video preview"}
           onError={() => setFailedSource(source)}
-          className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.035]"
+          style={
+            maxDisplayWidth
+              ? { width: `min(100%, ${maxDisplayWidth}px)`, height: "auto", maxHeight: "100%" }
+              : undefined
+          }
+          className={`${
+            maxDisplayWidth
+              ? "object-contain"
+              : "size-full object-cover group-hover:scale-[1.035]"
+          } transition-transform duration-700 ease-out`}
         />
       ) : (
         // Admins can preview a newly entered origin before it is added to Next.js image config.

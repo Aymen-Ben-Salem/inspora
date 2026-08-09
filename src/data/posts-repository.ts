@@ -86,6 +86,7 @@ function mapPost(row: PostRecord): Post {
         ? (media.storageProvider as NonNullable<Post["media"][number]["storageProvider"]>)
         : undefined,
       mimeType: media.mimeType ?? undefined,
+      sourceMimeType: media.sourceMimeType ?? undefined,
       sizeBytes: media.sizeBytes ?? undefined,
       variants: media.variants,
       alt: media.alt,

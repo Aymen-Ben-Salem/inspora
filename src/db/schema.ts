@@ -111,6 +111,7 @@ export const postMedia = pgTable(
     storageProvider: text("storage_provider"),
     storageKey: text("storage_key"),
     mimeType: text("mime_type"),
+    sourceMimeType: text("source_mime_type"),
     sizeBytes: integer("size_bytes"),
     variants: jsonb("variants").$type<ImageVariant[]>().default([]).notNull(),
     posterStorageKey: text("poster_storage_key"),

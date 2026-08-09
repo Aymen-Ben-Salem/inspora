@@ -20,6 +20,8 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
         const aspectRatio = media.width / media.height;
         const maxViewportWidth = maxViewportHeight * aspectRatio;
         const isAnimated = media.type === "video" || isGifUrl(media.url);
+        const isConvertedGif =
+          media.type === "video" && media.sourceMimeType === "image/gif";
         const isManagedMedia = media.storageProvider === "cloudinary";
         const mediaUrl =
           isManagedMedia && media.type === "video"
@@ -42,12 +44,15 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
               data-post-dialog-hero={overlay && media.position === 0 ? "" : undefined}
               data-post-dialog-animated-media={isAnimated ? "" : undefined}
               data-post-dialog-max-viewport-height={maxViewportHeight}
+              data-post-dialog-max-pixel-width={isConvertedGif ? media.width : undefined}
               className={`relative shrink-0 overflow-hidden rounded-[10px] bg-[#f3f3f3] ${
                 overlay ? "shadow-[0_18px_60px_rgba(0,0,0,0.12)]" : ""
               }`}
               style={{
                 aspectRatio: `${media.width} / ${media.height}`,
-                width: `min(100%, ${maxViewportWidth}dvh)`,
+                width: isConvertedGif
+                  ? `min(100%, ${maxViewportWidth}dvh, ${media.width}px)`
+                  : `min(100%, ${maxViewportWidth}dvh)`,
               }}
             >
               {media.type === "video" ? (

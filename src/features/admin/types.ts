@@ -32,6 +32,7 @@ export type AdminMediaInput = {
   storageProvider?: MediaStorageProvider;
   storageKey?: string;
   mimeType?: string;
+  sourceMimeType?: string;
   sizeBytes?: number;
   variants?: ImageVariant[];
   posterStorageKey?: string;

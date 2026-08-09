@@ -1,7 +1,8 @@
 import type { AdminMediaInput } from "./types";
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
-export const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
+export const MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const RECOMMENDED_VIDEO_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 export const ACCEPTED_MEDIA_MIME_TYPES = [
   "image/avif",
@@ -10,7 +11,6 @@ export const ACCEPTED_MEDIA_MIME_TYPES = [
   "image/png",
   "image/webp",
   "video/mp4",
-  "video/quicktime",
   "video/webm",
 ] as const;
 
@@ -21,7 +21,10 @@ export function isAcceptedUploadForKind(
   kind: MediaUploadKind,
   contentType: AcceptedMediaMimeType,
 ) {
-  return kind === "post-media" || contentType.startsWith("image/");
+  return (
+    kind === "post-media" ||
+    (contentType.startsWith("image/") && contentType !== "image/gif")
+  );
 }
 
 export function getMediaUploadLimit(contentType: AcceptedMediaMimeType) {
@@ -56,8 +59,10 @@ export type UploadedAdminMedia = Pick<
   | "width"
   | "height"
   | "mimeType"
+  | "sourceMimeType"
   | "sizeBytes"
   | "variants"
+  | "posterStorageKey"
 >;
 
 export function defaultAltText(fileName: string) {

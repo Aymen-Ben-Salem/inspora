@@ -71,6 +71,7 @@ const mediaSchema = z
     storageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     storageKey: z.string().trim().min(1).max(1024).optional(),
     mimeType: z.string().trim().min(1).max(255).optional(),
+    sourceMimeType: z.string().trim().min(1).max(255).optional(),
     sizeBytes: z.coerce.number().int().positive().optional(),
     variants: z
       .array(

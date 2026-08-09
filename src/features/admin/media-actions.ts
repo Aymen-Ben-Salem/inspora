@@ -46,7 +46,7 @@ export async function createMediaUploadSignatureAction(
       message:
         parsed.success && parsed.data.kind === "creator-avatar"
           ? "Creator avatars must be images up to 10 MB."
-          : "Images and GIFs can be up to 10 MB; videos up to 100 MB.",
+          : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
     };
   }
 
@@ -97,6 +97,7 @@ export async function completeMediaUploadAction(
         storageProvider: "r2",
         storageKey: parsed.data.storageKey,
         mimeType: parsed.data.contentType,
+        sourceMimeType: parsed.data.contentType,
         sizeBytes: parsed.data.size,
         variants: [],
         alt: defaultAltText(parsed.data.fileName),
@@ -128,4 +129,13 @@ export async function discardMediaUploadsAction(input: unknown) {
   }
 
   await deleteR2StorageKeys(parsed.data.storageKeys);
+}
+
+export async function getGifConverterConfigurationAction() {
+  await requireAdmin();
+  const baseUrl = getR2PublicUrl("system/ffmpeg/0.12.10");
+  return {
+    coreUrl: `${baseUrl}/ffmpeg-core.js`,
+    wasmUrl: `${baseUrl}/ffmpeg-core.wasm`,
+  };
 }

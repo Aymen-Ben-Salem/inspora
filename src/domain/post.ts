@@ -22,6 +22,7 @@ export type PostMedia = {
   posterUrl?: string;
   storageProvider?: MediaStorageProvider;
   mimeType?: string;
+  sourceMimeType?: string;
   sizeBytes?: number;
   variants?: ImageVariant[];
   alt: string;

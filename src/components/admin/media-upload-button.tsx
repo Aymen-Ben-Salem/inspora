@@ -6,6 +6,7 @@ import {
   completeMediaUploadAction,
   createMediaUploadSignatureAction,
   discardMediaUploadsAction,
+  getGifConverterConfigurationAction,
 } from "@/features/admin/media-actions";
 import {
   isOptimizableStaticImage,
@@ -20,11 +21,17 @@ import {
   type MediaUploadKind,
   type UploadedAdminMedia,
 } from "@/features/admin/media-upload";
+import { createVideoPoster } from "@/features/admin/video-processing";
+
+type PreparedUpload = OptimizedImage & { role: "primary" | "variant" | "poster" };
 
 type UploadStatus =
   | "idle"
   | "analyzing"
   | "optimizing"
+  | "loading-converter"
+  | "analyzing-gif"
+  | "optimizing-animation"
   | "signing"
   | "uploading"
   | "verifying";
@@ -39,6 +46,7 @@ export function MediaUploadButton({
   onUploaded: (media: UploadedAdminMedia) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const conversionControllerRef = useRef<AbortController>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
   const isPending = status !== "idle";
@@ -56,19 +64,56 @@ export function MediaUploadButton({
       setError(
         kind === "creator-avatar"
           ? "Creator avatars must be images up to 10 MB."
-          : "Images and GIFs can be up to 10 MB; videos up to 100 MB.",
+          : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
       );
       return;
     }
 
     try {
-      let uploadItems: OptimizedImage[];
+      let uploadItems: PreparedUpload[];
       if (isOptimizableStaticImage(contentType)) {
         setStatus("optimizing");
-        uploadItems = await optimizeStaticImage(file, kind);
+        const images = await optimizeStaticImage(file, kind);
+        uploadItems = images.map((image, index) => ({
+          ...image,
+          role: index === images.length - 1 ? "primary" : "variant",
+        }));
+      } else if (contentType === "image/gif") {
+        const controller = new AbortController();
+        conversionControllerRef.current = controller;
+        const configuration = await getGifConverterConfigurationAction();
+        const { convertGifToMp4 } = await import("@/features/admin/gif-conversion");
+        const converted = await convertGifToMp4({
+          file,
+          configuration,
+          signal: controller.signal,
+          onStage: setStatus,
+        });
+        const poster = await createVideoPoster(converted);
+        uploadItems = [
+          {
+            file: converted,
+            width: poster.videoWidth,
+            height: poster.videoHeight,
+            role: "primary",
+          },
+          { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
+        ];
+      } else if (contentType.startsWith("video/")) {
+        setStatus("analyzing");
+        const poster = await createVideoPoster(file);
+        uploadItems = [
+          {
+            file,
+            width: poster.videoWidth,
+            height: poster.videoHeight,
+            role: "primary",
+          },
+          { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
+        ];
       } else {
         setStatus("analyzing");
-        uploadItems = [{ file, ...(await readMediaDimensions(file)) }];
+        uploadItems = [{ file, ...(await readMediaDimensions(file)), role: "primary" }];
       }
 
       setStatus("signing");
@@ -127,21 +172,29 @@ export function MediaUploadButton({
       const uploaded = completed.filter(
         (result): result is Extract<typeof result, { ok: true }> => result.ok,
       );
-      const primary = uploaded.at(-1)?.media;
+      const primaryIndex = uploadItems.findIndex((item) => item.role === "primary");
+      const primary = uploaded[primaryIndex]?.media;
       if (!primary) throw new Error("The optimized upload returned no media.");
+      const posterIndex = uploadItems.findIndex((item) => item.role === "poster");
+      const poster = posterIndex >= 0 ? uploaded[posterIndex]?.media : undefined;
 
       onUploaded({
         ...primary,
+        sourceMimeType: contentType,
+        posterUrl: poster?.url,
+        posterStorageKey: poster?.storageKey,
         variants:
           isOptimizableStaticImage(contentType) && kind === "post-media"
-            ? uploaded.slice(0, -1).map(({ media }) => ({
+            ? uploaded
+                .filter((_, index) => uploadItems[index]?.role === "variant")
+                .map(({ media }) => ({
                 url: media.url,
                 storageKey: media.storageKey!,
                 width: media.width,
                 height: media.height,
                 bytes: media.sizeBytes!,
                 format: "webp" as const,
-              }))
+                }))
             : [],
       });
       uploadedStorageKeys = [];
@@ -153,6 +206,7 @@ export function MediaUploadButton({
       }
       setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
     } finally {
+      conversionControllerRef.current = null;
       setStatus("idle");
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -168,8 +222,8 @@ export function MediaUploadButton({
           type="file"
           accept={
             kind === "creator-avatar"
-              ? "image/avif,image/gif,image/jpeg,image/png,image/webp"
-              : "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+              ? "image/avif,image/jpeg,image/png,image/webp"
+              : "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm"
           }
           disabled={isPending}
           className="sr-only"
@@ -178,7 +232,13 @@ export function MediaUploadButton({
             if (file) void upload(file);
           }}
         />
-        {status === "optimizing"
+        {status === "loading-converter"
+          ? "Loading converter..."
+          : status === "analyzing-gif"
+            ? "Analyzing GIF..."
+            : status === "optimizing-animation"
+              ? "Optimizing animation..."
+        : status === "optimizing"
           ? "Optimizing..."
           : status === "analyzing"
           ? "Analyzing..."
@@ -190,6 +250,17 @@ export function MediaUploadButton({
               ? "Verifying..."
             : label}
       </label>
+      {status === "loading-converter" ||
+      status === "analyzing-gif" ||
+      status === "optimizing-animation" ? (
+        <button
+          type="button"
+          className="text-xs text-[#777] underline-offset-4 hover:text-black hover:underline"
+          onClick={() => conversionControllerRef.current?.abort()}
+        >
+          Cancel conversion
+        </button>
+      ) : null}
       {error ? (
         <p role="alert" className="max-w-sm text-xs leading-relaxed text-red-700">
           {error}

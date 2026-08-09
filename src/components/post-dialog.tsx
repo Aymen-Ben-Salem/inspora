@@ -317,6 +317,7 @@ export function PostDialog({
         const maxViewportHeight = Number(
           hero.dataset.postDialogMaxViewportHeight,
         );
+        const maxPixelWidth = Number(hero.dataset.postDialogMaxPixelWidth);
 
         if (
           intrinsicAspectRatio &&
@@ -324,7 +325,10 @@ export function PostDialog({
           maxViewportHeight > 0
         ) {
           hero.style.aspectRatio = String(intrinsicAspectRatio);
-          hero.style.width = `min(100%, ${maxViewportHeight * intrinsicAspectRatio}dvh)`;
+          hero.style.width =
+            Number.isFinite(maxPixelWidth) && maxPixelWidth > 0
+              ? `min(100%, ${maxViewportHeight * intrinsicAspectRatio}dvh, ${maxPixelWidth}px)`
+              : `min(100%, ${maxViewportHeight * intrinsicAspectRatio}dvh)`;
         }
 
         const targetRect = hero.getBoundingClientRect();

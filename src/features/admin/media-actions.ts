@@ -5,9 +5,11 @@ import { z } from "zod";
 import { requireAdmin } from "@/auth/require-admin";
 import {
   createR2PresignedUpload,
+  deleteR2StorageKeys,
   getR2PublicUrl,
   R2StorageConfigurationError,
   verifyR2Upload,
+  isStorageKeyForKind,
 } from "@/storage/r2";
 
 import {
@@ -106,4 +108,24 @@ export async function completeMediaUploadAction(
     console.error("Media upload verification failed", error);
     return { ok: false, message: "The upload could not be verified. Try again." };
   }
+}
+
+const discardSchema = z.object({
+  kind: z.enum(["post-media", "creator-avatar"] satisfies MediaUploadKind[]),
+  storageKeys: z.array(z.string().trim().min(1).max(1024)).min(1).max(5),
+});
+
+export async function discardMediaUploadsAction(input: unknown) {
+  await requireAdmin();
+  const parsed = discardSchema.safeParse(input);
+  if (
+    !parsed.success ||
+    parsed.data.storageKeys.some(
+      (storageKey) => !isStorageKeyForKind(storageKey, parsed.data.kind),
+    )
+  ) {
+    return;
+  }
+
+  await deleteR2StorageKeys(parsed.data.storageKeys);
 }

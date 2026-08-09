@@ -58,6 +58,13 @@ function mapPost(row: PostRecord): Post {
       handle: row.creator.handle ?? undefined,
       url: row.creator.url ?? undefined,
       avatarUrl: row.creator.avatarUrl,
+      avatarStorageProvider: MEDIA_STORAGE_PROVIDERS.some(
+        (provider) => provider === row.creator.avatarStorageProvider,
+      )
+        ? (row.creator.avatarStorageProvider as NonNullable<
+            Post["creator"]["avatarStorageProvider"]
+          >)
+        : undefined,
     },
     description: row.description,
     category: row.category,

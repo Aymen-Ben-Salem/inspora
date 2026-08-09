@@ -12,6 +12,7 @@ import {
 } from "./post-close-button";
 import type { PostDialogCloseMode } from "./post-dialog";
 import { TrackedOriginalLink } from "./tracked-original-link";
+import { ResponsiveR2Image } from "./responsive-r2-image";
 
 const originalLinkClassName =
   "focus-ring inline-flex h-9 w-full items-center justify-center rounded-full bg-[#262626] px-3 text-[15px] font-medium leading-normal tracking-[0.036px] text-white transition-colors hover:bg-black xl:h-[38px] xl:text-[16px] min-[1700px]:h-[42px] min-[1700px]:px-[14px] min-[1700px]:text-[18px]";
@@ -134,13 +135,24 @@ export function PostMetadata({
                   {post.title}
                 </h1>
                 <div className="mt-[6px] flex h-7 items-center gap-[6px] text-[14px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:text-[15px] min-[1700px]:mt-2 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
-                  <Image
-                    src={post.creator.avatarUrl}
-                    alt=""
-                    width={25}
-                    height={25}
-                    className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
-                  />
+                  {post.creator.avatarStorageProvider === "r2" ? (
+                    <ResponsiveR2Image
+                      src={post.creator.avatarUrl}
+                      alt=""
+                      width={25}
+                      height={25}
+                      sizes="25px"
+                      className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
+                    />
+                  ) : (
+                    <Image
+                      src={post.creator.avatarUrl}
+                      alt=""
+                      width={25}
+                      height={25}
+                      className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
+                    />
+                  )}
                   <span>{post.creator.name}</span>
                 </div>
               </div>

@@ -5,7 +5,13 @@ import { useRef, useState } from "react";
 import {
   completeMediaUploadAction,
   createMediaUploadSignatureAction,
+  discardMediaUploadsAction,
 } from "@/features/admin/media-actions";
+import {
+  isOptimizableStaticImage,
+  optimizeStaticImage,
+  type OptimizedImage,
+} from "@/features/admin/image-optimization";
 import {
   ACCEPTED_MEDIA_MIME_TYPES,
   getMediaUploadLimit,
@@ -15,7 +21,13 @@ import {
   type UploadedAdminMedia,
 } from "@/features/admin/media-upload";
 
-type UploadStatus = "idle" | "analyzing" | "signing" | "uploading" | "verifying";
+type UploadStatus =
+  | "idle"
+  | "analyzing"
+  | "optimizing"
+  | "signing"
+  | "uploading"
+  | "verifying";
 
 export function MediaUploadButton({
   kind = "post-media",
@@ -33,6 +45,7 @@ export function MediaUploadButton({
 
   async function upload(file: File) {
     setError("");
+    let uploadedStorageKeys: string[] = [];
 
     const contentType = ACCEPTED_MEDIA_MIME_TYPES.find((type) => type === file.type);
     if (
@@ -49,42 +62,95 @@ export function MediaUploadButton({
     }
 
     try {
-      setStatus("analyzing");
-      const dimensions = await readMediaDimensions(file);
-      setStatus("signing");
-      const signature = await createMediaUploadSignatureAction({
-        kind,
-        fileName: file.name,
-        contentType: file.type,
-        size: file.size,
-      });
+      let uploadItems: OptimizedImage[];
+      if (isOptimizableStaticImage(contentType)) {
+        setStatus("optimizing");
+        uploadItems = await optimizeStaticImage(file, kind);
+      } else {
+        setStatus("analyzing");
+        uploadItems = [{ file, ...(await readMediaDimensions(file)) }];
+      }
 
-      if (!signature.ok) throw new Error(signature.message);
+      setStatus("signing");
+      const signatures = await Promise.all(
+        uploadItems.map((item) =>
+          createMediaUploadSignatureAction({
+            kind,
+            fileName: item.file.name,
+            contentType: item.file.type,
+            size: item.file.size,
+          }),
+        ),
+      );
+      const rejectedSignature = signatures.find((signature) => !signature.ok);
+      if (rejectedSignature && !rejectedSignature.ok) {
+        throw new Error(rejectedSignature.message);
+      }
+      const prepared = signatures.filter(
+        (signature): signature is Extract<typeof signature, { ok: true }> => signature.ok,
+      );
+      uploadedStorageKeys = prepared.map((signature) => signature.storageKey);
 
       setStatus("uploading");
-      const response = await fetch(signature.uploadUrl, {
-        method: signature.method,
-        headers: signature.headers,
-        body: file,
-      });
-
-      if (!response.ok) {
+      const responses = await Promise.all(
+        prepared.map((signature, index) =>
+          fetch(signature.uploadUrl, {
+            method: signature.method,
+            headers: signature.headers,
+            body: uploadItems[index]?.file,
+          }),
+        ),
+      );
+      if (responses.some((response) => !response.ok)) {
         throw new Error("The storage service rejected the upload.");
       }
 
       setStatus("verifying");
-      const completed = await completeMediaUploadAction({
-        kind,
-        fileName: file.name,
-        contentType,
-        size: file.size,
-        storageKey: signature.storageKey,
-        ...dimensions,
-      });
-      if (!completed.ok) throw new Error(completed.message);
+      const completed = await Promise.all(
+        prepared.map((signature, index) => {
+          const item = uploadItems[index];
+          return completeMediaUploadAction({
+            kind,
+            fileName: file.name,
+            contentType: item?.file.type,
+            size: item?.file.size,
+            storageKey: signature.storageKey,
+            width: item?.width,
+            height: item?.height,
+          });
+        }),
+      );
+      const rejectedCompletion = completed.find((result) => !result.ok);
+      if (rejectedCompletion && !rejectedCompletion.ok) {
+        throw new Error(rejectedCompletion.message);
+      }
+      const uploaded = completed.filter(
+        (result): result is Extract<typeof result, { ok: true }> => result.ok,
+      );
+      const primary = uploaded.at(-1)?.media;
+      if (!primary) throw new Error("The optimized upload returned no media.");
 
-      onUploaded(completed.media);
+      onUploaded({
+        ...primary,
+        variants:
+          isOptimizableStaticImage(contentType) && kind === "post-media"
+            ? uploaded.slice(0, -1).map(({ media }) => ({
+                url: media.url,
+                storageKey: media.storageKey!,
+                width: media.width,
+                height: media.height,
+                bytes: media.sizeBytes!,
+                format: "webp" as const,
+              }))
+            : [],
+      });
+      uploadedStorageKeys = [];
     } catch (cause) {
+      if (uploadedStorageKeys.length) {
+        await discardMediaUploadsAction({ kind, storageKeys: uploadedStorageKeys }).catch(
+          () => undefined,
+        );
+      }
       setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
     } finally {
       setStatus("idle");
@@ -112,7 +178,9 @@ export function MediaUploadButton({
             if (file) void upload(file);
           }}
         />
-        {status === "analyzing"
+        {status === "optimizing"
+          ? "Optimizing..."
+          : status === "analyzing"
           ? "Analyzing..."
           : status === "signing"
           ? "Preparing..."

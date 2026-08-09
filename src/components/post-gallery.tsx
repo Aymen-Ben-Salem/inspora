@@ -9,6 +9,7 @@ import {
 
 import { DetailMotion } from "./detail-motion";
 import { LoopingVideo } from "./looping-video";
+import { ResponsiveR2Image } from "./responsive-r2-image";
 
 export function PostGallery({ post, overlay = false }: { post: Post; overlay?: boolean }) {
   return (
@@ -58,6 +59,17 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
                   eager
                   width={media.width}
                   height={media.height}
+                  className="size-full object-cover"
+                />
+              ) : media.storageProvider === "r2" ? (
+                <ResponsiveR2Image
+                  src={mediaUrl}
+                  alt={media.alt}
+                  width={media.width}
+                  height={media.height}
+                  variants={media.variants}
+                  sizes="(min-width: 1024px) 48vw, 90vw"
+                  priority={media.position === 0}
                   className="size-full object-cover"
                 />
               ) : (

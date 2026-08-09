@@ -36,6 +36,7 @@ export type Creator = {
   handle?: string;
   url?: string;
   avatarUrl: string;
+  avatarStorageProvider?: MediaStorageProvider;
 };
 
 export type Post = {

@@ -1,6 +1,6 @@
 import type { Post, PostCategory, PostView } from "@/domain/post";
 
-export const POST_PAGE_SIZE = 24;
+export const POST_PAGE_SIZE = 18;
 export const MAX_POST_PAGE_SIZE = 48;
 
 export type PostCursor = {

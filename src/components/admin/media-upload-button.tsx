@@ -6,7 +6,7 @@ import {
   completeMediaUploadAction,
   createMediaUploadSignatureAction,
   discardMediaUploadsAction,
-  getGifConverterConfigurationAction,
+  getMediaConverterConfigurationAction,
 } from "@/features/admin/media-actions";
 import {
   isOptimizableStaticImage,
@@ -32,6 +32,8 @@ type UploadStatus =
   | "loading-converter"
   | "analyzing-gif"
   | "optimizing-animation"
+  | "analyzing-video"
+  | "optimizing-video"
   | "signing"
   | "uploading"
   | "verifying";
@@ -81,7 +83,7 @@ export function MediaUploadButton({
       } else if (contentType === "image/gif") {
         const controller = new AbortController();
         conversionControllerRef.current = controller;
-        const configuration = await getGifConverterConfigurationAction();
+        const configuration = await getMediaConverterConfigurationAction();
         const { convertGifToMp4 } = await import("@/features/admin/gif-conversion");
         const converted = await convertGifToMp4({
           file,
@@ -100,11 +102,22 @@ export function MediaUploadButton({
           { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
         ];
       } else if (contentType.startsWith("video/")) {
-        setStatus("analyzing");
-        const poster = await createVideoPoster(file);
+        const controller = new AbortController();
+        conversionControllerRef.current = controller;
+        const configuration = await getMediaConverterConfigurationAction();
+        const { optimizeVideoToMp4 } = await import(
+          "@/features/admin/gif-conversion"
+        );
+        const optimized = await optimizeVideoToMp4({
+          file,
+          configuration,
+          signal: controller.signal,
+          onStage: setStatus,
+        });
+        const poster = await createVideoPoster(optimized);
         uploadItems = [
           {
-            file,
+            file: optimized,
             width: poster.videoWidth,
             height: poster.videoHeight,
             role: "primary",
@@ -238,6 +251,10 @@ export function MediaUploadButton({
             ? "Analyzing GIF..."
             : status === "optimizing-animation"
               ? "Optimizing animation..."
+              : status === "analyzing-video"
+                ? "Analyzing video..."
+                : status === "optimizing-video"
+                  ? "Optimizing video..."
         : status === "optimizing"
           ? "Optimizing..."
           : status === "analyzing"
@@ -252,7 +269,9 @@ export function MediaUploadButton({
       </label>
       {status === "loading-converter" ||
       status === "analyzing-gif" ||
-      status === "optimizing-animation" ? (
+      status === "optimizing-animation" ||
+      status === "analyzing-video" ||
+      status === "optimizing-video" ? (
         <button
           type="button"
           className="text-xs text-[#777] underline-offset-4 hover:text-black hover:underline"

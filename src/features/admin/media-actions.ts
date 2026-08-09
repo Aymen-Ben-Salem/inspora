@@ -131,7 +131,7 @@ export async function discardMediaUploadsAction(input: unknown) {
   await deleteR2StorageKeys(parsed.data.storageKeys);
 }
 
-export async function getGifConverterConfigurationAction() {
+export async function getMediaConverterConfigurationAction() {
   await requireAdmin();
   const baseUrl = getR2PublicUrl("system/ffmpeg/0.12.10");
   return {

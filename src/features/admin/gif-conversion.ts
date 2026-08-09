@@ -1,5 +1,10 @@
 type ConverterConfiguration = { coreUrl: string; wasmUrl: string };
-type ConversionStage = "loading-converter" | "analyzing-gif" | "optimizing-animation";
+type ConversionStage =
+  | "loading-converter"
+  | "analyzing-gif"
+  | "optimizing-animation"
+  | "analyzing-video"
+  | "optimizing-video";
 
 const CONVERSION_TIMEOUT_MS = 2 * 60 * 1000;
 let enginePromise: Promise<import("@ffmpeg/ffmpeg").FFmpeg> | undefined;
@@ -99,6 +104,82 @@ export async function convertGifToMp4({
       "This GIF could not be optimized in the browser. Try a smaller GIF or convert it to MP4 externally.",
       { cause: error },
     );
+  } finally {
+    try {
+      await ffmpeg.deleteFile(inputName);
+      await ffmpeg.deleteFile(outputName);
+    } catch {}
+  }
+}
+
+export async function optimizeVideoToMp4({
+  file,
+  configuration,
+  signal,
+  onStage,
+}: {
+  file: File;
+  configuration: ConverterConfiguration;
+  signal: AbortSignal;
+  onStage: (stage: ConversionStage) => void;
+}) {
+  onStage("loading-converter");
+  const ffmpeg = await loadEngine(configuration, signal);
+  const token = crypto.randomUUID();
+  const inputName = `${token}.${file.type === "video/webm" ? "webm" : "mp4"}`;
+  const outputName = `${token}-optimized.mp4`;
+
+  try {
+    onStage("analyzing-video");
+    const { fetchFile } = await import("@ffmpeg/util");
+    await ffmpeg.writeFile(inputName, await fetchFile(file), { signal });
+    onStage("optimizing-video");
+    const exitCode = await ffmpeg.exec(
+      [
+        "-i",
+        inputName,
+        "-an",
+        "-vf",
+        "scale=w='min(1920\\,iw)':h='min(1920\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
+        "-fpsmax",
+        "30",
+        "-movflags",
+        "+faststart",
+        outputName,
+      ],
+      CONVERSION_TIMEOUT_MS,
+      { signal },
+    );
+    if (exitCode !== 0) return file;
+
+    const data = await ffmpeg.readFile(outputName, "binary", { signal });
+    if (!(data instanceof Uint8Array) || data.byteLength === 0 || data.byteLength >= file.size) {
+      return file;
+    }
+    const bytes = Uint8Array.from(data);
+    return new File(
+      [bytes.buffer],
+      `${file.name.replace(/\.[^.]+$/, "")}-optimized.mp4`,
+      { type: "video/mp4" },
+    );
+  } catch (error) {
+    if (signal.aborted) {
+      ffmpeg.terminate();
+      enginePromise = undefined;
+      throw new DOMException("Video optimization was cancelled.", "AbortError");
+    }
+    console.warn("Video optimization failed; using the original file.", error);
+    ffmpeg.terminate();
+    enginePromise = undefined;
+    return file;
   } finally {
     try {
       await ffmpeg.deleteFile(inputName);

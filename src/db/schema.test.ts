@@ -18,7 +18,7 @@ describe("database schema", () => {
     expect(postsConfig.foreignKeys).toHaveLength(1);
     expect(mediaConfig.foreignKeys).toHaveLength(1);
     expect(mediaConfig.indexes).toHaveLength(1);
-    expect(mediaConfig.checks).toHaveLength(4);
+    expect(mediaConfig.checks).toHaveLength(6);
   });
 
   it("enforces one normalized subscriber row per email", () => {

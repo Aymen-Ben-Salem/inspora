@@ -2,17 +2,20 @@
 
 import { useRef, useState } from "react";
 
-import { createMediaUploadSignatureAction } from "@/features/admin/media-actions";
+import {
+  completeMediaUploadAction,
+  createMediaUploadSignatureAction,
+} from "@/features/admin/media-actions";
 import {
   ACCEPTED_MEDIA_MIME_TYPES,
   getMediaUploadLimit,
   isAcceptedUploadForKind,
-  parseCloudinaryUploadResponse,
+  readMediaDimensions,
   type MediaUploadKind,
   type UploadedAdminMedia,
 } from "@/features/admin/media-upload";
 
-type UploadStatus = "idle" | "signing" | "uploading";
+type UploadStatus = "idle" | "analyzing" | "signing" | "uploading" | "verifying";
 
 export function MediaUploadButton({
   kind = "post-media",
@@ -46,6 +49,8 @@ export function MediaUploadButton({
     }
 
     try {
+      setStatus("analyzing");
+      const dimensions = await readMediaDimensions(file);
       setStatus("signing");
       const signature = await createMediaUploadSignatureAction({
         kind,
@@ -56,27 +61,29 @@ export function MediaUploadButton({
 
       if (!signature.ok) throw new Error(signature.message);
 
-      const formData = new FormData();
-      for (const [key, value] of Object.entries(signature.parameters)) {
-        formData.set(key, String(value));
-      }
-      formData.set("file", file);
-
       setStatus("uploading");
-      const response = await fetch(signature.uploadUrl, { method: "POST", body: formData });
-      const payload = (await response.json()) as {
-        error?: { message?: string };
-        [key: string]: unknown;
-      };
+      const response = await fetch(signature.uploadUrl, {
+        method: signature.method,
+        headers: signature.headers,
+        body: file,
+      });
 
       if (!response.ok) {
-        throw new Error(payload.error?.message ?? "Cloudinary rejected the upload.");
+        throw new Error("The storage service rejected the upload.");
       }
 
-      const media = parseCloudinaryUploadResponse(payload, file.name);
-      if (!media) throw new Error("Cloudinary returned incomplete media information.");
+      setStatus("verifying");
+      const completed = await completeMediaUploadAction({
+        kind,
+        fileName: file.name,
+        contentType,
+        size: file.size,
+        storageKey: signature.storageKey,
+        ...dimensions,
+      });
+      if (!completed.ok) throw new Error(completed.message);
 
-      onUploaded(media);
+      onUploaded(completed.media);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
     } finally {
@@ -105,10 +112,14 @@ export function MediaUploadButton({
             if (file) void upload(file);
           }}
         />
-        {status === "signing"
+        {status === "analyzing"
+          ? "Analyzing..."
+          : status === "signing"
           ? "Preparing..."
           : status === "uploading"
             ? "Uploading..."
+            : status === "verifying"
+              ? "Verifying..."
             : label}
       </label>
       {error ? (

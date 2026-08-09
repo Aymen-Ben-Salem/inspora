@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
-import { deleteManagedMediaAssetsSafely } from "@/storage/cloudinary";
+import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError, parseAdminPostForm } from "./post-validation";
 import {

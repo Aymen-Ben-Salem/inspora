@@ -1,3 +1,5 @@
+import type { ImageVariant, MediaStorageProvider } from "@/storage/types";
+
 export const POST_CATEGORIES = [
   "Web",
   "Branding",
@@ -18,7 +20,10 @@ export type PostMedia = {
   type: MediaType;
   url: string;
   posterUrl?: string;
-  storageProvider?: "cloudinary";
+  storageProvider?: MediaStorageProvider;
+  mimeType?: string;
+  sizeBytes?: number;
+  variants?: ImageVariant[];
   alt: string;
   width: number;
   height: number;

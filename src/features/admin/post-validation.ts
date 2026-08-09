@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { POST_CATEGORIES } from "../../domain/post";
+import { MEDIA_STORAGE_PROVIDERS } from "../../storage/types";
 
 import type { AdminPostInput } from "./types";
 
@@ -9,10 +10,19 @@ function isAllowedAssetUrl(value: string) {
 
   try {
     const url = new URL(value);
+    let r2Hostname: string | undefined;
+    try {
+      r2Hostname = process.env.R2_PUBLIC_BASE_URL
+        ? new URL(process.env.R2_PUBLIC_BASE_URL).hostname
+        : undefined;
+    } catch {}
     const allowedHostnames = new Set(
-      ["images.unsplash.com", "res.cloudinary.com", process.env.MEDIA_HOSTNAME].filter(
-        Boolean,
-      ),
+      [
+        "images.unsplash.com",
+        "res.cloudinary.com",
+        process.env.MEDIA_HOSTNAME,
+        r2Hostname,
+      ].filter(Boolean),
     );
     return url.protocol === "https:" && allowedHostnames.has(url.hostname);
   } catch {
@@ -44,7 +54,7 @@ const creatorSchema = z
     handle: z.string().trim().max(160).optional(),
     url: optionalRemoteUrl,
     avatarUrl: localOrRemoteUrl,
-    avatarStorageProvider: z.enum(["cloudinary"]).optional(),
+    avatarStorageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     avatarStorageKey: z.string().trim().min(1).max(1024).optional(),
   })
   .refine(
@@ -58,8 +68,24 @@ const mediaSchema = z
     type: z.enum(["image", "video"]),
     url: localOrRemoteUrl,
     posterUrl: optionalAssetUrl,
-    storageProvider: z.enum(["cloudinary"]).optional(),
+    storageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     storageKey: z.string().trim().min(1).max(1024).optional(),
+    mimeType: z.string().trim().min(1).max(255).optional(),
+    sizeBytes: z.coerce.number().int().positive().optional(),
+    variants: z
+      .array(
+        z.object({
+          url: localOrRemoteUrl,
+          storageKey: z.string().trim().min(1).max(1024),
+          width: z.coerce.number().int().positive().max(12000),
+          height: z.coerce.number().int().positive().max(12000),
+          bytes: z.coerce.number().int().positive(),
+          format: z.literal("webp"),
+        }),
+      )
+      .max(4)
+      .optional(),
+    posterStorageKey: z.string().trim().min(1).max(1024).optional(),
     alt: z.string().trim().max(500),
     width: z.coerce.number().int().min(1).max(12000),
     height: z.coerce.number().int().min(1).max(12000),
@@ -67,6 +93,10 @@ const mediaSchema = z
   .refine(
     (media) => Boolean(media.storageProvider) === Boolean(media.storageKey),
     "Managed media must include its storage provider and key.",
+  )
+  .refine(
+    (media) => !media.posterStorageKey || media.storageProvider === "r2",
+    "Managed poster keys are only valid for R2 media.",
   );
 
 function commaSeparated(value: FormDataEntryValue | null) {

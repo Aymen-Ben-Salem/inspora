@@ -130,7 +130,14 @@ export function PostEditor({
           ...item,
           [field]: value,
           ...(ownershipChanged
-            ? { storageProvider: undefined, storageKey: undefined }
+            ? {
+                storageProvider: undefined,
+                storageKey: undefined,
+                mimeType: undefined,
+                sizeBytes: undefined,
+                variants: undefined,
+                posterStorageKey: undefined,
+              }
             : {}),
         };
       }),
@@ -359,9 +366,9 @@ export function PostEditor({
                           Cover
                         </span>
                       ) : null}
-                      {item.storageProvider === "cloudinary" ? (
+                      {item.storageProvider ? (
                         <span className="rounded-full bg-[#e7e7e4] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[#666]">
-                          Cloudinary
+                          {item.storageProvider === "r2" ? "R2" : "Cloudinary"}
                         </span>
                       ) : null}
                     </div>

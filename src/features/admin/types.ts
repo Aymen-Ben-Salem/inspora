@@ -1,13 +1,13 @@
 import type { MediaType, PostCategory } from "@/domain/post";
+import type {
+  ImageVariant,
+  ManagedMediaAsset,
+  MediaStorageProvider,
+} from "@/storage/types";
+
+export type { ImageVariant, ManagedMediaAsset, MediaStorageProvider };
 
 export type AdminPostStatus = "draft" | "published" | "archived";
-export type MediaStorageProvider = "cloudinary";
-
-export type ManagedMediaAsset = {
-  storageProvider: MediaStorageProvider;
-  storageKey: string;
-  type: MediaType;
-};
 
 export type AdminCreatorInput = {
   id?: string;
@@ -31,6 +31,10 @@ export type AdminMediaInput = {
   posterUrl?: string;
   storageProvider?: MediaStorageProvider;
   storageKey?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  variants?: ImageVariant[];
+  posterStorageKey?: string;
   alt: string;
   width: number;
   height: number;

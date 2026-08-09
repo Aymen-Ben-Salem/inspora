@@ -33,9 +33,16 @@ export function getMediaUploadLimit(contentType: AcceptedMediaMimeType) {
 export type MediaUploadSignatureResult =
   | {
       ok: true;
+      provider: "r2";
       uploadUrl: string;
-      parameters: Record<string, string | number>;
+      method: "PUT";
+      headers: Record<string, string>;
+      storageKey: string;
     }
+  | { ok: false; message: string };
+
+export type MediaUploadCompletionResult =
+  | { ok: true; media: UploadedAdminMedia }
   | { ok: false; message: string };
 
 export type UploadedAdminMedia = Pick<
@@ -48,13 +55,48 @@ export type UploadedAdminMedia = Pick<
   | "alt"
   | "width"
   | "height"
+  | "mimeType"
+  | "sizeBytes"
+  | "variants"
 >;
 
-function defaultAltText(fileName: string) {
+export function defaultAltText(fileName: string) {
   return fileName
     .replace(/\.[^.]+$/, "")
     .replace(/[-_]+/g, " ")
     .trim();
+}
+
+export async function readMediaDimensions(file: File) {
+  const url = URL.createObjectURL(file);
+
+  try {
+    if (file.type.startsWith("video/")) {
+      return await new Promise<{ width: number; height: number }>((resolve, reject) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.muted = true;
+        video.onloadedmetadata = () =>
+          video.videoWidth > 0 && video.videoHeight > 0
+            ? resolve({ width: video.videoWidth, height: video.videoHeight })
+            : reject(new Error("The video dimensions could not be read."));
+        video.onerror = () => reject(new Error("The browser could not decode this video."));
+        video.src = url;
+      });
+    }
+
+    return await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () =>
+        image.naturalWidth > 0 && image.naturalHeight > 0
+          ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
+          : reject(new Error("The image dimensions could not be read."));
+      image.onerror = () => reject(new Error("The browser could not decode this image."));
+      image.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function videoPosterUrl(url: string) {

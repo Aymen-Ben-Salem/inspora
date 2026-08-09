@@ -16,6 +16,8 @@
     "db:check": "drizzle-kit check"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1106.0",
+    "@aws-sdk/s3-request-presigner": "^3.1106.0",
     "@clerk/nextjs": "7.6.4",
     "@gsap/react": "2.1.2",
     "@neondatabase/serverless": "1.1.0",

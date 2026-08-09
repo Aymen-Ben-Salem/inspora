@@ -12,6 +12,7 @@ import {
   type PostCategory,
   type PostView,
 } from "@/domain/post";
+import { MEDIA_STORAGE_PROVIDERS } from "../storage/types";
 
 import {
   decodePostCursor,
@@ -72,8 +73,14 @@ function mapPost(row: PostRecord): Post {
       type: media.type as MediaType,
       url: media.url,
       posterUrl: media.posterUrl ?? undefined,
-      storageProvider:
-        media.storageProvider === "cloudinary" ? media.storageProvider : undefined,
+      storageProvider: MEDIA_STORAGE_PROVIDERS.some(
+        (provider) => provider === media.storageProvider,
+      )
+        ? (media.storageProvider as NonNullable<Post["media"][number]["storageProvider"]>)
+        : undefined,
+      mimeType: media.mimeType ?? undefined,
+      sizeBytes: media.sizeBytes ?? undefined,
+      variants: media.variants,
       alt: media.alt,
       width: media.width,
       height: media.height,

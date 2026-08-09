@@ -2,7 +2,7 @@ import "server-only";
 
 import { v2 as cloudinary } from "cloudinary";
 
-import type { ManagedMediaAsset } from "@/features/admin/types";
+import type { ManagedMediaAsset } from "@/storage/types";
 
 const UPLOAD_FOLDERS = {
   "post-media": "inspora/posts",
@@ -70,7 +70,7 @@ export function createCloudinaryUploadSignature(kind: UploadKind) {
   };
 }
 
-export async function deleteManagedMediaAssets(assets: ManagedMediaAsset[]) {
+export async function deleteCloudinaryMediaAssets(assets: ManagedMediaAsset[]) {
   const cloudinaryAssets = Array.from(
     new Map(
       assets
@@ -98,15 +98,5 @@ export async function deleteManagedMediaAssets(assets: ManagedMediaAsset[]) {
 
   if (failures.length > 0) {
     throw new AggregateError(failures, "Some managed media assets could not be deleted.");
-  }
-}
-
-export async function deleteManagedMediaAssetsSafely(assets: ManagedMediaAsset[]) {
-  if (assets.length === 0) return;
-
-  try {
-    await deleteManagedMediaAssets(assets);
-  } catch (error) {
-    console.error("Managed media cleanup failed", error);
   }
 }

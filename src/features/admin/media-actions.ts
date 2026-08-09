@@ -4,9 +4,11 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
 import {
-  createCloudinaryUploadSignature,
-  MediaStorageConfigurationError,
-} from "@/storage/cloudinary";
+  createR2PresignedUpload,
+  getR2PublicUrl,
+  R2StorageConfigurationError,
+  verifyR2Upload,
+} from "@/storage/r2";
 
 import {
   ACCEPTED_MEDIA_MIME_TYPES,
@@ -14,7 +16,9 @@ import {
   isAcceptedUploadForKind,
   MAX_VIDEO_UPLOAD_BYTES,
   type MediaUploadKind,
+  type MediaUploadCompletionResult,
   type MediaUploadSignatureResult,
+  defaultAltText,
 } from "./media-upload";
 
 const uploadRequestSchema = z.object({
@@ -45,13 +49,61 @@ export async function createMediaUploadSignatureAction(
   }
 
   try {
-    return { ok: true, ...createCloudinaryUploadSignature(parsed.data.kind) };
+    return {
+      ok: true,
+      ...(await createR2PresignedUpload({
+        kind: parsed.data.kind,
+        contentType: parsed.data.contentType,
+      })),
+    };
   } catch (error) {
-    if (error instanceof MediaStorageConfigurationError) {
+    if (error instanceof R2StorageConfigurationError) {
       return { ok: false, message: error.message };
     }
 
     console.error("Media upload signing failed", error);
     return { ok: false, message: "The upload could not be prepared. Try again." };
+  }
+}
+
+const completionSchema = uploadRequestSchema.extend({
+  storageKey: z.string().trim().min(1).max(1024),
+  width: z.number().int().positive().max(12000),
+  height: z.number().int().positive().max(12000),
+});
+
+export async function completeMediaUploadAction(
+  input: unknown,
+): Promise<MediaUploadCompletionResult> {
+  await requireAdmin();
+  const parsed = completionSchema.safeParse(input);
+  if (
+    !parsed.success ||
+    !isAcceptedUploadForKind(parsed.data.kind, parsed.data.contentType) ||
+    parsed.data.size > getMediaUploadLimit(parsed.data.contentType)
+  ) {
+    return { ok: false, message: "The uploaded file details are invalid." };
+  }
+
+  try {
+    await verifyR2Upload(parsed.data);
+    return {
+      ok: true,
+      media: {
+        type: parsed.data.contentType.startsWith("video/") ? "video" : "image",
+        url: getR2PublicUrl(parsed.data.storageKey),
+        storageProvider: "r2",
+        storageKey: parsed.data.storageKey,
+        mimeType: parsed.data.contentType,
+        sizeBytes: parsed.data.size,
+        variants: [],
+        alt: defaultAltText(parsed.data.fileName),
+        width: parsed.data.width,
+        height: parsed.data.height,
+      },
+    };
+  } catch (error) {
+    console.error("Media upload verification failed", error);
+    return { ok: false, message: "The upload could not be verified. Try again." };
   }
 }

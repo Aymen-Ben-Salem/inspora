@@ -148,6 +148,41 @@ describe("admin post validation", () => {
     expect(media?.posterUrl).toBeUndefined();
   });
 
+  it("preserves verified R2 media metadata", () => {
+    const previousBaseUrl = process.env.R2_PUBLIC_BASE_URL;
+    process.env.R2_PUBLIC_BASE_URL = "https://pub-example.r2.dev";
+    const form = validForm();
+    form.set(
+      "media",
+      JSON.stringify([
+        {
+          type: "image",
+          url: "https://pub-example.r2.dev/posts/11111111-1111-4111-8111-111111111111.webp",
+          storageProvider: "r2",
+          storageKey: "posts/11111111-1111-4111-8111-111111111111.webp",
+          mimeType: "image/webp",
+          sizeBytes: 4096,
+          variants: [],
+          alt: "R2 artwork",
+          width: 1200,
+          height: 900,
+        },
+      ]),
+    );
+
+    try {
+      expect(parseAdminPostForm(form).media[0]).toMatchObject({
+        storageProvider: "r2",
+        mimeType: "image/webp",
+        sizeBytes: 4096,
+        variants: [],
+      });
+    } finally {
+      if (previousBaseUrl === undefined) delete process.env.R2_PUBLIC_BASE_URL;
+      else process.env.R2_PUBLIC_BASE_URL = previousBaseUrl;
+    }
+  });
+
   it("rejects incomplete managed-media ownership metadata", () => {
     const form = validForm();
     form.set(

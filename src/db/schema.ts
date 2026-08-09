@@ -12,6 +12,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import type { ImageVariant } from "@/storage/types";
+
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .defaultNow()
@@ -39,7 +41,7 @@ export const creators = pgTable(
     check("creators_name_not_blank", sql`length(trim(${table.name})) > 0`),
     check(
       "creators_avatar_storage_consistent",
-      sql`(${table.avatarStorageProvider} is null and ${table.avatarStorageKey} is null) or (${table.avatarStorageProvider} = 'cloudinary' and length(trim(${table.avatarStorageKey})) > 0)`,
+      sql`(${table.avatarStorageProvider} is null and ${table.avatarStorageKey} is null) or (${table.avatarStorageProvider} in ('cloudinary', 'r2') and length(trim(${table.avatarStorageKey})) > 0)`,
     ),
   ],
 );
@@ -108,6 +110,10 @@ export const postMedia = pgTable(
     posterUrl: text("poster_url"),
     storageProvider: text("storage_provider"),
     storageKey: text("storage_key"),
+    mimeType: text("mime_type"),
+    sizeBytes: integer("size_bytes"),
+    variants: jsonb("variants").$type<ImageVariant[]>().default([]).notNull(),
+    posterStorageKey: text("poster_storage_key"),
     alt: text("alt").default("").notNull(),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
@@ -121,7 +127,15 @@ export const postMedia = pgTable(
     check("post_media_type_valid", sql`${table.type} in ('image', 'video')`),
     check(
       "post_media_storage_consistent",
-      sql`(${table.storageProvider} is null and ${table.storageKey} is null) or (${table.storageProvider} = 'cloudinary' and length(trim(${table.storageKey})) > 0)`,
+      sql`(${table.storageProvider} is null and ${table.storageKey} is null) or (${table.storageProvider} in ('cloudinary', 'r2') and length(trim(${table.storageKey})) > 0)`,
+    ),
+    check(
+      "post_media_size_valid",
+      sql`${table.sizeBytes} is null or ${table.sizeBytes} > 0`,
+    ),
+    check(
+      "post_media_poster_storage_consistent",
+      sql`${table.posterStorageKey} is null or (${table.storageProvider} = 'r2' and ${table.posterUrl} is not null and length(trim(${table.posterStorageKey})) > 0)`,
     ),
     check("post_media_dimensions_valid", sql`${table.width} > 0 and ${table.height} > 0`),
     check("post_media_position_valid", sql`${table.position} >= 0`),

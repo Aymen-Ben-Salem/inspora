@@ -7,6 +7,7 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, creators, postMedia, posts } from "@/db/schema";
 import type { MediaType } from "@/domain/post";
+import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
 import type {
   AdminPostInput,
@@ -22,6 +23,10 @@ type PostRow = typeof posts.$inferSelect;
 type CreatorRow = typeof creators.$inferSelect;
 type MediaRow = typeof postMedia.$inferSelect;
 
+function isStorageProvider(value: string | null) {
+  return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
+}
+
 function mapAdminCreator(row: CreatorRow): AdminCreatorRecord {
   return {
     id: row.id,
@@ -30,8 +35,8 @@ function mapAdminCreator(row: CreatorRow): AdminCreatorRecord {
     url: row.url ?? undefined,
     avatarUrl: row.avatarUrl,
     avatarStorageProvider:
-      row.avatarStorageProvider === "cloudinary"
-        ? row.avatarStorageProvider
+      isStorageProvider(row.avatarStorageProvider)
+        ? (row.avatarStorageProvider as AdminCreatorRecord["avatarStorageProvider"])
         : undefined,
     avatarStorageKey: row.avatarStorageKey ?? undefined,
     createdAt: row.createdAt.toISOString(),
@@ -63,9 +68,14 @@ function mapAdminPost(
       type: media.type as MediaType,
       url: media.url,
       posterUrl: media.posterUrl ?? undefined,
-      storageProvider:
-        media.storageProvider === "cloudinary" ? media.storageProvider : undefined,
+      storageProvider: isStorageProvider(media.storageProvider)
+        ? (media.storageProvider as AdminPostRecord["media"][number]["storageProvider"])
+        : undefined,
       storageKey: media.storageKey ?? undefined,
+      mimeType: media.mimeType ?? undefined,
+      sizeBytes: media.sizeBytes ?? undefined,
+      variants: media.variants,
+      posterStorageKey: media.posterStorageKey ?? undefined,
       alt: media.alt,
       width: media.width,
       height: media.height,
@@ -81,6 +91,10 @@ function mediaValues(postId: string, input: AdminPostInput) {
     posterUrl: media.posterUrl,
     storageProvider: media.storageProvider,
     storageKey: media.storageKey,
+    mimeType: media.mimeType,
+    sizeBytes: media.sizeBytes,
+    variants: media.variants ?? [],
+    posterStorageKey: media.posterStorageKey,
     alt: media.alt,
     width: media.width,
     height: media.height,
@@ -90,12 +104,14 @@ function mediaValues(postId: string, input: AdminPostInput) {
 
 function managedAssets(media: MediaRow[]): ManagedMediaAsset[] {
   return media.flatMap((item) =>
-    item.storageProvider === "cloudinary" && item.storageKey
+    isStorageProvider(item.storageProvider) && item.storageKey
       ? [
           {
-            storageProvider: item.storageProvider,
+            storageProvider: item.storageProvider as ManagedMediaAsset["storageProvider"],
             storageKey: item.storageKey,
             type: item.type as MediaType,
+            variantStorageKeys: item.variants.map((variant) => variant.storageKey),
+            posterStorageKey: item.posterStorageKey ?? undefined,
           },
         ]
       : [],
@@ -103,10 +119,11 @@ function managedAssets(media: MediaRow[]): ManagedMediaAsset[] {
 }
 
 function managedCreatorAvatar(creator: CreatorRow): ManagedMediaAsset[] {
-  return creator.avatarStorageProvider === "cloudinary" && creator.avatarStorageKey
+  return isStorageProvider(creator.avatarStorageProvider) && creator.avatarStorageKey
     ? [
         {
-          storageProvider: creator.avatarStorageProvider,
+          storageProvider:
+            creator.avatarStorageProvider as ManagedMediaAsset["storageProvider"],
           storageKey: creator.avatarStorageKey,
           type: "image",
         },

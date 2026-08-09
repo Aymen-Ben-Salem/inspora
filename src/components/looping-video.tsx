@@ -28,6 +28,18 @@ function playSilently(video: HTMLVideoElement) {
   });
 }
 
+function attachVideoSource(video: HTMLVideoElement, source: string | undefined) {
+  if (!source || video.getAttribute("src") === source) return;
+  video.src = source;
+  video.load();
+}
+
+function detachVideoSource(video: HTMLVideoElement) {
+  video.pause();
+  video.removeAttribute("src");
+  video.load();
+}
+
 export function resumeLoopingVideos(root: ParentNode) {
   root
     .querySelectorAll<HTMLVideoElement>("[data-looping-video]")
@@ -37,6 +49,7 @@ export function resumeLoopingVideos(root: ParentNode) {
 export function LoopingVideo({
   eager = false,
   preload,
+  src,
   ...props
 }: LoopingVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,32 +59,62 @@ export function LoopingVideo({
 
     if (!video) return;
 
+    const source = typeof src === "string" ? src : undefined;
+
     if (eager || !("IntersectionObserver" in window)) {
+      attachVideoSource(video, source);
       playSilently(video);
-      return;
+      const handleVisibility = () =>
+        document.hidden ? video.pause() : playSilently(video);
+      document.addEventListener("visibilitychange", handleVisibility);
+      return () => document.removeEventListener("visibilitychange", handleVisibility);
     }
 
-    const observer = new IntersectionObserver(
+    let visible = false;
+    const loadObserver = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) {
-          playSilently(video);
+          attachVideoSource(video, source);
           return;
         }
-
-        video.pause();
+        detachVideoSource(video);
       },
       { rootMargin: "240px 0px", threshold: 0.01 },
     );
+    const playObserver = new IntersectionObserver(
+      ([entry]) => {
+        visible = Boolean(entry?.isIntersecting);
+        if (visible && !document.hidden) {
+          attachVideoSource(video, source);
+          playSilently(video);
+          return;
+        }
+        video.pause();
+      },
+      { threshold: 0.01 },
+    );
+    const handleVisibility = () => {
+      if (document.hidden || !visible) video.pause();
+      else playSilently(video);
+    };
 
-    observer.observe(video);
+    loadObserver.observe(video);
+    playObserver.observe(video);
+    document.addEventListener("visibilitychange", handleVisibility);
 
-    return () => observer.disconnect();
-  }, [eager]);
+    return () => {
+      loadObserver.disconnect();
+      playObserver.disconnect();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      detachVideoSource(video);
+    };
+  }, [eager, src]);
 
   return (
     <video
       ref={videoRef}
       {...props}
+      src={eager ? src : undefined}
       data-looping-video
       autoPlay={eager}
       controls={false}

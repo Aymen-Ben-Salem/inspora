@@ -72,7 +72,8 @@ function prepareGalleryForTransition(
     position: "relative",
     zIndex: 2,
   });
-  gsap.set(getOtherGalleryItems(gallery, hero), { visibility: "hidden" });
+  const otherItems = getOtherGalleryItems(gallery, hero);
+  if (otherItems.length) gsap.set(otherItems, { visibility: "hidden" });
 }
 
 function restoreGalleryAfterTransition(
@@ -80,7 +81,8 @@ function restoreGalleryAfterTransition(
   hero: HTMLElement,
 ) {
   gsap.set(gallery, { clearProps: "overflow,position,zIndex" });
-  gsap.set(getOtherGalleryItems(gallery, hero), { clearProps: "visibility" });
+  const otherItems = getOtherGalleryItems(gallery, hero);
+  if (otherItems.length) gsap.set(otherItems, { clearProps: "visibility" });
   resumeLoopingVideos(gallery);
 }
 

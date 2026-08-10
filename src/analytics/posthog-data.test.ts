@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createPostHogTools,
   fillDailyAnalytics,
+  fillHourlyAnalytics,
   isAnalyticsRange,
   mapAnalyticsBreakdownRows,
   resolvePostHogApiHost,
@@ -11,10 +12,25 @@ import {
 
 describe("PostHog analytics data", () => {
   it("accepts only supported dashboard ranges", () => {
+    expect(isAnalyticsRange(1)).toBe(true);
     expect(isAnalyticsRange(7)).toBe(true);
     expect(isAnalyticsRange(30)).toBe(true);
     expect(isAnalyticsRange(90)).toBe(true);
     expect(isAnalyticsRange(14)).toBe(false);
+  });
+
+  it("fills every project-timezone hour for the activity chart", () => {
+    const hourly = fillHourlyAnalytics([
+      [0, "3"],
+      [12, 5],
+      [23, "2"],
+    ]);
+
+    expect(hourly).toHaveLength(24);
+    expect(hourly[0]).toEqual({ hour: 0, uniqueVisitors: 3 });
+    expect(hourly[1]).toEqual({ hour: 1, uniqueVisitors: 0 });
+    expect(hourly[12]).toEqual({ hour: 12, uniqueVisitors: 5 });
+    expect(hourly[23]).toEqual({ hour: 23, uniqueVisitors: 2 });
   });
 
   it("maps ingestion regions to their private API host", () => {
@@ -76,7 +92,7 @@ describe("PostHog analytics data", () => {
     expect(tools.map((tool) => tool.href)).toEqual([
       "https://eu.posthog.com/project/123/web",
       "https://eu.posthog.com/project/123/heatmaps",
-      "https://eu.posthog.com/project/123/web/vitals",
+      "https://eu.posthog.com/project/123/web/web-vitals",
     ]);
   });
 });

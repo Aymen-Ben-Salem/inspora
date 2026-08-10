@@ -1,4 +1,4 @@
-export const ANALYTICS_RANGES = [7, 30, 90] as const;
+export const ANALYTICS_RANGES = [1, 7, 30, 90] as const;
 
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
@@ -19,6 +19,11 @@ export type DailyAnalytics = {
   pageviews: number;
   uniqueVisitors: number;
   postOpens: number;
+};
+
+export type HourlyAnalytics = {
+  hour: number;
+  uniqueVisitors: number;
 };
 
 export type TopPostAnalytics = {
@@ -49,6 +54,8 @@ export type AdminAnalytics = {
   topCountries: AnalyticsBreakdown[];
   topReferrers: AnalyticsBreakdown[];
   topDevices: AnalyticsBreakdown[];
+  topBrowsers: AnalyticsBreakdown[];
+  hourlyActivity: HourlyAnalytics[];
   tools: PostHogTool[];
 };
 
@@ -117,7 +124,7 @@ export function createPostHogTools({
     {
       label: "Web vitals",
       description: "Review LCP, CLS, INP, and FCP performance by page.",
-      href: `${projectUrl}/web/vitals`,
+      href: `${projectUrl}/web/web-vitals`,
     },
   ];
 }
@@ -160,4 +167,19 @@ export function fillDailyAnalytics(
       }
     );
   });
+}
+
+export function fillHourlyAnalytics(rows: unknown[][]): HourlyAnalytics[] {
+  const visitorsByHour = new Map<number, number>();
+
+  for (const row of rows) {
+    const hour = toAnalyticsNumber(row[0]);
+    if (!Number.isInteger(hour) || hour < 0 || hour > 23) continue;
+    visitorsByHour.set(hour, toAnalyticsNumber(row[1]));
+  }
+
+  return Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    uniqueVisitors: visitorsByHour.get(hour) ?? 0,
+  }));
 }

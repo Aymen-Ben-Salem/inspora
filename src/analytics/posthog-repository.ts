@@ -7,6 +7,7 @@ import { ANALYTICS_EVENTS } from "./events";
 import {
   createPostHogTools,
   fillDailyAnalytics,
+  fillHourlyAnalytics,
   mapAnalyticsBreakdownRows,
   resolvePostHogApiHost,
   toAnalyticsNumber,
@@ -95,6 +96,8 @@ export async function getAdminAnalytics(
     countryRows,
     referrerRows,
     deviceRows,
+    browserRows,
+    hourlyRows,
   ] = await Promise.all([
     runHogQlQuery(
       configuration,
@@ -200,6 +203,32 @@ export async function getAdminAnalytics(
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
     ),
+    runHogQlQuery(
+      configuration,
+      "Inspora admin top browsers",
+      `SELECT
+        toString(properties.$browser) AS browser,
+        uniq(distinct_id) AS visitors,
+        count() AS pageviews
+      FROM events
+      WHERE event = '$pageview'
+        AND timestamp >= now() - ${interval}
+      GROUP BY browser
+      ORDER BY visitors DESC, pageviews DESC
+      LIMIT 8`,
+    ),
+    runHogQlQuery(
+      configuration,
+      "Inspora admin hourly activity",
+      `SELECT
+        toHour(timestamp) AS hour,
+        uniq(distinct_id) AS unique_visitors
+      FROM events
+      WHERE event = '$pageview'
+        AND timestamp >= now() - ${interval}
+      GROUP BY hour
+      ORDER BY hour ASC`,
+    ),
   ]);
 
   const summary = summaryRows[0] ?? [];
@@ -232,6 +261,8 @@ export async function getAdminAnalytics(
       "Direct or unknown",
     ),
     topDevices: mapAnalyticsBreakdownRows(deviceRows, "Unknown device"),
+    topBrowsers: mapAnalyticsBreakdownRows(browserRows, "Unknown browser"),
+    hourlyActivity: fillHourlyAnalytics(hourlyRows),
     tools: createPostHogTools(configuration),
   };
 }

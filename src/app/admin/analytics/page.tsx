@@ -13,6 +13,7 @@ import {
   type AnalyticsRange,
   type PostHogTool,
 } from "@/analytics/posthog-data";
+import { AudienceTechnologyCard, TrafficChart } from "./analytics-tabs";
 
 type AnalyticsPageProps = {
   searchParams: Promise<{ days?: string | string[] }>;
@@ -20,11 +21,6 @@ type AnalyticsPageProps = {
 
 const compactNumber = new Intl.NumberFormat("en", { notation: "compact" });
 const exactNumber = new Intl.NumberFormat("en");
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  month: "short",
-  day: "numeric",
-});
-
 function parseRange(value: string | string[] | undefined): AnalyticsRange {
   const parsed = Number(Array.isArray(value) ? value[0] : value);
   return isAnalyticsRange(parsed) ? parsed : 30;
@@ -107,41 +103,54 @@ function MetricCard({
   );
 }
 
-function ActivityChart({ analytics }: { analytics: AdminAnalytics }) {
-  const maximum = Math.max(1, ...analytics.daily.map((day) => day.pageviews));
+function formatHour(hour: number) {
+  if (hour === 0) return "12 AM";
+  if (hour === 12) return "12 PM";
+  return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+}
+
+function HourlyActivityChart({ analytics }: { analytics: AdminAnalytics }) {
+  const maximum = Math.max(
+    1,
+    ...analytics.hourlyActivity.map((hour) => hour.uniqueVisitors),
+  );
 
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Traffic</p>
-          <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">Daily pageviews</h2>
+          <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Activity</p>
+          <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">
+            Most active hours
+          </h2>
         </div>
-        <p className="text-xs text-[#888]">Last {analytics.rangeDays} days</p>
+        <p className="text-xs text-[#888]">
+          Unique visitors · PostHog project timezone
+        </p>
       </div>
-      <div className="mt-8 overflow-x-auto pb-2">
-        <div
-          className="flex h-56 min-w-full items-end gap-1.5 border-b border-black/10"
-          style={{ width: analytics.rangeDays === 90 ? 1080 : undefined }}
-        >
-          {analytics.daily.map((day, index) => {
-            const height = day.pageviews === 0 ? 2 : Math.max(6, (day.pageviews / maximum) * 100);
-            const showLabel =
-              index === 0 ||
-              index === analytics.daily.length - 1 ||
-              (analytics.rangeDays === 7 ? true : index % (analytics.rangeDays === 30 ? 7 : 14) === 0);
+      <div className="mt-8 pb-6">
+        <div className="flex h-52 min-w-0 items-end gap-1 border-b border-black/10 sm:gap-2">
+          {analytics.hourlyActivity.map((hour) => {
+            const height =
+              hour.uniqueVisitors === 0
+                ? 2
+                : Math.max(7, (hour.uniqueVisitors / maximum) * 100);
+            const showLabel = hour.hour % 3 === 0 || hour.hour === 23;
 
             return (
-              <div key={day.date} className="group relative flex h-full min-w-2 flex-1 items-end">
+              <div
+                key={hour.hour}
+                className="group relative flex h-full min-w-0 flex-1 items-end"
+              >
                 <div
                   className="w-full rounded-t-sm bg-[#222] transition-colors duration-200 group-hover:bg-[#777]"
                   style={{ height: `${height}%` }}
-                  title={`${dateFormatter.format(new Date(`${day.date}T00:00:00Z`))}: ${exactNumber.format(day.pageviews)} pageviews`}
-                  aria-label={`${dateFormatter.format(new Date(`${day.date}T00:00:00Z`))}: ${exactNumber.format(day.pageviews)} pageviews`}
+                  title={`${formatHour(hour.hour)}: ${exactNumber.format(hour.uniqueVisitors)} unique visitors`}
+                  aria-label={`${formatHour(hour.hour)}: ${exactNumber.format(hour.uniqueVisitors)} unique visitors`}
                 />
                 {showLabel ? (
                   <span className="absolute left-0 top-[calc(100%+8px)] whitespace-nowrap text-[10px] text-[#999]">
-                    {dateFormatter.format(new Date(`${day.date}T00:00:00Z`))}
+                    {formatHour(hour.hour)}
                   </span>
                 ) : null}
               </div>
@@ -342,7 +351,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
             <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
           </section>
-          <ActivityChart analytics={analytics} />
+          <TrafficChart daily={analytics.daily} rangeDays={analytics.rangeDays} />
+          <HourlyActivityChart analytics={analytics} />
           <div className="grid gap-7 xl:grid-cols-2">
             <TopPosts analytics={analytics} />
             <RankedBreakdown
@@ -358,11 +368,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               items={analytics.topReferrers}
               emptyMessage="Traffic sources will appear here."
             />
-            <RankedBreakdown
-              eyebrow="Audience"
-              title="Devices"
-              items={analytics.topDevices}
-              emptyMessage="Device data will appear here."
+            <AudienceTechnologyCard
+              devices={analytics.topDevices}
+              browsers={analytics.topBrowsers}
             />
           </div>
           <PostHogTools tools={analytics.tools} />

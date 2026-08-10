@@ -89,12 +89,13 @@ export function toAnalyticsNumber(value: unknown) {
 export function mapAnalyticsBreakdownRows(
   rows: unknown[][],
   fallbackLabel: string,
+  labelAliases: Readonly<Record<string, string>> = {},
 ): AnalyticsBreakdown[] {
   return rows.map((row) => {
     const rawLabel = String(row[0] ?? "").trim();
 
     return {
-      label: rawLabel || fallbackLabel,
+      label: (labelAliases[rawLabel] ?? rawLabel) || fallbackLabel,
       visitors: toAnalyticsNumber(row[1]),
       pageviews: toAnalyticsNumber(row[2]),
     };

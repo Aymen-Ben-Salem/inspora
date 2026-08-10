@@ -258,7 +258,8 @@ export async function getAdminAnalytics(
     topCountries: mapAnalyticsBreakdownRows(countryRows, "Unknown country"),
     topReferrers: mapAnalyticsBreakdownRows(
       referrerRows,
-      "Direct or unknown",
+      "Direct / Unknown",
+      { $direct: "Direct / Unknown" },
     ),
     topDevices: mapAnalyticsBreakdownRows(deviceRows, "Unknown device"),
     topBrowsers: mapAnalyticsBreakdownRows(browserRows, "Unknown browser"),

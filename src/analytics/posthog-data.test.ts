@@ -83,6 +83,18 @@ describe("PostHog analytics data", () => {
     ]);
   });
 
+  it("replaces technical breakdown labels with readable aliases", () => {
+    expect(
+      mapAnalyticsBreakdownRows(
+        [["$direct", 379, 1500]],
+        "Direct / Unknown",
+        { $direct: "Direct / Unknown" },
+      ),
+    ).toEqual([
+      { label: "Direct / Unknown", visitors: 379, pageviews: 1500 },
+    ]);
+  });
+
   it("creates project-specific links to PostHog's deeper tools", () => {
     const tools = createPostHogTools({
       apiHost: "https://eu.posthog.com/",

@@ -57,6 +57,25 @@ export type Post = {
   media: PostMedia[];
 };
 
+export type PostCardMedia = Pick<
+  PostMedia,
+  | "id"
+  | "type"
+  | "url"
+  | "posterUrl"
+  | "storageProvider"
+  | "variants"
+  | "alt"
+  | "width"
+  | "height"
+>;
+
+export type PostCardData = Pick<Post, "id" | "slug" | "title" | "createdAt"> & {
+  creator: Pick<Creator, "name" | "avatarUrl" | "avatarStorageProvider">;
+  media: PostCardMedia[];
+  mediaCount: number;
+};
+
 export function isPostCategory(value: string): value is PostCategory {
   return POST_CATEGORIES.some((category) => category === value);
 }

@@ -1,10 +1,10 @@
-import type { Post } from "@/domain/post";
+import type { PostCardData } from "@/domain/post";
 
 import { FeedMotion } from "./feed-motion";
 import { PostCard } from "./post-card";
 import { RowFirstMasonry } from "./row-first-masonry";
 
-export function PostFeed({ posts }: { posts: Post[] }) {
+export function PostFeed({ posts }: { posts: PostCardData[] }) {
   if (posts.length === 0) {
     return (
       <div className="flex min-h-[45dvh] items-center justify-center px-6 text-center text-sm text-[#777]">

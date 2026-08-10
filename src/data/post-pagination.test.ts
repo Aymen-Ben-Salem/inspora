@@ -6,6 +6,7 @@ import {
   decodePostCursor,
   encodePostCursor,
   paginatePostArray,
+  toPostCardData,
 } from "./post-pagination";
 
 function makePost(
@@ -46,6 +47,42 @@ const posts = [
 ];
 
 describe("post cursor pagination", () => {
+  it("projects only the first media item while preserving the total count", () => {
+    const post = makePost("media", "2026-08-07T12:00:00.000Z", "Web");
+    post.media = [
+      {
+        id: "cover",
+        type: "image",
+        url: "https://media.example/cover.webp",
+        alt: "Cover",
+        width: 1200,
+        height: 900,
+        position: 0,
+      },
+      {
+        id: "second",
+        type: "image",
+        url: "https://media.example/second.webp",
+        alt: "Second",
+        width: 900,
+        height: 1200,
+        position: 1,
+      },
+    ];
+
+    const card = toPostCardData(post);
+
+    expect(card.media).toEqual([
+      expect.objectContaining({ id: "cover", url: post.media[0]?.url }),
+    ]);
+    expect(card.mediaCount).toBe(2);
+    expect(card.media[0]).not.toHaveProperty("position");
+    expect(card.creator).not.toHaveProperty("id");
+    expect(card).not.toHaveProperty("description");
+    expect(card).not.toHaveProperty("sourceUrl");
+    expect(JSON.stringify(card).length).toBeLessThan(JSON.stringify(post).length);
+  });
+
   it("round-trips an opaque cursor", () => {
     const value = {
       createdAt: "2026-08-07T12:00:00.000Z",

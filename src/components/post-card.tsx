@@ -1,8 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { Route } from "next";
 
-import { isGifUrl, type Post } from "@/domain/post";
+import { isGifUrl, type PostCardData } from "@/domain/post";
 import {
   optimizeCloudinaryAnimatedImageUrl,
   optimizeCloudinaryPosterUrl,
@@ -10,9 +9,16 @@ import {
 } from "@/storage/cloudinary-delivery";
 
 import { LoopingVideo } from "./looping-video";
+import { IntentPrefetchLink } from "./intent-prefetch-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 
-export function PostCard({ post, priority = false }: { post: Post; priority?: boolean }) {
+export function PostCard({
+  post,
+  priority = false,
+}: {
+  post: PostCardData;
+  priority?: boolean;
+}) {
   const cover = post.media[0];
 
   if (!cover) return null;
@@ -31,7 +37,7 @@ export function PostCard({ post, priority = false }: { post: Post; priority?: bo
 
   return (
     <article data-feed-card>
-      <Link
+      <IntentPrefetchLink
         data-feed-post-id={post.id}
         href={`/posts/${post.slug}` as Route}
         aria-label={`View post: ${post.title}`}
@@ -100,14 +106,14 @@ export function PostCard({ post, priority = false }: { post: Post; priority?: bo
             </span>
           </span>
         </span>
-        {post.media.length > 1 ? (
+        {post.mediaCount > 1 ? (
           <span className="absolute right-[10px] top-[10px] z-10 flex size-6 items-center justify-center rounded-full bg-black/35 text-[10px] text-white shadow-sm backdrop-blur-md xl:size-[26px] xl:text-[11px] min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:size-7 min-[1800px]:text-xs">
-            <span className="sr-only">{post.media.length} slides</span>
-            <span aria-hidden="true">{post.media.length}</span>
+            <span className="sr-only">{post.mediaCount} slides</span>
+            <span aria-hidden="true">{post.mediaCount}</span>
           </span>
         ) : null}
         <span className="pointer-events-none absolute inset-0 rounded-[20px] border border-black/10" />
-      </Link>
+      </IntentPrefetchLink>
     </article>
   );
 }

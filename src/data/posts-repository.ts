@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, lt, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, lte, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { getDatabase } from "@/db/client";
@@ -9,6 +9,7 @@ import {
   isPostCategory,
   type MediaType,
   type Post,
+  type PostCardData,
   type PostCategory,
   type PostView,
 } from "@/domain/post";
@@ -27,20 +28,172 @@ export const PUBLISHED_POSTS_CACHE_TAG = "published-posts";
 
 const PUBLISHED_POSTS_CACHE_LIFE = {
   stale: 300,
-  revalidate: 3600,
-  expire: 86400,
+  revalidate: 21600,
+  expire: 604800,
 } as const;
 
 type PostRow = typeof posts.$inferSelect;
 type CreatorRow = typeof creators.$inferSelect;
 type MediaRow = typeof postMedia.$inferSelect;
-type PostRecord = PostRow & { creator: CreatorRow; media: MediaRow[] };
+type PublicCreatorRow = Pick<
+  CreatorRow,
+  "id" | "name" | "handle" | "url" | "avatarUrl" | "avatarStorageProvider"
+>;
+type PublicMediaRow = Pick<
+  MediaRow,
+  | "id"
+  | "type"
+  | "url"
+  | "posterUrl"
+  | "storageProvider"
+  | "mimeType"
+  | "sourceMimeType"
+  | "sizeBytes"
+  | "variants"
+  | "alt"
+  | "width"
+  | "height"
+  | "position"
+>;
+type PostCardCreatorRow = Pick<
+  CreatorRow,
+  "name" | "avatarUrl" | "avatarStorageProvider"
+>;
+type PostCardMediaRow = Pick<
+  MediaRow,
+  | "id"
+  | "type"
+  | "url"
+  | "posterUrl"
+  | "storageProvider"
+  | "variants"
+  | "alt"
+  | "width"
+  | "height"
+>;
+type PostRecord = Pick<
+  PostRow,
+  | "id"
+  | "slug"
+  | "title"
+  | "description"
+  | "category"
+  | "industries"
+  | "colors"
+  | "styles"
+  | "sourceUrl"
+  | "createdAt"
+  | "publishedAt"
+  | "isFeatured"
+> & { creator: PublicCreatorRow; media: PublicMediaRow[] };
+type PostCardRecord = Pick<PostRow, "id" | "slug" | "title" | "createdAt"> & {
+  creator: PostCardCreatorRow;
+  media: PostCardMediaRow[];
+  mediaCount: number;
+};
 type AdjacentPost = Pick<Post, "slug" | "title">;
 type PostPosition = Pick<Post, "id" | "createdAt" | "slug" | "title">;
+
+const PUBLIC_CREATOR_COLUMNS = {
+  id: true,
+  name: true,
+  handle: true,
+  url: true,
+  avatarUrl: true,
+  avatarStorageProvider: true,
+} as const;
+
+const PUBLIC_MEDIA_COLUMNS = {
+  id: true,
+  type: true,
+  url: true,
+  posterUrl: true,
+  storageProvider: true,
+  mimeType: true,
+  sourceMimeType: true,
+  sizeBytes: true,
+  variants: true,
+  alt: true,
+  width: true,
+  height: true,
+  position: true,
+} as const;
+
+const POST_CARD_CREATOR_COLUMNS = {
+  name: true,
+  avatarUrl: true,
+  avatarStorageProvider: true,
+} as const;
+
+const POST_CARD_MEDIA_COLUMNS = {
+  id: true,
+  type: true,
+  url: true,
+  posterUrl: true,
+  storageProvider: true,
+  variants: true,
+  alt: true,
+  width: true,
+  height: true,
+} as const;
+
+const PUBLIC_POST_COLUMNS = {
+  id: true,
+  slug: true,
+  title: true,
+  description: true,
+  category: true,
+  industries: true,
+  colors: true,
+  styles: true,
+  sourceUrl: true,
+  createdAt: true,
+  publishedAt: true,
+  isFeatured: true,
+} as const;
 
 function applyPublishedPostCache() {
   cacheLife(PUBLISHED_POSTS_CACHE_LIFE);
   cacheTag(PUBLISHED_POSTS_CACHE_TAG);
+}
+
+function mapCreator(row: PublicCreatorRow): Post["creator"] {
+  return {
+    id: row.id,
+    name: row.name,
+    handle: row.handle ?? undefined,
+    url: row.url ?? undefined,
+    avatarUrl: row.avatarUrl,
+    avatarStorageProvider: MEDIA_STORAGE_PROVIDERS.some(
+      (provider) => provider === row.avatarStorageProvider,
+    )
+      ? (row.avatarStorageProvider as NonNullable<
+          Post["creator"]["avatarStorageProvider"]
+        >)
+      : undefined,
+  };
+}
+
+function mapMedia(row: PublicMediaRow): Post["media"][number] {
+  return {
+    id: row.id,
+    type: row.type as MediaType,
+    url: row.url,
+    posterUrl: row.posterUrl ?? undefined,
+    storageProvider: MEDIA_STORAGE_PROVIDERS.some(
+      (provider) => provider === row.storageProvider,
+    )
+      ? (row.storageProvider as NonNullable<Post["media"][number]["storageProvider"]>)
+      : undefined,
+    mimeType: row.mimeType ?? undefined,
+    sourceMimeType: row.sourceMimeType ?? undefined,
+    sizeBytes: row.sizeBytes ?? undefined,
+    variants: row.variants,
+    alt: row.alt,
+    width: row.width,
+    height: row.height,
+    position: row.position,
+  };
 }
 
 function mapPost(row: PostRecord): Post {
@@ -52,20 +205,7 @@ function mapPost(row: PostRecord): Post {
     id: row.id,
     slug: row.slug,
     title: row.title,
-    creator: {
-      id: row.creator.id,
-      name: row.creator.name,
-      handle: row.creator.handle ?? undefined,
-      url: row.creator.url ?? undefined,
-      avatarUrl: row.creator.avatarUrl,
-      avatarStorageProvider: MEDIA_STORAGE_PROVIDERS.some(
-        (provider) => provider === row.creator.avatarStorageProvider,
-      )
-        ? (row.creator.avatarStorageProvider as NonNullable<
-            Post["creator"]["avatarStorageProvider"]
-          >)
-        : undefined,
-    },
+    creator: mapCreator(row.creator),
     description: row.description,
     category: row.category,
     industries: row.industries,
@@ -75,6 +215,27 @@ function mapPost(row: PostRecord): Post {
     createdAt: row.createdAt.toISOString(),
     publishedAt: (row.publishedAt ?? row.createdAt).toISOString(),
     isFeatured: row.isFeatured,
+    media: row.media.map(mapMedia),
+  };
+}
+
+function mapPostCard(row: PostCardRecord): PostCardData {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    creator: {
+      name: row.creator.name,
+      avatarUrl: row.creator.avatarUrl,
+      avatarStorageProvider: MEDIA_STORAGE_PROVIDERS.some(
+        (provider) => provider === row.creator.avatarStorageProvider,
+      )
+        ? (row.creator.avatarStorageProvider as NonNullable<
+            PostCardData["creator"]["avatarStorageProvider"]
+          >)
+        : undefined,
+    },
+    createdAt: row.createdAt.toISOString(),
     media: row.media.map((media) => ({
       id: media.id,
       type: media.type as MediaType,
@@ -83,17 +244,16 @@ function mapPost(row: PostRecord): Post {
       storageProvider: MEDIA_STORAGE_PROVIDERS.some(
         (provider) => provider === media.storageProvider,
       )
-        ? (media.storageProvider as NonNullable<Post["media"][number]["storageProvider"]>)
+        ? (media.storageProvider as NonNullable<
+            PostCardData["media"][number]["storageProvider"]
+          >)
         : undefined,
-      mimeType: media.mimeType ?? undefined,
-      sourceMimeType: media.sourceMimeType ?? undefined,
-      sizeBytes: media.sizeBytes ?? undefined,
       variants: media.variants,
       alt: media.alt,
       width: media.width,
       height: media.height,
-      position: media.position,
     })),
+    mediaCount: row.mediaCount,
   };
 }
 
@@ -146,6 +306,19 @@ export async function getPostPage({
 
   try {
     const rows = await database.query.posts.findMany({
+      columns: {
+        id: true,
+        slug: true,
+        title: true,
+        createdAt: true,
+      },
+      extras: {
+        mediaCount: sql<number>`(
+          select count(*)::int
+          from "post_media" as "media_count_rows"
+          where "media_count_rows"."post_id" = ${posts.id}
+        )`.as("media_count"),
+      },
       where: and(
         publishedWhere(now),
         category ? eq(posts.category, category) : undefined,
@@ -155,11 +328,15 @@ export async function getPostPage({
       orderBy: [desc(posts.createdAt), desc(posts.id)],
       limit: POST_PAGE_SIZE + 1,
       with: {
-        creator: true,
-        media: { orderBy: [asc(postMedia.position)] },
+        creator: { columns: POST_CARD_CREATOR_COLUMNS },
+        media: {
+          columns: POST_CARD_MEDIA_COLUMNS,
+          orderBy: [asc(postMedia.position)],
+          limit: 1,
+        },
       },
     });
-    const items = rows.slice(0, POST_PAGE_SIZE).map(mapPost);
+    const items = rows.slice(0, POST_PAGE_SIZE).map(mapPostCard);
     const finalPost = items.at(-1);
 
     return {
@@ -187,13 +364,17 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
 
   try {
     const row = await database.query.posts.findFirst({
+      columns: PUBLIC_POST_COLUMNS,
       where: and(
         publishedWhere(new Date()),
         eq(posts.slug, slug),
       ),
       with: {
-        creator: true,
-        media: { orderBy: [asc(postMedia.position)] },
+        creator: { columns: PUBLIC_CREATOR_COLUMNS },
+        media: {
+          columns: PUBLIC_MEDIA_COLUMNS,
+          orderBy: [asc(postMedia.position)],
+        },
       },
     });
 

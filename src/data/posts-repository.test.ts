@@ -30,8 +30,8 @@ describe("published post caching", () => {
 
     expect(cacheLife).toHaveBeenCalledWith({
       stale: 300,
-      revalidate: 3600,
-      expire: 86400,
+      revalidate: 21600,
+      expire: 604800,
     });
     expect(cacheTag).toHaveBeenCalledWith(PUBLISHED_POSTS_CACHE_TAG);
   });
@@ -41,7 +41,15 @@ describe("published post caching", () => {
     const expected = page.items[0];
 
     expect(expected).toBeDefined();
-    await expect(getPostBySlug(expected!.slug)).resolves.toEqual(expected);
+    await expect(getPostBySlug(expected!.slug)).resolves.toEqual(
+      expect.objectContaining({
+        id: expected!.id,
+        slug: expected!.slug,
+        description: expect.any(String),
+      }),
+    );
+    expect(expected).not.toHaveProperty("description");
+    expect(expected!.media).toHaveLength(Math.min(1, expected!.mediaCount));
   });
 
   it("returns focused navigation and slug data without requiring a full media page", async () => {

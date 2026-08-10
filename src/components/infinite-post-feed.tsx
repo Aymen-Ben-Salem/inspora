@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PostPage } from "@/data/post-pagination";
-import type { Post, PostCategory, PostView } from "@/domain/post";
+import type { PostCardData, PostCategory, PostView } from "@/domain/post";
 
 import { PostFeed } from "./post-feed";
 
@@ -28,7 +28,7 @@ export function InfinitePostFeed({
   category?: PostCategory;
   view: PostView;
 }) {
-  const [posts, setPosts] = useState<Post[]>(initialPage.items);
+  const [posts, setPosts] = useState<PostCardData[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
   const [status, setStatus] = useState<LoadingStatus>("idle");
   const sentinelRef = useRef<HTMLDivElement>(null);

@@ -1,4 +1,4 @@
-import type { Post, PostCategory, PostView } from "@/domain/post";
+import type { Post, PostCardData, PostCategory, PostView } from "@/domain/post";
 
 export const POST_PAGE_SIZE = 18;
 export const MAX_POST_PAGE_SIZE = 48;
@@ -9,7 +9,7 @@ export type PostCursor = {
 };
 
 export type PostPage = {
-  items: Post[];
+  items: PostCardData[];
   nextCursor: string | null;
 };
 
@@ -58,6 +58,32 @@ function comparePostPosition(
   return left.id > right.id ? -1 : 1;
 }
 
+export function toPostCardData(post: Post): PostCardData {
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    creator: {
+      name: post.creator.name,
+      avatarUrl: post.creator.avatarUrl,
+      avatarStorageProvider: post.creator.avatarStorageProvider,
+    },
+    createdAt: post.createdAt,
+    media: post.media.slice(0, 1).map((media) => ({
+      id: media.id,
+      type: media.type,
+      url: media.url,
+      posterUrl: media.posterUrl,
+      storageProvider: media.storageProvider,
+      variants: media.variants,
+      alt: media.alt,
+      width: media.width,
+      height: media.height,
+    })),
+    mediaCount: post.media.length,
+  };
+}
+
 export function paginatePostArray(
   posts: Post[],
   { category, view = "latest", cursor, limit = POST_PAGE_SIZE }: PostPageOptions = {},
@@ -78,7 +104,7 @@ export function paginatePostArray(
     ? orderedPosts.filter((post) => comparePostPosition(post, decodedCursor) > 0)
     : orderedPosts;
   const candidates = remainingPosts.slice(0, boundedLimit + 1);
-  const items = candidates.slice(0, boundedLimit);
+  const items = candidates.slice(0, boundedLimit).map(toPostCardData);
   const finalPost = items.at(-1);
 
   return {

@@ -24,5 +24,8 @@ pnpm-debug.log*
 # testing
 /coverage
 
+# local planning notes
+/docs/plans/
+
 # typescript
 *.tsbuildinfo

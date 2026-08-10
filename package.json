@@ -11,10 +11,16 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:production": "drizzle-kit migrate --config=drizzle.production.config.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
-    "media:bootstrap:r2": "tsx scripts/bootstrap-r2-media.ts"
+    "media:bootstrap:r2": "tsx scripts/bootstrap-r2-media.ts",
+    "media:migrate:r2": "tsx scripts/migrate-r2-media.ts",
+    "media:verify:r2": "tsx scripts/verify-r2-media.ts",
+    "media:rollback:r2": "tsx scripts/rollback-r2-media.ts",
+    "media:cleanup:cloudinary": "tsx scripts/cleanup-cloudinary-media.ts",
+    "media:cleanup:r2-orphans": "tsx scripts/cleanup-r2-orphans.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1106.0",
@@ -44,6 +50,7 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.11",
+    "sharp": "0.35.3",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.1",
     "typescript": "6.0.3",

@@ -193,6 +193,49 @@ export const adminAuditLogs = pgTable(
   ],
 );
 
+export const mediaMigrationAudits = pgTable(
+  "media_migration_audits",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: uuid("resource_id").notNull(),
+    status: text("status").default("uploaded").notNull(),
+    sourceProvider: text("source_provider").notNull(),
+    sourceSnapshot: jsonb("source_snapshot")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    targetSnapshot: jsonb("target_snapshot")
+      .$type<Record<string, unknown>>(),
+    error: text("error"),
+    migratedAt: timestamp("migrated_at", { withTimezone: true, mode: "date" }),
+    rolledBackAt: timestamp("rolled_back_at", { withTimezone: true, mode: "date" }),
+    sourceDeletedAt: timestamp("source_deleted_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("media_migration_audits_resource_unique").on(
+      table.resourceType,
+      table.resourceId,
+    ),
+    index("media_migration_audits_status_idx").on(table.status),
+    check(
+      "media_migration_audits_resource_type_valid",
+      sql`${table.resourceType} in ('post_media', 'creator_avatar')`,
+    ),
+    check(
+      "media_migration_audits_status_valid",
+      sql`${table.status} in ('uploaded', 'migrated', 'failed', 'rolled_back', 'source_deleted')`,
+    ),
+    check(
+      "media_migration_audits_source_provider_valid",
+      sql`${table.sourceProvider} = 'cloudinary'`,
+    ),
+  ],
+);
+
 export const creatorsRelations = relations(creators, ({ many }) => ({
   posts: many(posts),
 }));

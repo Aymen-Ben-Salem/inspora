@@ -15,7 +15,7 @@ function FeedNavigation() {
     <div
       data-post-feed-navigation
       aria-hidden="true"
-      className="relative z-30 flex h-14 items-center justify-center bg-white sm:h-16"
+      className="relative z-30 -mb-14 flex h-14 items-center justify-center bg-transparent sm:-mb-16 sm:h-16"
     >
       <Image
         src="/brand/down-arrow.svg"
@@ -33,7 +33,7 @@ function FeedBlur({ className }: { className: string }) {
     <div
       data-post-feed-preview
       aria-hidden="true"
-      className={`post-feed-blur pointer-events-none z-20 bg-white/[0.24] backdrop-blur-[8px] ${className}`}
+      className={`post-feed-blur z-20 bg-white/[0.24] backdrop-blur-[8px] ${className}`}
     />
   );
 }
@@ -70,7 +70,7 @@ export function PostPageView({
         {detail}
         <div className="relative">
           <FeedNavigation />
-          <FeedBlur className="absolute inset-x-0 top-full" />
+          <FeedBlur className="absolute inset-x-0 top-0" />
         </div>
       </section>
     );
@@ -85,6 +85,7 @@ export function PostPageView({
         <section
           data-post-feed-start
           aria-label="Design inspiration"
+          inert
           className="relative min-h-[100dvh] bg-white"
         >
           <div className="relative mx-auto max-w-[1705px] px-4 pb-16 pt-4 sm:px-5 sm:pt-5 xl:px-6 xl:pt-6 2xl:px-8 min-[1700px]:px-11">

@@ -73,7 +73,8 @@ input {
 
 .post-feed-blur {
   z-index: 20;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: pan-y;
 }
 
 html[data-inline-post-open] [data-header-filters] {

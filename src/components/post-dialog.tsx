@@ -189,10 +189,14 @@ export function PostDialog({
     );
     const hiddenCards = cards.slice(0, hiddenCount);
     const previousDisplays = hiddenCards.map((card) => card.style.display);
+    const wasGridInert = grid.inert;
+    const previousGridAriaHidden = grid.getAttribute("aria-hidden");
     const host = document.createElement("div");
 
     host.dataset.inlinePostHost = "";
     host.className = "inline-post-host";
+    grid.inert = true;
+    grid.setAttribute("aria-hidden", "true");
     hiddenCards.forEach((card) => {
       card.style.display = "none";
     });
@@ -221,6 +225,12 @@ export function PostDialog({
       entranceProxy.current?.remove();
       entranceProxy.current = null;
       restoreFiltersAfterInlinePost();
+      grid.inert = wasGridInert;
+      if (previousGridAriaHidden === null) {
+        grid.removeAttribute("aria-hidden");
+      } else {
+        grid.setAttribute("aria-hidden", previousGridAriaHidden);
+      }
       hiddenCards.forEach((card, index) => {
         card.style.display = previousDisplays[index] ?? "";
       });

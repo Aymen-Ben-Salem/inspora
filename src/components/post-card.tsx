@@ -41,7 +41,7 @@ export function PostCard({
         data-feed-post-id={post.id}
         href={`/posts/${post.slug}` as Route}
         aria-label={`View post: ${post.title}`}
-        className="focus-ring group relative block overflow-hidden rounded-[20px] bg-[#f3f3f3]"
+        className="focus-ring group relative block overflow-hidden bg-[#f3f3f3]"
         style={{ aspectRatio: `${cover.width}/${cover.height}` }}
       >
         {cover.type === "video" ? (
@@ -51,7 +51,7 @@ export function PostCard({
             poster={posterUrl}
             aria-label={cover.alt}
             draggable={false}
-            className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+            className="absolute inset-0 size-full object-cover"
           />
         ) : cover.storageProvider === "r2" ? (
           <ResponsiveR2Image
@@ -63,7 +63,7 @@ export function PostCard({
             variants={cover.variants}
             sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
             priority={priority}
-            className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+            className="absolute inset-0 size-full object-cover"
           />
         ) : (
           <Image
@@ -74,11 +74,10 @@ export function PostCard({
             unoptimized={isAnimatedImage}
             priority={priority}
             sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+            className="object-cover"
           />
         )}
-        <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0 opacity-40 transition-opacity duration-300 group-hover:opacity-100" />
-        <span className="absolute inset-x-[10px] bottom-[10px] z-10 flex items-end gap-[7px] min-[1800px]:inset-x-3 min-[1800px]:bottom-3 min-[1800px]:gap-2">
+        <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
           {post.creator.avatarStorageProvider === "r2" ? (
             <ResponsiveR2Image
               src={post.creator.avatarUrl}
@@ -97,22 +96,14 @@ export function PostCard({
               className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
             />
           )}
-          <span className="min-w-0 translate-y-1 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
-            <span className="block truncate text-[12px] font-medium leading-tight text-white min-[1800px]:text-[13px]">
-              {post.title}
-            </span>
-            <span className="block truncate text-[10px] leading-tight text-white/75 min-[1800px]:text-[11px]">
-              {post.creator.name}
-            </span>
-          </span>
         </span>
         {post.mediaCount > 1 ? (
-          <span className="absolute right-[10px] top-[10px] z-10 flex size-6 items-center justify-center rounded-full bg-black/35 text-[10px] text-white shadow-sm backdrop-blur-md xl:size-[26px] xl:text-[11px] min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:size-7 min-[1800px]:text-xs">
+          <span className="absolute right-[10px] top-[10px] z-10 flex h-6 min-w-6 items-center justify-center border border-black/10 bg-white/90 px-1.5 text-[10px] text-[#262626] backdrop-blur-md xl:h-[26px] xl:min-w-[26px] xl:text-[11px] min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:h-7 min-[1800px]:min-w-7 min-[1800px]:text-xs">
             <span className="sr-only">{post.mediaCount} slides</span>
             <span aria-hidden="true">{post.mediaCount}</span>
           </span>
         ) : null}
-        <span className="pointer-events-none absolute inset-0 rounded-[20px] border border-black/10" />
+        <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
       </IntentPrefetchLink>
     </article>
   );

@@ -93,7 +93,7 @@ export function ViewFilter({
             if (!open) toggleMenu();
           }
         }}
-        className={`focus-ring group inline-flex h-[26px] items-center gap-1 rounded-full border px-[10px] text-[12px] font-normal leading-none tracking-[0.2px] transition-[background,border-color,opacity] 2xl:h-[27px] 2xl:px-[11px] min-[1700px]:h-7 min-[1700px]:px-3 min-[1700px]:text-[13px] ${
+        className={`focus-ring group inline-flex h-10 min-w-[96px] items-center justify-center gap-1.5 border px-4 text-[13px] font-normal leading-none tracking-[0.2px] transition-[background,border-color,opacity] sm:h-[41px] min-[1200px]:min-w-[111px] min-[1200px]:px-6 min-[1700px]:text-[14px] ${
           open
             ? "border-black/20 bg-white"
             : "border-black/15 bg-white hover:border-black/20 hover:bg-[#f5f5f5]"
@@ -124,7 +124,7 @@ export function ViewFilter({
         aria-label="Post order"
         aria-hidden={!open}
         onMouseLeave={() => setPreviewView(null)}
-        className={`absolute right-0 top-[calc(100%+8px)] z-50 w-[148px] origin-top-right rounded-[13px] border border-black/10 bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${
+        className={`absolute right-0 top-[calc(100%+8px)] z-50 w-[148px] origin-top-right border border-black/10 bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${
           open
             ? "visible translate-y-0 scale-100 opacity-100"
             : "invisible pointer-events-none -translate-y-1 scale-[0.97] opacity-0"
@@ -132,7 +132,7 @@ export function ViewFilter({
       >
         <span
           aria-hidden="true"
-          className={`absolute inset-x-1.5 top-1.5 h-8 rounded-[8px] bg-[#eeeeec] transition-transform duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${
+          className={`absolute inset-x-1.5 top-1.5 h-8 bg-[#eeeeec] transition-transform duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${
             highlightedView === "featured" ? "translate-y-8" : "translate-y-0"
           }`}
         />
@@ -149,7 +149,7 @@ export function ViewFilter({
               onFocus={() => setPreviewView(option.value)}
               onMouseEnter={() => setPreviewView(option.value)}
               onClick={() => changeView(option.value)}
-              className={`focus-ring relative z-10 flex h-8 w-full items-center rounded-[8px] px-2.5 text-left text-[13px] leading-none tracking-[0.2px] transition-colors min-[1700px]:text-[14px] ${
+              className={`focus-ring relative z-10 flex h-8 w-full items-center px-2.5 text-left text-[13px] leading-none tracking-[0.2px] transition-colors min-[1700px]:text-[14px] ${
                 highlightedView === option.value ? "text-black" : "text-[#3f3f3f]"
               }`}
             >

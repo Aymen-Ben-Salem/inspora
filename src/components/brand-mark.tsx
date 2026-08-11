@@ -11,7 +11,7 @@ export function BrandMark({
     <span
       className={`relative block overflow-hidden ${
         responsive
-          ? "h-[35px] w-[39px] lg:h-[37px] lg:w-[41px] 2xl:h-[39px] 2xl:w-[43px] min-[1700px]:h-[41px] min-[1700px]:w-[45px]"
+          ? "h-[29px] w-8"
           : "h-[41px] w-[45px]"
       }`}
       aria-hidden="true"

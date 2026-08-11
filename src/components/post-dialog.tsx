@@ -22,6 +22,7 @@ import {
   getCornerRadius,
 } from "./post-dialog-media-proxy";
 import {
+  lockSecondaryHeaderThroughNavigation,
   restoreFiltersAfterInlinePost,
   suppressFiltersForInlinePost,
 } from "./inline-post-header";
@@ -98,8 +99,10 @@ export function PostDialog({
   const originalScrollY = useRef(0);
   const restoreScrollY = useRef(0);
   const nextFeedDocumentTop = useRef<number | null>(null);
+  const sourceRowCards = useRef<HTMLElement[]>([]);
   const entranceProxy = useRef<HTMLDivElement | null>(null);
   const closing = useRef(false);
+  const closingByScroll = useRef(false);
 
   const finishClose = useCallback(() => {
     if (closeMode === "back") {
@@ -174,6 +177,7 @@ export function PostDialog({
       );
     }
 
+    closingByScroll.current = true;
     closing.current = true;
     finishScrollClose();
   }, [finishScrollClose]);
@@ -198,6 +202,7 @@ export function PostDialog({
     if (!source || !sourceCard || !grid || !gridParent) return;
 
     closing.current = false;
+    closingByScroll.current = false;
     suppressFiltersForInlinePost();
     originalScrollY.current = getSavedFeedScrollPosition();
     restoreScrollY.current = originalScrollY.current;
@@ -225,6 +230,8 @@ export function PostDialog({
     );
     const hiddenCards = cards.slice(0, hiddenCount);
     const remainingCards = cards.slice(hiddenCount);
+    const sourceRowStart = Math.floor(sourceIndex / columnCount) * columnCount;
+    const currentSourceRowCards = cards.slice(sourceRowStart, hiddenCount);
     const gridTop = grid.getBoundingClientRect().top;
     const feedOffset = remainingCards.length > 0
       ? Math.max(
@@ -235,6 +242,7 @@ export function PostDialog({
       : grid.scrollHeight;
     nextFeedDocumentTop.current = gridTop + originalScrollY.current + feedOffset;
     const previousVisibilities = hiddenCards.map((card) => card.style.visibility);
+    const previousOpacities = hiddenCards.map((card) => card.style.opacity);
     const previousGridTransform = grid.style.transform;
     const previousFeedOffset = grid.dataset.inlineFeedOffset;
     const wasGridInert = grid.inert;
@@ -248,6 +256,11 @@ export function PostDialog({
     hiddenCards.forEach((card) => {
       card.style.visibility = "hidden";
     });
+    currentSourceRowCards.forEach((card) => {
+      card.style.opacity = "0";
+      card.style.visibility = "visible";
+    });
+    sourceRowCards.current = currentSourceRowCards;
     grid.style.transform = `translateY(${-feedOffset}px)`;
     grid.dataset.inlineFeedOffset = String(feedOffset);
     gridParent.insertBefore(host, grid);
@@ -274,6 +287,10 @@ export function PostDialog({
       headerObserver?.disconnect();
       entranceProxy.current?.remove();
       entranceProxy.current = null;
+      sourceRowCards.current = [];
+      if (closingByScroll.current) {
+        lockSecondaryHeaderThroughNavigation();
+      }
       restoreFiltersAfterInlinePost();
       grid.inert = wasGridInert;
       if (previousGridAriaHidden === null) {
@@ -289,11 +306,13 @@ export function PostDialog({
       }
       hiddenCards.forEach((card, index) => {
         card.style.visibility = previousVisibilities[index] ?? "";
+        card.style.opacity = previousOpacities[index] ?? "";
       });
       host.remove();
       setPortalHost(null);
       window.scrollTo({ top: restoreScrollY.current, behavior: "instant" });
       nextFeedDocumentTop.current = null;
+      closingByScroll.current = false;
     };
   }, [closeMode, pathname]);
 
@@ -332,9 +351,16 @@ export function PostDialog({
         const travel = Math.max(initialGridTop - headerBottom, 1);
         const progress = Math.min(Math.max((initialGridTop - feedTop) / travel, 0), 1);
         const remaining = 1 - progress;
+        const sourceRowOpacity = Math.min(
+          Math.max((progress - 0.62) / 0.38, 0),
+          1,
+        );
 
         preview.style.backdropFilter = `blur(${8 * remaining}px)`;
         preview.style.backgroundColor = `rgb(255 255 255 / ${0.24 * remaining})`;
+        sourceRowCards.current.forEach((card) => {
+          card.style.opacity = String(sourceRowOpacity);
+        });
 
         if (
           shouldReturnToFeed({

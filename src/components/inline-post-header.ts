@@ -1,4 +1,25 @@
 const FILTER_SELECTOR = "[data-header-filters]";
+const HEADER_SCROLL_LOCK_EVENT = "inspora:lock-secondary-header";
+
+export function isSecondaryHeaderScrollLocked() {
+  return "secondaryHeaderScrollLocked" in document.documentElement.dataset;
+}
+
+export function lockSecondaryHeaderThroughNavigation() {
+  document.documentElement.dataset.secondaryHeaderScrollLocked = "";
+  window.dispatchEvent(new Event(HEADER_SCROLL_LOCK_EVENT));
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      delete document.documentElement.dataset.secondaryHeaderScrollLocked;
+    });
+  });
+}
+
+export function subscribeToSecondaryHeaderLock(listener: () => void) {
+  window.addEventListener(HEADER_SCROLL_LOCK_EVENT, listener);
+  return () => window.removeEventListener(HEADER_SCROLL_LOCK_EVENT, listener);
+}
 
 export function suppressFiltersForInlinePost() {
   document.documentElement.dataset.inlinePostOpen = "";

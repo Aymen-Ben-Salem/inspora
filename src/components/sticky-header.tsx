@@ -2,6 +2,10 @@
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
+import {
+  isSecondaryHeaderScrollLocked,
+  subscribeToSecondaryHeaderLock,
+} from "./inline-post-header";
 import { resolveSecondaryHeaderVisibility } from "./sticky-header-state";
 
 export function StickyHeader({
@@ -24,6 +28,12 @@ export function StickyHeader({
       frame = null;
       const currentScrollY = Math.max(window.scrollY, 0);
 
+      if (isSecondaryHeaderScrollLocked()) {
+        setSecondaryVisible(false);
+        previousScrollY.current = currentScrollY;
+        return;
+      }
+
       setSecondaryVisible((visible) =>
         resolveSecondaryHeaderVisibility({
           currentScrollY,
@@ -39,9 +49,18 @@ export function StickyHeader({
       frame = window.requestAnimationFrame(updateHeader);
     }
 
+    function keepSecondaryHidden() {
+      setSecondaryVisible(false);
+      previousScrollY.current = Math.max(window.scrollY, 0);
+    }
+
     window.addEventListener("scroll", handleScroll, { passive: true });
+    const unsubscribeFromHeaderLock = subscribeToSecondaryHeaderLock(
+      keepSecondaryHidden,
+    );
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      unsubscribeFromHeaderLock();
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
   }, [secondary]);

@@ -17,13 +17,15 @@ function FeedNavigation() {
       aria-hidden="true"
       className="relative z-30 -mb-14 flex h-14 items-center justify-center bg-transparent sm:-mb-16 sm:h-16"
     >
-      <Image
-        src="/brand/down-arrow.svg"
-        alt=""
-        width={60}
-        height={60}
-        className="feed-return-cue size-[52px] min-[1700px]:size-[60px]"
-      />
+      <span className="block -translate-y-[56px] lg:translate-y-0">
+        <Image
+          src="/brand/down-arrow.svg"
+          alt=""
+          width={60}
+          height={60}
+          className="feed-return-cue size-[52px] min-[1700px]:size-[60px]"
+        />
+      </span>
     </div>
   );
 }

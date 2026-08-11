@@ -401,6 +401,8 @@ export function PostDialog({
       const proxy = entranceProxy.current;
 
       if (!hero || !proxy) {
+        proxy?.remove();
+        if (entranceProxy.current === proxy) entranceProxy.current = null;
         if (gallery) resumeLoopingVideos(gallery);
         return;
       }
@@ -408,7 +410,12 @@ export function PostDialog({
       const targetRect = hero.getBoundingClientRect();
       const startRect = sourceRect.current;
 
-      if (!startRect || targetRect.width <= 0) return;
+      if (!startRect || targetRect.width <= 0) {
+        proxy.remove();
+        entranceProxy.current = null;
+        resumeLoopingVideos(gallery ?? portalHost);
+        return;
+      }
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -436,14 +443,29 @@ export function PostDialog({
         borderRadius: getCompensatedRadius(getCornerRadius(hero), scaleX, scaleY),
       });
 
+      let entranceFinished = false;
+      const finishEntrance = () => {
+        if (entranceFinished) return;
+        entranceFinished = true;
+        window.removeEventListener("touchmove", interruptEntrance);
+        window.removeEventListener("wheel", interruptEntrance);
+        gsap.set(hero, { clearProps: "opacity,visibility" });
+        if (sidebar) gsap.set(sidebar, { clearProps: "all" });
+        proxy.remove();
+        if (entranceProxy.current === proxy) entranceProxy.current = null;
+        resumeLoopingVideos(gallery ?? portalHost);
+      };
+
       const timeline = gsap.timeline({
-        onComplete: () => {
-          gsap.set(hero, { clearProps: "opacity,visibility" });
-          proxy.remove();
-          entranceProxy.current = null;
-          resumeLoopingVideos(gallery ?? portalHost);
-        },
+        onComplete: finishEntrance,
       });
+      const interruptEntrance = () => {
+        timeline.kill();
+        finishEntrance();
+      };
+
+      window.addEventListener("touchmove", interruptEntrance, { passive: true });
+      window.addEventListener("wheel", interruptEntrance, { passive: true });
 
       timeline.to(proxy, {
         x: 0,
@@ -461,6 +483,11 @@ export function PostDialog({
           0.06,
         );
       }
+
+      return () => {
+        timeline.kill();
+        finishEntrance();
+      };
     },
     { scope: portalHost ?? undefined, dependencies: [pathname, portalHost] },
   );

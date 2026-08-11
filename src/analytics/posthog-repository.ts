@@ -16,6 +16,7 @@ import {
   toAnalyticsNumber,
   type AdminAnalytics,
   type AnalyticsRange,
+  type LiveVisitorAnalytics,
 } from "./posthog-data";
 
 const queryResponseSchema = z.object({
@@ -27,6 +28,14 @@ const ANALYTICS_CACHE_LIFE = {
   revalidate: 300,
   expire: 3600,
 } as const;
+
+const LIVE_ANALYTICS_CACHE_LIFE = {
+  stale: 15,
+  revalidate: 15,
+  expire: 60,
+} as const;
+
+export const LIVE_VISITOR_WINDOW_MINUTES = 5;
 
 type PostHogConfiguration = {
   apiHost: string;
@@ -276,5 +285,29 @@ export async function getAdminAnalytics(
     topBrowsers: mapAnalyticsBreakdownRows(browserRows, "Unknown browser"),
     hourlyActivity: fillHourlyAnalytics(hourlyRows),
     tools: createPostHogTools(configuration),
+  };
+}
+
+export async function getLiveVisitorAnalytics(): Promise<LiveVisitorAnalytics> {
+  "use cache";
+
+  cacheLife(LIVE_ANALYTICS_CACHE_LIFE);
+
+  const configuration = getPostHogConfiguration();
+  if (!configuration) throw new Error("PostHog admin analytics is not configured.");
+
+  const rows = await runHogQlQuery(
+    configuration,
+    "Inspora live visitors",
+    `SELECT uniq(distinct_id) AS live_visitors
+      FROM events
+      WHERE timestamp >= now() - INTERVAL ${LIVE_VISITOR_WINDOW_MINUTES} MINUTE
+        AND event != '$pageleave'`,
+  );
+
+  return {
+    count: toAnalyticsNumber(rows[0]?.[0]),
+    generatedAt: new Date().toISOString(),
+    windowMinutes: LIVE_VISITOR_WINDOW_MINUTES,
   };
 }

@@ -45,6 +45,12 @@ export type PostHogTool = {
   label: string;
 };
 
+export type LiveVisitorAnalytics = {
+  count: number;
+  generatedAt: string;
+  windowMinutes: number;
+};
+
 export type AdminAnalytics = {
   range: AnalyticsRange;
   generatedAt: string;

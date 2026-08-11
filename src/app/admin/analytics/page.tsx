@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import {
   getAdminAnalytics,
+  getLiveVisitorAnalytics,
   isPostHogAdminConfigured,
 } from "@/analytics/posthog-repository";
 import {
@@ -11,9 +12,11 @@ import {
   type AdminAnalytics,
   type AnalyticsBreakdown,
   type AnalyticsRange,
+  type LiveVisitorAnalytics,
   type PostHogTool,
 } from "@/analytics/posthog-data";
 import { AudienceTechnologyCard, TrafficChart } from "./analytics-tabs";
+import { LiveVisitorsCard } from "./live-visitors-card";
 
 type AnalyticsPageProps = {
   searchParams: Promise<{ days?: string | string[] }>;
@@ -309,14 +312,26 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const range = parseRange(days);
 
   let analytics: AdminAnalytics | null = null;
+  let liveAnalytics: LiveVisitorAnalytics | null = null;
   let failed = false;
 
   if (isPostHogAdminConfigured()) {
-    try {
-      analytics = await getAdminAnalytics(range);
-    } catch (error) {
-      console.error("Admin analytics query failed", error);
+    const [analyticsResult, liveAnalyticsResult] = await Promise.allSettled([
+      getAdminAnalytics(range),
+      getLiveVisitorAnalytics(),
+    ]);
+
+    if (analyticsResult.status === "fulfilled") {
+      analytics = analyticsResult.value;
+    } else {
+      console.error("Admin analytics query failed", analyticsResult.reason);
       failed = true;
+    }
+
+    if (liveAnalyticsResult.status === "fulfilled") {
+      liveAnalytics = liveAnalyticsResult.value;
+    } else {
+      console.error("Live visitor query failed", liveAnalyticsResult.reason);
     }
   }
 
@@ -348,6 +363,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       {failed ? <UnavailableState /> : null}
       {analytics ? (
         <>
+          <LiveVisitorsCard initialAnalytics={liveAnalytics} />
           <section className="grid overflow-hidden rounded-2xl border border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard label="Pageviews" value={analytics.summary.pageviews} />
             <MetricCard label="Visitors" value={analytics.summary.uniqueVisitors} />

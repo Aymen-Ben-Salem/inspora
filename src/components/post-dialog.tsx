@@ -26,7 +26,11 @@ import {
   restoreFiltersAfterInlinePost,
   suppressFiltersForInlinePost,
 } from "./inline-post-header";
-import { resumeLoopingVideos } from "./looping-video";
+import {
+  resumeLoopingVideos,
+  resumeVisibleLoopingVideos,
+  suspendLoopingVideos,
+} from "./looping-video";
 import { shouldReturnToFeed } from "./post-route-scroll";
 import {
   getCapturedPostReturnUrl,
@@ -253,6 +257,7 @@ export function PostDialog({
     host.className = "inline-post-host";
     grid.inert = true;
     grid.setAttribute("aria-hidden", "true");
+    suspendLoopingVideos(grid);
     hiddenCards.forEach((card) => {
       card.style.visibility = "hidden";
     });
@@ -311,6 +316,7 @@ export function PostDialog({
       host.remove();
       setPortalHost(null);
       window.scrollTo({ top: restoreScrollY.current, behavior: "instant" });
+      resumeVisibleLoopingVideos(grid);
       nextFeedDocumentTop.current = null;
       closingByScroll.current = false;
     };

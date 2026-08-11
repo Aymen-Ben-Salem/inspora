@@ -14,6 +14,11 @@ type LoopingVideoProps = Omit<
 };
 
 function playSilently(video: HTMLVideoElement) {
+  if (video.hasAttribute("data-looping-video-suspended")) {
+    video.pause();
+    return;
+  }
+
   video.controls = false;
   video.defaultMuted = true;
   video.loop = true;
@@ -43,7 +48,34 @@ function detachVideoSource(video: HTMLVideoElement) {
 export function resumeLoopingVideos(root: ParentNode) {
   root
     .querySelectorAll<HTMLVideoElement>("[data-looping-video]")
-    .forEach(playSilently);
+    .forEach((video) => {
+      video.removeAttribute("data-looping-video-suspended");
+      playSilently(video);
+    });
+}
+
+export function suspendLoopingVideos(root: ParentNode) {
+  root
+    .querySelectorAll<HTMLVideoElement>("[data-looping-video]")
+    .forEach((video) => {
+      video.setAttribute("data-looping-video-suspended", "");
+      video.pause();
+    });
+}
+
+export function resumeVisibleLoopingVideos(root: ParentNode) {
+  root
+    .querySelectorAll<HTMLVideoElement>("[data-looping-video]")
+    .forEach((video) => {
+      video.removeAttribute("data-looping-video-suspended");
+
+      const rect = video.getBoundingClientRect();
+      const loadMargin = 240;
+      const isNearViewport =
+        rect.bottom >= -loadMargin && rect.top <= window.innerHeight + loadMargin;
+
+      if (isNearViewport) playSilently(video);
+    });
 }
 
 export function LoopingVideo({

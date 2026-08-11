@@ -15,7 +15,12 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
   return (
     <DetailMotion overlay={overlay}>
       {post.media.map((media) => {
-        const maxViewportHeight = overlay ? 61.5 : 79.2;
+        const isPortrait = media.height / media.width >= 1.15;
+        const maxViewportHeight = overlay
+          ? isPortrait
+            ? 85
+            : 72
+          : 79.2;
         const aspectRatio = media.width / media.height;
         const maxViewportWidth = maxViewportHeight * aspectRatio;
         const isAnimated = media.type === "video" || isGifUrl(media.url);
@@ -36,7 +41,11 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
           <figure
             key={media.id}
             data-detail-media
-            className="flex h-full min-w-full snap-center items-center justify-center px-4 py-10 sm:px-8 lg:px-10 lg:py-0"
+            className={`flex min-w-full snap-center items-center justify-center ${
+              overlay
+                ? "h-auto px-4 py-6 sm:px-8 sm:py-8 md:px-10 md:py-10 lg:h-full lg:py-0"
+                : "h-full px-4 py-10 sm:px-8 lg:px-10 lg:py-0"
+            }`}
           >
             <div
               data-post-dialog-surface={overlay ? "" : undefined}

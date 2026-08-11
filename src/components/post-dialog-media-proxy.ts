@@ -99,6 +99,7 @@ function createVideoProxy(source: HTMLVideoElement) {
 
   video.autoplay = true;
   video.controls = false;
+  video.dataset.loopingVideo = "";
   video.defaultMuted = true;
   video.loop = true;
   video.muted = true;
@@ -106,6 +107,9 @@ function createVideoProxy(source: HTMLVideoElement) {
   video.preload = "auto";
   video.poster = source.poster;
   video.src = src;
+  video.setAttribute("muted", "");
+  video.setAttribute("playsinline", "");
+  video.setAttribute("webkit-playsinline", "");
 
   if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
     syncPlayback();

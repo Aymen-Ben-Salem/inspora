@@ -15,6 +15,7 @@ type LoopingVideoProps = Omit<
 
 function playSilently(video: HTMLVideoElement) {
   video.controls = false;
+  video.removeAttribute("controls");
   video.defaultMuted = true;
   video.loop = true;
   video.muted = true;
@@ -53,6 +54,28 @@ export function LoopingVideo({
   ...props
 }: LoopingVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video) return;
+
+    const removeInjectedControls = () => {
+      if (video.controls || video.hasAttribute("controls")) {
+        video.controls = false;
+        video.removeAttribute("controls");
+      }
+    };
+    const controlsObserver = new MutationObserver(removeInjectedControls);
+
+    removeInjectedControls();
+    controlsObserver.observe(video, {
+      attributeFilter: ["controls"],
+      attributes: true,
+    });
+
+    return () => controlsObserver.disconnect();
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;

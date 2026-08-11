@@ -22,7 +22,7 @@ export function PostDetail({
     <section
       data-post-dialog-post-id={post.id}
       aria-label={`Post: ${post.title}`}
-      className="pointer-events-auto flex h-[calc(100dvh-72px-var(--post-feed-peek))] min-h-0 w-full max-w-full flex-col overflow-hidden border-y border-[#e6e6e6] bg-white lg:h-[max(560px,calc(100dvh-272px))] lg:flex-row xl:h-[max(540px,calc(100dvh-300px))]"
+      className="pointer-events-auto flex min-h-[calc(100dvh_-_72px_-_56px_-_112px)] w-full max-w-full flex-col overflow-hidden border-y border-[#e6e6e6] bg-white sm:min-h-[calc(100dvh_-_72px_-_64px_-_124px)] lg:min-h-[calc(100dvh_-_80px_-_64px_-_124px)] lg:flex-row"
     >
       <PostAnalytics post={post} />
       <PostGallery post={post} overlay />

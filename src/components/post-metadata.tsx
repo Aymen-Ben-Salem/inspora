@@ -108,7 +108,7 @@ export function PostMetadata({
       data-post-dialog-sidebar={overlay ? "" : undefined}
       className={`flex w-full flex-col border-t border-[#e6e6e6] bg-white lg:border-l lg:border-t-0 ${
         overlay
-          ? "min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-full lg:w-[clamp(360px,30vw,510px)] lg:flex-none lg:shrink-0 lg:overflow-hidden"
+          ? "min-h-0 flex-none overflow-visible lg:min-h-full lg:w-[clamp(360px,30vw,510px)] lg:shrink-0"
           : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:w-[clamp(360px,30vw,510px)]"
       }`}
     >

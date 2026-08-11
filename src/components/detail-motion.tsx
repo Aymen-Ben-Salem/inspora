@@ -33,7 +33,7 @@ export function DetailMotion({
       data-post-dialog-gallery={overlay ? "" : undefined}
       className={`flex min-w-0 snap-x snap-mandatory items-center overflow-x-auto overflow-y-hidden [scrollbar-width:none] [container-type:size] [&::-webkit-scrollbar]:hidden ${
         overlay
-          ? "h-[46%] min-h-0 flex-none bg-gradient-to-b from-white to-[#d2d1d1] lg:h-full lg:flex-1"
+          ? "h-[46dvh] min-h-[320px] flex-none bg-gradient-to-b from-white to-[#d2d1d1] lg:h-auto lg:min-h-0 lg:self-stretch lg:flex-1"
           : "min-h-[62dvh] flex-1 bg-[#262626]"
       }`}
     >

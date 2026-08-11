@@ -9,15 +9,21 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
+  useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   createMediaProxy,
   getCompensatedRadius,
   getCornerRadius,
-  getIntrinsicMediaAspectRatio,
 } from "./post-dialog-media-proxy";
+import {
+  restoreFiltersAfterInlinePost,
+  suppressFiltersForInlinePost,
+} from "./inline-post-header";
 import { resumeLoopingVideos } from "./looping-video";
 import { shouldReturnToFeed } from "./post-route-scroll";
 
@@ -25,65 +31,43 @@ gsap.registerPlugin(useGSAP);
 
 export type PostDialogCloseMode = "back" | "home";
 
-const POST_ENTRANCE_DURATION = 0.38;
-const POST_EXIT_DURATION = 0.34;
-const SIDEBAR_ENTRANCE_DURATION = 0.34;
-const SIDEBAR_EXIT_DURATION = 0.2;
-const SIDEBAR_ENTRANCE_DELAY = 0;
-const POST_EXIT_DELAY = 0.035;
-const EXIT_DURATION = POST_EXIT_DELAY + POST_EXIT_DURATION;
-
 const PostDialogCloseContext = createContext<(() => void) | undefined>(undefined);
 
 export function usePostDialogClose() {
   return useContext(PostDialogCloseContext);
 }
 
-function findFeedPost(postId: string | undefined) {
-  if (!postId) return undefined;
-
-  return Array.from(
-    document.querySelectorAll<HTMLElement>("[data-feed-post-id]"),
-  ).find((candidate) => candidate.dataset.feedPostId === postId);
-}
-
-function isVisible(rect: DOMRect | undefined) {
-  return Boolean(
-    rect &&
-      rect.bottom > 0 &&
-      rect.right > 0 &&
-      rect.top < window.innerHeight &&
-      rect.left < window.innerWidth,
+function getColumnCount(grid: HTMLElement) {
+  return Math.max(
+    1,
+    getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length,
   );
 }
 
-function getOtherGalleryItems(gallery: HTMLElement, hero: HTMLElement) {
+function getSourceLink(pathname: string) {
   return Array.from(
-    gallery.querySelectorAll<HTMLElement>("[data-detail-media]"),
-  ).filter((item) => !item.contains(hero));
+    document.querySelectorAll<HTMLAnchorElement>("[data-feed-post-id]"),
+  ).find((link) => new URL(link.href, window.location.href).pathname === pathname);
 }
 
-function prepareGalleryForTransition(
-  gallery: HTMLElement,
-  hero: HTMLElement,
-) {
-  gsap.set(gallery, {
-    overflow: "visible",
-    position: "relative",
-    zIndex: 2,
-  });
-  const otherItems = getOtherGalleryItems(gallery, hero);
-  if (otherItems.length) gsap.set(otherItems, { visibility: "hidden" });
+function getHeaderBottom() {
+  return document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
 }
 
-function restoreGalleryAfterTransition(
-  gallery: HTMLElement,
-  hero: HTMLElement,
-) {
-  gsap.set(gallery, { clearProps: "overflow,position,zIndex" });
-  const otherItems = getOtherGalleryItems(gallery, hero);
-  if (otherItems.length) gsap.set(otherItems, { clearProps: "visibility" });
-  resumeLoopingVideos(gallery);
+function alignHostBelowHeader(host: HTMLElement) {
+  const currentMargin = Number.parseFloat(host.style.marginTop) || 0;
+  const unadjustedDocumentTop =
+    host.getBoundingClientRect().top + window.scrollY - currentMargin;
+
+  host.style.marginTop = `${getHeaderBottom() - unadjustedDocumentTop}px`;
+}
+
+function getSavedFeedScrollPosition() {
+  const value = Number(
+    window.sessionStorage.getItem("inspora:feed-scroll-position"),
+  );
+
+  return Number.isFinite(value) && value >= 0 ? value : window.scrollY;
 }
 
 export function PostDialog({
@@ -92,12 +76,10 @@ export function PostDialog({
 }: PropsWithChildren<{ closeMode: PostDialogCloseMode }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const scope = useRef<HTMLDivElement>(null);
-  const entrance = useRef<gsap.core.Timeline>(null);
-  const entranceHero = useRef<HTMLElement>(null);
-  const entranceHeroRect = useRef<DOMRect>(null);
-  const entranceProxy = useRef<HTMLDivElement>(null);
-  const exitProxy = useRef<HTMLDivElement>(null);
+  const [portalHost, setPortalHost] = useState<HTMLDivElement | null>(null);
+  const sourceRect = useRef<DOMRect | null>(null);
+  const originalScrollY = useRef(0);
+  const entranceProxy = useRef<HTMLDivElement | null>(null);
   const closing = useRef(false);
 
   const finishClose = useCallback(() => {
@@ -109,247 +91,200 @@ export function PostDialog({
     router.push("/");
   }, [closeMode, router]);
 
-  const returnToFeed = useCallback(() => {
-    if (closing.current) return;
-
-    closing.current = true;
-    entrance.current?.kill();
-    entrance.current = null;
-    entranceProxy.current?.remove();
-    entranceProxy.current = null;
-    exitProxy.current?.remove();
-    exitProxy.current = null;
-    const root = scope.current;
-    const preview = root?.querySelector<HTMLElement>("[data-post-feed-preview]");
-
-    if (preview) {
-      gsap.to(preview, {
-        autoAlpha: 0,
-        backdropFilter: "blur(0px)",
-        duration: 0.16,
-        ease: "power2.out",
-        onComplete: finishClose,
-      });
-      return;
-    }
-
-    finishClose();
-  }, [finishClose]);
-
   const requestClose = useCallback(() => {
     if (closing.current) return;
-
-    const root = scope.current;
-
-    if (!root) {
-      finishClose();
-      return;
-    }
-
     closing.current = true;
-    entrance.current?.kill();
-    entrance.current = null;
-    entranceProxy.current?.remove();
-    entranceProxy.current = null;
-    exitProxy.current?.remove();
-    exitProxy.current = null;
 
-    if (entranceHero.current) {
-      gsap.set(entranceHero.current, { clearProps: "opacity,visibility" });
-    }
+    const host = portalHost;
+    const hero = host?.querySelector<HTMLElement>("[data-post-dialog-hero]");
+    const heroRect = hero?.getBoundingClientRect();
+    const targetRect = sourceRect.current;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const backdrop = root.querySelector<HTMLElement>("[data-post-dialog-backdrop]");
-    const gallery = root.querySelector<HTMLElement>("[data-post-dialog-gallery]");
-    const sidebar = root.querySelector<HTMLElement>("[data-post-dialog-sidebar]");
-    const hero = root.querySelector<HTMLElement>("[data-post-dialog-hero]");
-    const postId = root.querySelector<HTMLElement>("[data-post-dialog-post-id]")
-      ?.dataset.postDialogPostId;
-    const source = findFeedPost(postId);
-    const sourceRect = source?.getBoundingClientRect();
-    const finalHeroRect =
-      hero === entranceHero.current && entranceHeroRect.current
-        ? entranceHeroRect.current
-        : hero?.getBoundingClientRect();
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-
-    if (
-      reducedMotion ||
-      !backdrop ||
-      !gallery ||
-      !sidebar ||
-      !hero ||
-      !finalHeroRect
-    ) {
+    if (!host || !hero || !heroRect || !targetRect || reducedMotion) {
       finishClose();
       return;
     }
 
-    gsap.set(root, { pointerEvents: "none" });
-    prepareGalleryForTransition(gallery, hero);
+    const proxy = createMediaProxy({
+      fallback: hero,
+      media: hero,
+      rect: heroRect,
+      root: document.body,
+    });
 
-    const timeline = gsap.timeline({
+    if (!proxy) {
+      finishClose();
+      return;
+    }
+
+    gsap.set(hero, { autoAlpha: 0 });
+    gsap.to(host, { autoAlpha: 0, duration: 0.18, ease: "power2.in" });
+    gsap.to(proxy, {
+      x: targetRect.left - heroRect.left,
+      y: targetRect.top - heroRect.top,
+      scaleX: targetRect.width / heroRect.width,
+      scaleY: targetRect.height / heroRect.height,
+      borderRadius: getCompensatedRadius(
+        getCornerRadius(document.querySelector(`[data-feed-post-id]`) ?? hero),
+        targetRect.width / heroRect.width,
+        targetRect.height / heroRect.height,
+      ),
+      duration: 0.32,
+      ease: "power3.inOut",
       onComplete: () => {
-        exitProxy.current?.remove();
-        exitProxy.current = null;
+        proxy.remove();
         finishClose();
       },
     });
+  }, [finishClose, portalHost]);
 
-    timeline.to(
-      backdrop,
-      { autoAlpha: 0, duration: 0.24, ease: "power2.in" },
-      EXIT_DURATION - 0.24,
-    );
-    timeline.to(
-      sidebar,
-      {
-        xPercent: 100,
-        duration: SIDEBAR_EXIT_DURATION,
-        ease: "power3.out",
-      },
-      0,
-    );
-
-    if (
-      source &&
-      sourceRect &&
-      isVisible(sourceRect) &&
-      finalHeroRect.width > 0
-    ) {
-      const proxy = createMediaProxy({
-        fallback: source,
-        media: hero,
-        rect: finalHeroRect,
-        root,
-      });
-
-      if (proxy) {
-        exitProxy.current = proxy;
-        const scaleX = sourceRect.width / finalHeroRect.width;
-        const scaleY = sourceRect.height / finalHeroRect.height;
-        const sourceRadius = getCornerRadius(source);
-
-        gsap.set(proxy, {
-          borderRadius: getCornerRadius(hero),
-          boxShadow: getComputedStyle(hero).boxShadow,
-        });
-        gsap.set(hero, { autoAlpha: 0 });
-        timeline.to(
-          proxy,
-          {
-            x: sourceRect.left - finalHeroRect.left,
-            y: sourceRect.top - finalHeroRect.top,
-            scaleX,
-            scaleY,
-            borderRadius: getCompensatedRadius(
-              sourceRadius,
-              scaleX,
-              scaleY,
-            ),
-            boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
-            duration: POST_EXIT_DURATION,
-            ease: "power3.inOut",
-          },
-          POST_EXIT_DELAY,
-        );
-        return;
-      }
-
-      timeline.to(
-        hero,
-        {
-          x: sourceRect.left - finalHeroRect.left,
-          y: sourceRect.top - finalHeroRect.top,
-          scaleX: sourceRect.width / finalHeroRect.width,
-          scaleY: sourceRect.height / finalHeroRect.height,
-          transformOrigin: "top left",
-          duration: POST_EXIT_DURATION,
-          ease: "power3.inOut",
-        },
-        POST_EXIT_DELAY,
-      );
-      return;
-    }
-
-    timeline.to(
-      hero,
-      {
-        autoAlpha: 0,
-        scale: 0.96,
-        duration: POST_EXIT_DURATION,
-        ease: "power2.in",
-      },
-      POST_EXIT_DELAY,
-    );
+  const returnToFeed = useCallback(() => {
+    if (closing.current) return;
+    closing.current = true;
+    finishClose();
   }, [finishClose]);
 
   useEffect(() => {
-    const previousOverflow = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
+    function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") requestClose();
-    };
+    }
 
     window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.documentElement.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      entranceProxy.current?.remove();
-      entranceProxy.current = null;
-      exitProxy.current?.remove();
-      exitProxy.current = null;
-    };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [requestClose]);
 
-  useEffect(() => {
-    const root = scope.current;
-    if (!root) return;
+  useLayoutEffect(() => {
+    if (closeMode !== "back") return;
 
-    let previousScrollTop = root.scrollTop;
-    let feedDocumentTop: number | undefined;
+    const source = getSourceLink(pathname);
+    const sourceCard = source?.closest<HTMLElement>("[data-feed-card]");
+    const grid = sourceCard?.closest<HTMLElement>(".feed-grid");
+    const gridParent = grid?.parentElement;
+
+    if (!source || !sourceCard || !grid || !gridParent) return;
+
+    closing.current = false;
+    suppressFiltersForInlinePost();
+    originalScrollY.current = getSavedFeedScrollPosition();
+    window.scrollTo({ top: originalScrollY.current, behavior: "instant" });
+    sourceRect.current = source.getBoundingClientRect();
+
+    entranceProxy.current = createMediaProxy({
+      fallback: source,
+      media: source,
+      rect: sourceRect.current,
+      root: document.body,
+      mediaSourcePreference: "fallback",
+    }) ?? null;
+
+    const cards = Array.from(
+      grid.querySelectorAll<HTMLElement>(":scope > [data-feed-card]"),
+    );
+    const sourceIndex = cards.indexOf(sourceCard);
+    const columnCount = getColumnCount(grid);
+    const hiddenCount = Math.min(
+      cards.length,
+      Math.ceil((sourceIndex + 1) / columnCount) * columnCount,
+    );
+    const hiddenCards = cards.slice(0, hiddenCount);
+    const previousDisplays = hiddenCards.map((card) => card.style.display);
+    const host = document.createElement("div");
+
+    host.dataset.inlinePostHost = "";
+    host.className = "inline-post-host";
+    hiddenCards.forEach((card) => {
+      card.style.display = "none";
+    });
+    gridParent.insertBefore(host, grid);
+    alignHostBelowHeader(host);
+
+    const header = document.querySelector<HTMLElement>("header");
+    const headerObserver = header
+      ? new ResizeObserver(() => alignHostBelowHeader(host))
+      : null;
+    const handleResize = () => alignHostBelowHeader(host);
+
+    if (header) headerObserver?.observe(header);
+    window.addEventListener("resize", handleResize);
+
+    const frame = window.requestAnimationFrame(() => {
+      setPortalHost(host);
+      const hostTop = host.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, hostTop - getHeaderBottom()), behavior: "instant" });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", handleResize);
+      headerObserver?.disconnect();
+      entranceProxy.current?.remove();
+      entranceProxy.current = null;
+      restoreFiltersAfterInlinePost();
+      hiddenCards.forEach((card, index) => {
+        card.style.display = previousDisplays[index] ?? "";
+      });
+      host.remove();
+      setPortalHost(null);
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: originalScrollY.current, behavior: "instant" });
+      });
+    };
+  }, [closeMode, pathname]);
+
+  useLayoutEffect(() => {
+    if (closeMode !== "back" || !portalHost) return;
+
+    const grid = portalHost.nextElementSibling as HTMLElement | null;
+    const preview = portalHost.querySelector<HTMLElement>(
+      "[data-post-feed-preview]",
+    );
+    const resizeObserver = grid && preview
+      ? new ResizeObserver(() => {
+          preview.style.height = `${grid.scrollHeight}px`;
+        })
+      : null;
+
+    if (grid && preview) {
+      preview.style.height = `${grid.scrollHeight}px`;
+      resizeObserver?.observe(grid);
+    }
+
+    let previousScrollY = window.scrollY;
+    let initialGridTop: number | null = null;
     let frame: number | null = null;
 
     function evaluateScroll() {
       frame = null;
-      const feed = root?.querySelector<HTMLElement>("[data-post-feed-start]");
-      const preview = root?.querySelector<HTMLElement>("[data-post-feed-preview]");
-      const header = root?.querySelector<HTMLElement>("header");
-      const currentScrollTop = root?.scrollTop ?? 0;
+      const grid = portalHost?.nextElementSibling as HTMLElement | null;
+      const preview = portalHost?.querySelector<HTMLElement>("[data-post-feed-preview]");
+      const currentScrollY = window.scrollY;
+      const headerBottom = getHeaderBottom();
 
-      if (feed && header && preview) {
-        const feedTop = feed.getBoundingClientRect().top;
-        const headerBottom = header.getBoundingClientRect().bottom;
-        feedDocumentTop ??= feedTop + currentScrollTop;
-        const revealDistance = Math.max(feedDocumentTop - headerBottom, 1);
-        const revealProgress = Math.min(
-          Math.max(currentScrollTop / revealDistance, 0),
-          1,
-        );
-        const remaining = 1 - revealProgress;
+      if (grid && preview) {
+        const gridTop = grid.getBoundingClientRect().top;
+        initialGridTop ??= gridTop;
+        const travel = Math.max(initialGridTop - headerBottom, 1);
+        const progress = Math.min(Math.max((initialGridTop - gridTop) / travel, 0), 1);
+        const remaining = 1 - progress;
 
-        preview.style.backdropFilter = `blur(${10 * remaining}px)`;
-        preview.style.backgroundColor = `rgb(255 255 255 / ${0.3 * remaining})`;
+        preview.style.backdropFilter = `blur(${8 * remaining}px)`;
+        preview.style.backgroundColor = `rgb(255 255 255 / ${0.24 * remaining})`;
+
+        if (
+          shouldReturnToFeed({
+            currentScrollTop: currentScrollY,
+            previousScrollTop: previousScrollY,
+            feedTop: gridTop,
+            headerBottom,
+          })
+        ) {
+          returnToFeed();
+          return;
+        }
       }
 
-      if (
-        feed &&
-        header &&
-        shouldReturnToFeed({
-          currentScrollTop,
-          previousScrollTop,
-          feedTop: feed.getBoundingClientRect().top,
-          headerBottom: header.getBoundingClientRect().bottom,
-        })
-      ) {
-        returnToFeed();
-        return;
-      }
-
-      previousScrollTop = currentScrollTop;
+      previousScrollY = currentScrollY;
     }
 
     function handleScroll() {
@@ -357,266 +292,97 @@ export function PostDialog({
       frame = window.requestAnimationFrame(evaluateScroll);
     }
 
-    root.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      root.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+      resizeObserver?.disconnect();
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
-  }, [returnToFeed]);
+  }, [closeMode, portalHost, returnToFeed]);
 
   useGSAP(
     () => {
-      const root = scope.current;
+      if (closeMode !== "back" || !portalHost) return;
 
-      if (!root || closeMode !== "back") return;
+      const hero = portalHost.querySelector<HTMLElement>("[data-post-dialog-hero]");
+      const sidebar = portalHost.querySelector<HTMLElement>("[data-post-dialog-sidebar]");
+      const gallery = portalHost.querySelector<HTMLElement>("[data-post-dialog-gallery]");
+      const proxy = entranceProxy.current;
 
-      closing.current = false;
-      entrance.current = null;
-      gsap.set(root, { clearProps: "pointerEvents" });
-      root.scrollTop = 0;
-      entranceProxy.current?.remove();
-      entranceProxy.current = null;
-      exitProxy.current?.remove();
-      exitProxy.current = null;
-      root
-        .querySelectorAll<HTMLElement>("[data-post-dialog-media-proxy]")
-        .forEach((proxy) => proxy.remove());
-
-      let observer: MutationObserver | undefined;
-
-      const startEntrance = () => {
-        const backdrop = root.querySelector<HTMLElement>(
-          "[data-post-dialog-backdrop]",
-        );
-        const gallery = root.querySelector<HTMLElement>(
-          "[data-post-dialog-gallery]",
-        );
-        const sidebar = root.querySelector<HTMLElement>(
-          "[data-post-dialog-sidebar]",
-        );
-        const hero = root.querySelector<HTMLElement>("[data-post-dialog-hero]");
-        const postId = root.querySelector<HTMLElement>(
-          "[data-post-dialog-post-id]",
-        )?.dataset.postDialogPostId;
-
-        if (!backdrop || !gallery || !sidebar || !hero || !postId) return false;
-
-        const source = findFeedPost(postId);
-        const intrinsicAspectRatio = getIntrinsicMediaAspectRatio(source);
-        const maxViewportHeight = Number(
-          hero.dataset.postDialogMaxViewportHeight,
-        );
-        const containerInsetMin = Number(
-          hero.dataset.postDialogContainerInsetMin,
-        );
-        const containerInsetFluid = Number(
-          hero.dataset.postDialogContainerInsetFluid,
-        );
-        const containerInsetMax = Number(
-          hero.dataset.postDialogContainerInsetMax,
-        );
-        const maxPixelWidth = Number(hero.dataset.postDialogMaxPixelWidth);
-
-        if (
-          intrinsicAspectRatio &&
-          Number.isFinite(maxViewportHeight) &&
-          maxViewportHeight > 0
-        ) {
-          hero.style.aspectRatio = String(intrinsicAspectRatio);
-          const widthLimits = [
-            "100%",
-            `${maxViewportHeight * intrinsicAspectRatio}dvh`,
-          ];
-
-          if (Number.isFinite(maxPixelWidth) && maxPixelWidth > 0) {
-            widthLimits.push(`${maxPixelWidth}px`);
-          }
-
-          if (
-            Number.isFinite(containerInsetMin) &&
-            Number.isFinite(containerInsetFluid) &&
-            Number.isFinite(containerInsetMax)
-          ) {
-            widthLimits.push(
-              `calc(${intrinsicAspectRatio * 100}cqh - clamp(${intrinsicAspectRatio * containerInsetMin}px, ${intrinsicAspectRatio * containerInsetFluid}cqh, ${intrinsicAspectRatio * containerInsetMax}px))`,
-            );
-          }
-
-          hero.style.width = `min(${widthLimits.join(", ")})`;
-        }
-
-        const targetRect = hero.getBoundingClientRect();
-        const sourceRect = source?.getBoundingClientRect();
-        const reducedMotion = window.matchMedia(
-          "(prefers-reduced-motion: reduce)",
-        ).matches;
-
-        entranceHero.current = hero;
-        entranceHeroRect.current = targetRect;
-
-        if (reducedMotion) {
-          gsap.set([backdrop, gallery, sidebar, hero], { clearProps: "all" });
-          resumeLoopingVideos(gallery);
-          return true;
-        }
-
-        let proxy: HTMLDivElement | undefined;
-        const timeline = gsap.timeline({
-          onComplete: () => {
-            if (proxy) {
-              gsap.set(hero, { clearProps: "opacity,visibility" });
-              proxy.remove();
-              entranceProxy.current = null;
-            }
-
-            restoreGalleryAfterTransition(gallery, hero);
-          },
-        });
-
-        entrance.current = timeline;
-        prepareGalleryForTransition(gallery, hero);
-        gsap.set(backdrop, { autoAlpha: 0 });
-        gsap.set(sidebar, { xPercent: 100, willChange: "transform" });
-
-        timeline.to(
-          backdrop,
-          { autoAlpha: 1, duration: 0.22, ease: "power2.out" },
-          0,
-        );
-        timeline.to(
-          sidebar,
-          {
-            xPercent: 0,
-            duration: SIDEBAR_ENTRANCE_DURATION,
-            ease: "power3.out",
-            clearProps: "transform,willChange",
-          },
-          SIDEBAR_ENTRANCE_DELAY,
-        );
-
-        if (
-          source &&
-          sourceRect &&
-          isVisible(sourceRect) &&
-          targetRect.width > 0
-        ) {
-          proxy = createMediaProxy({
-            fallback: source,
-            media: hero,
-            rect: targetRect,
-            root,
-            mediaSourcePreference: hero.hasAttribute(
-              "data-post-dialog-animated-media",
-            )
-              ? "fallback"
-              : "media",
-          });
-
-          if (proxy) {
-            const scaleX = sourceRect.width / targetRect.width;
-            const scaleY = sourceRect.height / targetRect.height;
-            const targetRadius = getCornerRadius(hero);
-
-            entranceProxy.current = proxy;
-            gsap.set(proxy, {
-              x: sourceRect.left - targetRect.left,
-              y: sourceRect.top - targetRect.top,
-              scaleX,
-              scaleY,
-              borderRadius: getCompensatedRadius(
-                getCornerRadius(source),
-                scaleX,
-                scaleY,
-              ),
-              boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
-            });
-            gsap.set(hero, { autoAlpha: 0 });
-            timeline.to(
-              proxy,
-              {
-                x: 0,
-                y: 0,
-                scaleX: 1,
-                scaleY: 1,
-                borderRadius: targetRadius,
-                boxShadow: "0 18px 60px rgba(0, 0, 0, 0.12)",
-                duration: POST_ENTRANCE_DURATION,
-                ease: "power3.out",
-              },
-              0,
-            );
-            return true;
-          }
-
-          gsap.set(hero, {
-            x: sourceRect.left - targetRect.left,
-            y: sourceRect.top - targetRect.top,
-            scaleX: sourceRect.width / targetRect.width,
-            scaleY: sourceRect.height / targetRect.height,
-            transformOrigin: "top left",
-            willChange: "transform",
-          });
-          timeline.to(
-            hero,
-            {
-              x: 0,
-              y: 0,
-              scaleX: 1,
-              scaleY: 1,
-              duration: POST_ENTRANCE_DURATION,
-              ease: "power3.out",
-              clearProps: "transform,transformOrigin,willChange",
-            },
-            0,
-          );
-          return true;
-        }
-
-        timeline.fromTo(
-          hero,
-          { autoAlpha: 0, scale: 0.96 },
-          {
-            autoAlpha: 1,
-            scale: 1,
-            duration: POST_ENTRANCE_DURATION,
-            ease: "power3.out",
-            clearProps: "transform,opacity,visibility",
-          },
-          0,
-        );
-        return true;
-      };
-
-      if (!startEntrance()) {
-        observer = new MutationObserver(() => {
-          if (startEntrance()) observer?.disconnect();
-        });
-        observer.observe(root, { childList: true, subtree: true });
+      if (!hero || !proxy) {
+        if (gallery) resumeLoopingVideos(gallery);
+        return;
       }
 
-      return () => {
-        observer?.disconnect();
-        entranceProxy.current?.remove();
+      const targetRect = hero.getBoundingClientRect();
+      const startRect = sourceRect.current;
+
+      if (!startRect || targetRect.width <= 0) return;
+
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (reducedMotion) {
+        proxy.remove();
         entranceProxy.current = null;
-      };
+        resumeLoopingVideos(gallery ?? portalHost);
+        return;
+      }
+
+      const scaleX = startRect.width / targetRect.width;
+      const scaleY = startRect.height / targetRect.height;
+
+      gsap.set(hero, { autoAlpha: 0 });
+      if (sidebar) gsap.set(sidebar, { autoAlpha: 0, x: 18 });
+      gsap.set(proxy, {
+        left: targetRect.left,
+        top: targetRect.top,
+        x: startRect.left - targetRect.left,
+        y: startRect.top - targetRect.top,
+        width: targetRect.width,
+        height: targetRect.height,
+        scaleX,
+        scaleY,
+        borderRadius: getCompensatedRadius(getCornerRadius(hero), scaleX, scaleY),
+      });
+
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          gsap.set(hero, { clearProps: "opacity,visibility" });
+          proxy.remove();
+          entranceProxy.current = null;
+          resumeLoopingVideos(gallery ?? portalHost);
+        },
+      });
+
+      timeline.to(proxy, {
+        x: 0,
+        y: 0,
+        scaleX: 1,
+        scaleY: 1,
+        borderRadius: getCornerRadius(hero),
+        duration: 0.36,
+        ease: "power3.out",
+      });
+      if (sidebar) {
+        timeline.to(
+          sidebar,
+          { autoAlpha: 1, x: 0, duration: 0.28, ease: "power2.out", clearProps: "all" },
+          0.06,
+        );
+      }
     },
-    { scope, dependencies: [pathname], revertOnUpdate: true },
+    { scope: portalHost ?? undefined, dependencies: [pathname, portalHost] },
   );
 
-  return (
+  const content = (
     <PostDialogCloseContext.Provider value={requestClose}>
-      <div
-        ref={scope}
-        data-post-route-surface
-        className="fixed inset-0 z-50 isolate overflow-y-auto overscroll-y-contain bg-transparent [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <div
-          data-post-dialog-backdrop
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 bg-transparent"
-        />
-        <div className="pointer-events-none relative min-h-full">{children}</div>
-      </div>
+      {children}
     </PostDialogCloseContext.Provider>
   );
+
+  if (closeMode === "back") {
+    return portalHost ? createPortal(content, portalHost) : null;
+  }
+
+  return content;
 }

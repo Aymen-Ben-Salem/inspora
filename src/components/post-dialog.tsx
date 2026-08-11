@@ -362,8 +362,7 @@ export function PostDialog({
           1,
         );
 
-        preview.style.backdropFilter = `blur(${8 * remaining}px)`;
-        preview.style.backgroundColor = `rgb(255 255 255 / ${0.24 * remaining})`;
+        preview.style.opacity = String(remaining);
         sourceRowCards.current.forEach((card) => {
           card.style.opacity = String(sourceRowOpacity);
         });

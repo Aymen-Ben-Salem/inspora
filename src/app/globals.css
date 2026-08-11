@@ -75,6 +75,12 @@ input {
   z-index: 20;
   pointer-events: auto;
   touch-action: pan-y;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  backface-visibility: hidden;
+  contain: paint;
+  transform: translateZ(0);
+  will-change: opacity;
 }
 
 html[data-inline-post-open] [data-header-filters] {

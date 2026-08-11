@@ -35,7 +35,7 @@ function FeedBlur({ className }: { className: string }) {
     <div
       data-post-feed-preview
       aria-hidden="true"
-      className={`post-feed-blur z-20 bg-white/[0.24] backdrop-blur-[8px] ${className}`}
+      className={`post-feed-blur z-20 bg-white/[0.24] ${className}`}
     />
   );
 }

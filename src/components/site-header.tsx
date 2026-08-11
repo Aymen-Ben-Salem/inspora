@@ -4,6 +4,7 @@ import type { PostCategory, PostView } from "@/domain/post";
 
 import { BrandMark } from "./brand-mark";
 import { CategoryFilter } from "./category-filter";
+import { MaintenanceTicker } from "./maintenance-ticker";
 import { NewsletterForm } from "./newsletter-form";
 import { StickyHeader } from "./sticky-header";
 import { ViewFilter } from "./view-filter";
@@ -19,6 +20,7 @@ export function SiteHeader({
 }) {
   return (
     <StickyHeader
+      notice={<MaintenanceTicker />}
       primary={
         <>
           <div className="flex shrink-0 items-center gap-6 xl:w-[214px]">

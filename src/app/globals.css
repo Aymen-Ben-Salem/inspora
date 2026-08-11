@@ -56,6 +56,17 @@ input {
   }
 }
 
+@keyframes maintenance-ticker-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.maintenance-ticker-track {
+  animation: maintenance-ticker-scroll 24s linear infinite;
+  will-change: transform;
+}
+
 @keyframes feed-return-cue {
   0%,
   100% {
@@ -148,5 +159,10 @@ html[data-inline-post-open] [data-header-filters] {
 
   .feed-return-cue {
     animation: none;
+  }
+
+  .maintenance-ticker-track {
+    animation: none;
+    transform: none;
   }
 }

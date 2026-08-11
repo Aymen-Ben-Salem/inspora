@@ -9,9 +9,11 @@ import {
 import { resolveSecondaryHeaderVisibility } from "./sticky-header-state";
 
 export function StickyHeader({
+  notice,
   primary,
   secondary,
 }: {
+  notice?: ReactNode;
   primary: ReactNode;
   secondary?: ReactNode;
 }) {
@@ -66,8 +68,10 @@ export function StickyHeader({
   }, [secondary]);
 
   return (
-    <header className="sticky top-0 z-40 h-[72px] bg-white xl:h-20">
-      <div className="mx-auto flex h-full max-w-[1705px] items-center justify-between gap-3 px-4 sm:px-5 xl:px-6 2xl:px-8 min-[1700px]:px-[46px]">
+    <header className="sticky top-0 z-40 bg-white">
+      {notice}
+
+      <div className="mx-auto flex h-[72px] max-w-[1705px] items-center justify-between gap-3 px-4 sm:px-5 xl:h-20 xl:px-6 2xl:px-8 min-[1700px]:px-[46px]">
         {primary}
       </div>
 

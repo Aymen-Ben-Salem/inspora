@@ -2,10 +2,12 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -93,6 +95,7 @@ export function PostDialog({
   const router = useRouter();
   const pathname = usePathname();
   const scope = useRef<HTMLDivElement>(null);
+  const dismissIndicator = useRef<HTMLDivElement>(null);
   const entrance = useRef<gsap.core.Timeline>(null);
   const entranceHero = useRef<HTMLElement>(null);
   const entranceHeroRect = useRef<DOMRect>(null);
@@ -120,6 +123,10 @@ export function PostDialog({
     }
 
     closing.current = true;
+    root.style.cursor = "";
+    if (dismissIndicator.current) {
+      dismissIndicator.current.style.opacity = "0";
+    }
     entrance.current?.kill();
     entrance.current = null;
     entranceProxy.current?.remove();
@@ -501,6 +508,35 @@ export function PostDialog({
     requestClose();
   }
 
+  function handleDialogPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const indicator = dismissIndicator.current;
+
+    if (!indicator) return;
+
+    const target = event.target;
+    const isDismissArea =
+      event.pointerType !== "touch" &&
+      target instanceof Element &&
+      !target.closest("[data-post-dialog-surface]");
+
+    if (!isDismissArea || closing.current) {
+      indicator.style.opacity = "0";
+      event.currentTarget.style.cursor = "";
+      return;
+    }
+
+    indicator.style.transform = `translate3d(${event.clientX - 20}px, ${event.clientY - 20}px, 0)`;
+    indicator.style.opacity = "1";
+    event.currentTarget.style.cursor = "none";
+  }
+
+  function hideDismissIndicator(event: ReactPointerEvent<HTMLDivElement>) {
+    if (dismissIndicator.current) {
+      dismissIndicator.current.style.opacity = "0";
+    }
+    event.currentTarget.style.cursor = "";
+  }
+
   return (
     <PostDialogCloseContext.Provider value={requestClose}>
       <div
@@ -509,6 +545,8 @@ export function PostDialog({
         aria-modal="true"
         aria-label="Post details"
         onClick={handleDialogClick}
+        onPointerLeave={hideDismissIndicator}
+        onPointerMove={handleDialogPointerMove}
         className="fixed inset-0 z-50 isolate"
       >
         <div
@@ -517,6 +555,19 @@ export function PostDialog({
           className="absolute inset-0 bg-gradient-to-b from-white to-[#d2d1d1]"
         />
         <div className="pointer-events-none relative h-full">{children}</div>
+        <div
+          ref={dismissIndicator}
+          aria-hidden="true"
+          className="pointer-events-none fixed left-0 top-0 z-20 flex size-10 items-center justify-center rounded-full border border-[#e6e6e6] bg-[#e6e6e6] opacity-0 shadow-[0_2px_10px_rgba(0,0,0,0.06)] transition-opacity duration-100 will-change-transform"
+        >
+          <Image
+            src="/ui/post-dialog-dismiss.svg"
+            alt=""
+            width={24}
+            height={24}
+            aria-hidden="true"
+          />
+        </div>
       </div>
     </PostDialogCloseContext.Provider>
   );

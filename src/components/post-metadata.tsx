@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 
 import type { Post } from "@/domain/post";
 
-import { NewsletterForm } from "./newsletter-form";
 import {
   PostCloseButton,
   postNavigationControlClassName,
@@ -15,9 +14,31 @@ import { TrackedOriginalLink } from "./tracked-original-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 
 const originalLinkClassName =
-  "focus-ring inline-flex h-9 w-full items-center justify-center rounded-full bg-[#262626] px-3 text-[15px] font-medium leading-normal tracking-[0.036px] text-white transition-colors hover:bg-black xl:h-[38px] xl:text-[16px] min-[1700px]:h-[42px] min-[1700px]:px-[14px] min-[1700px]:text-[18px]";
+  "focus-ring inline-flex h-10 w-full items-center justify-center bg-[#262626] px-3 text-[15px] font-medium leading-normal tracking-[0.036px] text-white transition-colors hover:bg-black xl:h-[42px] xl:text-[16px] min-[1700px]:h-[43px] min-[1700px]:px-[14px] min-[1700px]:text-[18px]";
 
 type AdjacentPost = Pick<Post, "slug" | "title">;
+
+function MetadataRow({ label, values }: { label: string; values: string[] }) {
+  if (!values.length) return null;
+
+  return (
+    <div className="grid grid-cols-[92px_minmax(0,1fr)] items-start gap-4 min-[1700px]:grid-cols-[112px_minmax(0,1fr)] min-[1700px]:gap-5">
+      <p className="pt-1 text-[16px] tracking-[0.04px] text-[#262626] min-[1700px]:text-[20px]">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-2.5">
+        {values.map((value) => (
+          <span
+            key={value}
+            className="inline-flex min-h-8 items-center bg-[#e6e6e6] px-2.5 py-2 text-[12px] tracking-[0.024px] text-[#262626]"
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function CloseIcon() {
   return (
@@ -85,17 +106,13 @@ export function PostMetadata({
     <aside
       data-post-dialog-surface={overlay ? "" : undefined}
       data-post-dialog-sidebar={overlay ? "" : undefined}
-      className={`flex w-full shrink-0 flex-col border-l border-[#e5e7eb] bg-white ${
+      className={`flex w-full flex-col border-t border-[#e6e6e6] bg-white lg:border-l lg:border-t-0 ${
         overlay
-          ? "min-h-fit lg:h-[100dvh] lg:w-[clamp(300px,28vw,478px)]"
-          : "order-first min-h-[100dvh] lg:order-last lg:h-[100dvh] lg:w-[clamp(300px,28vw,478px)]"
+          ? "min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-full lg:w-[clamp(360px,30vw,510px)] lg:flex-none lg:shrink-0 lg:overflow-hidden"
+          : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:w-[clamp(360px,30vw,510px)]"
       }`}
     >
-      <div
-        className={`flex min-h-full flex-1 flex-col px-5 pb-6 pt-5 lg:pb-5 lg:pt-5 xl:px-6 xl:pb-6 xl:pt-6 min-[1700px]:pb-7 min-[1700px]:pt-7 ${
-          overlay ? "lg:px-5 xl:px-6" : "sm:px-7 lg:px-5 xl:px-6"
-        }`}
-      >
+      <div className="flex min-h-full flex-1 flex-col px-5 py-5 sm:px-7 lg:px-8 lg:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
         <nav className="flex h-10 items-center justify-between" aria-label="Post navigation">
           {closeMode ? (
             <PostCloseButton closeMode={closeMode}>
@@ -124,53 +141,54 @@ export function PostMetadata({
           </div>
         </nav>
 
-        <div className="mt-6 flex flex-col gap-8 xl:mt-7 xl:gap-9 min-[1700px]:mt-[30px] min-[1700px]:gap-10">
-          <div className="flex flex-col gap-4 min-[1700px]:gap-5">
-            <div className="flex flex-col items-start gap-[10px]">
-              <span className="inline-flex h-[27px] items-center rounded-full bg-[#f0f0f0] px-[10px] text-[13px] tracking-[0.2px] text-[#7b7b7b] min-[1700px]:h-[29px] min-[1700px]:px-3 min-[1700px]:text-[14px]">
-                {post.category}
-              </span>
-              <div>
-                <h1 className="text-[20px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[21px] min-[1700px]:text-[22px]">
-                  {post.title}
-                </h1>
-                <div className="mt-[6px] flex h-7 items-center gap-[6px] text-[14px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:text-[15px] min-[1700px]:mt-2 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
-                  {post.creator.avatarStorageProvider === "r2" ? (
-                    <ResponsiveR2Image
-                      src={post.creator.avatarUrl}
-                      alt=""
-                      width={25}
-                      height={25}
-                      sizes="25px"
-                      className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
-                    />
-                  ) : (
-                    <Image
-                      src={post.creator.avatarUrl}
-                      alt=""
-                      width={25}
-                      height={25}
-                      className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
-                    />
-                  )}
-                  <span>{post.creator.name}</span>
+        <div className="flex flex-1 items-center py-10 lg:py-6">
+          <div className="flex w-full flex-col gap-8 min-[1700px]:gap-10">
+            <div className="flex flex-col gap-4 min-[1700px]:gap-5">
+              <div className="flex flex-col items-start gap-2.5">
+                <span className="inline-flex min-h-[27px] items-center bg-[#f0f0f0] px-3 py-1.5 text-[13px] tracking-[0.2px] text-[#7b7b7b] min-[1700px]:text-[14px]">
+                  {post.category}
+                </span>
+                <div>
+                  <h1 className="text-[20px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[21px] min-[1700px]:text-[22px]">
+                    {post.title}
+                  </h1>
+                  <div className="mt-1.5 flex h-7 items-center gap-1.5 text-[14px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:text-[15px] min-[1700px]:mt-2 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
+                    {post.creator.avatarStorageProvider === "r2" ? (
+                      <ResponsiveR2Image
+                        src={post.creator.avatarUrl}
+                        alt=""
+                        width={25}
+                        height={25}
+                        sizes="25px"
+                        className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
+                      />
+                    ) : (
+                      <Image
+                        src={post.creator.avatarUrl}
+                        alt=""
+                        width={25}
+                        height={25}
+                        className="size-[22px] rounded-full object-cover xl:size-[23px] min-[1700px]:size-[25px]"
+                      />
+                    )}
+                    <span>{post.creator.name}</span>
+                  </div>
                 </div>
               </div>
+
+              <p className="max-w-[429px] text-[16px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:text-[17px] min-[1700px]:text-[18px]">
+                {post.description}
+              </p>
             </div>
 
-            <p className="max-w-[429px] text-[16px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:text-[17px] min-[1700px]:text-[18px]">
-              {post.description}
-            </p>
+            <div className="flex flex-col gap-3.5 min-[1700px]:gap-[15px]">
+              <MetadataRow label="Industries" values={post.industries} />
+              <MetadataRow label="Colors" values={post.colors} />
+              <MetadataRow label="Styles" values={post.styles} />
+            </div>
+
+            <TrackedOriginalLink post={post} className={originalLinkClassName} />
           </div>
-
-          <TrackedOriginalLink post={post} className={originalLinkClassName} />
-        </div>
-
-        <div className="mt-auto flex flex-col items-center gap-2 pt-10 xl:pt-12 min-[1700px]:gap-[10px] min-[1700px]:pt-16">
-          <NewsletterForm />
-          <p className="text-center text-[12px] leading-[1.3] tracking-[-0.024px] text-[#95959d]">
-            <span className="text-[#505050]">Subscribe</span> to a weekly email
-          </p>
         </div>
       </div>
     </aside>

@@ -15,10 +15,13 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
   return (
     <DetailMotion overlay={overlay}>
       {post.media.map((media) => {
-        const isPortrait = media.height / media.width >= 1.15;
-        const maxViewportHeight = overlay && isPortrait ? 85 : 79.2;
+        const minimumVerticalInset = 32;
+        const fluidVerticalInset = 18;
+        const maximumVerticalInset = 124;
+        const maxViewportHeight = overlay ? 79.7 : 79.2;
         const aspectRatio = media.width / media.height;
         const maxViewportWidth = maxViewportHeight * aspectRatio;
+        const maxContainerWidth = `calc(${aspectRatio * 100}cqh - clamp(${aspectRatio * minimumVerticalInset}px, ${aspectRatio * fluidVerticalInset}cqh, ${aspectRatio * maximumVerticalInset}px))`;
         const isAnimated = media.type === "video" || isGifUrl(media.url);
         const isConvertedGif =
           media.type === "video" && media.sourceMimeType === "image/gif";
@@ -37,22 +40,25 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
           <figure
             key={media.id}
             data-detail-media
-            className="flex h-full min-w-full snap-center items-center justify-center px-4 py-10 lg:py-0"
+            className={`flex h-full min-w-full snap-center items-center justify-center px-4 sm:px-8 lg:px-10 lg:py-0 ${overlay ? "py-4" : "py-10"}`}
           >
             <div
               data-post-dialog-surface={overlay ? "" : undefined}
               data-post-dialog-hero={overlay && media.position === 0 ? "" : undefined}
               data-post-dialog-animated-media={isAnimated ? "" : undefined}
               data-post-dialog-max-viewport-height={maxViewportHeight}
+              data-post-dialog-container-inset-min={minimumVerticalInset}
+              data-post-dialog-container-inset-fluid={fluidVerticalInset}
+              data-post-dialog-container-inset-max={maximumVerticalInset}
               data-post-dialog-max-pixel-width={isConvertedGif ? media.width : undefined}
-              className={`relative shrink-0 overflow-hidden rounded-[10px] bg-[#f3f3f3] ${
-                overlay ? "shadow-[0_18px_60px_rgba(0,0,0,0.12)]" : ""
+              className={`relative shrink-0 overflow-hidden bg-[#f3f3f3] ${
+                overlay ? "rounded-none" : "rounded-[10px]"
               }`}
               style={{
                 aspectRatio: `${media.width} / ${media.height}`,
                 width: isConvertedGif
-                  ? `min(100%, ${maxViewportWidth}dvh, ${media.width}px)`
-                  : `min(100%, ${maxViewportWidth}dvh)`,
+                  ? `min(100%, ${maxViewportWidth}dvh, ${media.width}px, ${maxContainerWidth})`
+                  : `min(100%, ${maxViewportWidth}dvh, ${maxContainerWidth})`,
               }}
             >
               {media.type === "video" ? (

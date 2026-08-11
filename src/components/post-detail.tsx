@@ -19,9 +19,10 @@ export function PostDetail({
   closeMode: PostDialogCloseMode;
 }) {
   return (
-    <main
+    <section
       data-post-dialog-post-id={post.id}
-      className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
+      aria-label={`Post: ${post.title}`}
+      className="pointer-events-auto flex h-[calc(100dvh-72px-var(--post-feed-peek))] min-h-0 w-full max-w-full flex-col overflow-hidden border-y border-[#e6e6e6] bg-white lg:h-[max(560px,calc(100dvh-272px))] lg:flex-row xl:h-[max(540px,calc(100dvh-300px))]"
     >
       <PostAnalytics post={post} />
       <PostGallery post={post} overlay />
@@ -32,6 +33,6 @@ export function PostDetail({
         closeMode={closeMode}
         overlay
       />
-    </main>
+    </section>
   );
 }

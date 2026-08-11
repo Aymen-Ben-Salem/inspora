@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { PostDetail } from "@/components/post-detail";
+import { PostPageView } from "@/components/post-page-view";
 import {
   getAdjacentPosts,
   getPostBySlug,
@@ -19,7 +19,7 @@ export default async function PostModalPage({ params }: PostModalPageProps) {
   const { previousPost, nextPost } = await getAdjacentPosts(post);
 
   return (
-    <PostDetail
+    <PostPageView
       post={post}
       previousPost={previousPost}
       nextPost={nextPost}

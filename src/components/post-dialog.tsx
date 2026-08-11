@@ -5,7 +5,6 @@ import gsap from "gsap";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
-  type MouseEvent,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -20,6 +19,7 @@ import {
   getIntrinsicMediaAspectRatio,
 } from "./post-dialog-media-proxy";
 import { resumeLoopingVideos } from "./looping-video";
+import { shouldReturnToFeed } from "./post-route-scroll";
 
 gsap.registerPlugin(useGSAP);
 
@@ -108,6 +108,33 @@ export function PostDialog({
 
     router.push("/");
   }, [closeMode, router]);
+
+  const returnToFeed = useCallback(() => {
+    if (closing.current) return;
+
+    closing.current = true;
+    entrance.current?.kill();
+    entrance.current = null;
+    entranceProxy.current?.remove();
+    entranceProxy.current = null;
+    exitProxy.current?.remove();
+    exitProxy.current = null;
+    const root = scope.current;
+    const preview = root?.querySelector<HTMLElement>("[data-post-feed-preview]");
+
+    if (preview) {
+      gsap.to(preview, {
+        autoAlpha: 0,
+        backdropFilter: "blur(0px)",
+        duration: 0.16,
+        ease: "power2.out",
+        onComplete: finishClose,
+      });
+      return;
+    }
+
+    finishClose();
+  }, [finishClose]);
 
   const requestClose = useCallback(() => {
     if (closing.current) return;
@@ -278,6 +305,65 @@ export function PostDialog({
     };
   }, [requestClose]);
 
+  useEffect(() => {
+    const root = scope.current;
+    if (!root) return;
+
+    let previousScrollTop = root.scrollTop;
+    let feedDocumentTop: number | undefined;
+    let frame: number | null = null;
+
+    function evaluateScroll() {
+      frame = null;
+      const feed = root?.querySelector<HTMLElement>("[data-post-feed-start]");
+      const preview = root?.querySelector<HTMLElement>("[data-post-feed-preview]");
+      const header = root?.querySelector<HTMLElement>("header");
+      const currentScrollTop = root?.scrollTop ?? 0;
+
+      if (feed && header && preview) {
+        const feedTop = feed.getBoundingClientRect().top;
+        const headerBottom = header.getBoundingClientRect().bottom;
+        feedDocumentTop ??= feedTop + currentScrollTop;
+        const revealDistance = Math.max(feedDocumentTop - headerBottom, 1);
+        const revealProgress = Math.min(
+          Math.max(currentScrollTop / revealDistance, 0),
+          1,
+        );
+        const remaining = 1 - revealProgress;
+
+        preview.style.backdropFilter = `blur(${10 * remaining}px)`;
+        preview.style.backgroundColor = `rgb(255 255 255 / ${0.3 * remaining})`;
+      }
+
+      if (
+        feed &&
+        header &&
+        shouldReturnToFeed({
+          currentScrollTop,
+          previousScrollTop,
+          feedTop: feed.getBoundingClientRect().top,
+          headerBottom: header.getBoundingClientRect().bottom,
+        })
+      ) {
+        returnToFeed();
+        return;
+      }
+
+      previousScrollTop = currentScrollTop;
+    }
+
+    function handleScroll() {
+      if (frame !== null || closing.current) return;
+      frame = window.requestAnimationFrame(evaluateScroll);
+    }
+
+    root.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      root.removeEventListener("scroll", handleScroll);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [returnToFeed]);
+
   useGSAP(
     () => {
       const root = scope.current;
@@ -287,6 +373,7 @@ export function PostDialog({
       closing.current = false;
       entrance.current = null;
       gsap.set(root, { clearProps: "pointerEvents" });
+      root.scrollTop = 0;
       entranceProxy.current?.remove();
       entranceProxy.current = null;
       exitProxy.current?.remove();
@@ -319,6 +406,15 @@ export function PostDialog({
         const maxViewportHeight = Number(
           hero.dataset.postDialogMaxViewportHeight,
         );
+        const containerInsetMin = Number(
+          hero.dataset.postDialogContainerInsetMin,
+        );
+        const containerInsetFluid = Number(
+          hero.dataset.postDialogContainerInsetFluid,
+        );
+        const containerInsetMax = Number(
+          hero.dataset.postDialogContainerInsetMax,
+        );
         const maxPixelWidth = Number(hero.dataset.postDialogMaxPixelWidth);
 
         if (
@@ -327,10 +423,26 @@ export function PostDialog({
           maxViewportHeight > 0
         ) {
           hero.style.aspectRatio = String(intrinsicAspectRatio);
-          hero.style.width =
-            Number.isFinite(maxPixelWidth) && maxPixelWidth > 0
-              ? `min(100%, ${maxViewportHeight * intrinsicAspectRatio}dvh, ${maxPixelWidth}px)`
-              : `min(100%, ${maxViewportHeight * intrinsicAspectRatio}dvh)`;
+          const widthLimits = [
+            "100%",
+            `${maxViewportHeight * intrinsicAspectRatio}dvh`,
+          ];
+
+          if (Number.isFinite(maxPixelWidth) && maxPixelWidth > 0) {
+            widthLimits.push(`${maxPixelWidth}px`);
+          }
+
+          if (
+            Number.isFinite(containerInsetMin) &&
+            Number.isFinite(containerInsetFluid) &&
+            Number.isFinite(containerInsetMax)
+          ) {
+            widthLimits.push(
+              `calc(${intrinsicAspectRatio * 100}cqh - clamp(${intrinsicAspectRatio * containerInsetMin}px, ${intrinsicAspectRatio * containerInsetFluid}cqh, ${intrinsicAspectRatio * containerInsetMax}px))`,
+            );
+          }
+
+          hero.style.width = `min(${widthLimits.join(", ")})`;
         }
 
         const targetRect = hero.getBoundingClientRect();
@@ -491,32 +603,19 @@ export function PostDialog({
     { scope, dependencies: [pathname], revertOnUpdate: true },
   );
 
-  function handleDialogClick(event: MouseEvent<HTMLDivElement>) {
-    const target = event.target;
-
-    if (target instanceof Element && target.closest("[data-post-dialog-surface]")) {
-      return;
-    }
-
-    requestClose();
-  }
-
   return (
     <PostDialogCloseContext.Provider value={requestClose}>
       <div
         ref={scope}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Post details"
-        onClick={handleDialogClick}
-        className="fixed inset-0 z-50 isolate"
+        data-post-route-surface
+        className="fixed inset-0 z-50 isolate overflow-y-auto overscroll-y-contain bg-transparent [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div
           data-post-dialog-backdrop
           aria-hidden="true"
-          className="absolute inset-0 bg-white/10 backdrop-blur-[5px]"
+          className="pointer-events-none fixed inset-0 bg-transparent"
         />
-        <div className="pointer-events-none relative h-full">{children}</div>
+        <div className="pointer-events-none relative min-h-full">{children}</div>
       </div>
     </PostDialogCloseContext.Provider>
   );

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { ArchiveView } from "@/components/archive-view";
-import { PostDetail } from "@/components/post-detail";
 import { PostDialog } from "@/components/post-dialog";
+import { PostPageView } from "@/components/post-page-view";
 import {
   getAdjacentPosts,
   getPostBySlug,
@@ -51,16 +50,14 @@ export default async function PostPage({ params }: PostPageProps) {
   ]);
 
   return (
-    <>
-      <ArchiveView page={page} />
-      <PostDialog closeMode="home">
-        <PostDetail
-          post={post}
-          previousPost={previousPost}
-          nextPost={nextPost}
-          closeMode="home"
-        />
-      </PostDialog>
-    </>
+    <PostDialog closeMode="home">
+      <PostPageView
+        post={post}
+        page={page}
+        previousPost={previousPost}
+        nextPost={nextPost}
+        closeMode="home"
+      />
+    </PostDialog>
   );
 }

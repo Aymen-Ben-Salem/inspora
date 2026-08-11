@@ -32,9 +32,7 @@ export function DetailMotion({
       ref={scope}
       data-post-dialog-gallery={overlay ? "" : undefined}
       className={`flex min-h-[62dvh] min-w-0 flex-1 snap-x snap-mandatory items-center overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh] ${
-        overlay
-          ? "bg-gradient-to-b from-white to-[#d2d1d1]"
-          : "bg-[#262626]"
+        overlay ? "bg-transparent" : "bg-[#262626]"
       }`}
     >
       {children}

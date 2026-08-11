@@ -514,7 +514,7 @@ export function PostDialog({
         <div
           data-post-dialog-backdrop
           aria-hidden="true"
-          className="absolute inset-0 bg-white"
+          className="absolute inset-0 bg-gradient-to-b from-white to-[#d2d1d1]"
         />
         <div className="pointer-events-none relative h-full">{children}</div>
       </div>

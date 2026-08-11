@@ -15,6 +15,7 @@ import {
 } from "react";
 
 import { suppressFiltersForInlinePost } from "./inline-post-header";
+import { capturePostTransitionSource } from "./post-transition-source";
 
 type IntentPrefetchLinkProps = Omit<
   ComponentProps<typeof Link>,
@@ -70,6 +71,10 @@ export function IntentPrefetchLink({
       !event.metaKey &&
       !event.shiftKey
     ) {
+      capturePostTransitionSource(
+        new URL(href.toString(), window.location.href).pathname,
+        event.currentTarget,
+      );
       suppressFiltersForInlinePost();
       window.sessionStorage.setItem(
         "inspora:feed-scroll-position",

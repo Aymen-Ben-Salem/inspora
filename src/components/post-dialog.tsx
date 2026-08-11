@@ -2,6 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -26,6 +27,10 @@ import {
 } from "./inline-post-header";
 import { resumeLoopingVideos } from "./looping-video";
 import { shouldReturnToFeed } from "./post-route-scroll";
+import {
+  getCapturedPostReturnUrl,
+  getCapturedPostTransitionSource,
+} from "./post-transition-source";
 
 gsap.registerPlugin(useGSAP);
 
@@ -70,6 +75,18 @@ function getSavedFeedScrollPosition() {
   return Number.isFinite(value) && value >= 0 ? value : window.scrollY;
 }
 
+function getInlineFeedOffset(grid: HTMLElement) {
+  return Number.parseFloat(grid.dataset.inlineFeedOffset ?? "0") || 0;
+}
+
+function getVisibleFeedTop(grid: HTMLElement) {
+  return grid.getBoundingClientRect().top + getInlineFeedOffset(grid);
+}
+
+function getVisibleFeedHeight(grid: HTMLElement) {
+  return Math.max(0, grid.scrollHeight - getInlineFeedOffset(grid));
+}
+
 export function PostDialog({
   children,
   closeMode,
@@ -79,6 +96,8 @@ export function PostDialog({
   const [portalHost, setPortalHost] = useState<HTMLDivElement | null>(null);
   const sourceRect = useRef<DOMRect | null>(null);
   const originalScrollY = useRef(0);
+  const restoreScrollY = useRef(0);
+  const nextFeedDocumentTop = useRef<number | null>(null);
   const entranceProxy = useRef<HTMLDivElement | null>(null);
   const closing = useRef(false);
 
@@ -90,6 +109,12 @@ export function PostDialog({
 
     router.push("/");
   }, [closeMode, router]);
+
+  const finishScrollClose = useCallback(() => {
+    router.replace(getCapturedPostReturnUrl(pathname) as Route, {
+      scroll: false,
+    });
+  }, [pathname, router]);
 
   const requestClose = useCallback(() => {
     if (closing.current) return;
@@ -139,11 +164,19 @@ export function PostDialog({
     });
   }, [finishClose, portalHost]);
 
-  const returnToFeed = useCallback(() => {
+  const returnToFeed = useCallback((visibleFeedTop: number) => {
     if (closing.current) return;
+
+    if (nextFeedDocumentTop.current !== null) {
+      restoreScrollY.current = Math.max(
+        0,
+        nextFeedDocumentTop.current - visibleFeedTop,
+      );
+    }
+
     closing.current = true;
-    finishClose();
-  }, [finishClose]);
+    finishScrollClose();
+  }, [finishScrollClose]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -167,8 +200,11 @@ export function PostDialog({
     closing.current = false;
     suppressFiltersForInlinePost();
     originalScrollY.current = getSavedFeedScrollPosition();
+    restoreScrollY.current = originalScrollY.current;
+    nextFeedDocumentTop.current = null;
     window.scrollTo({ top: originalScrollY.current, behavior: "instant" });
-    sourceRect.current = source.getBoundingClientRect();
+    sourceRect.current =
+      getCapturedPostTransitionSource(pathname) ?? source.getBoundingClientRect();
 
     entranceProxy.current = createMediaProxy({
       fallback: source,
@@ -188,7 +224,19 @@ export function PostDialog({
       Math.ceil((sourceIndex + 1) / columnCount) * columnCount,
     );
     const hiddenCards = cards.slice(0, hiddenCount);
-    const previousDisplays = hiddenCards.map((card) => card.style.display);
+    const remainingCards = cards.slice(hiddenCount);
+    const gridTop = grid.getBoundingClientRect().top;
+    const feedOffset = remainingCards.length > 0
+      ? Math.max(
+          0,
+          Math.min(...remainingCards.map((card) => card.getBoundingClientRect().top)) -
+            gridTop,
+        )
+      : grid.scrollHeight;
+    nextFeedDocumentTop.current = gridTop + originalScrollY.current + feedOffset;
+    const previousVisibilities = hiddenCards.map((card) => card.style.visibility);
+    const previousGridTransform = grid.style.transform;
+    const previousFeedOffset = grid.dataset.inlineFeedOffset;
     const wasGridInert = grid.inert;
     const previousGridAriaHidden = grid.getAttribute("aria-hidden");
     const host = document.createElement("div");
@@ -198,8 +246,10 @@ export function PostDialog({
     grid.inert = true;
     grid.setAttribute("aria-hidden", "true");
     hiddenCards.forEach((card) => {
-      card.style.display = "none";
+      card.style.visibility = "hidden";
     });
+    grid.style.transform = `translateY(${-feedOffset}px)`;
+    grid.dataset.inlineFeedOffset = String(feedOffset);
     gridParent.insertBefore(host, grid);
     alignHostBelowHeader(host);
 
@@ -231,14 +281,19 @@ export function PostDialog({
       } else {
         grid.setAttribute("aria-hidden", previousGridAriaHidden);
       }
+      grid.style.transform = previousGridTransform;
+      if (previousFeedOffset === undefined) {
+        delete grid.dataset.inlineFeedOffset;
+      } else {
+        grid.dataset.inlineFeedOffset = previousFeedOffset;
+      }
       hiddenCards.forEach((card, index) => {
-        card.style.display = previousDisplays[index] ?? "";
+        card.style.visibility = previousVisibilities[index] ?? "";
       });
       host.remove();
       setPortalHost(null);
-      window.requestAnimationFrame(() => {
-        window.scrollTo({ top: originalScrollY.current, behavior: "instant" });
-      });
+      window.scrollTo({ top: restoreScrollY.current, behavior: "instant" });
+      nextFeedDocumentTop.current = null;
     };
   }, [closeMode, pathname]);
 
@@ -251,12 +306,12 @@ export function PostDialog({
     );
     const resizeObserver = grid && preview
       ? new ResizeObserver(() => {
-          preview.style.height = `${grid.scrollHeight}px`;
+          preview.style.height = `${getVisibleFeedHeight(grid)}px`;
         })
       : null;
 
     if (grid && preview) {
-      preview.style.height = `${grid.scrollHeight}px`;
+      preview.style.height = `${getVisibleFeedHeight(grid)}px`;
       resizeObserver?.observe(grid);
     }
 
@@ -272,10 +327,10 @@ export function PostDialog({
       const headerBottom = getHeaderBottom();
 
       if (grid && preview) {
-        const gridTop = grid.getBoundingClientRect().top;
-        initialGridTop ??= gridTop;
+        const feedTop = getVisibleFeedTop(grid);
+        initialGridTop ??= feedTop;
         const travel = Math.max(initialGridTop - headerBottom, 1);
-        const progress = Math.min(Math.max((initialGridTop - gridTop) / travel, 0), 1);
+        const progress = Math.min(Math.max((initialGridTop - feedTop) / travel, 0), 1);
         const remaining = 1 - progress;
 
         preview.style.backdropFilter = `blur(${8 * remaining}px)`;
@@ -285,11 +340,11 @@ export function PostDialog({
           shouldReturnToFeed({
             currentScrollTop: currentScrollY,
             previousScrollTop: previousScrollY,
-            feedTop: gridTop,
+            feedTop,
             headerBottom,
           })
         ) {
-          returnToFeed();
+          returnToFeed(feedTop);
           return;
         }
       }

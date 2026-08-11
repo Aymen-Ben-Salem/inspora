@@ -1,4 +1,4 @@
-export const ANALYTICS_RANGES = [1, 7, 30, 90] as const;
+export const ANALYTICS_RANGES = ["yesterday", "today", 7, 30, 90] as const;
 
 export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
@@ -46,7 +46,7 @@ export type PostHogTool = {
 };
 
 export type AdminAnalytics = {
-  rangeDays: AnalyticsRange;
+  range: AnalyticsRange;
   generatedAt: string;
   summary: AnalyticsSummary;
   daily: DailyAnalytics[];
@@ -59,8 +59,39 @@ export type AdminAnalytics = {
   tools: PostHogTool[];
 };
 
-export function isAnalyticsRange(value: number): value is AnalyticsRange {
+export function isAnalyticsRange(value: string | number): value is AnalyticsRange {
   return ANALYTICS_RANGES.some((range) => range === value);
+}
+
+export function getAnalyticsTimeRange(range: AnalyticsRange) {
+  if (range === "today") {
+    return { startExpression: "toStartOfDay(now())" };
+  }
+
+  if (range === "yesterday") {
+    return {
+      startExpression: "toStartOfDay(now()) - INTERVAL 1 DAY",
+      endExpression: "toStartOfDay(now())",
+    };
+  }
+
+  return { startExpression: `now() - INTERVAL ${range} DAY` };
+}
+
+export function getAnalyticsRangeDayCount(range: AnalyticsRange) {
+  return typeof range === "number" ? range : 1;
+}
+
+export function getAnalyticsEndDateKey(
+  currentProjectDate: string,
+  range: AnalyticsRange,
+) {
+  if (range !== "yesterday") return currentProjectDate;
+
+  const date = new Date(`${currentProjectDate}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return currentProjectDate;
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 export function resolvePostHogApiHost({
@@ -138,8 +169,8 @@ function toDateKey(value: unknown) {
 
 export function fillDailyAnalytics(
   rows: unknown[][],
-  days: AnalyticsRange,
-  now = new Date(),
+  days: number,
+  endDate: Date | string = new Date(),
 ) {
   const byDate = new Map<string, DailyAnalytics>();
 
@@ -154,9 +185,16 @@ export function fillDailyAnalytics(
     });
   }
 
+  const suppliedEndDateKey =
+    typeof endDate === "string"
+      ? endDate.slice(0, 10)
+      : endDate.toISOString().slice(0, 10);
+  const endDateKey = /^\d{4}-\d{2}-\d{2}$/.test(suppliedEndDateKey)
+    ? suppliedEndDateKey
+    : new Date().toISOString().slice(0, 10);
+
   return Array.from({ length: days }, (_, index) => {
-    const date = new Date(now);
-    date.setUTCHours(0, 0, 0, 0);
+    const date = new Date(`${endDateKey}T00:00:00.000Z`);
     date.setUTCDate(date.getUTCDate() - (days - index - 1));
     const key = date.toISOString().slice(0, 10);
     return (

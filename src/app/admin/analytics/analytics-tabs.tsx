@@ -70,15 +70,25 @@ const trafficOptions: TabOption<TrafficMetric>[] = [
 
 export function TrafficChart({
   daily,
-  rangeDays,
+  range,
 }: {
   daily: DailyAnalytics[];
-  rangeDays: AnalyticsRange;
+  range: AnalyticsRange;
 }) {
   const [metric, setMetric] = useState<TrafficMetric>("uniqueVisitors");
   const panelId = useId();
-  const maximum = Math.max(1, ...daily.map((day) => day[metric]));
+  const maximum = Math.max(
+    1,
+    ...daily.flatMap((day) => [day.uniqueVisitors, day.pageviews]),
+  );
   const metricLabel = metric === "uniqueVisitors" ? "unique visitors" : "pageviews";
+  const rangeDays = typeof range === "number" ? range : 1;
+  const rangeLabel =
+    range === "today"
+      ? "Today"
+      : range === "yesterday"
+        ? "Yesterday"
+        : `Last ${range} days`;
 
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
@@ -89,7 +99,7 @@ export function TrafficChart({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <p className="text-xs text-[#888]">
-            {rangeDays === 1 ? "Last day" : `Last ${rangeDays} days`}
+            {rangeLabel}
           </p>
           <Tabs
             active={metric}

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ANALYTICS_RANGES,
   createPostHogTools,
   fillDailyAnalytics,
   fillHourlyAnalytics,
+  getAnalyticsEndDateKey,
+  getAnalyticsRangeDayCount,
+  getAnalyticsTimeRange,
   isAnalyticsRange,
   mapAnalyticsBreakdownRows,
   resolvePostHogApiHost,
@@ -11,12 +15,40 @@ import {
 } from "./posthog-data";
 
 describe("PostHog analytics data", () => {
+  it("places yesterday before today in the dashboard range controls", () => {
+    expect(ANALYTICS_RANGES.slice(0, 2)).toEqual(["yesterday", "today"]);
+  });
+
   it("accepts only supported dashboard ranges", () => {
-    expect(isAnalyticsRange(1)).toBe(true);
+    expect(isAnalyticsRange("today")).toBe(true);
+    expect(isAnalyticsRange("yesterday")).toBe(true);
     expect(isAnalyticsRange(7)).toBe(true);
     expect(isAnalyticsRange(30)).toBe(true);
     expect(isAnalyticsRange(90)).toBe(true);
     expect(isAnalyticsRange(14)).toBe(false);
+  });
+
+  it("uses project-midnight boundaries for today and yesterday", () => {
+    expect(getAnalyticsTimeRange("today")).toEqual({
+      startExpression: "toStartOfDay(now())",
+    });
+    expect(getAnalyticsTimeRange("yesterday")).toEqual({
+      startExpression: "toStartOfDay(now()) - INTERVAL 1 DAY",
+      endExpression: "toStartOfDay(now())",
+    });
+    expect(getAnalyticsTimeRange(7)).toEqual({
+      startExpression: "now() - INTERVAL 7 DAY",
+    });
+  });
+
+  it("maps calendar ranges to one chart day and selects yesterday's date", () => {
+    expect(getAnalyticsRangeDayCount("today")).toBe(1);
+    expect(getAnalyticsRangeDayCount("yesterday")).toBe(1);
+    expect(getAnalyticsRangeDayCount(30)).toBe(30);
+    expect(getAnalyticsEndDateKey("2026-08-11", "yesterday")).toBe(
+      "2026-08-10",
+    );
+    expect(getAnalyticsEndDateKey("2026-08-11", "today")).toBe("2026-08-11");
   });
 
   it("fills every project-timezone hour for the activity chart", () => {
@@ -66,6 +98,19 @@ describe("PostHog analytics data", () => {
       postOpens: 2,
     });
     expect(daily[6]?.date).toBe("2026-08-08");
+  });
+
+  it("uses the PostHog project date when filling the current day", () => {
+    const daily = fillDailyAnalytics([], 1, "2026-08-11");
+
+    expect(daily).toEqual([
+      {
+        date: "2026-08-11",
+        pageviews: 0,
+        uniqueVisitors: 0,
+        postOpens: 0,
+      },
+    ]);
   });
 
   it("maps ranked breakdowns with a readable fallback", () => {

@@ -22,8 +22,18 @@ type AnalyticsPageProps = {
 const compactNumber = new Intl.NumberFormat("en", { notation: "compact" });
 const exactNumber = new Intl.NumberFormat("en");
 function parseRange(value: string | string[] | undefined): AnalyticsRange {
-  const parsed = Number(Array.isArray(value) ? value[0] : value);
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "1") return "today";
+  if (raw === "today" || raw === "yesterday") return raw;
+
+  const parsed = Number(raw);
   return isAnalyticsRange(parsed) ? parsed : 30;
+}
+
+function formatRangeLabel(range: AnalyticsRange) {
+  if (range === "today") return "Today";
+  if (range === "yesterday") return "Yesterday";
+  return `${range}d`;
 }
 
 function SetupState() {
@@ -124,9 +134,7 @@ function HourlyActivityChart({ analytics }: { analytics: AdminAnalytics }) {
             Most active hours
           </h2>
         </div>
-        <p className="text-xs text-[#888]">
-          Unique visitors · PostHog project timezone
-        </p>
+        <p className="text-xs text-[#888]">Unique visitors · Tunisia time</p>
       </div>
       <div className="mt-8 pb-6">
         <div className="flex h-52 min-w-0 items-end gap-1 border-b border-black/10 sm:gap-2">
@@ -330,7 +338,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 range === option ? "bg-white text-black shadow-sm" : "text-[#666] hover:text-black"
               }`}
             >
-              {option}d
+              {formatRangeLabel(option)}
             </Link>
           ))}
         </nav>
@@ -351,7 +359,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
             <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
           </section>
-          <TrafficChart daily={analytics.daily} rangeDays={analytics.rangeDays} />
+          <TrafficChart daily={analytics.daily} range={analytics.range} />
           <HourlyActivityChart analytics={analytics} />
           <div className="grid gap-7 xl:grid-cols-2">
             <TopPosts analytics={analytics} />

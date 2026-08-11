@@ -8,6 +8,9 @@ import {
   createPostHogTools,
   fillDailyAnalytics,
   fillHourlyAnalytics,
+  getAnalyticsEndDateKey,
+  getAnalyticsRangeDayCount,
+  getAnalyticsTimeRange,
   mapAnalyticsBreakdownRows,
   resolvePostHogApiHost,
   toAnalyticsNumber,
@@ -78,7 +81,7 @@ async function runHogQlQuery(
 }
 
 export async function getAdminAnalytics(
-  rangeDays: AnalyticsRange,
+  range: AnalyticsRange,
 ): Promise<AdminAnalytics> {
   "use cache";
 
@@ -87,7 +90,10 @@ export async function getAdminAnalytics(
   const configuration = getPostHogConfiguration();
   if (!configuration) throw new Error("PostHog admin analytics is not configured.");
 
-  const interval = `INTERVAL ${rangeDays} DAY`;
+  const { startExpression, endExpression } = getAnalyticsTimeRange(range);
+  const timePredicate = `timestamp >= ${startExpression}${
+    endExpression ? ` AND timestamp < ${endExpression}` : ""
+  }`;
   const [
     summaryRows,
     sessionRows,
@@ -107,9 +113,10 @@ export async function getAdminAnalytics(
         uniqIf(distinct_id, event = '$pageview') AS unique_visitors,
         countIf(event = '${ANALYTICS_EVENTS.postOpened}') AS post_opens,
         countIf(event = '${ANALYTICS_EVENTS.postSourceVisited}') AS source_clicks,
-        countIf(event = '${ANALYTICS_EVENTS.newsletterSubscribed}') AS subscriptions
+        countIf(event = '${ANALYTICS_EVENTS.newsletterSubscribed}') AS subscriptions,
+        toString(toDate(now())) AS current_project_day
       FROM events
-      WHERE timestamp >= now() - ${interval}`,
+      WHERE ${timePredicate}`,
     ),
     runHogQlQuery(
       configuration,
@@ -125,7 +132,7 @@ export async function getAdminAnalytics(
           countIf(event = '$pageview') AS pageview_count,
           dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
         FROM events
-        WHERE timestamp >= now() - ${interval}
+        WHERE ${timePredicate}
           AND notEmpty(toString(properties.$session_id))
         GROUP BY session_id
         HAVING pageview_count > 0
@@ -140,7 +147,7 @@ export async function getAdminAnalytics(
         uniqIf(distinct_id, event = '$pageview') AS unique_visitors,
         countIf(event = '${ANALYTICS_EVENTS.postOpened}') AS post_opens
       FROM events
-      WHERE timestamp >= now() - ${interval}
+      WHERE ${timePredicate}
       GROUP BY day
       ORDER BY day ASC`,
     ),
@@ -154,7 +161,7 @@ export async function getAdminAnalytics(
         count() AS opens
       FROM events
       WHERE event = '${ANALYTICS_EVENTS.postOpened}'
-        AND timestamp >= now() - ${interval}
+        AND ${timePredicate}
         AND notEmpty(toString(properties.post_id))
       GROUP BY post_id
       ORDER BY opens DESC
@@ -169,7 +176,7 @@ export async function getAdminAnalytics(
         count() AS pageviews
       FROM events
       WHERE event = '$pageview'
-        AND timestamp >= now() - ${interval}
+        AND ${timePredicate}
         AND notEmpty(country)
       GROUP BY country
       ORDER BY visitors DESC, pageviews DESC
@@ -184,7 +191,7 @@ export async function getAdminAnalytics(
         count() AS pageviews
       FROM events
       WHERE event = '$pageview'
-        AND timestamp >= now() - ${interval}
+        AND ${timePredicate}
       GROUP BY referrer
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
@@ -198,7 +205,7 @@ export async function getAdminAnalytics(
         count() AS pageviews
       FROM events
       WHERE event = '$pageview'
-        AND timestamp >= now() - ${interval}
+        AND ${timePredicate}
       GROUP BY device
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
@@ -212,7 +219,7 @@ export async function getAdminAnalytics(
         count() AS pageviews
       FROM events
       WHERE event = '$pageview'
-        AND timestamp >= now() - ${interval}
+        AND ${timePredicate}
       GROUP BY browser
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
@@ -225,7 +232,7 @@ export async function getAdminAnalytics(
         uniq(distinct_id) AS unique_visitors
       FROM events
       WHERE event = '$pageview'
-        AND timestamp >= now() - ${interval}
+        AND ${timePredicate}
       GROUP BY hour
       ORDER BY hour ASC`,
     ),
@@ -235,7 +242,7 @@ export async function getAdminAnalytics(
   const sessions = sessionRows[0] ?? [];
 
   return {
-    rangeDays,
+    range,
     generatedAt: new Date().toISOString(),
     summary: {
       pageviews: toAnalyticsNumber(summary[0]),
@@ -248,7 +255,11 @@ export async function getAdminAnalytics(
       sourceClicks: toAnalyticsNumber(summary[3]),
       subscriptions: toAnalyticsNumber(summary[4]),
     },
-    daily: fillDailyAnalytics(dailyRows, rangeDays),
+    daily: fillDailyAnalytics(
+      dailyRows,
+      getAnalyticsRangeDayCount(range),
+      getAnalyticsEndDateKey(String(summary[5] ?? ""), range),
+    ),
     topPosts: topPostRows.map((row) => ({
       id: String(row[0] ?? ""),
       title: String(row[1] || "Untitled post"),

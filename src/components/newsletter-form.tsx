@@ -83,7 +83,7 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
         className={`focus-ring min-w-0 flex-1 border border-[#e6e6e6] bg-[#fafafa] text-[13px] tracking-[-0.002em] text-[#555] outline-none transition-colors placeholder:text-[#8b8b8b] focus:border-[#aaa] min-[1700px]:text-[14px] ${
           compact
             ? "h-10 w-full rounded-none px-[11px] sm:h-[41px] sm:flex-1 xl:w-[358px] xl:flex-none min-[1700px]:px-3"
-            : "h-9 rounded-full pl-[14px] pr-3 lg:h-[34px] xl:h-9 min-[1700px]:h-[37px] min-[1700px]:pl-4"
+            : "h-9 rounded-none pl-[14px] pr-3 lg:h-[34px] xl:h-9 min-[1700px]:h-[37px] min-[1700px]:pl-4"
         }`}
       />
       <input
@@ -100,7 +100,7 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
         className={`focus-ring shrink-0 bg-[#262626] text-[13px] tracking-[-0.002em] text-white transition-colors hover:bg-black disabled:cursor-wait disabled:opacity-60 min-[1700px]:text-[14px] ${
           compact
             ? "h-10 w-full rounded-none px-2 text-[12px] sm:h-[41px] sm:w-auto sm:px-[11px] sm:text-[13px] xl:w-[119px] xl:px-3"
-            : "h-9 rounded-full px-3 lg:h-[34px] xl:h-9 min-[1700px]:h-[37px] min-[1700px]:px-[14px]"
+            : "h-9 w-24 rounded-none px-3 lg:h-[34px] xl:h-9 min-[1700px]:h-[37px] min-[1700px]:w-[106px] min-[1700px]:px-[14px]"
         }`}
       >
         {status === "pending" ? "joining..." : "subscribe"}

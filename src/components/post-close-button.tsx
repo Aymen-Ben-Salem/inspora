@@ -9,7 +9,7 @@ import {
 } from "./post-dialog";
 
 export const postNavigationControlClassName =
-  "focus-ring relative flex size-10 items-center justify-center rounded-full text-[#95959d] transition-colors before:absolute before:size-[34px] before:rounded-full before:border before:border-[#e6e6e6] before:bg-[#e6e6e6] before:transition-colors hover:text-[#505050] hover:before:bg-[#dcdcdc] xl:before:size-9 min-[1800px]:before:size-10 [&>svg]:relative [&>svg]:z-[1]";
+  "focus-ring relative flex size-10 items-center justify-center border border-[#e6e6e6] bg-[#f0f0f0] text-[#7b7b7b] transition-colors hover:bg-[#e6e6e6] hover:text-[#262626] [&>svg]:relative [&>svg]:z-[1]";
 
 export function PostCloseButton({
   closeMode,

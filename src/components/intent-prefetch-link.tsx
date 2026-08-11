@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type ComponentProps,
-  type MouseEvent,
   type FocusEvent,
   type PointerEvent,
   type TouchEvent,
@@ -13,9 +12,6 @@ import {
   useRef,
   useState,
 } from "react";
-
-import { suppressFiltersForInlinePost } from "./inline-post-header";
-import { capturePostTransitionSource } from "./post-transition-source";
 
 type IntentPrefetchLinkProps = Omit<
   ComponentProps<typeof Link>,
@@ -26,7 +22,6 @@ type IntentPrefetchLinkProps = Omit<
 
 export function IntentPrefetchLink({
   href,
-  onClick,
   onFocus,
   onPointerEnter,
   onTouchStart,
@@ -59,39 +54,15 @@ export function IntentPrefetchLink({
     if (!event.defaultPrevented) prefetch();
   }
 
-  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
-    onClick?.(event);
-    if (event.defaultPrevented) return;
-
-    if (
-      href.toString().startsWith("/posts/") &&
-      event.button === 0 &&
-      !event.altKey &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      !event.shiftKey
-    ) {
-      capturePostTransitionSource(
-        new URL(href.toString(), window.location.href).pathname,
-        event.currentTarget,
-      );
-      suppressFiltersForInlinePost();
-      window.sessionStorage.setItem(
-        "inspora:feed-scroll-position",
-        String(window.scrollY),
-      );
-    }
-  }
-
   return (
     <Link
       {...props}
       href={href}
       prefetch={prefetchEnabled}
-      onClick={handleClick}
       onFocus={handleFocus}
       onPointerEnter={handlePointerEnter}
       onTouchStart={handleTouchStart}
     />
   );
 }
+

@@ -33,7 +33,7 @@ export function DetailMotion({
       data-post-dialog-gallery={overlay ? "" : undefined}
       className={`flex min-w-0 snap-x snap-mandatory items-center overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh] ${
         overlay
-          ? "flex-none bg-transparent lg:flex-1"
+          ? "grow shrink-0 bg-transparent lg:flex-1"
           : "min-h-[62dvh] flex-1 bg-[#262626]"
       }`}
     >

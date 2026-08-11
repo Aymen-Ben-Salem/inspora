@@ -113,7 +113,7 @@ export function PostMetadata({
           : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:w-[clamp(360px,30vw,510px)]"
       }`}
     >
-      <div className="flex min-h-full flex-1 flex-col px-5 py-5 sm:px-7 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
+      <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
         <nav className="flex h-10 items-center justify-between" aria-label="Post navigation">
           {closeMode ? (
             <PostCloseButton closeMode={closeMode}>

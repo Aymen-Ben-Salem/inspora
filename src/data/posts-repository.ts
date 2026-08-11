@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lt, lte, ne, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { getDatabase } from "@/db/client";
@@ -25,6 +25,7 @@ import {
 import { seedPosts } from "./seed-posts";
 
 export const PUBLISHED_POSTS_CACHE_TAG = "published-posts";
+const ADJACENT_POSTS_CACHE_VERSION = 2;
 
 const PUBLISHED_POSTS_CACHE_LIFE = {
   stale: 300,
@@ -404,12 +405,23 @@ export async function getPublishedSlugs(): Promise<string[]> {
   }
 }
 
-export async function getAdjacentPosts(post: PostPosition): Promise<{
+export function getAdjacentPosts(post: PostPosition): Promise<{
+  previousPost: AdjacentPost;
+  nextPost: AdjacentPost;
+}> {
+  return getAdjacentPostsCached(post, ADJACENT_POSTS_CACHE_VERSION);
+}
+
+async function getAdjacentPostsCached(
+  post: PostPosition,
+  cacheVersion: number,
+): Promise<{
   previousPost: AdjacentPost;
   nextPost: AdjacentPost;
 }> {
   "use cache";
 
+  void cacheVersion;
   applyPublishedPostCache();
 
   const database = getDatabase();
@@ -425,6 +437,7 @@ export async function getAdjacentPosts(post: PostPosition): Promise<{
         columns,
         where: and(
           publishedWhere(now),
+          ne(posts.id, post.id),
           or(
             gt(posts.createdAt, createdAt),
             and(eq(posts.createdAt, createdAt), gt(posts.id, post.id)),
@@ -436,6 +449,7 @@ export async function getAdjacentPosts(post: PostPosition): Promise<{
         columns,
         where: and(
           publishedWhere(now),
+          ne(posts.id, post.id),
           or(
             lt(posts.createdAt, createdAt),
             and(eq(posts.createdAt, createdAt), lt(posts.id, post.id)),

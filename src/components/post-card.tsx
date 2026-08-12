@@ -45,14 +45,26 @@ export function PostCard({
         style={{ aspectRatio: `${cover.width}/${cover.height}` }}
       >
         {cover.type === "video" ? (
-          <LoopingVideo
-            data-feed-transition-media
-            src={mediaUrl}
-            poster={posterUrl}
-            aria-label={cover.alt}
-            draggable={false}
-            className="absolute inset-0 size-full object-cover"
-          />
+          <>
+            {priority && posterUrl ? (
+              <link
+                rel="preload"
+                as="image"
+                href={posterUrl}
+                fetchPriority="high"
+              />
+            ) : null}
+            <LoopingVideo
+              data-feed-transition-media
+              src={mediaUrl}
+              poster={posterUrl}
+              aria-label={cover.alt}
+              draggable={false}
+              eager={priority}
+              preload={priority ? "auto" : undefined}
+              className="absolute inset-0 size-full object-cover"
+            />
+          </>
         ) : cover.storageProvider === "r2" ? (
           <ResponsiveR2Image
             data-feed-transition-media

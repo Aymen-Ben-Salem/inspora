@@ -88,6 +88,12 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   align-items: start;
 }
 
+/* The server cannot know the rendered column width. Keep its provisional rows
+   out of view until the pre-paint masonry measurement has reserved final slots. */
+.feed-grid[data-masonry-state="pending"] {
+  visibility: hidden;
+}
+
 .feed-grid > [data-feed-card] {
   padding-bottom: 12px;
 }

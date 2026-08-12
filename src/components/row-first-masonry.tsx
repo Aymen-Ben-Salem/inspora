@@ -1,6 +1,10 @@
 "use client";
 
-import { type PropsWithChildren, useLayoutEffect, useRef } from "react";
+import {
+  type PropsWithChildren,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 const GRID_ROW_HEIGHT = 1;
 
@@ -31,6 +35,7 @@ export function RowFirstMasonry({
 
     cards.forEach((card) => sizeCard(grid, card));
     grid.dataset.masonryReady = "";
+    grid.dataset.masonryState = "ready";
 
     const observer = new ResizeObserver((entries) => {
       entries.forEach((entry) => sizeCard(grid, entry.target as HTMLElement));
@@ -39,13 +44,15 @@ export function RowFirstMasonry({
 
     return () => {
       observer.disconnect();
-      delete grid.dataset.masonryReady;
-      cards.forEach((card) => card.style.removeProperty("grid-row-end"));
     };
   }, [itemCount]);
 
   return (
-    <div ref={gridRef} className="feed-grid">
+    <div
+      ref={gridRef}
+      className="feed-grid"
+      data-masonry-state="pending"
+    >
       {children}
     </div>
   );

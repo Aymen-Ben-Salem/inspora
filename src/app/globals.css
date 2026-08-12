@@ -39,6 +39,15 @@ input {
   font: inherit;
 }
 
+/* iOS WebKit zooms the page when a focused input renders below 16px. */
+@supports (-webkit-touch-callout: none) {
+  @media (hover: none) and (pointer: coarse) {
+    .ios-no-focus-zoom {
+      font-size: 16px;
+    }
+  }
+}
+
 ::selection {
   background: #d9d9d9;
 }

@@ -80,7 +80,7 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
         autoComplete="email"
         required
         placeholder="you@email.com"
-        className={`focus-ring min-w-0 flex-1 border border-[#e6e6e6] bg-[#fafafa] text-[13px] tracking-[-0.002em] text-[#555] outline-none transition-colors placeholder:text-[#8b8b8b] focus:border-[#aaa] min-[1700px]:text-[14px] ${
+        className={`ios-no-focus-zoom focus-ring min-w-0 flex-1 border border-[#e6e6e6] bg-[#fafafa] text-[13px] tracking-[-0.002em] text-[#555] outline-none transition-colors placeholder:text-[#8b8b8b] focus:border-[#aaa] min-[1700px]:text-[14px] ${
           compact
             ? "h-10 w-full rounded-none px-[11px] sm:h-[41px] sm:flex-1 xl:w-[358px] xl:flex-none min-[1700px]:px-3"
             : "h-10 rounded-none pl-[14px] pr-3 lg:h-9 xl:h-10 min-[1700px]:h-[41px] min-[1700px]:pl-3"

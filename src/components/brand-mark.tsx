@@ -1,7 +1,4 @@
-import Image from "next/image";
-
 export function BrandMark({
-  priority = false,
   responsive = false,
 }: {
   priority?: boolean;
@@ -16,14 +13,17 @@ export function BrandMark({
       }`}
       aria-hidden="true"
     >
-      <Image
-        src="/brand/n-mark.png"
-        alt=""
-        width={80}
-        height={80}
-        priority={priority}
-        className="absolute left-[-41.55%] top-[-48.9%] h-[196.01%] w-[176.62%] max-w-none"
-      />
+      <svg
+        viewBox="8 10 48 44"
+        preserveAspectRatio="none"
+        className="block size-full"
+        focusable="false"
+      >
+        <path
+          fill="currentColor"
+          d="M8 54V10h27.5C46.82 10 56 19.18 56 30.5V54H41.5V32c0-4.14-3.36-7.5-7.5-7.5H22.5V54H8Z"
+        />
+      </svg>
     </span>
   );
 }

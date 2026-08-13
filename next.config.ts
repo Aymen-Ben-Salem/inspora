@@ -18,6 +18,19 @@ const remoteImageHostnames = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  async headers() {
+    return [
+      {
+        source: "/brand/inspora-icon-v1.svg",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
   images: {
     minimumCacheTTL: 60 * 60 * 24 * 31,
     remotePatterns: remoteImageHostnames.map((hostname) => ({ protocol: "https", hostname })),

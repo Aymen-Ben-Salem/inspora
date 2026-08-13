@@ -20,6 +20,9 @@ export const metadata: Metadata = {
     template: "%s — Inspora",
   },
   description: "A curated archive of recent visual design and creative work.",
+  icons: {
+    icon: "/brand/inspora-icon-v1.svg",
+  },
   openGraph: {
     type: "website",
     title: "Inspora",

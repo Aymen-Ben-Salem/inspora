@@ -2,6 +2,7 @@
 
 import type { Route } from "next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type ComponentProps,
   type FocusEvent,
@@ -22,29 +23,30 @@ type IntentPrefetchLinkProps = Omit<
 export function IntentPrefetchLink({
   href,
   onFocus,
-  onPointerMove,
+  onPointerEnter,
   onTouchStart,
   ...props
 }: IntentPrefetchLinkProps) {
-  const [prefetchEnabled, setPrefetchEnabled] = useState(false);
+  const router = useRouter();
   const activated = useRef(false);
+  const [prefetchEnabled, setPrefetchEnabled] = useState(false);
 
   const prefetch = useCallback(() => {
     if (activated.current) return;
 
     activated.current = true;
     setPrefetchEnabled(true);
-  }, []);
+    router.prefetch(href);
+  }, [href, router]);
 
   function handleFocus(event: FocusEvent<HTMLAnchorElement>) {
     onFocus?.(event);
     if (!event.defaultPrevented) prefetch();
   }
 
-  function handlePointerMove(event: PointerEvent<HTMLAnchorElement>) {
-    onPointerMove?.(event);
-    if (event.defaultPrevented || event.pointerType === "touch") return;
-    prefetch();
+  function handlePointerEnter(event: PointerEvent<HTMLAnchorElement>) {
+    onPointerEnter?.(event);
+    if (!event.defaultPrevented) prefetch();
   }
 
   function handleTouchStart(event: TouchEvent<HTMLAnchorElement>) {
@@ -56,9 +58,9 @@ export function IntentPrefetchLink({
     <Link
       {...props}
       href={href}
-      prefetch={prefetchEnabled ? null : false}
+      prefetch={prefetchEnabled}
       onFocus={handleFocus}
-      onPointerMove={handlePointerMove}
+      onPointerEnter={handlePointerEnter}
       onTouchStart={handleTouchStart}
     />
   );

@@ -11,7 +11,6 @@ export function FeedMotion({
   itemCount,
 }: PropsWithChildren<{ itemCount: number }>) {
   const scope = useRef<HTMLDivElement>(null);
-  const initialFeedRevealed = useRef(false);
 
   useGSAP(
     () => {
@@ -22,13 +21,6 @@ export function FeedMotion({
       cards.forEach((card) => {
         card.dataset.feedRevealed = "";
       });
-
-      // The initial feed is already visible content, so delaying it behind an
-      // entrance animation postpones LCP. Keep motion for newly appended pages.
-      if (!initialFeedRevealed.current) {
-        initialFeedRevealed.current = true;
-        return;
-      }
 
       if (
         cards.length === 0 ||

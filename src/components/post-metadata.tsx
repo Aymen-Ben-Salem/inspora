@@ -72,16 +72,19 @@ function CircleLink({
   label,
   children,
   replace = false,
+  prefetch,
 }: {
   href: Route;
   label: string;
   children: ReactNode;
   replace?: boolean;
+  prefetch?: boolean;
 }) {
   return (
     <Link
       href={href}
       replace={replace}
+      prefetch={prefetch}
       aria-label={label}
       className={postNavigationControlClassName}
     >
@@ -129,6 +132,7 @@ export function PostMetadata({
               href={`/posts/${previousPost.slug}` as Route}
               label={`Previous post: ${previousPost.title}`}
               replace={overlay}
+              prefetch={false}
             >
               <ArrowIcon direction="left" />
             </CircleLink>
@@ -136,6 +140,7 @@ export function PostMetadata({
               href={`/posts/${nextPost.slug}` as Route}
               label={`Next post: ${nextPost.title}`}
               replace={overlay}
+              prefetch={false}
             >
               <ArrowIcon direction="right" />
             </CircleLink>

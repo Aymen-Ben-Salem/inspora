@@ -1,9 +1,11 @@
+import { cacheLife, cacheTag } from "next/cache";
 import { notFound } from "next/navigation";
 
 import { PostDetail } from "@/components/post-detail";
 import {
   getAdjacentPosts,
   getPostBySlug,
+  PUBLISHED_POSTS_CACHE_TAG,
 } from "@/data/posts-repository";
 
 type PostModalPageProps = {
@@ -11,6 +13,15 @@ type PostModalPageProps = {
 };
 
 export default async function PostModalPage({ params }: PostModalPageProps) {
+  "use cache";
+
+  cacheLife({
+    stale: 300,
+    revalidate: 21_600,
+    expire: 604_800,
+  });
+  cacheTag(PUBLISHED_POSTS_CACHE_TAG);
+
   const { slug } = await params;
   const post = await getPostBySlug(slug);
 

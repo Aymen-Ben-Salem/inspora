@@ -7,10 +7,9 @@ import {
   type ComponentProps,
   type FocusEvent,
   type PointerEvent,
-  type TouchEvent,
   useCallback,
+  useEffect,
   useRef,
-  useState,
 } from "react";
 
 type IntentPrefetchLinkProps = Omit<
@@ -24,20 +23,27 @@ export function IntentPrefetchLink({
   href,
   onFocus,
   onPointerEnter,
-  onTouchStart,
+  onPointerLeave,
   ...props
 }: IntentPrefetchLinkProps) {
   const router = useRouter();
   const activated = useRef(false);
-  const [prefetchEnabled, setPrefetchEnabled] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const prefetch = useCallback(() => {
     if (activated.current) return;
 
     activated.current = true;
-    setPrefetchEnabled(true);
     router.prefetch(href);
   }, [href, router]);
+
+  const cancelHoverPrefetch = useCallback(() => {
+    if (!hoverTimer.current) return;
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  }, []);
+
+  useEffect(() => cancelHoverPrefetch, [cancelHoverPrefetch]);
 
   function handleFocus(event: FocusEvent<HTMLAnchorElement>) {
     onFocus?.(event);
@@ -46,22 +52,25 @@ export function IntentPrefetchLink({
 
   function handlePointerEnter(event: PointerEvent<HTMLAnchorElement>) {
     onPointerEnter?.(event);
-    if (!event.defaultPrevented) prefetch();
+    if (event.defaultPrevented || event.pointerType === "touch") return;
+
+    cancelHoverPrefetch();
+    hoverTimer.current = setTimeout(prefetch, 100);
   }
 
-  function handleTouchStart(event: TouchEvent<HTMLAnchorElement>) {
-    onTouchStart?.(event);
-    if (!event.defaultPrevented) prefetch();
+  function handlePointerLeave(event: PointerEvent<HTMLAnchorElement>) {
+    onPointerLeave?.(event);
+    cancelHoverPrefetch();
   }
 
   return (
     <Link
       {...props}
       href={href}
-      prefetch={prefetchEnabled}
+      prefetch={false}
       onFocus={handleFocus}
       onPointerEnter={handlePointerEnter}
-      onTouchStart={handleTouchStart}
+      onPointerLeave={handlePointerLeave}
     />
   );
 }

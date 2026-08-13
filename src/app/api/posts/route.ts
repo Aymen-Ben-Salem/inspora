@@ -4,7 +4,8 @@ import { decodePostCursor } from "@/data/post-pagination";
 import { getPostPage } from "@/data/posts-repository";
 import { isPostCategory, isPostView } from "@/domain/post";
 
-const PAGE_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
+const PAGE_CACHE_CONTROL =
+  "public, max-age=120, s-maxage=300, stale-while-revalidate=3600";
 
 export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;

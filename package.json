@@ -31,7 +31,6 @@
     "@ffmpeg/util": "^0.12.2",
     "@gsap/react": "2.1.2",
     "@neondatabase/serverless": "1.1.0",
-    "@vercel/analytics": "^2.0.1",
     "cloudinary": "2.10.0",
     "drizzle-orm": "0.45.2",
     "gsap": "3.15.0",

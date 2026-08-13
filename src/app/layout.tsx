@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Suspense, type ReactNode } from "react";
-import { Analytics } from "@vercel/analytics/next";
 
 import { AnalyticsConsent } from "@/components/analytics-consent";
 
@@ -43,7 +42,6 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <AnalyticsConsent />
         </Suspense>
-        <Analytics />
       </body>
     </html>
   );

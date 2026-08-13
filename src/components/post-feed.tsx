@@ -17,7 +17,7 @@ export function PostFeed({ posts }: { posts: PostCardData[] }) {
     <FeedMotion itemCount={posts.length}>
       <RowFirstMasonry itemCount={posts.length}>
         {posts.map((post, index) => (
-          <PostCard key={post.id} post={post} priority={index === 0} />
+          <PostCard key={post.id} post={post} priority={index < 4} />
         ))}
       </RowFirstMasonry>
     </FeedMotion>

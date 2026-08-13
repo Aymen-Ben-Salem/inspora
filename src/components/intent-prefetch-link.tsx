@@ -2,14 +2,15 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   type ComponentProps,
   type FocusEvent,
   type PointerEvent,
+  type TouchEvent,
   useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 type IntentPrefetchLinkProps = Omit<
@@ -24,18 +25,15 @@ export function IntentPrefetchLink({
   onFocus,
   onPointerEnter,
   onPointerLeave,
+  onTouchStart,
   ...props
 }: IntentPrefetchLinkProps) {
-  const router = useRouter();
-  const activated = useRef(false);
+  const [prefetchEnabled, setPrefetchEnabled] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   const prefetch = useCallback(() => {
-    if (activated.current) return;
-
-    activated.current = true;
-    router.prefetch(href);
-  }, [href, router]);
+    setPrefetchEnabled(true);
+  }, []);
 
   const cancelHoverPrefetch = useCallback(() => {
     if (!hoverTimer.current) return;
@@ -63,14 +61,20 @@ export function IntentPrefetchLink({
     cancelHoverPrefetch();
   }
 
+  function handleTouchStart(event: TouchEvent<HTMLAnchorElement>) {
+    onTouchStart?.(event);
+    if (!event.defaultPrevented) prefetch();
+  }
+
   return (
     <Link
       {...props}
       href={href}
-      prefetch={false}
+      prefetch={prefetchEnabled}
       onFocus={handleFocus}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
+      onTouchStart={handleTouchStart}
     />
   );
 }

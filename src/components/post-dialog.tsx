@@ -33,6 +33,7 @@ const SIDEBAR_EXIT_DURATION = 0.2;
 const SIDEBAR_ENTRANCE_DELAY = 0;
 const POST_EXIT_DELAY = 0.035;
 const EXIT_DURATION = POST_EXIT_DELAY + POST_EXIT_DURATION;
+const POST_SWAP_DURATION = 0.7;
 
 const PostDialogCloseContext = createContext<(() => void) | undefined>(undefined);
 
@@ -101,6 +102,7 @@ export function PostDialog({
   const entranceProxy = useRef<HTMLDivElement>(null);
   const exitProxy = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
+  const activePathname = useRef<string | null>(null);
 
   const finishClose = useCallback(() => {
     if (closeMode === "back") {
@@ -301,6 +303,11 @@ export function PostDialog({
         .querySelectorAll<HTMLElement>("[data-post-dialog-media-proxy]")
         .forEach((proxy) => proxy.remove());
 
+      const previousPathname = activePathname.current;
+      const isPostSwap =
+        previousPathname !== null && previousPathname !== pathname;
+      activePathname.current = pathname;
+
       let observer: MutationObserver | undefined;
 
       const startEntrance = () => {
@@ -351,6 +358,47 @@ export function PostDialog({
         if (reducedMotion) {
           gsap.set([backdrop, gallery, sidebar, hero], { clearProps: "all" });
           resumeLoopingVideos(gallery);
+          return true;
+        }
+
+        if (isPostSwap) {
+          const timeline = gsap.timeline({
+            onComplete: () => {
+              resumeLoopingVideos(gallery);
+            },
+          });
+
+          entrance.current = timeline;
+          gsap.set(backdrop, { autoAlpha: 1 });
+          timeline.fromTo(
+            gallery,
+            {
+              autoAlpha: 0.12,
+              scale: 0.95,
+              transformOrigin: "center center",
+              willChange: "transform,opacity",
+            },
+            {
+              autoAlpha: 1,
+              scale: 1,
+              duration: POST_SWAP_DURATION,
+              ease: "power3.out",
+              clearProps: "transform,transformOrigin,opacity,visibility,willChange",
+            },
+            0,
+          );
+          timeline.fromTo(
+            sidebar,
+            { autoAlpha: 0.14, x: 28, willChange: "transform,opacity" },
+            {
+              autoAlpha: 1,
+              x: 0,
+              duration: POST_SWAP_DURATION,
+              ease: "power3.out",
+              clearProps: "transform,opacity,visibility,willChange",
+            },
+            0.04,
+          );
           return true;
         }
 

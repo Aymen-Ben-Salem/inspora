@@ -5,12 +5,18 @@ import { PostDetail } from "@/components/post-detail";
 import {
   getAdjacentPosts,
   getPostBySlug,
+  getPublishedSlugs,
   PUBLISHED_POSTS_CACHE_TAG,
 } from "@/data/posts-repository";
 
 type PostModalPageProps = {
   params: Promise<{ slug: string }>;
 };
+
+export async function generateStaticParams() {
+  const slugs = await getPublishedSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
 
 export default async function PostModalPage({ params }: PostModalPageProps) {
   "use cache";

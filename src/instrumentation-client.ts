@@ -27,7 +27,7 @@ if (projectToken && apiHost) {
     },
     capture_pageview: "history_change",
     capture_pageleave: true,
-    cookieless_mode: "on_reject",
+    cookieless_mode: "always",
     disable_session_recording: true,
     person_profiles: "never",
     before_send(event) {

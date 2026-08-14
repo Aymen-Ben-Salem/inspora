@@ -26,6 +26,8 @@ import { seedPosts } from "./seed-posts";
 
 export const PUBLISHED_POSTS_CACHE_TAG = "published-posts";
 const ADJACENT_POSTS_CACHE_VERSION = 2;
+const PUBLISHED_SLUG_QUERY_ATTEMPTS = 4;
+const PUBLISHED_SLUG_RETRY_DELAY_MS = 250;
 
 const PUBLISHED_POSTS_CACHE_LIFE = {
   stale: 300,
@@ -393,16 +395,33 @@ export async function getPublishedSlugs(): Promise<string[]> {
   const database = getDatabase();
   if (!database) return seedPosts.map((post) => post.slug);
 
-  try {
-    const rows = await database.query.posts.findMany({
-      columns: { slug: true },
-      where: publishedWhere(new Date()),
-      orderBy: [desc(posts.createdAt), desc(posts.id)],
-    });
-    return rows.map((post) => post.slug);
-  } catch (cause) {
-    throw new Error("Could not load published post slugs.", { cause });
+  let lastCause: unknown;
+
+  for (let attempt = 1; attempt <= PUBLISHED_SLUG_QUERY_ATTEMPTS; attempt += 1) {
+    try {
+      const rows = await database.query.posts.findMany({
+        columns: { slug: true },
+        where: publishedWhere(new Date()),
+        orderBy: [desc(posts.createdAt), desc(posts.id)],
+      });
+      return rows.map((post) => post.slug);
+    } catch (cause) {
+      lastCause = cause;
+
+      if (attempt < PUBLISHED_SLUG_QUERY_ATTEMPTS) {
+        await new Promise((resolve) => {
+          setTimeout(
+            resolve,
+            PUBLISHED_SLUG_RETRY_DELAY_MS * 2 ** (attempt - 1),
+          );
+        });
+      }
+    }
   }
+
+  throw new Error("Could not load published post slugs.", {
+    cause: lastCause,
+  });
 }
 
 export function getAdjacentPosts(post: PostPosition): Promise<{

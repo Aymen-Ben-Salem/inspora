@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cacheLife, cacheTag } = vi.hoisted(() => ({
+const { cacheLife, cacheTag, getDatabase } = vi.hoisted(() => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
+  getDatabase: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ cacheLife, cacheTag }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/db/client", () => ({ getDatabase: () => null }));
+vi.mock("@/db/client", () => ({ getDatabase }));
 vi.mock("@/db/schema", () => ({ postMedia: {}, posts: {} }));
 vi.mock("@/domain/post", async () => import("../domain/post"));
 
@@ -23,6 +24,8 @@ describe("published post caching", () => {
   beforeEach(() => {
     cacheLife.mockClear();
     cacheTag.mockClear();
+    getDatabase.mockReset();
+    getDatabase.mockReturnValue(null);
   });
 
   it("assigns a bounded cache lifetime and invalidation tag", async () => {
@@ -62,5 +65,19 @@ describe("published post caching", () => {
       previousPost: expect.objectContaining({ slug: expect.any(String) }),
       nextPost: expect.objectContaining({ slug: expect.any(String) }),
     });
+  });
+
+  it("retries a transient failure while loading published slugs", async () => {
+    const findMany = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce([{ slug: "recovered-post" }]);
+
+    getDatabase.mockReturnValue({
+      query: { posts: { findMany } },
+    });
+
+    await expect(getPublishedSlugs()).resolves.toEqual(["recovered-post"]);
+    expect(findMany).toHaveBeenCalledTimes(2);
   });
 });

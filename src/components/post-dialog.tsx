@@ -88,6 +88,46 @@ function restoreGalleryAfterTransition(
   resumeLoopingVideos(gallery);
 }
 
+function restoreEntranceState(
+  backdrop: HTMLElement,
+  gallery: HTMLElement,
+  sidebar: HTMLElement,
+  hero: HTMLElement,
+) {
+  const clearStyles = (element: HTMLElement, properties: string[]) => {
+    properties.forEach((property) => element.style.removeProperty(property));
+  };
+
+  clearStyles(backdrop, ["opacity", "visibility"]);
+  clearStyles(gallery, [
+    "opacity",
+    "visibility",
+    "transform",
+    "transform-origin",
+    "will-change",
+    "overflow",
+    "position",
+    "z-index",
+  ]);
+  clearStyles(sidebar, [
+    "opacity",
+    "visibility",
+    "transform",
+    "will-change",
+  ]);
+  clearStyles(hero, [
+    "opacity",
+    "visibility",
+    "transform",
+    "transform-origin",
+    "will-change",
+  ]);
+  getOtherGalleryItems(gallery, hero).forEach((item) => {
+    item.style.removeProperty("visibility");
+  });
+  resumeLoopingVideos(gallery);
+}
+
 export function PostDialog({
   children,
   closeMode,
@@ -327,6 +367,8 @@ export function PostDialog({
 
         if (!backdrop || !gallery || !sidebar || !hero || !postId) return false;
 
+        restoreEntranceState(backdrop, gallery, sidebar, hero);
+
         const source = findFeedPost(postId);
         const intrinsicAspectRatio = getIntrinsicMediaAspectRatio(source);
         const maxViewportHeight = Number(
@@ -362,10 +404,12 @@ export function PostDialog({
         }
 
         if (isPostSwap) {
+          const settleSwap = () => {
+            restoreEntranceState(backdrop, gallery, sidebar, hero);
+          };
           const timeline = gsap.timeline({
-            onComplete: () => {
-              resumeLoopingVideos(gallery);
-            },
+            onComplete: settleSwap,
+            onInterrupt: settleSwap,
           });
 
           entrance.current = timeline;
@@ -403,16 +447,19 @@ export function PostDialog({
         }
 
         let proxy: HTMLDivElement | undefined;
-        const timeline = gsap.timeline({
-          onComplete: () => {
-            if (proxy) {
-              gsap.set(hero, { clearProps: "opacity,visibility" });
-              proxy.remove();
+        const settleEntrance = () => {
+          if (proxy) {
+            proxy.remove();
+            if (entranceProxy.current === proxy) {
               entranceProxy.current = null;
             }
+          }
 
-            restoreGalleryAfterTransition(gallery, hero);
-          },
+          restoreEntranceState(backdrop, gallery, sidebar, hero);
+        };
+        const timeline = gsap.timeline({
+          onComplete: settleEntrance,
+          onInterrupt: settleEntrance,
         });
 
         entrance.current = timeline;
@@ -540,6 +587,34 @@ export function PostDialog({
         observer?.disconnect();
         entranceProxy.current?.remove();
         entranceProxy.current = null;
+        entrance.current = null;
+
+        const backdrop = root.querySelector<HTMLElement>(
+          "[data-post-dialog-backdrop]",
+        );
+        const gallery = root.querySelector<HTMLElement>(
+          "[data-post-dialog-gallery]",
+        );
+        const sidebar = root.querySelector<HTMLElement>(
+          "[data-post-dialog-sidebar]",
+        );
+        const hero = root.querySelector<HTMLElement>(
+          "[data-post-dialog-hero]",
+        );
+
+        if (backdrop && gallery && sidebar && hero) {
+          restoreEntranceState(backdrop, gallery, sidebar, hero);
+        } else if (entranceHero.current) {
+          [
+            "opacity",
+            "visibility",
+            "transform",
+            "transform-origin",
+            "will-change",
+          ].forEach((property) => {
+            entranceHero.current?.style.removeProperty(property);
+          });
+        }
       };
     },
     { scope, dependencies: [pathname], revertOnUpdate: true },

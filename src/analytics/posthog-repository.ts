@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { ANALYTICS_EVENTS } from "./events";
 import {
+  calculateAverageDailyVisitors,
   createPostHogTools,
   fillDailyAnalytics,
   fillHourlyAnalytics,
@@ -35,7 +36,7 @@ const LIVE_ANALYTICS_CACHE_LIFE = {
   expire: 60,
 } as const;
 
-export const LIVE_VISITOR_WINDOW_MINUTES = 5;
+export const LIVE_VISITOR_WINDOW_MINUTES = 2;
 
 type PostHogConfiguration = {
   apiHost: string;
@@ -105,7 +106,6 @@ export async function getAdminAnalytics(
   }`;
   const [
     summaryRows,
-    sessionRows,
     dailyRows,
     topPostRows,
     countryRows,
@@ -119,33 +119,12 @@ export async function getAdminAnalytics(
       "Inspora admin summary",
       `SELECT
         countIf(event = '$pageview') AS pageviews,
-        uniqIf(distinct_id, event = '$pageview') AS unique_visitors,
         countIf(event = '${ANALYTICS_EVENTS.postOpened}') AS post_opens,
         countIf(event = '${ANALYTICS_EVENTS.postSourceVisited}') AS source_clicks,
         countIf(event = '${ANALYTICS_EVENTS.newsletterSubscribed}') AS subscriptions,
         toString(toDate(now())) AS current_project_day
       FROM events
       WHERE ${timePredicate}`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin session health",
-      `SELECT
-        count() AS sessions,
-        avg(if(pageview_count = 1, 1, 0)) * 100 AS bounce_rate,
-        avg(session_duration) AS average_session_duration,
-        avg(pageview_count) AS views_per_session
-      FROM (
-        SELECT
-          toString(properties.$session_id) AS session_id,
-          countIf(event = '$pageview') AS pageview_count,
-          dateDiff('second', min(timestamp), max(timestamp)) AS session_duration
-        FROM events
-        WHERE ${timePredicate}
-          AND notEmpty(toString(properties.$session_id))
-        GROUP BY session_id
-        HAVING pageview_count > 0
-      )`,
     ),
     runHogQlQuery(
       configuration,
@@ -248,27 +227,23 @@ export async function getAdminAnalytics(
   ]);
 
   const summary = summaryRows[0] ?? [];
-  const sessions = sessionRows[0] ?? [];
+  const daily = fillDailyAnalytics(
+    dailyRows,
+    getAnalyticsRangeDayCount(range),
+    getAnalyticsEndDateKey(String(summary[4] ?? ""), range),
+  );
 
   return {
     range,
     generatedAt: new Date().toISOString(),
     summary: {
       pageviews: toAnalyticsNumber(summary[0]),
-      uniqueVisitors: toAnalyticsNumber(summary[1]),
-      sessions: toAnalyticsNumber(sessions[0]),
-      bounceRate: toAnalyticsNumber(sessions[1]),
-      averageSessionDuration: toAnalyticsNumber(sessions[2]),
-      viewsPerSession: toAnalyticsNumber(sessions[3]),
-      postOpens: toAnalyticsNumber(summary[2]),
-      sourceClicks: toAnalyticsNumber(summary[3]),
-      subscriptions: toAnalyticsNumber(summary[4]),
+      averageDailyVisitors: calculateAverageDailyVisitors(daily),
+      postOpens: toAnalyticsNumber(summary[1]),
+      sourceClicks: toAnalyticsNumber(summary[2]),
+      subscriptions: toAnalyticsNumber(summary[3]),
     },
-    daily: fillDailyAnalytics(
-      dailyRows,
-      getAnalyticsRangeDayCount(range),
-      getAnalyticsEndDateKey(String(summary[5] ?? ""), range),
-    ),
+    daily,
     topPosts: topPostRows.map((row) => ({
       id: String(row[0] ?? ""),
       title: String(row[1] || "Untitled post"),

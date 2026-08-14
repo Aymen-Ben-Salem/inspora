@@ -76,20 +76,9 @@ function UnavailableState() {
   );
 }
 
-type MetricFormat = "decimal" | "duration" | "number" | "percent";
-
-function formatDuration(seconds: number) {
-  const rounded = Math.max(0, Math.round(seconds));
-  if (rounded < 60) return `${rounded}s`;
-
-  const minutes = Math.floor(rounded / 60);
-  const remainingSeconds = rounded % 60;
-  return remainingSeconds === 0 ? `${minutes}m` : `${minutes}m ${remainingSeconds}s`;
-}
+type MetricFormat = "decimal" | "number";
 
 function formatMetric(value: number, format: MetricFormat) {
-  if (format === "duration") return formatDuration(value);
-  if (format === "percent") return `${value.toFixed(1)}%`;
   if (format === "decimal") return value.toFixed(1);
   return compactNumber.format(value);
 }
@@ -104,10 +93,10 @@ function MetricCard({
   value: number;
 }) {
   return (
-    <article className="min-w-0 bg-white p-5 sm:p-6">
-      <p className="text-xs uppercase tracking-[0.12em] text-[#777]">{label}</p>
+    <article className="min-w-0 bg-white px-5 py-5 sm:px-6 sm:py-6">
+      <p className="text-[11px] font-medium text-[#777]">{label}</p>
       <p
-        className="mt-4 text-3xl font-medium tracking-[-0.05em] tabular-nums sm:text-4xl"
+        className="mt-2 text-3xl font-medium tracking-[-0.055em] tabular-nums sm:text-[2.15rem]"
         title={format === "number" ? exactNumber.format(value) : undefined}
       >
         {formatMetric(value, format)}
@@ -122,7 +111,13 @@ function formatHour(hour: number) {
   return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
 }
 
-function HourlyActivityChart({ analytics }: { analytics: AdminAnalytics }) {
+function HourlyActivityChart({
+  analytics,
+  visitorUnit,
+}: {
+  analytics: AdminAnalytics;
+  visitorUnit: string;
+}) {
   const maximum = Math.max(
     1,
     ...analytics.hourlyActivity.map((hour) => hour.uniqueVisitors),
@@ -132,10 +127,10 @@ function HourlyActivityChart({ analytics }: { analytics: AdminAnalytics }) {
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Activity</p>
-          <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">
+          <h2 className="text-2xl font-medium tracking-[-0.04em]">
             Most active hours
           </h2>
+          <p className="mt-1 text-xs text-[#888]">{visitorUnit} by hour</p>
         </div>
         <p className="text-xs text-[#888]">Unique visitors · Tunisia time</p>
       </div>
@@ -156,8 +151,8 @@ function HourlyActivityChart({ analytics }: { analytics: AdminAnalytics }) {
                 <div
                   className="w-full rounded-t-sm bg-[#222] transition-colors duration-200 group-hover:bg-[#777]"
                   style={{ height: `${height}%` }}
-                  title={`${formatHour(hour.hour)}: ${exactNumber.format(hour.uniqueVisitors)} unique visitors`}
-                  aria-label={`${formatHour(hour.hour)}: ${exactNumber.format(hour.uniqueVisitors)} unique visitors`}
+                  title={`${formatHour(hour.hour)}: ${exactNumber.format(hour.uniqueVisitors)} ${visitorUnit}`}
+                  aria-label={`${formatHour(hour.hour)}: ${exactNumber.format(hour.uniqueVisitors)} ${visitorUnit}`}
                 />
                 {showLabel ? (
                   <span className="absolute left-0 top-[calc(100%+8px)] whitespace-nowrap text-[10px] text-[#999]">
@@ -178,8 +173,8 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
 
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-      <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Engagement</p>
-      <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">Most opened posts</h2>
+      <h2 className="text-2xl font-medium tracking-[-0.04em]">Most opened posts</h2>
+      <p className="mt-1 text-xs text-[#888]">Content drawing the most attention</p>
       {analytics.topPosts.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#888]">Post opens will appear here.</p>
       ) : (
@@ -218,23 +213,20 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
 
 function RankedBreakdown({
   emptyMessage,
-  eyebrow,
   items,
-  note,
   title,
+  visitorUnit,
 }: {
   emptyMessage: string;
-  eyebrow: string;
   items: AnalyticsBreakdown[];
-  note?: string;
   title: string;
+  visitorUnit: string;
 }) {
   const maximum = Math.max(1, ...items.map((item) => item.visitors));
 
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-      <p className="text-xs uppercase tracking-[0.16em] text-[#777]">{eyebrow}</p>
-      <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">{title}</h2>
+      <h2 className="text-2xl font-medium tracking-[-0.04em]">{title}</h2>
       {items.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#888]">{emptyMessage}</p>
       ) : (
@@ -253,63 +245,53 @@ function RankedBreakdown({
                 </span>
                 <span
                   className="shrink-0 text-xs tabular-nums text-[#777]"
-                  title={`${exactNumber.format(item.visitors)} visitors, ${exactNumber.format(item.pageviews)} pageviews`}
+                  title={`${exactNumber.format(item.visitors)} ${visitorUnit}, ${exactNumber.format(item.pageviews)} pageviews`}
                 >
-                  {compactNumber.format(item.visitors)} visitors · {compactNumber.format(item.pageviews)} views
+                  {compactNumber.format(item.visitors)} {visitorUnit} · {compactNumber.format(item.pageviews)} views
                 </span>
               </div>
             </li>
           ))}
         </ol>
       )}
-      {note ? <p className="mt-4 text-xs leading-5 text-[#888]">{note}</p> : null}
     </section>
   );
 }
 
-function PostHogTools({ tools }: { tools: PostHogTool[] }) {
+function PostHogToolLinks({ tools }: { tools: PostHogTool[] }) {
   return (
-    <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Explore deeper</p>
-        <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">PostHog tools</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#777]">
-          Open the interactive views for investigation that does not fit into a compact report.
-        </p>
-      </div>
-      <div className="mt-6 grid overflow-hidden rounded-xl border border-black/10 bg-black/10 md:grid-cols-3">
-        {tools.map((tool) => (
-          <a
-            key={tool.label}
-            href={tool.href}
-            target="_blank"
-            rel="noreferrer"
-            className="focus-ring group min-h-36 bg-white p-5 transition-colors hover:bg-[#f7f7f4]"
+    <nav
+      aria-label="PostHog tools"
+      className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2"
+    >
+      {tools.map((tool) => (
+        <a
+          key={tool.label}
+          href={tool.href}
+          target="_blank"
+          rel="noreferrer"
+          title={tool.description}
+          className="focus-ring group inline-flex items-center gap-1.5 rounded-sm text-xs text-[#777] transition-colors hover:text-black"
+        >
+          {tool.label}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            fill="none"
+            className="size-3.5 transition-transform duration-200 group-hover:translate-x-px group-hover:-translate-y-px"
           >
-            <span className="flex items-center justify-between gap-4 text-sm font-medium">
-              {tool.label}
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 20 20"
-                fill="none"
-                className="size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-              >
-                <path d="M6 14 14 6m0 0H8m6 0v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <span className="mt-3 block max-w-xs text-xs leading-5 text-[#777]">
-              {tool.description}
-            </span>
-          </a>
-        ))}
-      </div>
-    </section>
+            <path d="M6 14 14 6m0 0H8m6 0v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
+      ))}
+    </nav>
   );
 }
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const { days } = await searchParams;
   const range = parseRange(days);
+  const visitorUnit = typeof range === "number" ? "visitor-days" : "visitors";
 
   let analytics: AdminAnalytics | null = null;
   let liveAnalytics: LiveVisitorAnalytics | null = null;
@@ -336,75 +318,84 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   }
 
   return (
-    <div className="grid gap-7">
-      <header className="flex flex-wrap items-end justify-between gap-5 border-b border-black/10 pb-7">
+    <div className="grid gap-6 sm:gap-7">
+      <header className="flex flex-wrap items-end justify-between gap-6 border-b border-black/10 pb-6 sm:pb-7">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Audience</p>
-          <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em] sm:text-5xl">Analytics</h1>
+          <h1 className="text-4xl font-medium tracking-[-0.055em] sm:text-5xl">Analytics</h1>
           <p className="mt-2 text-sm text-[#777]">Public traffic and content engagement.</p>
         </div>
-        <nav aria-label="Analytics date range" className="flex rounded-full bg-[#e9e9e5] p-1">
-          {ANALYTICS_RANGES.map((option) => (
-            <Link
-              key={option}
-              href={`/admin/analytics?days=${option}` as Route}
-              aria-current={range === option ? "page" : undefined}
-              className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
-                range === option ? "bg-white text-black shadow-sm" : "text-[#666] hover:text-black"
-              }`}
-            >
-              {formatRangeLabel(option)}
-            </Link>
-          ))}
-        </nav>
+        <div className="flex flex-col items-end gap-3">
+          <nav aria-label="Analytics date range" className="flex rounded-full bg-[#e5e5e1] p-1">
+            {ANALYTICS_RANGES.map((option) => (
+              <Link
+                key={option}
+                href={`/admin/analytics?days=${option}` as Route}
+                aria-current={range === option ? "page" : undefined}
+                className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
+                  range === option ? "bg-white text-black shadow-sm" : "text-[#666] hover:text-black"
+                }`}
+              >
+                {formatRangeLabel(option)}
+              </Link>
+            ))}
+          </nav>
+          {analytics ? <PostHogToolLinks tools={analytics.tools} /> : null}
+        </div>
       </header>
 
       {!isPostHogAdminConfigured() ? <SetupState /> : null}
       {failed ? <UnavailableState /> : null}
       {analytics ? (
         <>
-          <LiveVisitorsCard initialAnalytics={liveAnalytics} />
-          <section className="grid overflow-hidden rounded-2xl border border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard label="Pageviews" value={analytics.summary.pageviews} />
-            <MetricCard label="Visitors" value={analytics.summary.uniqueVisitors} />
-            <MetricCard label="Sessions" value={analytics.summary.sessions} />
-            <MetricCard label="Bounce rate" value={analytics.summary.bounceRate} format="percent" />
-            <MetricCard label="Average visit" value={analytics.summary.averageSessionDuration} format="duration" />
-            <MetricCard label="Views per session" value={analytics.summary.viewsPerSession} format="decimal" />
-            <MetricCard label="Post opens" value={analytics.summary.postOpens} />
-            <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
-            <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
+          <section className="overflow-hidden rounded-[20px] border border-black/10 bg-black/10">
+            <div className="grid gap-px bg-white/10 lg:grid-cols-[minmax(0,2fr)_minmax(230px,1fr)]">
+              <LiveVisitorsCard initialAnalytics={liveAnalytics} />
+              <article className="bg-[#242424] px-5 py-6 text-white sm:px-6 sm:py-7">
+                <p className="text-[11px] font-medium text-white/55">Daily visitor average</p>
+                <p
+                  className="mt-3 text-4xl font-medium tracking-[-0.06em] tabular-nums sm:text-5xl"
+                  title={`${analytics.summary.averageDailyVisitors.toFixed(1)} average unique visitors per day`}
+                >
+                  {formatMetric(analytics.summary.averageDailyVisitors, "decimal")}
+                </p>
+                <p className="mt-1 text-[11px] text-white/45">For the selected period</p>
+              </article>
+            </div>
+            <div className="grid gap-px border-t border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard label="Pageviews" value={analytics.summary.pageviews} />
+              <MetricCard label="Post opens" value={analytics.summary.postOpens} />
+              <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
+              <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
+            </div>
           </section>
           <TrafficChart daily={analytics.daily} range={analytics.range} />
-          <HourlyActivityChart analytics={analytics} />
+          <HourlyActivityChart analytics={analytics} visitorUnit={visitorUnit} />
           <div className="grid gap-7 xl:grid-cols-2">
             <TopPosts analytics={analytics} />
             <RankedBreakdown
-              eyebrow="Audience"
               title="Top countries"
               items={analytics.topCountries}
-              emptyMessage="Country data will appear after visitors allow analytics."
-              note="Location is available only for visitors who allow analytics; limited mode removes the IP before GeoIP enrichment."
+              emptyMessage="Country data will appear as traffic is collected."
+              visitorUnit={visitorUnit}
             />
             <RankedBreakdown
-              eyebrow="Acquisition"
               title="Top referrers"
               items={analytics.topReferrers}
               emptyMessage="Traffic sources will appear here."
+              visitorUnit={visitorUnit}
             />
             <AudienceTechnologyCard
               devices={analytics.topDevices}
               browsers={analytics.topBrowsers}
+              visitorUnit={visitorUnit}
             />
           </div>
-          <PostHogTools tools={analytics.tools} />
-          <aside className="rounded-xl bg-[#ecece8] px-4 py-3 text-xs leading-5 text-[#777]">
-            Multi-day visitor totals can be higher for people using limited analytics because
-            their anonymous identifier rotates daily. Session replay remains disabled.
-          </aside>
-          <p className="text-right text-xs text-[#999]">
-            Cached for five minutes · Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(analytics.generatedAt))}
-          </p>
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4 text-[11px] leading-5 text-[#888]">
+            <p>Cookieless daily reach · No persistent visitor profiles or session replay</p>
+            <p>
+              Cached for five minutes · Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(analytics.generatedAt))}
+            </p>
+          </footer>
         </>
       ) : null}
     </div>

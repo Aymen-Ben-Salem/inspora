@@ -77,10 +77,7 @@ export function TrafficChart({
 }) {
   const [metric, setMetric] = useState<TrafficMetric>("uniqueVisitors");
   const panelId = useId();
-  const maximum = Math.max(
-    1,
-    ...daily.flatMap((day) => [day.uniqueVisitors, day.pageviews]),
-  );
+  const maximum = Math.max(1, ...daily.map((day) => day[metric]));
   const metricLabel = metric === "uniqueVisitors" ? "unique visitors" : "pageviews";
   const rangeDays = typeof range === "number" ? range : 1;
   const rangeLabel =
@@ -91,11 +88,11 @@ export function TrafficChart({
         : `Last ${range} days`;
 
   return (
-    <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+    <section className="rounded-[20px] border border-black/10 bg-white p-5 sm:p-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Traffic</p>
-          <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">Daily traffic</h2>
+          <h2 className="text-2xl font-medium tracking-[-0.045em]">Daily traffic</h2>
+          <p className="mt-1 text-xs text-[#888]">Reach and viewing volume over time</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <p className="text-xs text-[#888]">
@@ -116,7 +113,7 @@ export function TrafficChart({
         aria-labelledby={`${panelId}-${metric}-tab`}
         className="mt-8 pb-6"
       >
-        <div className="flex h-56 min-w-0 items-end gap-px border-b border-black/10 sm:gap-1">
+        <div className="flex h-60 min-w-0 items-end gap-px border-b border-black/10 sm:h-64 sm:gap-1">
           {daily.map((day, index) => {
             const value = day[metric];
             const height = value === 0 ? 2 : Math.max(6, (value / maximum) * 100);
@@ -163,9 +160,11 @@ const technologyOptions: TabOption<TechnologyTab>[] = [
 export function AudienceTechnologyCard({
   browsers,
   devices,
+  visitorUnit,
 }: {
   browsers: AnalyticsBreakdown[];
   devices: AnalyticsBreakdown[];
+  visitorUnit: string;
 }) {
   const [tab, setTab] = useState<TechnologyTab>("devices");
   const panelId = useId();
@@ -176,8 +175,8 @@ export function AudienceTechnologyCard({
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Audience</p>
-          <h2 className="mt-1 text-2xl font-medium tracking-[-0.04em]">Technology</h2>
+          <h2 className="text-2xl font-medium tracking-[-0.04em]">Technology</h2>
+          <p className="mt-1 text-xs text-[#888]">Devices and browsers</p>
         </div>
         <Tabs
           active={tab}
@@ -212,9 +211,9 @@ export function AudienceTechnologyCard({
                   </span>
                   <span
                     className="shrink-0 text-xs tabular-nums text-[#777]"
-                    title={`${exactNumber.format(item.visitors)} visitors, ${exactNumber.format(item.pageviews)} pageviews`}
+                    title={`${exactNumber.format(item.visitors)} ${visitorUnit}, ${exactNumber.format(item.pageviews)} pageviews`}
                   >
-                    {compactNumber.format(item.visitors)} visitors ·{" "}
+                    {compactNumber.format(item.visitors)} {visitorUnit} ·{" "}
                     {compactNumber.format(item.pageviews)} views
                   </span>
                 </div>

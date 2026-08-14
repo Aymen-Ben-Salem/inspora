@@ -4,11 +4,7 @@ export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
 export type AnalyticsSummary = {
   pageviews: number;
-  uniqueVisitors: number;
-  sessions: number;
-  bounceRate: number;
-  averageSessionDuration: number;
-  viewsPerSession: number;
+  averageDailyVisitors: number;
   postOpens: number;
   sourceClicks: number;
   subscriptions: number;
@@ -121,6 +117,13 @@ export function toAnalyticsNumber(value: unknown) {
     if (Number.isFinite(parsed)) return parsed;
   }
   return 0;
+}
+
+export function calculateAverageDailyVisitors(daily: DailyAnalytics[]) {
+  if (daily.length === 0) return 0;
+
+  const total = daily.reduce((sum, day) => sum + day.uniqueVisitors, 0);
+  return total / daily.length;
 }
 
 export function mapAnalyticsBreakdownRows(

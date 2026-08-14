@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateAverageDailyVisitors,
   ANALYTICS_RANGES,
   createPostHogTools,
   fillDailyAnalytics,
@@ -13,6 +14,22 @@ import {
   resolvePostHogApiHost,
   toAnalyticsNumber,
 } from "./posthog-data";
+
+describe("calculateAverageDailyVisitors", () => {
+  it("averages the daily unique visitor counts, including zero-traffic days", () => {
+    expect(
+      calculateAverageDailyVisitors([
+        { date: "2026-08-11", pageviews: 8, uniqueVisitors: 4, postOpens: 2 },
+        { date: "2026-08-12", pageviews: 0, uniqueVisitors: 0, postOpens: 0 },
+        { date: "2026-08-13", pageviews: 12, uniqueVisitors: 5, postOpens: 3 },
+      ]),
+    ).toBe(3);
+  });
+
+  it("returns zero when no daily data is available", () => {
+    expect(calculateAverageDailyVisitors([])).toBe(0);
+  });
+});
 
 describe("PostHog analytics data", () => {
   it("places yesterday before today in the dashboard range controls", () => {

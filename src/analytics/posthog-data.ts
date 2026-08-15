@@ -4,6 +4,7 @@ export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
 export type AnalyticsSummary = {
   pageviews: number;
+  visitorDays: number;
   averageDailyVisitors: number;
   postOpens: number;
   sourceClicks: number;
@@ -122,8 +123,12 @@ export function toAnalyticsNumber(value: unknown) {
 export function calculateAverageDailyVisitors(daily: DailyAnalytics[]) {
   if (daily.length === 0) return 0;
 
-  const total = daily.reduce((sum, day) => sum + day.uniqueVisitors, 0);
+  const total = calculateVisitorDays(daily);
   return total / daily.length;
+}
+
+export function calculateVisitorDays(daily: DailyAnalytics[]) {
+  return daily.reduce((sum, day) => sum + day.uniqueVisitors, 0);
 }
 
 export function mapAnalyticsBreakdownRows(

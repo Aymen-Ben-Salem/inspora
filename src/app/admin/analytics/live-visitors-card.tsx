@@ -68,7 +68,7 @@ export function LiveVisitorsCard({
   }, [refresh]);
 
   return (
-    <section className="flex min-h-36 flex-wrap items-center justify-between gap-6 bg-[#171717] px-5 py-6 text-white sm:px-7 sm:py-7">
+    <section className="flex min-h-36 min-w-0 flex-wrap items-center justify-between gap-6 bg-[#171717] px-5 py-6 text-white sm:px-7 sm:py-7">
       <div className="flex items-center gap-3">
         <span className="relative flex size-3" aria-hidden="true">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-35" />

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ANALYTICS_EVENTS } from "./events";
 import {
   calculateAverageDailyVisitors,
+  calculateVisitorDays,
   createPostHogTools,
   fillDailyAnalytics,
   fillHourlyAnalytics,
@@ -238,6 +239,7 @@ export async function getAdminAnalytics(
     generatedAt: new Date().toISOString(),
     summary: {
       pageviews: toAnalyticsNumber(summary[0]),
+      visitorDays: calculateVisitorDays(daily),
       averageDailyVisitors: calculateAverageDailyVisitors(daily),
       postOpens: toAnalyticsNumber(summary[1]),
       sourceClicks: toAnalyticsNumber(summary[2]),

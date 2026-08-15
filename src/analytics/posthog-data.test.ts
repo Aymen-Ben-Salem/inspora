@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateAverageDailyVisitors,
+  calculateVisitorDays,
   ANALYTICS_RANGES,
   createPostHogTools,
   fillDailyAnalytics,
@@ -28,6 +29,21 @@ describe("calculateAverageDailyVisitors", () => {
 
   it("returns zero when no daily data is available", () => {
     expect(calculateAverageDailyVisitors([])).toBe(0);
+  });
+});
+
+describe("calculateVisitorDays", () => {
+  it("sums each day's cookieless unique visitor count", () => {
+    expect(
+      calculateVisitorDays([
+        { date: "2026-08-11", pageviews: 8, uniqueVisitors: 4, postOpens: 2 },
+        { date: "2026-08-12", pageviews: 12, uniqueVisitors: 5, postOpens: 3 },
+      ]),
+    ).toBe(9);
+  });
+
+  it("returns zero when no daily data is available", () => {
+    expect(calculateVisitorDays([])).toBe(0);
   });
 });
 

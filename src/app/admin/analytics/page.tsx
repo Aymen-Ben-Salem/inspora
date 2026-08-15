@@ -105,6 +105,33 @@ function MetricCard({
   );
 }
 
+function AudienceMetricCard({
+  detail,
+  format = "number",
+  label,
+  title,
+  value,
+}: {
+  detail: string;
+  format?: MetricFormat;
+  label: string;
+  title?: string;
+  value: number;
+}) {
+  return (
+    <article className="bg-[#242424] px-5 py-6 text-white sm:px-6 sm:py-7">
+      <p className="text-[11px] font-medium text-white/55">{label}</p>
+      <p
+        className="mt-3 text-4xl font-medium tracking-[-0.06em] tabular-nums sm:text-5xl"
+        title={title}
+      >
+        {formatMetric(value, format)}
+      </p>
+      <p className="mt-1 text-[11px] text-white/45">{detail}</p>
+    </article>
+  );
+}
+
 function formatHour(hour: number) {
   if (hour === 0) return "12 AM";
   if (hour === 12) return "12 PM";
@@ -348,18 +375,25 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       {analytics ? (
         <>
           <section className="overflow-hidden rounded-[20px] border border-black/10 bg-black/10">
-            <div className="grid gap-px bg-white/10 lg:grid-cols-[minmax(0,2fr)_minmax(230px,1fr)]">
+            <div className="grid gap-px bg-white/10 lg:grid-cols-3">
               <LiveVisitorsCard initialAnalytics={liveAnalytics} />
-              <article className="bg-[#242424] px-5 py-6 text-white sm:px-6 sm:py-7">
-                <p className="text-[11px] font-medium text-white/55">Daily visitor average</p>
-                <p
-                  className="mt-3 text-4xl font-medium tracking-[-0.06em] tabular-nums sm:text-5xl"
-                  title={`${analytics.summary.averageDailyVisitors.toFixed(1)} average unique visitors per day`}
-                >
-                  {formatMetric(analytics.summary.averageDailyVisitors, "decimal")}
-                </p>
-                <p className="mt-1 text-[11px] text-white/45">For the selected period</p>
-              </article>
+              <AudienceMetricCard
+                label="Average daily visitors"
+                value={analytics.summary.averageDailyVisitors}
+                format="decimal"
+                detail="Per day in the selected period"
+                title={`${analytics.summary.averageDailyVisitors.toFixed(1)} average visitors per day`}
+              />
+              <AudienceMetricCard
+                label="Total visitors"
+                value={analytics.summary.visitorDays}
+                detail={
+                  typeof range === "number"
+                    ? "Daily unique visitors added together"
+                    : "Cookieless daily estimate"
+                }
+                title={`${exactNumber.format(analytics.summary.visitorDays)} ${visitorUnit}; returning visitors on different days may be counted again`}
+              />
             </div>
             <div className="grid gap-px border-t border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Pageviews" value={analytics.summary.pageviews} />

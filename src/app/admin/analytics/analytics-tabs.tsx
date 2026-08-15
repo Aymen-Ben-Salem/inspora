@@ -63,11 +63,6 @@ function Tabs<T extends string>({
 
 type TrafficMetric = "uniqueVisitors" | "pageviews";
 
-const trafficOptions: TabOption<TrafficMetric>[] = [
-  { label: "Unique visitors", value: "uniqueVisitors" },
-  { label: "Pageviews", value: "pageviews" },
-];
-
 export function TrafficChart({
   daily,
   range,
@@ -78,7 +73,14 @@ export function TrafficChart({
   const [metric, setMetric] = useState<TrafficMetric>("uniqueVisitors");
   const panelId = useId();
   const maximum = Math.max(1, ...daily.map((day) => day[metric]));
-  const metricLabel = metric === "uniqueVisitors" ? "unique visitors" : "pageviews";
+  const multiDayRange = typeof range === "number";
+  const visitorLabel = multiDayRange ? "Visitor-days" : "Unique visitors";
+  const trafficOptions: TabOption<TrafficMetric>[] = [
+    { label: visitorLabel, value: "uniqueVisitors" },
+    { label: "Pageviews", value: "pageviews" },
+  ];
+  const metricLabel =
+    metric === "uniqueVisitors" ? visitorLabel.toLowerCase() : "pageviews";
   const rangeDays = typeof range === "number" ? range : 1;
   const rangeLabel =
     range === "today"

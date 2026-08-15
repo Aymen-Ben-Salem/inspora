@@ -2,11 +2,6 @@ import Image from "next/image";
 import type { Route } from "next";
 
 import { isGifUrl, type PostCardData } from "@/domain/post";
-import {
-  optimizeCloudinaryAnimatedImageUrl,
-  optimizeCloudinaryPosterUrl,
-  optimizeCloudinaryVideoUrl,
-} from "@/storage/cloudinary-delivery";
 
 import { LoopingVideo } from "./looping-video";
 import { IntentPrefetchLink } from "./intent-prefetch-link";
@@ -24,16 +19,8 @@ export function PostCard({
   if (!cover) return null;
 
   const isAnimatedImage = cover.type === "image" && isGifUrl(cover.url);
-  const isManagedMedia = cover.storageProvider === "cloudinary";
-  const mediaUrl =
-    isManagedMedia && cover.type === "video"
-      ? optimizeCloudinaryVideoUrl(cover.url)
-      : isManagedMedia && isAnimatedImage
-        ? optimizeCloudinaryAnimatedImageUrl(cover.url)
-        : cover.url;
-  const posterUrl = isManagedMedia && cover.posterUrl
-    ? optimizeCloudinaryPosterUrl(cover.posterUrl)
-    : cover.posterUrl;
+  const mediaUrl = cover.url;
+  const posterUrl = cover.posterUrl;
 
   return (
     <article data-feed-card>

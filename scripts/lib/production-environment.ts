@@ -5,10 +5,6 @@ import { config } from "dotenv";
 
 export type ProductionMediaEnvironment = {
   databaseUrl: string;
-  databaseUrlUnpooled: string;
-  cloudinaryCloudName: string;
-  cloudinaryApiKey: string;
-  cloudinaryApiSecret: string;
   r2AccountId: string;
   r2AccessKeyId: string;
   r2SecretAccessKey: string;
@@ -46,10 +42,6 @@ export function loadProductionMediaEnvironment(): ProductionMediaEnvironment {
 
   const environment = {
     databaseUrl: required("DATABASE_URL"),
-    databaseUrlUnpooled: required("DATABASE_URL_UNPOOLED"),
-    cloudinaryCloudName: required("CLOUDINARY_CLOUD_NAME"),
-    cloudinaryApiKey: required("CLOUDINARY_API_KEY"),
-    cloudinaryApiSecret: required("CLOUDINARY_API_SECRET"),
     r2AccountId: required("R2_ACCOUNT_ID"),
     r2AccessKeyId: required("R2_ACCESS_KEY_ID"),
     r2SecretAccessKey: required("R2_SECRET_ACCESS_KEY"),
@@ -58,13 +50,9 @@ export function loadProductionMediaEnvironment(): ProductionMediaEnvironment {
   } satisfies ProductionMediaEnvironment;
 
   assertPostgresUrl("DATABASE_URL", environment.databaseUrl);
-  assertPostgresUrl("DATABASE_URL_UNPOOLED", environment.databaseUrlUnpooled);
 
   if (!environment.databaseUrl.includes("-pooler.")) {
     throw new Error("DATABASE_URL must be the pooled production Neon URL.");
-  }
-  if (environment.databaseUrlUnpooled.includes("-pooler.")) {
-    throw new Error("DATABASE_URL_UNPOOLED must be the unpooled production Neon URL.");
   }
   if (environment.r2BucketName !== "inspora-media-production") {
     throw new Error("R2_BUCKET_NAME must be inspora-media-production.");

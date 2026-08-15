@@ -34,6 +34,17 @@ function validForm() {
   return form;
 }
 
+function withR2BaseUrl<T>(operation: () => T) {
+  const previousBaseUrl = process.env.R2_PUBLIC_BASE_URL;
+  process.env.R2_PUBLIC_BASE_URL = "https://pub-example.r2.dev";
+  try {
+    return operation();
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.R2_PUBLIC_BASE_URL;
+    else process.env.R2_PUBLIC_BASE_URL = previousBaseUrl;
+  }
+}
+
 describe("admin post validation", () => {
   it("normalizes comma-separated tags and local media paths", () => {
     const result = parseAdminPostForm(validForm());
@@ -72,20 +83,22 @@ describe("admin post validation", () => {
     const form = validForm();
     form.set(
       "creatorAvatarUrl",
-      "https://res.cloudinary.com/demo/image/upload/inspora/creators/example.png",
+      "https://pub-example.r2.dev/creators/example.webp",
     );
-    form.set("creatorAvatarStorageProvider", "cloudinary");
-    form.set("creatorAvatarStorageKey", "inspora/creators/example");
+    form.set("creatorAvatarStorageProvider", "r2");
+    form.set("creatorAvatarStorageKey", "creators/example.webp");
 
-    expect(parseAdminPostForm(form).creator).toMatchObject({
-      avatarStorageProvider: "cloudinary",
-      avatarStorageKey: "inspora/creators/example",
+    withR2BaseUrl(() => {
+      expect(parseAdminPostForm(form).creator).toMatchObject({
+        avatarStorageProvider: "r2",
+        avatarStorageKey: "creators/example.webp",
+      });
     });
   });
 
   it("rejects incomplete creator-avatar ownership metadata", () => {
     const form = validForm();
-    form.set("creatorAvatarStorageProvider", "cloudinary");
+    form.set("creatorAvatarStorageProvider", "r2");
 
     expect(() => parseAdminPostForm(form)).toThrow();
   });
@@ -105,10 +118,10 @@ describe("admin post validation", () => {
       JSON.stringify([
         {
           type: "video",
-          url: "https://res.cloudinary.com/demo/video/upload/example.mp4",
-          posterUrl: "https://res.cloudinary.com/demo/video/upload/example.jpg",
-          storageProvider: "cloudinary",
-          storageKey: "inspora/posts/example",
+          url: "https://pub-example.r2.dev/posts/example.mp4",
+          posterUrl: "https://pub-example.r2.dev/posts/example.webp",
+          storageProvider: "r2",
+          storageKey: "posts/example.mp4",
           alt: "Example motion clip",
           width: 1920,
           height: 1080,
@@ -116,9 +129,11 @@ describe("admin post validation", () => {
       ]),
     );
 
-    expect(parseAdminPostForm(form).media[0]).toMatchObject({
-      storageProvider: "cloudinary",
-      storageKey: "inspora/posts/example",
+    withR2BaseUrl(() => {
+      expect(parseAdminPostForm(form).media[0]).toMatchObject({
+        storageProvider: "r2",
+        storageKey: "posts/example.mp4",
+      });
     });
   });
 
@@ -129,9 +144,9 @@ describe("admin post validation", () => {
       JSON.stringify([
         {
           type: "image",
-          url: "https://res.cloudinary.com/demo/image/upload/example.avif",
-          storageProvider: "cloudinary",
-          storageKey: "inspora/posts/example",
+          url: "https://pub-example.r2.dev/posts/example.avif",
+          storageProvider: "r2",
+          storageKey: "posts/example.avif",
           alt: "Example artwork",
           width: 1200,
           height: 900,
@@ -139,18 +154,17 @@ describe("admin post validation", () => {
       ]),
     );
 
-    const media = parseAdminPostForm(form).media[0];
-
-    expect(media).toMatchObject({
-      type: "image",
-      storageProvider: "cloudinary",
+    withR2BaseUrl(() => {
+      const media = parseAdminPostForm(form).media[0];
+      expect(media).toMatchObject({
+        type: "image",
+        storageProvider: "r2",
+      });
+      expect(media?.posterUrl).toBeUndefined();
     });
-    expect(media?.posterUrl).toBeUndefined();
   });
 
   it("preserves verified R2 media metadata", () => {
-    const previousBaseUrl = process.env.R2_PUBLIC_BASE_URL;
-    process.env.R2_PUBLIC_BASE_URL = "https://pub-example.r2.dev";
     const form = validForm();
     form.set(
       "media",
@@ -170,17 +184,14 @@ describe("admin post validation", () => {
       ]),
     );
 
-    try {
+    withR2BaseUrl(() => {
       expect(parseAdminPostForm(form).media[0]).toMatchObject({
         storageProvider: "r2",
         mimeType: "image/webp",
         sizeBytes: 4096,
         variants: [],
       });
-    } finally {
-      if (previousBaseUrl === undefined) delete process.env.R2_PUBLIC_BASE_URL;
-      else process.env.R2_PUBLIC_BASE_URL = previousBaseUrl;
-    }
+    });
   });
 
   it("rejects incomplete managed-media ownership metadata", () => {
@@ -190,8 +201,8 @@ describe("admin post validation", () => {
       JSON.stringify([
         {
           type: "image",
-          url: "https://res.cloudinary.com/demo/image/upload/example.jpg",
-          storageProvider: "cloudinary",
+          url: "https://pub-example.r2.dev/posts/example.jpg",
+          storageProvider: "r2",
           alt: "Example",
           width: 1200,
           height: 900,
@@ -199,6 +210,8 @@ describe("admin post validation", () => {
       ]),
     );
 
-    expect(() => parseAdminPostForm(form)).toThrow();
+    withR2BaseUrl(() => {
+      expect(() => parseAdminPostForm(form)).toThrow();
+    });
   });
 });

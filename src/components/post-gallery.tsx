@@ -1,11 +1,6 @@
 import Image from "next/image";
 
 import { isGifUrl, type Post } from "@/domain/post";
-import {
-  optimizeCloudinaryAnimatedImageUrl,
-  optimizeCloudinaryPosterUrl,
-  optimizeCloudinaryVideoUrl,
-} from "@/storage/cloudinary-delivery";
 
 import { DetailMotion } from "./detail-motion";
 import { LoopingVideo } from "./looping-video";
@@ -26,16 +21,8 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
         const isAnimated = media.type === "video" || isGifUrl(media.url);
         const isConvertedGif =
           media.type === "video" && media.sourceMimeType === "image/gif";
-        const isManagedMedia = media.storageProvider === "cloudinary";
-        const mediaUrl =
-          isManagedMedia && media.type === "video"
-            ? optimizeCloudinaryVideoUrl(media.url)
-            : isManagedMedia && isAnimated
-              ? optimizeCloudinaryAnimatedImageUrl(media.url)
-              : media.url;
-        const posterUrl = isManagedMedia && media.posterUrl
-          ? optimizeCloudinaryPosterUrl(media.posterUrl)
-          : media.posterUrl;
+        const mediaUrl = media.url;
+        const posterUrl = media.posterUrl;
 
         return (
           <figure

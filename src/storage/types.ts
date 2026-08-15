@@ -1,6 +1,6 @@
 import type { MediaType } from "@/domain/post";
 
-export const MEDIA_STORAGE_PROVIDERS = ["cloudinary", "r2"] as const;
+export const MEDIA_STORAGE_PROVIDERS = ["r2"] as const;
 
 export type MediaStorageProvider = (typeof MEDIA_STORAGE_PROVIDERS)[number];
 

@@ -19,7 +19,6 @@ function isAllowedAssetUrl(value: string) {
     const allowedHostnames = new Set(
       [
         "images.unsplash.com",
-        "res.cloudinary.com",
         process.env.MEDIA_HOSTNAME,
         r2Hostname,
       ].filter(Boolean),

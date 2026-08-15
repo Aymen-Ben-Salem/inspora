@@ -11,7 +11,6 @@ function hostnameFromUrl(value?: string) {
 
 const remoteImageHostnames = [
   "images.unsplash.com",
-  "res.cloudinary.com",
   process.env.MEDIA_HOSTNAME,
   hostnameFromUrl(process.env.R2_PUBLIC_BASE_URL),
 ].filter((hostname): hostname is string => Boolean(hostname));

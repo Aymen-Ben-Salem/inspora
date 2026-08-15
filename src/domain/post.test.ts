@@ -17,7 +17,7 @@ describe("post categories", () => {
 describe("GIF media", () => {
   it("recognizes local and remote GIF paths without relying on query parameters", () => {
     expect(isGifUrl("/media/loop.GIF?version=2")).toBe(true);
-    expect(isGifUrl("https://res.cloudinary.com/demo/image/upload/loop.gif")).toBe(true);
+    expect(isGifUrl("https://media.example.com/loop.gif")).toBe(true);
     expect(isGifUrl("https://example.com/image.jpg?format=gif")).toBe(false);
   });
 });

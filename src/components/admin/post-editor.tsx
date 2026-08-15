@@ -374,7 +374,7 @@ export function PostEditor({
                       ) : null}
                       {item.storageProvider ? (
                         <span className="rounded-full bg-[#e7e7e4] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[#666]">
-                          {item.storageProvider === "r2" ? "R2" : "Cloudinary"}
+                          R2
                         </span>
                       ) : null}
                     </div>

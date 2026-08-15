@@ -1,0 +1,4 @@
+ALTER TABLE "creators" DROP CONSTRAINT "creators_avatar_storage_consistent";--> statement-breakpoint
+ALTER TABLE "post_media" DROP CONSTRAINT "post_media_storage_consistent";--> statement-breakpoint
+ALTER TABLE "creators" ADD CONSTRAINT "creators_avatar_storage_consistent" CHECK (("creators"."avatar_storage_provider" is null and "creators"."avatar_storage_key" is null) or ("creators"."avatar_storage_provider" = 'r2' and length(trim("creators"."avatar_storage_key")) > 0));--> statement-breakpoint
+ALTER TABLE "post_media" ADD CONSTRAINT "post_media_storage_consistent" CHECK (("post_media"."storage_provider" is null and "post_media"."storage_key" is null) or ("post_media"."storage_provider" = 'r2' and length(trim("post_media"."storage_key")) > 0));

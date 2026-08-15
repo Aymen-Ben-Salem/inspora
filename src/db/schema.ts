@@ -41,7 +41,7 @@ export const creators = pgTable(
     check("creators_name_not_blank", sql`length(trim(${table.name})) > 0`),
     check(
       "creators_avatar_storage_consistent",
-      sql`(${table.avatarStorageProvider} is null and ${table.avatarStorageKey} is null) or (${table.avatarStorageProvider} in ('cloudinary', 'r2') and length(trim(${table.avatarStorageKey})) > 0)`,
+      sql`(${table.avatarStorageProvider} is null and ${table.avatarStorageKey} is null) or (${table.avatarStorageProvider} = 'r2' and length(trim(${table.avatarStorageKey})) > 0)`,
     ),
   ],
 );
@@ -128,7 +128,7 @@ export const postMedia = pgTable(
     check("post_media_type_valid", sql`${table.type} in ('image', 'video')`),
     check(
       "post_media_storage_consistent",
-      sql`(${table.storageProvider} is null and ${table.storageKey} is null) or (${table.storageProvider} in ('cloudinary', 'r2') and length(trim(${table.storageKey})) > 0)`,
+      sql`(${table.storageProvider} is null and ${table.storageKey} is null) or (${table.storageProvider} = 'r2' and length(trim(${table.storageKey})) > 0)`,
     ),
     check(
       "post_media_size_valid",

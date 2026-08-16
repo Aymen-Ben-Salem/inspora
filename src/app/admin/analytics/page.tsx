@@ -8,6 +8,7 @@ import {
 } from "@/analytics/posthog-repository";
 import {
   ANALYTICS_RANGES,
+  formatAnalyticsDuration,
   isAnalyticsRange,
   type AdminAnalytics,
   type AnalyticsBreakdown,
@@ -76,10 +77,11 @@ function UnavailableState() {
   );
 }
 
-type MetricFormat = "decimal" | "number";
+type MetricFormat = "decimal" | "duration" | "number";
 
 function formatMetric(value: number, format: MetricFormat) {
   if (format === "decimal") return value.toFixed(1);
+  if (format === "duration") return formatAnalyticsDuration(value);
   return compactNumber.format(value);
 }
 
@@ -97,7 +99,13 @@ function MetricCard({
       <p className="text-[11px] font-medium text-[#777]">{label}</p>
       <p
         className="mt-2 text-3xl font-medium tracking-[-0.055em] tabular-nums sm:text-[2.15rem]"
-        title={format === "number" ? exactNumber.format(value) : undefined}
+        title={
+          format === "duration"
+            ? `${Math.max(0, Math.round(value))} seconds`
+            : format === "number"
+              ? exactNumber.format(value)
+              : undefined
+        }
       >
         {formatMetric(value, format)}
       </p>
@@ -395,8 +403,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 title={`${exactNumber.format(analytics.summary.visitorDays)} ${visitorUnit}; returning visitors on different days may be counted again`}
               />
             </div>
-            <div className="grid gap-px border-t border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-px border-t border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-5">
               <MetricCard label="Pageviews" value={analytics.summary.pageviews} />
+              <MetricCard
+                label="Avg. visit duration"
+                value={analytics.summary.averageVisitDurationSeconds}
+                format="duration"
+              />
               <MetricCard label="Post opens" value={analytics.summary.postOpens} />
               <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
               <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
@@ -406,12 +419,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <HourlyActivityChart analytics={analytics} visitorUnit={visitorUnit} />
           <div className="grid gap-7 xl:grid-cols-2">
             <TopPosts analytics={analytics} />
-            <RankedBreakdown
-              title="Top countries"
-              items={analytics.topCountries}
-              emptyMessage="Country data will appear as traffic is collected."
-              visitorUnit={visitorUnit}
-            />
             <RankedBreakdown
               title="Top referrers"
               items={analytics.topReferrers}

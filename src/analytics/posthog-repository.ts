@@ -109,11 +109,11 @@ export async function getAdminAnalytics(
     summaryRows,
     dailyRows,
     topPostRows,
-    countryRows,
     referrerRows,
     deviceRows,
     browserRows,
     hourlyRows,
+    visitDurationRows,
   ] = await Promise.all([
     runHogQlQuery(
       configuration,
@@ -154,21 +154,6 @@ export async function getAdminAnalytics(
         AND notEmpty(toString(properties.post_id))
       GROUP BY post_id
       ORDER BY opens DESC
-      LIMIT 8`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin top countries",
-      `SELECT
-        toString(properties.$geoip_country_name) AS country,
-        uniq(distinct_id) AS visitors,
-        count() AS pageviews
-      FROM events
-      WHERE event = '$pageview'
-        AND ${timePredicate}
-        AND notEmpty(country)
-      GROUP BY country
-      ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
     ),
     runHogQlQuery(
@@ -225,6 +210,19 @@ export async function getAdminAnalytics(
       GROUP BY hour
       ORDER BY hour ASC`,
     ),
+    runHogQlQuery(
+      configuration,
+      "Inspora average visit duration",
+      `SELECT avg(duration_seconds) AS average_duration_seconds
+      FROM (
+        SELECT dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds
+        FROM events
+        WHERE ${timePredicate}
+          AND notEmpty(toString(properties.$session_id))
+        GROUP BY toString(properties.$session_id)
+        HAVING duration_seconds >= 0 AND duration_seconds <= 86400
+      )`,
+    ),
   ]);
 
   const summary = summaryRows[0] ?? [];
@@ -241,6 +239,7 @@ export async function getAdminAnalytics(
       pageviews: toAnalyticsNumber(summary[0]),
       visitorDays: calculateVisitorDays(daily),
       averageDailyVisitors: calculateAverageDailyVisitors(daily),
+      averageVisitDurationSeconds: toAnalyticsNumber(visitDurationRows[0]?.[0]),
       postOpens: toAnalyticsNumber(summary[1]),
       sourceClicks: toAnalyticsNumber(summary[2]),
       subscriptions: toAnalyticsNumber(summary[3]),
@@ -252,7 +251,6 @@ export async function getAdminAnalytics(
       slug: String(row[2] ?? ""),
       opens: toAnalyticsNumber(row[3]),
     })),
-    topCountries: mapAnalyticsBreakdownRows(countryRows, "Unknown country"),
     topReferrers: mapAnalyticsBreakdownRows(
       referrerRows,
       "Direct / Unknown",

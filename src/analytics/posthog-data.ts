@@ -6,6 +6,7 @@ export type AnalyticsSummary = {
   pageviews: number;
   visitorDays: number;
   averageDailyVisitors: number;
+  averageVisitDurationSeconds: number;
   postOpens: number;
   sourceClicks: number;
   subscriptions: number;
@@ -54,7 +55,6 @@ export type AdminAnalytics = {
   summary: AnalyticsSummary;
   daily: DailyAnalytics[];
   topPosts: TopPostAnalytics[];
-  topCountries: AnalyticsBreakdown[];
   topReferrers: AnalyticsBreakdown[];
   topDevices: AnalyticsBreakdown[];
   topBrowsers: AnalyticsBreakdown[];
@@ -118,6 +118,17 @@ export function toAnalyticsNumber(value: unknown) {
     if (Number.isFinite(parsed)) return parsed;
   }
   return 0;
+}
+
+export function formatAnalyticsDuration(value: number) {
+  const totalSeconds = Math.max(0, Math.round(value));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }
 
 export function calculateAverageDailyVisitors(daily: DailyAnalytics[]) {

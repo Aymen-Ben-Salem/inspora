@@ -7,6 +7,7 @@ import {
   createPostHogTools,
   fillDailyAnalytics,
   fillHourlyAnalytics,
+  formatAnalyticsDuration,
   getAnalyticsEndDateKey,
   getAnalyticsRangeDayCount,
   getAnalyticsTimeRange,
@@ -44,6 +45,18 @@ describe("calculateVisitorDays", () => {
 
   it("returns zero when no daily data is available", () => {
     expect(calculateVisitorDays([])).toBe(0);
+  });
+});
+
+describe("formatAnalyticsDuration", () => {
+  it("formats analytics durations for compact dashboard display", () => {
+    expect(formatAnalyticsDuration(42.4)).toBe("42s");
+    expect(formatAnalyticsDuration(172.4)).toBe("2m 52s");
+    expect(formatAnalyticsDuration(3725)).toBe("1h 2m");
+  });
+
+  it("does not display negative durations", () => {
+    expect(formatAnalyticsDuration(-10)).toBe("0s");
   });
 });
 

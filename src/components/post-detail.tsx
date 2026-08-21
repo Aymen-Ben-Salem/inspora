@@ -22,6 +22,7 @@ export function PostDetail({
     <main
       key={post.id}
       data-post-dialog-post-id={post.id}
+      data-post-dialog-post-pathname={`/posts/${post.slug}`}
       className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
     >
       <PostAnalytics post={post} />

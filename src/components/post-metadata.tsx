@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
@@ -11,6 +10,7 @@ import {
   postNavigationControlClassName,
 } from "./post-close-button";
 import type { PostDialogCloseMode } from "./post-dialog";
+import { PostNavigationLink } from "./post-navigation-link";
 import { TrackedOriginalLink } from "./tracked-original-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 
@@ -81,7 +81,7 @@ function CircleLink({
   prefetch?: boolean;
 }) {
   return (
-    <Link
+    <PostNavigationLink
       href={href}
       replace={replace}
       prefetch={prefetch}
@@ -89,7 +89,7 @@ function CircleLink({
       className={postNavigationControlClassName}
     >
       {children}
-    </Link>
+    </PostNavigationLink>
   );
 }
 

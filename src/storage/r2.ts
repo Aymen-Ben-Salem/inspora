@@ -18,6 +18,8 @@ const UPLOAD_EXPIRES_SECONDS = 10 * 60;
 const PREFIXES: Record<MediaUploadKind, string> = {
   "post-media": "posts",
   "creator-avatar": "creators",
+  "sponsor-media": "sponsors",
+  "sponsor-icon": "sponsors",
 };
 const EXTENSIONS: Record<string, string> = {
   "image/avif": "avif",

@@ -66,6 +66,33 @@ export type AdminPostRecord = Omit<AdminPostInput, "status" | "creator"> & {
   updatedAt: string;
 };
 
+export type AdminSponsorInput = {
+  id?: string;
+  title: string;
+  url: string;
+  tagline?: string;
+  mediaType: "image" | "video";
+  mediaUrl?: string;
+  mediaPosterUrl?: string;
+  mediaStorageProvider?: MediaStorageProvider;
+  mediaStorageKey?: string;
+  mediaPosterStorageKey?: string;
+  mediaWidth: number;
+  mediaHeight: number;
+  mediaVariants?: ImageVariant[];
+  mediaAlt: string;
+  iconUrl?: string;
+  iconStorageProvider?: MediaStorageProvider;
+  iconStorageKey?: string;
+  isActive: boolean;
+};
+
+export type AdminSponsorRecord = AdminSponsorInput & {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminActionState = {
   status: "idle" | "error";
   message?: string;

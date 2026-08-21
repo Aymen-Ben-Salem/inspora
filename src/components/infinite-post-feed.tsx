@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PostPage } from "@/data/post-pagination";
 import type { PostCardData, PostCategory, PostView } from "@/domain/post";
+import type { ActiveSponsor } from "@/domain/sponsor";
 
 import { PostFeed } from "./post-feed";
 
@@ -23,10 +24,12 @@ export function InfinitePostFeed({
   initialPage,
   category,
   view,
+  sponsor,
 }: {
   initialPage: PostPage;
   category?: PostCategory;
   view: PostView;
+  sponsor?: ActiveSponsor | null;
 }) {
   const [posts, setPosts] = useState<PostCardData[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
@@ -99,7 +102,7 @@ export function InfinitePostFeed({
 
   return (
     <>
-      <PostFeed posts={posts} />
+      <PostFeed posts={posts} sponsor={sponsor} />
       <div
         ref={sentinelRef}
         aria-hidden={!nextCursor}

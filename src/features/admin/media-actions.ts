@@ -24,7 +24,12 @@ import {
 } from "./media-upload";
 
 const uploadRequestSchema = z.object({
-  kind: z.enum(["post-media", "creator-avatar"] satisfies MediaUploadKind[]),
+  kind: z.enum([
+    "post-media",
+    "creator-avatar",
+    "sponsor-media",
+    "sponsor-icon",
+  ] satisfies MediaUploadKind[]),
   fileName: z.string().trim().min(1).max(255),
   contentType: z.enum(ACCEPTED_MEDIA_MIME_TYPES),
   size: z.number().int().positive().max(MAX_VIDEO_UPLOAD_BYTES),
@@ -112,7 +117,12 @@ export async function completeMediaUploadAction(
 }
 
 const discardSchema = z.object({
-  kind: z.enum(["post-media", "creator-avatar"] satisfies MediaUploadKind[]),
+  kind: z.enum([
+    "post-media",
+    "creator-avatar",
+    "sponsor-media",
+    "sponsor-icon",
+  ] satisfies MediaUploadKind[]),
   storageKeys: z.array(z.string().trim().min(1).max(1024)).min(1).max(5),
 });
 

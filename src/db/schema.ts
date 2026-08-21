@@ -168,6 +168,47 @@ export const subscribers = pgTable(
   ],
 );
 
+export const sponsors = pgTable(
+  "sponsors",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").notNull(),
+    url: text("url").notNull(),
+    tagline: text("tagline"),
+    mediaType: text("media_type").default("image").notNull(),
+    mediaUrl: text("media_url"),
+    mediaPosterUrl: text("media_poster_url"),
+    mediaStorageProvider: text("media_storage_provider"),
+    mediaStorageKey: text("media_storage_key"),
+    mediaPosterStorageKey: text("media_poster_storage_key"),
+    mediaWidth: integer("media_width").default(1200).notNull(),
+    mediaHeight: integer("media_height").default(800).notNull(),
+    mediaVariants: jsonb("media_variants").$type<ImageVariant[]>().default([]).notNull(),
+    mediaAlt: text("media_alt").default("").notNull(),
+    iconUrl: text("icon_url"),
+    iconStorageProvider: text("icon_storage_provider"),
+    iconStorageKey: text("icon_storage_key"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    ...timestamps,
+  },
+  (table) => [
+    check("sponsors_title_not_blank", sql`length(trim(${table.title})) > 0`),
+    check("sponsors_url_not_blank", sql`length(trim(${table.url})) > 0`),
+    check("sponsors_media_type_valid", sql`${table.mediaType} in ('image', 'video')`),
+    check("sponsors_media_dimensions_valid", sql`${table.mediaWidth} > 0 and ${table.mediaHeight} > 0`),
+    check(
+      "sponsors_media_storage_consistent",
+      sql`(${table.mediaStorageProvider} is null and ${table.mediaStorageKey} is null) or (${table.mediaStorageProvider} = 'r2' and length(trim(${table.mediaStorageKey})) > 0)`,
+    ),
+    check(
+      "sponsors_icon_storage_consistent",
+      sql`(${table.iconStorageProvider} is null and ${table.iconStorageKey} is null) or (${table.iconStorageProvider} = 'r2' and length(trim(${table.iconStorageKey})) > 0)`,
+    ),
+  ],
+);
+
 export const adminAuditLogs = pgTable(
   "admin_audit_logs",
   {
@@ -188,7 +229,7 @@ export const adminAuditLogs = pgTable(
     check("admin_audit_logs_action_not_blank", sql`length(trim(${table.action})) > 0`),
     check(
       "admin_audit_logs_resource_type_valid",
-      sql`${table.resourceType} in ('post', 'subscriber')`,
+      sql`${table.resourceType} in ('post', 'subscriber', 'sponsor')`,
     ),
   ],
 );

@@ -78,16 +78,6 @@ function prepareGalleryForTransition(
   if (otherItems.length) gsap.set(otherItems, { visibility: "hidden" });
 }
 
-function restoreGalleryAfterTransition(
-  gallery: HTMLElement,
-  hero: HTMLElement,
-) {
-  gsap.set(gallery, { clearProps: "overflow,position,zIndex" });
-  const otherItems = getOtherGalleryItems(gallery, hero);
-  if (otherItems.length) gsap.set(otherItems, { clearProps: "visibility" });
-  resumeLoopingVideos(gallery);
-}
-
 function restoreEntranceState(
   backdrop: HTMLElement,
   gallery: HTMLElement,

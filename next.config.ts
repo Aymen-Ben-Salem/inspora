@@ -32,7 +32,11 @@ const nextConfig: NextConfig = {
   },
   images: {
     minimumCacheTTL: 60 * 60 * 24 * 31,
-    remotePatterns: remoteImageHostnames.map((hostname) => ({ protocol: "https", hostname })),
+    remotePatterns: [
+      ...remoteImageHostnames.map((hostname) => ({ protocol: "https" as const, hostname })),
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
+    ],
   },
   typedRoutes: true,
 };

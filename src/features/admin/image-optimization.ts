@@ -10,9 +10,10 @@ export type OptimizedImage = {
 };
 
 export function getOptimizedImageWidths(sourceWidth: number, kind: MediaUploadKind) {
-  const maximumWidth = kind === "creator-avatar" ? 256 : 2560;
+  const isSmallAsset = kind === "creator-avatar" || kind === "sponsor-icon";
+  const maximumWidth = isSmallAsset ? 256 : 2560;
   const outputWidth = Math.min(sourceWidth, maximumWidth);
-  if (kind === "creator-avatar") return [outputWidth];
+  if (isSmallAsset) return [outputWidth];
 
   const widths = RESPONSIVE_IMAGE_WIDTHS.filter((width) => width < outputWidth);
   return [...widths, outputWidth];

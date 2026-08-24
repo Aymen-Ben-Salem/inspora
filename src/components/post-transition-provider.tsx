@@ -3,6 +3,7 @@
 import {
   createContext,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -121,6 +122,7 @@ function OptimisticPostTransition({
   const gallery = useRef<HTMLElement>(null);
   const hero = useRef<HTMLDivElement>(null);
   const sidebar = useRef<HTMLElement>(null);
+  const dismissIndicator = useRef<HTMLDivElement>(null);
   const [entranceComplete, setEntranceComplete] = useState(false);
   const heroGeometry = getOptimisticHeroGeometry(source.aspectRatio);
 
@@ -133,6 +135,35 @@ function OptimisticPostTransition({
     ) {
       onDismiss();
     }
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const indicator = dismissIndicator.current;
+
+    if (!indicator) return;
+
+    const target = event.target;
+    const isDismissArea =
+      event.pointerType !== "touch" &&
+      target instanceof Element &&
+      !target.closest("[data-optimistic-post-surface]");
+
+    if (!isDismissArea) {
+      indicator.style.opacity = "0";
+      event.currentTarget.style.cursor = "";
+      return;
+    }
+
+    indicator.style.transform = `translate3d(${event.clientX - 20}px, ${event.clientY - 20}px, 0)`;
+    indicator.style.opacity = "1";
+    event.currentTarget.style.cursor = "none";
+  }
+
+  function hideDismissIndicator(event: ReactPointerEvent<HTMLDivElement>) {
+    if (dismissIndicator.current) {
+      dismissIndicator.current.style.opacity = "0";
+    }
+    event.currentTarget.style.cursor = "";
   }
 
   useLayoutEffect(() => {
@@ -262,6 +293,8 @@ function OptimisticPostTransition({
       ref={scope}
       aria-hidden="true"
       onClick={handleClick}
+      onPointerLeave={hideDismissIndicator}
+      onPointerMove={handlePointerMove}
       className="fixed inset-0 z-[60] isolate"
       data-optimistic-post-transition={source.path}
     >
@@ -353,6 +386,23 @@ function OptimisticPostTransition({
             </div>
           </div>
         </aside>
+      </div>
+      <div
+        ref={dismissIndicator}
+        aria-hidden="true"
+        className="pointer-events-none fixed left-0 top-0 z-20 flex size-10 items-center justify-center rounded-full border border-[#e6e6e6] bg-[#e6e6e6] opacity-0 shadow-[0_2px_10px_rgba(0,0,0,0.06)] transition-opacity duration-100 will-change-transform"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="size-6"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            fill="#95959d"
+            d="M14.2608 11.9989L19.6306 6.28357C19.8658 6.03271 19.9979 5.69246 19.9979 5.33769C19.9979 4.98291 19.8658 4.64266 19.6306 4.3918C19.3955 4.14093 19.0765 4 18.744 4C18.4114 4 18.0925 4.14093 17.8573 4.3918L12.5 10.1204L7.14268 4.3918C6.90752 4.14093 6.58859 4 6.25603 4C5.92348 4 5.60454 4.14093 5.36939 4.3918C5.13424 4.64266 5.00213 4.98291 5.00213 5.33769C5.00213 5.69246 5.13424 6.03271 5.36939 6.28357L10.7392 11.9989L5.36939 17.7142C5.25234 17.838 5.15944 17.9853 5.09604 18.1477C5.03264 18.31 5 18.4842 5 18.66C5 18.8359 5.03264 19.01 5.09604 19.1724C5.15944 19.3347 5.25234 19.4821 5.36939 19.6059C5.48548 19.7308 5.6236 19.8299 5.77578 19.8975C5.92795 19.9652 6.09118 20 6.25603 20C6.42089 20 6.58411 19.9652 6.73629 19.8975C6.88847 19.8299 7.02659 19.7308 7.14268 19.6059L12.5 13.8773L17.8573 19.6059C17.9734 19.7308 18.1115 19.8299 18.2637 19.8975C18.4159 19.9652 18.5791 20 18.744 20C18.9088 20 19.072 19.9652 19.2242 19.8975C19.3764 19.8299 19.5145 19.7308 19.6306 19.6059C19.7477 19.4821 19.8406 19.3347 19.904 19.1724C19.9674 19.01 20 18.8359 20 18.66C20 18.4842 19.9674 18.31 19.904 18.1477C19.8406 17.9853 19.7477 17.838 19.6306 17.7142L14.2608 11.9989Z"
+          />
+        </svg>
       </div>
     </div>
   );

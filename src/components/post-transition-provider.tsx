@@ -18,6 +18,8 @@ import { getOptimisticHeroGeometry } from "./post-transition-geometry";
 
 type TransitionKind = "open" | "swap";
 
+const LOADING_REVEAL_DELAY_MS = 500;
+
 type TransitionSource = {
   aspectRatio: number;
   creatorAvatarUrl?: string;
@@ -433,88 +435,46 @@ function OptimisticPostTransition({
 export function PostTransitionProvider({ children }: PropsWithChildren) {
   const [source, setSource] = useState<TransitionSource>();
   const [contentReady, setContentReady] = useState(false);
-  const [transitionVisible, setTransitionVisible] = useState(false);
   const activePath = useRef<string | undefined>(undefined);
   const activeTransitionId = useRef<number | undefined>(undefined);
   const transitionVisibleRef = useRef(false);
+  const stopWatchingRef = useRef<(() => void) | undefined>(undefined);
   const nextId = useRef(0);
 
-  const beginTransition = useCallback(
-    (element: HTMLElement, path: string, kind: TransitionKind) => {
-      const nextSource = getTransitionSource(element, path, kind);
-      if (!nextSource) return;
-
-      nextId.current += 1;
-      const transitionId = nextId.current;
-
-      activePath.current = undefined;
-      activeTransitionId.current = transitionId;
-      transitionVisibleRef.current = false;
-      setContentReady(false);
-      setTransitionVisible(false);
-      setSource({ ...nextSource, id: transitionId });
-    },
-    [],
-  );
-
-  const beginPostOpen = useCallback(
-    (element: HTMLElement, path: string) => beginTransition(element, path, "open"),
-    [beginTransition],
-  );
-  const beginPostSwap = useCallback(
-    (element: HTMLElement, path: string) => beginTransition(element, path, "swap"),
-    [beginTransition],
-  );
-  const isPostTransitionActive = useCallback(
-    (path: string) => activePath.current === path,
-    [],
-  );
+  const stopWatching = useCallback(() => {
+    stopWatchingRef.current?.();
+    stopWatchingRef.current = undefined;
+  }, []);
 
   const clearTransition = useCallback(() => {
+    stopWatching();
     activePath.current = undefined;
     activeTransitionId.current = undefined;
     transitionVisibleRef.current = false;
     setContentReady(false);
-    setTransitionVisible(false);
     setSource(undefined);
-  }, []);
+  }, [stopWatching]);
 
-  useEffect(() => {
-    if (!source) return;
-
+  const watchTransition = useCallback((nextSource: TransitionSource) => {
     let readyMedia: HTMLImageElement | HTMLVideoElement | undefined;
     let markedReady = false;
+    let revealTimeout: number | undefined;
 
     const findResolvedPost = () =>
       Array.from(
         document.querySelectorAll<HTMLElement>("[data-post-dialog-post-pathname]"),
-      ).find((element) => element.dataset.postDialogPostPathname === source.path);
+      ).find((element) => element.dataset.postDialogPostPathname === nextSource.path);
 
     const loadingStateIsVisible = () =>
       Array.from(
         document.querySelectorAll<HTMLElement>("[data-post-transition-loading]"),
       ).some((element) => element.getClientRects().length > 0);
 
-    const revealTransition = () => {
-      if (
-        markedReady ||
-        transitionVisibleRef.current ||
-        activeTransitionId.current !== source.id
-      ) {
-        return;
-      }
-
-      activePath.current = source.path;
-      transitionVisibleRef.current = true;
-      setTransitionVisible(true);
-    };
-
-    const markReady = () => {
-      if (markedReady || activeTransitionId.current !== source.id) return;
-      markedReady = true;
-      setContentReady(true);
+    const stop = () => {
+      window.cancelAnimationFrame(frame);
+      if (revealTimeout !== undefined) window.clearTimeout(revealTimeout);
+      window.clearTimeout(safetyTimeout);
       observer.disconnect();
-      window.clearTimeout(timeout);
       if (readyMedia) {
         readyMedia.removeEventListener("load", markReady);
         readyMedia.removeEventListener("loadeddata", markReady);
@@ -522,13 +482,22 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       }
     };
 
+    const markReady = () => {
+      if (markedReady || activeTransitionId.current !== nextSource.id) return;
+      markedReady = true;
+      setContentReady(true);
+      stop();
+      stopWatchingRef.current = undefined;
+    };
+
     const finishBeforeReveal = () => {
-      if (markedReady || activeTransitionId.current !== source.id) return;
+      if (markedReady || activeTransitionId.current !== nextSource.id) return;
 
       markedReady = true;
-      observer.disconnect();
-      window.clearTimeout(timeout);
-      clearTransition();
+      stop();
+      stopWatchingRef.current = undefined;
+      activePath.current = undefined;
+      activeTransitionId.current = undefined;
     };
 
     const watchNavigationState = () => {
@@ -548,8 +517,9 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
           return true;
         }
 
-        const isReady =
-          media instanceof HTMLImageElement ? media.complete : media.readyState >= 2;
+        const isReady = media instanceof HTMLImageElement
+          ? media.complete
+          : Boolean(media.poster) || media.readyState >= 2;
 
         if (isReady) {
           markReady();
@@ -567,7 +537,35 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
         return true;
       }
 
-      if (loadingStateIsVisible()) revealTransition();
+      if (loadingStateIsVisible()) {
+        if (
+          revealTimeout === undefined &&
+          !transitionVisibleRef.current &&
+          activeTransitionId.current === nextSource.id
+        ) {
+          revealTimeout = window.setTimeout(() => {
+            revealTimeout = undefined;
+            if (
+              markedReady ||
+              transitionVisibleRef.current ||
+              activeTransitionId.current !== nextSource.id ||
+              findResolvedPost() ||
+              !loadingStateIsVisible()
+            ) {
+              return;
+            }
+
+            activePath.current = nextSource.path;
+            transitionVisibleRef.current = true;
+            setContentReady(false);
+            setSource(nextSource);
+          }, LOADING_REVEAL_DELAY_MS);
+        }
+      } else if (revealTimeout !== undefined) {
+        window.clearTimeout(revealTimeout);
+        revealTimeout = undefined;
+      }
+
       return false;
     };
 
@@ -575,36 +573,57 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       watchNavigationState();
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    const timeout = window.setTimeout(() => {
+    const safetyTimeout = window.setTimeout(() => {
       if (transitionVisibleRef.current) markReady();
-      else clearTransition();
+      else finishBeforeReveal();
     }, 10_000);
     const frame = window.requestAnimationFrame(() => {
       watchNavigationState();
     });
 
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      window.clearTimeout(timeout);
-      if (readyMedia) {
-        readyMedia.removeEventListener("load", markReady);
-        readyMedia.removeEventListener("loadeddata", markReady);
-        readyMedia.removeEventListener("error", markReady);
-      }
-    };
-  }, [clearTransition, source]);
+    stopWatchingRef.current = stop;
+  }, []);
+
+  const beginTransition = useCallback(
+    (element: HTMLElement, path: string, kind: TransitionKind) => {
+      const nextSource = getTransitionSource(element, path, kind);
+      if (!nextSource) return;
+
+      stopWatching();
+      nextId.current += 1;
+      const sourceWithId = { ...nextSource, id: nextId.current };
+
+      activePath.current = undefined;
+      activeTransitionId.current = sourceWithId.id;
+      transitionVisibleRef.current = false;
+      watchTransition(sourceWithId);
+    },
+    [stopWatching, watchTransition],
+  );
+
+  const beginPostOpen = useCallback(
+    (element: HTMLElement, path: string) => beginTransition(element, path, "open"),
+    [beginTransition],
+  );
+  const beginPostSwap = useCallback(
+    (element: HTMLElement, path: string) => beginTransition(element, path, "swap"),
+    [beginTransition],
+  );
+  const isPostTransitionActive = useCallback(
+    (path: string) => activePath.current === path,
+    [],
+  );
+
+  useEffect(() => () => stopWatching(), [stopWatching]);
 
   useEffect(() => {
-    if (!source) return;
-
     const handleHistoryNavigation = () => clearTransition();
     window.addEventListener("popstate", handleHistoryNavigation);
 
     return () => {
       window.removeEventListener("popstate", handleHistoryNavigation);
     };
-  }, [clearTransition, source]);
+  }, [clearTransition]);
 
   const value = useMemo(
     () => ({ beginPostOpen, beginPostSwap, isPostTransitionActive }),
@@ -621,7 +640,7 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
   return (
     <PostTransitionContext.Provider value={value}>
       {children}
-      {source && transitionVisible ? (
+      {source ? (
         <OptimisticPostTransition
           key={source.id}
           contentReady={contentReady}

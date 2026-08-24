@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+import { PostTransitionProvider } from "@/components/post-transition-provider";
 
 const inter = localFont({
   src: "../assets/fonts/inter.woff2",
@@ -38,8 +39,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-[family-name:var(--font-inter)]">
-        {children}
-        {modal}
+        <PostTransitionProvider>
+          {children}
+          {modal}
+        </PostTransitionProvider>
       </body>
     </html>
   );

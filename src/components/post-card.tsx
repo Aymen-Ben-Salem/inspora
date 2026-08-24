@@ -26,6 +26,9 @@ export function PostCard({
     <article data-feed-card>
       <IntentPrefetchLink
         data-feed-post-id={post.id}
+        data-feed-post-pathname={`/posts/${post.slug}`}
+        data-feed-post-title={post.title}
+        data-feed-creator-name={post.creator.name}
         href={`/posts/${post.slug}` as Route}
         aria-label={`View post: ${post.title}`}
         className="focus-ring group relative block overflow-hidden bg-[#f3f3f3]"
@@ -79,6 +82,7 @@ export function PostCard({
         <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
           {post.creator.avatarStorageProvider === "r2" ? (
             <ResponsiveR2Image
+              data-feed-creator-avatar
               src={post.creator.avatarUrl}
               alt=""
               width={35}
@@ -88,6 +92,7 @@ export function PostCard({
             />
           ) : (
             <Image
+              data-feed-creator-avatar
               src={post.creator.avatarUrl}
               alt=""
               width={35}

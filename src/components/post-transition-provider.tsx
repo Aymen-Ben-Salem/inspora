@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   type MouseEvent as ReactMouseEvent,
@@ -360,8 +359,6 @@ function OptimisticPostTransition({
 }
 
 export function PostTransitionProvider({ children }: PropsWithChildren) {
-  const pathname = usePathname();
-  const router = useRouter();
   const [source, setSource] = useState<TransitionSource>();
   const [contentReady, setContentReady] = useState(false);
   const activePath = useRef<string | undefined>(undefined);
@@ -394,7 +391,7 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
-    if (!source || pathname !== source.path) return;
+    if (!source) return;
 
     let readyMedia: HTMLImageElement | HTMLVideoElement | undefined;
     let markedReady = false;
@@ -468,7 +465,7 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
         readyMedia.removeEventListener("error", markReady);
       }
     };
-  }, [pathname, source]);
+  }, [source]);
 
   const value = useMemo(
     () => ({ beginPostOpen, beginPostSwap, isPostTransitionActive }),
@@ -479,12 +476,12 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
     setSource(undefined);
   }, []);
   const dismissTransition = useCallback(() => {
-    if (!source || pathname !== source.path) return;
+    if (!source || window.location.pathname !== source.path) return;
 
     activePath.current = undefined;
     setSource(undefined);
-    router.back();
-  }, [pathname, router, source]);
+    window.history.back();
+  }, [source]);
 
   return (
     <PostTransitionContext.Provider value={value}>

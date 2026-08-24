@@ -161,6 +161,7 @@ export function PostMetadata({
                   <div className="mt-1 flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:mt-1.5 xl:h-7 xl:text-[14px] min-[1700px]:mt-2 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
                     {post.creator.avatarStorageProvider === "r2" ? (
                       <ResponsiveR2Image
+                        data-post-dialog-creator-avatar
                         src={post.creator.avatarUrl}
                         alt=""
                         width={25}
@@ -170,6 +171,7 @@ export function PostMetadata({
                       />
                     ) : (
                       <Image
+                        data-post-dialog-creator-avatar
                         src={post.creator.avatarUrl}
                         alt=""
                         width={25}

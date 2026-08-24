@@ -18,12 +18,15 @@ import { getOptimisticHeroGeometry } from "./post-transition-geometry";
 
 type TransitionKind = "open" | "swap";
 
+const OPTIMISTIC_REVEAL_DELAY_MS = 120;
+
 type TransitionSource = {
   aspectRatio: number;
   creatorAvatarUrl?: string;
   creatorName?: string;
   id: number;
   kind: TransitionKind;
+  mediaType: "image" | "video";
   path: string;
   rect: DOMRect;
   sourceRadius: number;
@@ -63,10 +66,12 @@ function getTransitionSource(
 
   if (!media) return undefined;
 
-  const url =
-    media instanceof HTMLImageElement
+  const posterlessVideo = media instanceof HTMLVideoElement && !media.poster;
+  const url = posterlessVideo
+    ? media.currentSrc || media.src
+    : media instanceof HTMLImageElement
       ? media.currentSrc || media.src
-      : media.poster || media.currentSrc || media.src;
+      : media.poster;
 
   if (!url) return undefined;
 
@@ -93,6 +98,7 @@ function getTransitionSource(
       metadataRoot.dataset.feedCreatorName ??
       metadataRoot.dataset.postDialogCreatorName,
     kind,
+    mediaType: posterlessVideo ? "video" : "image",
     path,
     rect,
     sourceRadius: Number.parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0,
@@ -308,9 +314,27 @@ function OptimisticPostTransition({
               className="relative shrink-0 overflow-hidden bg-[#f3f3f3]"
               style={heroGeometry}
             >
-              {/* The source is already an R2-optimized card asset; avoid a Vercel image request. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={source.url} alt="" className="size-full object-cover" />
+              {source.mediaType === "video" ? (
+                <video
+                  src={source.url}
+                  aria-hidden="true"
+                  autoPlay
+                  controls={false}
+                  disablePictureInPicture
+                  disableRemotePlayback
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  className="size-full object-cover"
+                />
+              ) : (
+                <>
+                  {/* The source is already an R2-optimized card asset; avoid a Vercel image request. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={source.url} alt="" className="size-full object-cover" />
+                </>
+              )}
             </div>
           </figure>
         </section>
@@ -411,7 +435,11 @@ function OptimisticPostTransition({
 export function PostTransitionProvider({ children }: PropsWithChildren) {
   const [source, setSource] = useState<TransitionSource>();
   const [contentReady, setContentReady] = useState(false);
+  const [transitionVisible, setTransitionVisible] = useState(false);
   const activePath = useRef<string | undefined>(undefined);
+  const activeTransitionId = useRef<number | undefined>(undefined);
+  const revealTimeout = useRef<number | undefined>(undefined);
+  const transitionVisibleRef = useRef(false);
   const nextId = useRef(0);
 
   const beginTransition = useCallback(
@@ -420,9 +448,23 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       if (!nextSource) return;
 
       nextId.current += 1;
-      activePath.current = path;
+      const transitionId = nextId.current;
+
+      window.clearTimeout(revealTimeout.current);
+      activePath.current = undefined;
+      activeTransitionId.current = transitionId;
+      transitionVisibleRef.current = false;
       setContentReady(false);
-      setSource({ ...nextSource, id: nextId.current });
+      setTransitionVisible(false);
+      setSource({ ...nextSource, id: transitionId });
+
+      revealTimeout.current = window.setTimeout(() => {
+        if (activeTransitionId.current !== transitionId) return;
+
+        activePath.current = path;
+        transitionVisibleRef.current = true;
+        setTransitionVisible(true);
+      }, OPTIMISTIC_REVEAL_DELAY_MS);
     },
     [],
   );
@@ -440,6 +482,17 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
     [],
   );
 
+  const clearTransition = useCallback(() => {
+    window.clearTimeout(revealTimeout.current);
+    revealTimeout.current = undefined;
+    activePath.current = undefined;
+    activeTransitionId.current = undefined;
+    transitionVisibleRef.current = false;
+    setContentReady(false);
+    setTransitionVisible(false);
+    setSource(undefined);
+  }, []);
+
   useEffect(() => {
     if (!source) return;
 
@@ -452,7 +505,7 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       ).find((element) => element.dataset.postDialogPostPathname === source.path);
 
     const markReady = () => {
-      if (markedReady) return;
+      if (markedReady || activeTransitionId.current !== source.id) return;
       markedReady = true;
       setContentReady(true);
       observer.disconnect();
@@ -464,9 +517,23 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       }
     };
 
+    const finishBeforeReveal = () => {
+      if (markedReady || activeTransitionId.current !== source.id) return;
+
+      markedReady = true;
+      observer.disconnect();
+      window.clearTimeout(timeout);
+      clearTransition();
+    };
+
     const watchResolvedPost = () => {
       const resolvedPost = findResolvedPost();
       if (!resolvedPost) return false;
+
+      if (!transitionVisibleRef.current) {
+        finishBeforeReveal();
+        return true;
+      }
 
       const media = resolvedPost.querySelector<HTMLImageElement | HTMLVideoElement>(
         "[data-post-dialog-hero] img, [data-post-dialog-hero] video",
@@ -515,34 +582,48 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
         readyMedia.removeEventListener("error", markReady);
       }
     };
-  }, [source]);
+  }, [clearTransition, source]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(revealTimeout.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!source) return;
+
+    const handleHistoryNavigation = () => clearTransition();
+    window.addEventListener("popstate", handleHistoryNavigation);
+
+    return () => {
+      window.removeEventListener("popstate", handleHistoryNavigation);
+    };
+  }, [clearTransition, source]);
 
   const value = useMemo(
     () => ({ beginPostOpen, beginPostSwap, isPostTransitionActive }),
     [beginPostOpen, beginPostSwap, isPostTransitionActive],
   );
-  const finishTransition = useCallback(() => {
-    activePath.current = undefined;
-    setSource(undefined);
-  }, []);
   const dismissTransition = useCallback(() => {
-    if (!source || window.location.pathname !== source.path) return;
+    if (!source) return;
 
-    activePath.current = undefined;
-    setSource(undefined);
-    window.history.back();
-  }, [source]);
+    const shouldNavigateBack = window.location.pathname === source.path;
+    clearTransition();
+    if (shouldNavigateBack) window.history.back();
+  }, [clearTransition, source]);
 
   return (
     <PostTransitionContext.Provider value={value}>
       {children}
-      {source ? (
+      {source && transitionVisible ? (
         <OptimisticPostTransition
           key={source.id}
           contentReady={contentReady}
           source={source}
           onDismiss={dismissTransition}
-          onComplete={finishTransition}
+          onComplete={clearTransition}
         />
       ) : null}
     </PostTransitionContext.Provider>

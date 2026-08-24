@@ -18,8 +18,6 @@ import { getOptimisticHeroGeometry } from "./post-transition-geometry";
 
 type TransitionKind = "open" | "swap";
 
-const OPTIMISTIC_REVEAL_DELAY_MS = 120;
-
 type TransitionSource = {
   aspectRatio: number;
   creatorAvatarUrl?: string;
@@ -438,7 +436,6 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
   const [transitionVisible, setTransitionVisible] = useState(false);
   const activePath = useRef<string | undefined>(undefined);
   const activeTransitionId = useRef<number | undefined>(undefined);
-  const revealTimeout = useRef<number | undefined>(undefined);
   const transitionVisibleRef = useRef(false);
   const nextId = useRef(0);
 
@@ -450,21 +447,12 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       nextId.current += 1;
       const transitionId = nextId.current;
 
-      window.clearTimeout(revealTimeout.current);
       activePath.current = undefined;
       activeTransitionId.current = transitionId;
       transitionVisibleRef.current = false;
       setContentReady(false);
       setTransitionVisible(false);
       setSource({ ...nextSource, id: transitionId });
-
-      revealTimeout.current = window.setTimeout(() => {
-        if (activeTransitionId.current !== transitionId) return;
-
-        activePath.current = path;
-        transitionVisibleRef.current = true;
-        setTransitionVisible(true);
-      }, OPTIMISTIC_REVEAL_DELAY_MS);
     },
     [],
   );
@@ -483,8 +471,6 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
   );
 
   const clearTransition = useCallback(() => {
-    window.clearTimeout(revealTimeout.current);
-    revealTimeout.current = undefined;
     activePath.current = undefined;
     activeTransitionId.current = undefined;
     transitionVisibleRef.current = false;
@@ -503,6 +489,25 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       Array.from(
         document.querySelectorAll<HTMLElement>("[data-post-dialog-post-pathname]"),
       ).find((element) => element.dataset.postDialogPostPathname === source.path);
+
+    const loadingStateIsVisible = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>("[data-post-transition-loading]"),
+      ).some((element) => element.getClientRects().length > 0);
+
+    const revealTransition = () => {
+      if (
+        markedReady ||
+        transitionVisibleRef.current ||
+        activeTransitionId.current !== source.id
+      ) {
+        return;
+      }
+
+      activePath.current = source.path;
+      transitionVisibleRef.current = true;
+      setTransitionVisible(true);
+    };
 
     const markReady = () => {
       if (markedReady || activeTransitionId.current !== source.id) return;
@@ -526,50 +531,56 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       clearTransition();
     };
 
-    const watchResolvedPost = () => {
+    const watchNavigationState = () => {
       const resolvedPost = findResolvedPost();
-      if (!resolvedPost) return false;
+      if (resolvedPost) {
+        if (!transitionVisibleRef.current) {
+          finishBeforeReveal();
+          return true;
+        }
 
-      if (!transitionVisibleRef.current) {
-        finishBeforeReveal();
+        const media = resolvedPost.querySelector<HTMLImageElement | HTMLVideoElement>(
+          "[data-post-dialog-hero] img, [data-post-dialog-hero] video",
+        );
+
+        if (!media) {
+          markReady();
+          return true;
+        }
+
+        const isReady =
+          media instanceof HTMLImageElement ? media.complete : media.readyState >= 2;
+
+        if (isReady) {
+          markReady();
+          return true;
+        }
+
+        if (readyMedia !== media) {
+          readyMedia = media;
+          const readyEvent = media instanceof HTMLImageElement ? "load" : "loadeddata";
+          media.addEventListener(readyEvent, markReady, { once: true });
+          media.addEventListener("error", markReady, { once: true });
+        }
+
+        observer.disconnect();
         return true;
       }
 
-      const media = resolvedPost.querySelector<HTMLImageElement | HTMLVideoElement>(
-        "[data-post-dialog-hero] img, [data-post-dialog-hero] video",
-      );
-
-      if (!media) {
-        markReady();
-        return true;
-      }
-
-      const isReady =
-        media instanceof HTMLImageElement ? media.complete : media.readyState >= 2;
-
-      if (isReady) {
-        markReady();
-        return true;
-      }
-
-      if (readyMedia !== media) {
-        readyMedia = media;
-        const readyEvent = media instanceof HTMLImageElement ? "load" : "loadeddata";
-        media.addEventListener(readyEvent, markReady, { once: true });
-        media.addEventListener("error", markReady, { once: true });
-      }
-
-      observer.disconnect();
-      return true;
+      if (loadingStateIsVisible()) revealTransition();
+      return false;
     };
 
     const observer = new MutationObserver(() => {
-      watchResolvedPost();
+      watchNavigationState();
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    const timeout = window.setTimeout(markReady, 10_000);
+    const timeout = window.setTimeout(() => {
+      if (transitionVisibleRef.current) markReady();
+      else clearTransition();
+    }, 10_000);
     const frame = window.requestAnimationFrame(() => {
-      watchResolvedPost();
+      watchNavigationState();
     });
 
     return () => {
@@ -583,13 +594,6 @@ export function PostTransitionProvider({ children }: PropsWithChildren) {
       }
     };
   }, [clearTransition, source]);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(revealTimeout.current);
-    },
-    [],
-  );
 
   useEffect(() => {
     if (!source) return;

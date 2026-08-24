@@ -1,6 +1,7 @@
 export default function LoadingPostModal() {
   return (
     <div
+      data-post-transition-loading
       role="status"
       aria-live="polite"
       className="pointer-events-none flex h-[100dvh] w-full items-center justify-center"

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
+import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError, parseAdminPostForm } from "./post-validation";
@@ -17,6 +18,12 @@ import {
   setAdminPostFeatured,
   updateAdminPost,
 } from "./posts-repository";
+import {
+  deleteAdminSponsor,
+  saveAdminSponsor,
+  setAdminSponsorActive,
+} from "./sponsor-repository";
+import { parseAdminSponsorForm } from "./sponsor-validation";
 import { deleteSubscriber, unsubscribeSubscriber } from "./subscribers-repository";
 import type { AdminActionState } from "./types";
 
@@ -141,3 +148,50 @@ export async function deleteSubscriberAction(formData: FormData) {
   await deleteSubscriber(id, userId);
   revalidatePath("/admin/subscribers");
 }
+
+function revalidateSponsorPaths() {
+  updateTag(SPONSOR_CACHE_TAG);
+  updateTag(PUBLISHED_POSTS_CACHE_TAG);
+  revalidatePath("/");
+  revalidatePath("/admin/sponsor");
+  revalidatePath("/admin/posts");
+}
+
+export async function saveSponsorAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const { userId } = await requireAdmin();
+  let saved: Awaited<ReturnType<typeof saveAdminSponsor>>;
+
+  try {
+    const input = parseAdminSponsorForm(formData);
+    saved = await saveAdminSponsor(input, userId);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { status: "error", message: formatValidationError(error) };
+    }
+    console.error("Admin sponsor save failed", error);
+    return { status: "error", message: "The sponsor could not be saved. Try again." };
+  }
+
+  await deleteManagedMediaAssetsSafely(saved.removedManagedMedia);
+  revalidateSponsorPaths();
+  redirect("/admin/sponsor?saved=true" as Route);
+}
+
+export async function toggleSponsorActiveAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const isActive = z.enum(["true", "false"]).parse(formData.get("isActive")) === "true";
+  await setAdminSponsorActive(isActive, userId);
+  revalidateSponsorPaths();
+}
+
+export async function deleteSponsorAction() {
+  const { userId } = await requireAdmin();
+  const removedManagedMedia = await deleteAdminSponsor(userId);
+  await deleteManagedMediaAssetsSafely(removedManagedMedia);
+  revalidateSponsorPaths();
+  redirect("/admin/sponsor?saved=deleted" as Route);
+}
+

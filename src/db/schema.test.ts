@@ -1,13 +1,14 @@
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
-import { adminAuditLogs, creators, postMedia, posts, subscribers } from "./schema";
+import { adminAuditLogs, creators, postMedia, posts, sponsors, subscribers } from "./schema";
 
 describe("database schema", () => {
   it("keeps the content tables normalized and constrained", () => {
     const creatorsConfig = getTableConfig(creators);
     const postsConfig = getTableConfig(posts);
     const mediaConfig = getTableConfig(postMedia);
+    const sponsorsConfig = getTableConfig(sponsors);
 
     expect(creatorsConfig.name).toBe("creators");
     expect(creatorsConfig.indexes).toHaveLength(1);
@@ -19,6 +20,8 @@ describe("database schema", () => {
     expect(mediaConfig.foreignKeys).toHaveLength(1);
     expect(mediaConfig.indexes).toHaveLength(1);
     expect(mediaConfig.checks).toHaveLength(6);
+    expect(sponsorsConfig.name).toBe("sponsors");
+    expect(sponsorsConfig.checks).toHaveLength(6);
   });
 
   it("enforces one normalized subscriber row per email", () => {

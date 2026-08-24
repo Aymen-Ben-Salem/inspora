@@ -15,7 +15,11 @@ export const ACCEPTED_MEDIA_MIME_TYPES = [
 ] as const;
 
 export type AcceptedMediaMimeType = (typeof ACCEPTED_MEDIA_MIME_TYPES)[number];
-export type MediaUploadKind = "post-media" | "creator-avatar";
+export type MediaUploadKind =
+  | "post-media"
+  | "creator-avatar"
+  | "sponsor-media"
+  | "sponsor-icon";
 
 export function isAcceptedUploadForKind(
   kind: MediaUploadKind,
@@ -23,6 +27,7 @@ export function isAcceptedUploadForKind(
 ) {
   return (
     kind === "post-media" ||
+    kind === "sponsor-media" ||
     (contentType.startsWith("image/") && contentType !== "image/gif")
   );
 }

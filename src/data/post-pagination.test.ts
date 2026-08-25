@@ -6,6 +6,7 @@ import {
   decodePostCursor,
   encodePostCursor,
   paginatePostArray,
+  POST_PAGE_SIZE,
   toPostCardData,
 } from "./post-pagination";
 
@@ -81,6 +82,49 @@ describe("post cursor pagination", () => {
     expect(card).not.toHaveProperty("description");
     expect(card).not.toHaveProperty("sourceUrl");
     expect(JSON.stringify(card).length).toBeLessThan(JSON.stringify(post).length);
+  });
+
+  it("preserves the feed video preview on card projections", () => {
+    const post = makePost("preview", "2026-08-07T12:00:00.000Z", "Motion");
+    post.media = [
+      {
+        id: "video",
+        type: "video",
+        url: "https://media.example/original.mp4",
+        videoPreview: {
+          url: "https://media.example/feed.mp4",
+          storageKey: "posts/feed.mp4",
+          width: 1080,
+          height: 1920,
+          bytes: 2_000_000,
+          format: "mp4",
+        },
+        alt: "Motion",
+        width: 3052,
+        height: 2160,
+        position: 0,
+      },
+    ];
+
+    expect(toPostCardData(post).media[0]?.videoPreview?.url).toBe(
+      "https://media.example/feed.mp4",
+    );
+  });
+
+  it("uses sixteen posts per default page", () => {
+    const manyPosts = Array.from({ length: 17 }, (_, index) =>
+      makePost(
+        String(index).padStart(2, "0"),
+        new Date(Date.UTC(2026, 7, 20, 0, 0, 17 - index)).toISOString(),
+        "Web",
+      ),
+    );
+
+    const page = paginatePostArray(manyPosts);
+
+    expect(POST_PAGE_SIZE).toBe(16);
+    expect(page.items).toHaveLength(16);
+    expect(page.nextCursor).not.toBeNull();
   });
 
   it("round-trips an opaque cursor", () => {

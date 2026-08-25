@@ -1,4 +1,4 @@
-import type { ImageVariant, MediaStorageProvider } from "@/storage/types";
+import type { ImageVariant, MediaStorageProvider, VideoPreview } from "@/storage/types";
 
 export const POST_CATEGORIES = [
   "Web",
@@ -25,6 +25,7 @@ export type PostMedia = {
   sourceMimeType?: string;
   sizeBytes?: number;
   variants?: ImageVariant[];
+  videoPreview?: VideoPreview;
   alt: string;
   width: number;
   height: number;
@@ -65,6 +66,7 @@ export type PostCardMedia = Pick<
   | "posterUrl"
   | "storageProvider"
   | "variants"
+  | "videoPreview"
   | "alt"
   | "width"
   | "height"

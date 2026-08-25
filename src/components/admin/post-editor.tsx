@@ -137,6 +137,7 @@ export function PostEditor({
                 sourceMimeType: undefined,
                 sizeBytes: undefined,
                 variants: undefined,
+                videoPreview: undefined,
                 posterStorageKey: undefined,
               }
             : {}),

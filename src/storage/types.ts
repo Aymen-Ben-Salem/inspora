@@ -13,10 +13,20 @@ export type ImageVariant = {
   format: "webp";
 };
 
+export type VideoPreview = {
+  url: string;
+  storageKey: string;
+  width: number;
+  height: number;
+  bytes: number;
+  format: "mp4";
+};
+
 export type ManagedMediaAsset = {
   storageProvider: MediaStorageProvider;
   storageKey: string;
   type: MediaType;
   variantStorageKeys?: string[];
+  videoPreviewStorageKey?: string;
   posterStorageKey?: string;
 };

@@ -76,6 +76,7 @@ function mapAdminPost(
       sourceMimeType: media.sourceMimeType ?? undefined,
       sizeBytes: media.sizeBytes ?? undefined,
       variants: media.variants,
+      videoPreview: media.videoPreview ?? undefined,
       posterStorageKey: media.posterStorageKey ?? undefined,
       alt: media.alt,
       width: media.width,
@@ -96,6 +97,7 @@ function mediaValues(postId: string, input: AdminPostInput) {
     sourceMimeType: media.sourceMimeType,
     sizeBytes: media.sizeBytes,
     variants: media.variants ?? [],
+    videoPreview: media.videoPreview,
     posterStorageKey: media.posterStorageKey,
     alt: media.alt,
     width: media.width,
@@ -113,6 +115,7 @@ function managedAssets(media: MediaRow[]): ManagedMediaAsset[] {
             storageKey: item.storageKey,
             type: item.type as MediaType,
             variantStorageKeys: item.variants.map((variant) => variant.storageKey),
+            videoPreviewStorageKey: item.videoPreview?.storageKey,
             posterStorageKey: item.posterStorageKey ?? undefined,
           },
         ]

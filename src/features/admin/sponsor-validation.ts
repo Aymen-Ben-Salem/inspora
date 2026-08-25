@@ -46,6 +46,15 @@ const imageVariantSchema = z.object({
   format: z.literal("webp"),
 });
 
+const videoPreviewSchema = z.object({
+  url: localOrRemoteAssetUrl,
+  storageKey: z.string().trim().min(1).max(1024),
+  width: z.number().int().positive().max(1080),
+  height: z.number().int().positive().max(1920),
+  bytes: z.number().int().positive(),
+  format: z.literal("mp4"),
+});
+
 export const sponsorInputSchema = z
   .object({
     id: z.union([z.literal(""), z.uuid()]).optional().transform((v) => v || undefined),
@@ -61,6 +70,7 @@ export const sponsorInputSchema = z
     mediaWidth: z.coerce.number().int().positive().default(1200),
     mediaHeight: z.coerce.number().int().positive().default(800),
     mediaVariants: z.array(imageVariantSchema).default([]),
+    mediaVideoPreview: videoPreviewSchema.optional(),
     mediaAlt: z.string().trim().max(300).default(""),
     iconUrl: optionalAssetUrl,
     iconStorageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
@@ -74,6 +84,15 @@ export const sponsorInputSchema = z
     {
       message: "Media storage keys are required for R2-hosted media.",
       path: ["mediaStorageKey"],
+    },
+  )
+  .refine(
+    (sponsor) =>
+      !sponsor.mediaVideoPreview ||
+      (sponsor.mediaType === "video" && sponsor.mediaStorageProvider === "r2"),
+    {
+      message: "Feed video previews are only valid for managed R2 videos.",
+      path: ["mediaVideoPreview"],
     },
   )
   .refine(
@@ -95,6 +114,14 @@ export function parseAdminSponsorForm(formData: FormData): AdminSponsorInput {
     } catch {}
   }
 
+  const rawVideoPreview = formData.get("mediaVideoPreview");
+  let parsedVideoPreview: unknown;
+  if (typeof rawVideoPreview === "string" && rawVideoPreview.trim().length > 0) {
+    try {
+      parsedVideoPreview = JSON.parse(rawVideoPreview);
+    } catch {}
+  }
+
   const rawActive = formData.get("isActive");
   const isActive = rawActive === "true" || rawActive === "on";
 
@@ -112,6 +139,7 @@ export function parseAdminSponsorForm(formData: FormData): AdminSponsorInput {
     mediaWidth: formData.get("mediaWidth") || 1200,
     mediaHeight: formData.get("mediaHeight") || 800,
     mediaVariants: parsedVariants,
+    mediaVideoPreview: parsedVideoPreview,
     mediaAlt: formData.get("mediaAlt") ?? "",
     iconUrl: formData.get("iconUrl") ?? undefined,
     iconStorageProvider: formData.get("iconStorageProvider") || undefined,

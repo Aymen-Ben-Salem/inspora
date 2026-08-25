@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+import { FeedPlaybackProvider } from "@/components/looping-video";
 import { PostTransitionProvider } from "@/components/post-transition-provider";
 
 const inter = localFont({
@@ -39,10 +40,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-[family-name:var(--font-inter)]">
-        <PostTransitionProvider>
-          {children}
-          {modal}
-        </PostTransitionProvider>
+        <FeedPlaybackProvider>
+          <PostTransitionProvider>
+            {children}
+            {modal}
+          </PostTransitionProvider>
+        </FeedPlaybackProvider>
       </body>
     </html>
   );

@@ -20,7 +20,10 @@ import {
   getCornerRadius,
   getIntrinsicMediaAspectRatio,
 } from "./post-dialog-media-proxy";
-import { resumeLoopingVideos } from "./looping-video";
+import {
+  resumeLoopingVideos,
+  useFeedPlaybackSuspension,
+} from "./looping-video";
 import { usePostTransition } from "./post-transition-provider";
 
 gsap.registerPlugin(useGSAP);
@@ -126,6 +129,7 @@ export function PostDialog({
   const router = useRouter();
   const pathname = usePathname();
   const { isPostTransitionActive } = usePostTransition();
+  const suspendFeedPlayback = useFeedPlaybackSuspension();
   const scope = useRef<HTMLDivElement>(null);
   const dismissIndicator = useRef<HTMLDivElement>(null);
   const entrance = useRef<gsap.core.Timeline>(null);
@@ -135,6 +139,8 @@ export function PostDialog({
   const exitProxy = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
   const activePathname = useRef<string | null>(null);
+
+  useEffect(() => suspendFeedPlayback(), [suspendFeedPlayback]);
 
   const finishClose = useCallback(() => {
     if (closeMode === "back") {

@@ -16,7 +16,9 @@
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
     "media:bootstrap:r2": "tsx scripts/bootstrap-r2-media.ts",
-    "media:cleanup:r2-orphans": "tsx scripts/cleanup-r2-orphans.ts"
+    "media:create-dev-video-previews": "tsx scripts/create-dev-video-previews.ts",
+    "media:cleanup:r2-orphans": "tsx scripts/cleanup-r2-orphans.ts",
+    "media:create-production-video-previews": "tsx scripts/create-production-video-previews.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1106.0",

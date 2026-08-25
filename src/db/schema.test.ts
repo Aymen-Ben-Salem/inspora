@@ -20,8 +20,12 @@ describe("database schema", () => {
     expect(mediaConfig.foreignKeys).toHaveLength(1);
     expect(mediaConfig.indexes).toHaveLength(1);
     expect(mediaConfig.checks).toHaveLength(6);
+    expect(mediaConfig.columns.map((column) => column.name)).toContain("video_preview");
     expect(sponsorsConfig.name).toBe("sponsors");
     expect(sponsorsConfig.checks).toHaveLength(6);
+    expect(sponsorsConfig.columns.map((column) => column.name)).toContain(
+      "media_video_preview",
+    );
   });
 
   it("enforces one normalized subscriber row per email", () => {

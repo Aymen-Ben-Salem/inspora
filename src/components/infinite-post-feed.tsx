@@ -93,7 +93,7 @@ export function InfinitePostFeed({
       ([entry]) => {
         if (entry?.isIntersecting) void loadMore();
       },
-      { rootMargin: "900px 0px", threshold: 0.01 },
+      { rootMargin: "400px 0px", threshold: 0.01 },
     );
 
     observer.observe(sentinel);

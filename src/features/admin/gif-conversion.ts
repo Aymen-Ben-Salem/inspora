@@ -112,7 +112,36 @@ export async function convertGifToMp4({
   }
 }
 
-export async function optimizeVideoToMp4({
+export const VIDEO_PREVIEW_MAX_WIDTH = 1080;
+export const VIDEO_PREVIEW_MAX_HEIGHT = 1920;
+
+export function buildVideoPreviewFfmpegArgs(
+  inputName: string,
+  outputName: string,
+) {
+  return [
+    "-i",
+    inputName,
+    "-an",
+    "-vf",
+    `scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "fast",
+    "-crf",
+    "18",
+    "-pix_fmt",
+    "yuv420p",
+    "-fpsmax",
+    "30",
+    "-movflags",
+    "+faststart",
+    outputName,
+  ];
+}
+
+export async function createVideoPreview({
   file,
   configuration,
   signal,
@@ -127,7 +156,7 @@ export async function optimizeVideoToMp4({
   const ffmpeg = await loadEngine(configuration, signal);
   const token = crypto.randomUUID();
   const inputName = `${token}.${file.type === "video/webm" ? "webm" : "mp4"}`;
-  const outputName = `${token}-optimized.mp4`;
+  const outputName = `${token}-feed.mp4`;
 
   try {
     onStage("analyzing-video");
@@ -135,51 +164,34 @@ export async function optimizeVideoToMp4({
     await ffmpeg.writeFile(inputName, await fetchFile(file), { signal });
     onStage("optimizing-video");
     const exitCode = await ffmpeg.exec(
-      [
-        "-i",
-        inputName,
-        "-an",
-        "-vf",
-        "scale=w='min(1920\\,iw)':h='min(1920\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
-        "-crf",
-        "18",
-        "-pix_fmt",
-        "yuv420p",
-        "-fpsmax",
-        "30",
-        "-movflags",
-        "+faststart",
-        outputName,
-      ],
+      buildVideoPreviewFfmpegArgs(inputName, outputName),
       CONVERSION_TIMEOUT_MS,
       { signal },
     );
-    if (exitCode !== 0) return file;
+    if (exitCode !== 0) {
+      throw new Error("Feed video transcoding did not complete in time.");
+    }
 
     const data = await ffmpeg.readFile(outputName, "binary", { signal });
-    if (!(data instanceof Uint8Array) || data.byteLength === 0 || data.byteLength >= file.size) {
-      return file;
+    if (!(data instanceof Uint8Array) || data.byteLength === 0) {
+      throw new Error("Feed video transcoding produced an invalid video.");
     }
+
     const bytes = Uint8Array.from(data);
     return new File(
       [bytes.buffer],
-      `${file.name.replace(/\.[^.]+$/, "")}-optimized.mp4`,
+      `${file.name.replace(/\.[^.]+$/, "")}-feed.mp4`,
       { type: "video/mp4" },
     );
   } catch (error) {
-    if (signal.aborted) {
-      ffmpeg.terminate();
-      enginePromise = undefined;
-      throw new DOMException("Video optimization was cancelled.", "AbortError");
-    }
-    console.warn("Video optimization failed; using the original file.", error);
     ffmpeg.terminate();
     enginePromise = undefined;
-    return file;
+    if (signal.aborted) {
+      throw new DOMException("Video preview creation was cancelled.", "AbortError");
+    }
+    throw new Error("This video could not be converted into a feed preview.", {
+      cause: error,
+    });
   } finally {
     try {
       await ffmpeg.deleteFile(inputName);

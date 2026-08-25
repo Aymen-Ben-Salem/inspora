@@ -20,6 +20,7 @@ export function PostCard({
 
   const isAnimatedImage = cover.type === "image" && isGifUrl(cover.url);
   const mediaUrl = cover.url;
+  const feedMediaUrl = cover.videoPreview?.url ?? mediaUrl;
   const posterUrl = cover.posterUrl;
 
   return (
@@ -46,12 +47,13 @@ export function PostCard({
             ) : null}
             <LoopingVideo
               data-feed-transition-media
-              src={mediaUrl}
+              src={feedMediaUrl}
               poster={posterUrl}
               aria-label={cover.alt}
               draggable={false}
               eager={priority}
               preload={priority ? "auto" : undefined}
+              suspendWithFeed
               className="absolute inset-0 size-full object-cover"
             />
           </>

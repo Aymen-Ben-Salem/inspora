@@ -89,6 +89,7 @@ export function SponsorEditor({
       mediaWidth: uploaded.width,
       mediaHeight: uploaded.height,
       mediaVariants: uploaded.variants,
+      mediaVideoPreview: uploaded.videoPreview,
       mediaAlt: prev.mediaAlt || uploaded.alt,
     }));
   }
@@ -139,6 +140,15 @@ export function SponsorEditor({
       />
       <input type="hidden" name="mediaWidth" value={formValues.mediaWidth || 1200} />
       <input type="hidden" name="mediaHeight" value={formValues.mediaHeight || 800} />
+      <input
+        type="hidden"
+        name="mediaVideoPreview"
+        value={
+          formValues.mediaVideoPreview
+            ? JSON.stringify(formValues.mediaVideoPreview)
+            : ""
+        }
+      />
       <input
         type="hidden"
         name="mediaVariants"
@@ -336,6 +346,9 @@ export function SponsorEditor({
                         mediaUrl: "",
                         mediaStorageKey: undefined,
                         mediaStorageProvider: undefined,
+                        mediaPosterUrl: "",
+                        mediaPosterStorageKey: undefined,
+                        mediaVideoPreview: undefined,
                         mediaVariants: [],
                       }))
                     }

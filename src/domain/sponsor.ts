@@ -1,4 +1,8 @@
-import type { ImageVariant, MediaStorageProvider } from "@/storage/types";
+import type {
+  ImageVariant,
+  MediaStorageProvider,
+  VideoPreview,
+} from "@/storage/types";
 
 export type Sponsor = {
   id: string;
@@ -14,6 +18,7 @@ export type Sponsor = {
   mediaWidth: number;
   mediaHeight: number;
   mediaVariants?: ImageVariant[];
+  mediaVideoPreview?: VideoPreview;
   mediaAlt: string;
   iconUrl?: string;
   iconStorageProvider?: MediaStorageProvider;
@@ -36,6 +41,7 @@ export type ActiveSponsor = Pick<
   | "mediaWidth"
   | "mediaHeight"
   | "mediaVariants"
+  | "mediaVideoPreview"
   | "mediaAlt"
   | "iconUrl"
   | "iconStorageProvider"

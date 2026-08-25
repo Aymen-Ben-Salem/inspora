@@ -170,6 +170,7 @@ export async function deleteR2MediaAssets(assets: ManagedMediaAsset[]) {
     .flatMap((asset) => [
       asset.storageKey,
       ...(asset.variantStorageKeys ?? []),
+      ...(asset.videoPreviewStorageKey ? [asset.videoPreviewStorageKey] : []),
       ...(asset.posterStorageKey ? [asset.posterStorageKey] : []),
     ]);
   await deleteR2StorageKeys(keys);

@@ -1,6 +1,6 @@
 import type { Post, PostCardData, PostCategory, PostView } from "@/domain/post";
 
-export const POST_PAGE_SIZE = 18;
+export const POST_PAGE_SIZE = 16;
 export const MAX_POST_PAGE_SIZE = 48;
 
 export type PostCursor = {
@@ -76,6 +76,7 @@ export function toPostCardData(post: Post): PostCardData {
       posterUrl: media.posterUrl,
       storageProvider: media.storageProvider,
       variants: media.variants,
+      videoPreview: media.videoPreview,
       alt: media.alt,
       width: media.width,
       height: media.height,

@@ -23,7 +23,9 @@ import {
 } from "@/features/admin/media-upload";
 import { createVideoPoster } from "@/features/admin/video-processing";
 
-type PreparedUpload = OptimizedImage & { role: "primary" | "variant" | "poster" };
+type PreparedUpload = OptimizedImage & {
+  role: "primary" | "variant" | "video-preview" | "poster";
+};
 
 type UploadStatus =
   | "idle"
@@ -84,20 +86,30 @@ export function MediaUploadButton({
         const controller = new AbortController();
         conversionControllerRef.current = controller;
         const configuration = await getMediaConverterConfigurationAction();
-        const { convertGifToMp4 } = await import("@/features/admin/gif-conversion");
+        const { convertGifToMp4, createVideoPreview } = await import(
+          "@/features/admin/gif-conversion"
+        );
         const converted = await convertGifToMp4({
           file,
           configuration,
           signal: controller.signal,
           onStage: setStatus,
         });
-        const poster = await createVideoPoster(converted);
+        const originalDimensions = await readMediaDimensions(converted);
+        const preview = await createVideoPreview({
+          file: converted,
+          configuration,
+          signal: controller.signal,
+          onStage: setStatus,
+        });
+        const poster = await createVideoPoster(preview);
         uploadItems = [
+          { file: converted, ...originalDimensions, role: "primary" },
           {
-            file: converted,
+            file: preview,
             width: poster.videoWidth,
             height: poster.videoHeight,
-            role: "primary",
+            role: "video-preview",
           },
           { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
         ];
@@ -105,22 +117,24 @@ export function MediaUploadButton({
         const controller = new AbortController();
         conversionControllerRef.current = controller;
         const configuration = await getMediaConverterConfigurationAction();
-        const { optimizeVideoToMp4 } = await import(
+        const { createVideoPreview } = await import(
           "@/features/admin/gif-conversion"
         );
-        const optimized = await optimizeVideoToMp4({
+        const originalDimensions = await readMediaDimensions(file);
+        const preview = await createVideoPreview({
           file,
           configuration,
           signal: controller.signal,
           onStage: setStatus,
         });
-        const poster = await createVideoPoster(optimized);
+        const poster = await createVideoPoster(preview);
         uploadItems = [
+          { file, ...originalDimensions, role: "primary" },
           {
-            file: optimized,
+            file: preview,
             width: poster.videoWidth,
             height: poster.videoHeight,
-            role: "primary",
+            role: "video-preview",
           },
           { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
         ];
@@ -190,12 +204,27 @@ export function MediaUploadButton({
       if (!primary) throw new Error("The optimized upload returned no media.");
       const posterIndex = uploadItems.findIndex((item) => item.role === "poster");
       const poster = posterIndex >= 0 ? uploaded[posterIndex]?.media : undefined;
+      const videoPreviewIndex = uploadItems.findIndex(
+        (item) => item.role === "video-preview",
+      );
+      const videoPreviewMedia =
+        videoPreviewIndex >= 0 ? uploaded[videoPreviewIndex]?.media : undefined;
 
       onUploaded({
         ...primary,
         sourceMimeType: contentType,
         posterUrl: poster?.url,
         posterStorageKey: poster?.storageKey,
+        videoPreview: videoPreviewMedia?.storageKey
+          ? {
+              url: videoPreviewMedia.url,
+              storageKey: videoPreviewMedia.storageKey,
+              width: videoPreviewMedia.width,
+              height: videoPreviewMedia.height,
+              bytes: videoPreviewMedia.sizeBytes!,
+              format: "mp4",
+            }
+          : undefined,
         variants:
           isOptimizableStaticImage(contentType) && kind === "post-media"
             ? uploaded

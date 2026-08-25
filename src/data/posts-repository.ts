@@ -53,6 +53,7 @@ type PublicMediaRow = Pick<
   | "sourceMimeType"
   | "sizeBytes"
   | "variants"
+  | "videoPreview"
   | "alt"
   | "width"
   | "height"
@@ -70,6 +71,7 @@ type PostCardMediaRow = Pick<
   | "posterUrl"
   | "storageProvider"
   | "variants"
+  | "videoPreview"
   | "alt"
   | "width"
   | "height"
@@ -116,6 +118,7 @@ const PUBLIC_MEDIA_COLUMNS = {
   sourceMimeType: true,
   sizeBytes: true,
   variants: true,
+  videoPreview: true,
   alt: true,
   width: true,
   height: true,
@@ -135,6 +138,7 @@ const POST_CARD_MEDIA_COLUMNS = {
   posterUrl: true,
   storageProvider: true,
   variants: true,
+  videoPreview: true,
   alt: true,
   width: true,
   height: true,
@@ -192,6 +196,7 @@ function mapMedia(row: PublicMediaRow): Post["media"][number] {
     sourceMimeType: row.sourceMimeType ?? undefined,
     sizeBytes: row.sizeBytes ?? undefined,
     variants: row.variants,
+    videoPreview: row.videoPreview ?? undefined,
     alt: row.alt,
     width: row.width,
     height: row.height,
@@ -252,6 +257,7 @@ function mapPostCard(row: PostCardRecord): PostCardData {
           >)
         : undefined,
       variants: media.variants,
+      videoPreview: media.videoPreview ?? undefined,
       alt: media.alt,
       width: media.width,
       height: media.height,

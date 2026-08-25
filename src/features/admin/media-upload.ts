@@ -67,6 +67,7 @@ export type UploadedAdminMedia = Pick<
   | "sourceMimeType"
   | "sizeBytes"
   | "variants"
+  | "videoPreview"
   | "posterStorageKey"
 >;
 

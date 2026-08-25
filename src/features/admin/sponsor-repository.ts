@@ -35,6 +35,7 @@ function mapAdminSponsor(row: SponsorRow): AdminSponsorRecord {
     mediaWidth: row.mediaWidth,
     mediaHeight: row.mediaHeight,
     mediaVariants: row.mediaVariants,
+    mediaVideoPreview: row.mediaVideoPreview ?? undefined,
     mediaAlt: row.mediaAlt,
     iconUrl: row.iconUrl ?? undefined,
     iconStorageProvider: isStorageProvider(row.iconStorageProvider)
@@ -97,6 +98,7 @@ export async function saveAdminSponsor(
     mediaWidth: input.mediaWidth,
     mediaHeight: input.mediaHeight,
     mediaVariants: input.mediaVariants ?? [],
+    mediaVideoPreview: input.mediaVideoPreview ?? null,
     mediaAlt: input.mediaAlt,
     iconUrl: input.iconUrl ?? null,
     iconStorageProvider: input.iconStorageProvider ?? null,
@@ -118,6 +120,7 @@ export async function saveAdminSponsor(
         variantStorageKeys: existing.mediaVariants
           ?.map((v) => v.storageKey)
           .filter(Boolean) as string[],
+        videoPreviewStorageKey: existing.mediaVideoPreview?.storageKey,
         posterStorageKey: existing.mediaPosterStorageKey,
       });
     }

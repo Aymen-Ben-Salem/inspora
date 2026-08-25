@@ -3,9 +3,15 @@ import type {
   ImageVariant,
   ManagedMediaAsset,
   MediaStorageProvider,
+  VideoPreview,
 } from "@/storage/types";
 
-export type { ImageVariant, ManagedMediaAsset, MediaStorageProvider };
+export type {
+  ImageVariant,
+  ManagedMediaAsset,
+  MediaStorageProvider,
+  VideoPreview,
+};
 
 export type AdminPostStatus = "draft" | "published" | "archived";
 
@@ -35,6 +41,7 @@ export type AdminMediaInput = {
   sourceMimeType?: string;
   sizeBytes?: number;
   variants?: ImageVariant[];
+  videoPreview?: VideoPreview;
   posterStorageKey?: string;
   alt: string;
   width: number;
@@ -80,6 +87,7 @@ export type AdminSponsorInput = {
   mediaWidth: number;
   mediaHeight: number;
   mediaVariants?: ImageVariant[];
+  mediaVideoPreview?: VideoPreview;
   mediaAlt: string;
   iconUrl?: string;
   iconStorageProvider?: MediaStorageProvider;

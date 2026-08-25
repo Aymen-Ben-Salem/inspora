@@ -7,14 +7,14 @@ import { neon } from "@neondatabase/serverless";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 
-import { creators, postMedia } from "../src/db/schema";
+import { creators, postMedia, sponsors } from "../src/db/schema";
 import {
   loadProductionMediaEnvironment,
   parseExecutionOptions,
   type ProductionMediaEnvironment,
 } from "./lib/production-environment";
 
-const MANAGED_PREFIXES = ["posts/", "creators/"];
+const MANAGED_PREFIXES = ["posts/", "creators/", "sponsors/"];
 
 function createR2Client(environment: ProductionMediaEnvironment) {
   return new S3Client({
@@ -62,12 +62,13 @@ async function listManagedObjects(
 
 async function referencedR2Keys(environment: ProductionMediaEnvironment) {
   const database = drizzle({ client: neon(environment.databaseUrl) });
-  const [mediaRows, creatorRows] = await Promise.all([
+  const [mediaRows, creatorRows, sponsorRows] = await Promise.all([
     database
       .select({
         storageKey: postMedia.storageKey,
         posterStorageKey: postMedia.posterStorageKey,
         variants: postMedia.variants,
+        videoPreview: postMedia.videoPreview,
       })
       .from(postMedia)
       .where(eq(postMedia.storageProvider, "r2")),
@@ -75,6 +76,15 @@ async function referencedR2Keys(environment: ProductionMediaEnvironment) {
       .select({ storageKey: creators.avatarStorageKey })
       .from(creators)
       .where(eq(creators.avatarStorageProvider, "r2")),
+    database
+      .select({
+        mediaStorageKey: sponsors.mediaStorageKey,
+        mediaPosterStorageKey: sponsors.mediaPosterStorageKey,
+        mediaVariants: sponsors.mediaVariants,
+        mediaVideoPreview: sponsors.mediaVideoPreview,
+        iconStorageKey: sponsors.iconStorageKey,
+      })
+      .from(sponsors),
   ]);
 
   return new Set(
@@ -82,9 +92,17 @@ async function referencedR2Keys(environment: ProductionMediaEnvironment) {
       ...mediaRows.flatMap((row) => [
         row.storageKey,
         row.posterStorageKey,
+        row.videoPreview?.storageKey,
         ...row.variants.map((variant) => variant.storageKey),
       ]),
       ...creatorRows.map((row) => row.storageKey),
+      ...sponsorRows.flatMap((row) => [
+        row.mediaStorageKey,
+        row.mediaPosterStorageKey,
+        row.mediaVideoPreview?.storageKey,
+        row.iconStorageKey,
+        ...row.mediaVariants.map((variant) => variant.storageKey),
+      ]),
     ].filter((value): value is string => Boolean(value)),
   );
 }

@@ -12,7 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import type { ImageVariant } from "@/storage/types";
+import type { ImageVariant, VideoPreview } from "@/storage/types";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
@@ -114,6 +114,7 @@ export const postMedia = pgTable(
     sourceMimeType: text("source_mime_type"),
     sizeBytes: integer("size_bytes"),
     variants: jsonb("variants").$type<ImageVariant[]>().default([]).notNull(),
+    videoPreview: jsonb("video_preview").$type<VideoPreview>(),
     posterStorageKey: text("poster_storage_key"),
     alt: text("alt").default("").notNull(),
     width: integer("width").notNull(),
@@ -184,6 +185,7 @@ export const sponsors = pgTable(
     mediaWidth: integer("media_width").default(1200).notNull(),
     mediaHeight: integer("media_height").default(800).notNull(),
     mediaVariants: jsonb("media_variants").$type<ImageVariant[]>().default([]).notNull(),
+    mediaVideoPreview: jsonb("media_video_preview").$type<VideoPreview>(),
     mediaAlt: text("media_alt").default("").notNull(),
     iconUrl: text("icon_url"),
     iconStorageProvider: text("icon_storage_provider"),

@@ -60,6 +60,7 @@ export async function getActiveSponsor(): Promise<ActiveSponsor | null> {
       mediaWidth: row.mediaWidth,
       mediaHeight: row.mediaHeight,
       mediaVariants: row.mediaVariants,
+      mediaVideoPreview: row.mediaVideoPreview ?? undefined,
       mediaAlt: row.mediaAlt,
       iconUrl: row.iconUrl ?? undefined,
       iconStorageProvider: isStorageProvider(row.iconStorageProvider)

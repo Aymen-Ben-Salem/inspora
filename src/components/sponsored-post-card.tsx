@@ -22,6 +22,7 @@ export function SponsoredPostCard({
 }) {
   const isVideo = sponsor.mediaType === "video";
   const mediaUrl = sponsor.mediaUrl;
+  const feedMediaUrl = sponsor.mediaVideoPreview?.url ?? mediaUrl;
   const posterUrl = sponsor.mediaPosterUrl;
   const hostname = getHostname(sponsor.url);
 
@@ -47,12 +48,13 @@ export function SponsoredPostCard({
                 />
               ) : null}
               <LoopingVideo
-                src={mediaUrl}
+                src={feedMediaUrl}
                 poster={posterUrl}
                 aria-label={sponsor.mediaAlt || `${sponsor.title} preview`}
                 draggable={false}
                 eager={priority}
                 preload={priority ? "auto" : undefined}
+                suspendWithFeed
                 className="absolute inset-0 size-full object-cover"
               />
             </>

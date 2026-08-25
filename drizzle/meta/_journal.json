@@ -92,6 +92,13 @@
       "when": 1787324165869,
       "tag": "0012_smart_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787614429920,
+      "tag": "0013_equal_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

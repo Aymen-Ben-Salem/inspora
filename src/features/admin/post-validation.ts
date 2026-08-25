@@ -85,6 +85,16 @@ const mediaSchema = z
       )
       .max(4)
       .optional(),
+    videoPreview: z
+      .object({
+        url: localOrRemoteUrl,
+        storageKey: z.string().trim().min(1).max(1024),
+        width: z.coerce.number().int().positive().max(1080),
+        height: z.coerce.number().int().positive().max(1920),
+        bytes: z.coerce.number().int().positive(),
+        format: z.literal("mp4"),
+      })
+      .optional(),
     posterStorageKey: z.string().trim().min(1).max(1024).optional(),
     alt: z.string().trim().max(500),
     width: z.coerce.number().int().min(1).max(12000),
@@ -97,6 +107,12 @@ const mediaSchema = z
   .refine(
     (media) => !media.posterStorageKey || media.storageProvider === "r2",
     "Managed poster keys are only valid for R2 media.",
+  )
+  .refine(
+    (media) =>
+      !media.videoPreview ||
+      (media.type === "video" && media.storageProvider === "r2"),
+    "Feed video previews are only valid for managed R2 videos.",
   );
 
 function commaSeparated(value: FormDataEntryValue | null) {

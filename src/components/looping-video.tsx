@@ -2,16 +2,61 @@
 
 import {
   type ComponentPropsWithoutRef,
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
   useEffect,
+  useMemo,
   useRef,
+  useState,
 } from "react";
+
+import {
+  createPlaybackSuspensionStore,
+  type PlaybackSuspensionStore,
+} from "./looping-video-state";
 
 type LoopingVideoProps = Omit<
   ComponentPropsWithoutRef<"video">,
   "autoPlay" | "controls" | "loop" | "muted" | "playsInline"
 > & {
   eager?: boolean;
+  suspendWithFeed?: boolean;
 };
+
+type FeedPlaybackContextValue = {
+  suspended: boolean;
+  suspend: () => () => void;
+};
+
+const FeedPlaybackContext = createContext<FeedPlaybackContextValue | undefined>(
+  undefined,
+);
+
+export function FeedPlaybackProvider({ children }: PropsWithChildren) {
+  const [suspended, setSuspended] = useState(false);
+  const [store] = useState<PlaybackSuspensionStore>(() =>
+    createPlaybackSuspensionStore(setSuspended),
+  );
+
+  const suspend = useCallback(() => store.suspend(), [store]);
+  const value = useMemo(() => ({ suspended, suspend }), [suspend, suspended]);
+
+  return (
+    <FeedPlaybackContext.Provider value={value}>
+      {children}
+    </FeedPlaybackContext.Provider>
+  );
+}
+
+export function useFeedPlaybackSuspension() {
+  const context = useContext(FeedPlaybackContext);
+  if (!context) {
+    throw new Error("useFeedPlaybackSuspension requires FeedPlaybackProvider.");
+  }
+  return context.suspend;
+}
 
 function playSilently(video: HTMLVideoElement) {
   video.controls = false;
@@ -51,9 +96,12 @@ export function LoopingVideo({
   eager = false,
   preload,
   src,
+  suspendWithFeed = false,
   ...props
 }: LoopingVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const feedPlayback = useContext(FeedPlaybackContext);
+  const suspended = suspendWithFeed && Boolean(feedPlayback?.suspended);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -83,6 +131,11 @@ export function LoopingVideo({
     if (!video) return;
 
     const source = typeof src === "string" ? src : undefined;
+
+    if (suspended) {
+      detachVideoSource(video);
+      return;
+    }
 
     if (eager || !("IntersectionObserver" in window)) {
       attachVideoSource(video, source);
@@ -131,7 +184,7 @@ export function LoopingVideo({
       document.removeEventListener("visibilitychange", handleVisibility);
       detachVideoSource(video);
     };
-  }, [eager, src]);
+  }, [eager, src, suspended]);
 
   return (
     <video

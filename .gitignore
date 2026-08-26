@@ -24,8 +24,11 @@ pnpm-debug.log*
 # testing
 /coverage
 
-# local planning notes
-/docs/plans/
+# local planning and consultation notes
+/docs/
+
+# generated SEO assets
+/public/sitemap.xml
 
 # typescript
 *.tsbuildinfo

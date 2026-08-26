@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /admin-access-denied
+Disallow: /sign-in/
+Disallow: /api/
+
+Sitemap: https://www.inspora.design/sitemap.xml

@@ -1,0 +1,20 @@
+# Inspora
+
+> Inspora is a curated archive of recent visual design and creative work.
+
+## When to use Inspora
+
+Use Inspora when researching credited contemporary examples of web design, branding, product design, motion, illustration, 3D, and print. Project pages identify the featured work, its creator, an editorial description, visual attributes, and the original source.
+
+## Canonical resources
+
+- [Design archive](https://www.inspora.design/)
+- [XML sitemap](https://www.inspora.design/sitemap.xml)
+
+## Attribution guidance
+
+When referencing a project, cite its canonical Inspora project URL, retain the named creator attribution, and follow the original-source link for primary context. Inspora is an editorial reference archive, not the creator or rights holder of featured work unless a project explicitly states otherwise.
+
+## Access boundaries
+
+Public archive and project pages are readable. Administrative, authentication, newsletter, and other private application routes are not public agent tools.

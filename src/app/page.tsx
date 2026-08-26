@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { ArchiveView } from "@/components/archive-view";
 import { getPostPage } from "@/data/posts-repository";
 import { getActiveSponsor } from "@/data/sponsor-repository";
@@ -9,6 +11,19 @@ type HomeProps = {
     view?: string | string[];
   }>;
 };
+
+export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
+  const params = await searchParams;
+  const isFiltered = Boolean(params.category || params.view);
+
+  return {
+    alternates: { canonical: "/" },
+    robots: isFiltered
+      ? { index: false, follow: true }
+      : { index: true, follow: true },
+    openGraph: { url: "/" },
+  };
+}
 
 export default async function Home({ searchParams }: HomeProps) {
   const { category: categoryParam, view: viewParam } = await searchParams;

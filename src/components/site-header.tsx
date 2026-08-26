@@ -38,7 +38,9 @@ export function SiteHeader({
                 Explore
               </Link>
               <a
-                href="mailto:Neroodesigner@gmail.com"
+                href="https://x.com/neropursue?s=11"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="focus-ring text-[#7b7b7b] transition-colors hover:text-[#262626]"
               >
                 Contact

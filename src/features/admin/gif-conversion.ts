@@ -1,3 +1,13 @@
+import {
+  VIDEO_PREVIEW_MAX_HEIGHT,
+  VIDEO_PREVIEW_MAX_WIDTH,
+} from "./video-preview-validation";
+
+export {
+  VIDEO_PREVIEW_MAX_HEIGHT,
+  VIDEO_PREVIEW_MAX_WIDTH,
+} from "./video-preview-validation";
+
 type ConverterConfiguration = { coreUrl: string; wasmUrl: string };
 type ConversionStage =
   | "loading-converter"
@@ -112,9 +122,6 @@ export async function convertGifToMp4({
   }
 }
 
-export const VIDEO_PREVIEW_MAX_WIDTH = 1080;
-export const VIDEO_PREVIEW_MAX_HEIGHT = 1920;
-
 export function buildVideoPreviewFfmpegArgs(
   inputName: string,
   outputName: string,
@@ -124,7 +131,7 @@ export function buildVideoPreviewFfmpegArgs(
     inputName,
     "-an",
     "-vf",
-    `scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`,
+    `scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1`,
     "-c:v",
     "libx264",
     "-preset",

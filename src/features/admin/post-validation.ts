@@ -182,9 +182,10 @@ export function formatValidationError(error: z.ZodError) {
   const issue = error.issues[0];
   if (!issue) return "Check the form and try again.";
 
-  const [section, itemIndex, field] = issue.path;
+  const [section, itemIndex] = issue.path;
   if (section === "media" && typeof itemIndex === "number") {
-    const fieldLabel = typeof field === "string" ? ` ${field}` : "";
+    const nestedField = issue.path.slice(2).join(".");
+    const fieldLabel = nestedField ? ` ${nestedField}` : "";
     return `Media ${itemIndex + 1}${fieldLabel}: ${issue.message}`;
   }
 

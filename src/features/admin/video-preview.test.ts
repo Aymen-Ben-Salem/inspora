@@ -15,7 +15,7 @@ describe("feed video preview transcoding", () => {
     const scale = args[args.indexOf("-vf") + 1];
 
     expect(scale).toBe(
-      "scale=w='min(1080\\,iw)':h='min(1920\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+      "scale=w='min(1080\\,iw)':h='min(1920\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1",
     );
   });
 
@@ -25,7 +25,7 @@ describe("feed video preview transcoding", () => {
       "input.webm",
       "-an",
       "-vf",
-      "scale=w='min(1080\\,iw)':h='min(1920\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+      "scale=w='min(1080\\,iw)':h='min(1920\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1",
       "-c:v",
       "libx264",
       "-preset",

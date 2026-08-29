@@ -22,6 +22,7 @@ import {
   type UploadedAdminMedia,
 } from "@/features/admin/media-upload";
 import { createVideoPoster } from "@/features/admin/video-processing";
+import { assertVideoPreviewDimensions } from "@/features/admin/video-preview-validation";
 
 type PreparedUpload = OptimizedImage & {
   role: "primary" | "variant" | "video-preview" | "poster";
@@ -141,6 +142,13 @@ export function MediaUploadButton({
       } else {
         setStatus("analyzing");
         uploadItems = [{ file, ...(await readMediaDimensions(file)), role: "primary" }];
+      }
+
+      const generatedPreview = uploadItems.find(
+        (item) => item.role === "video-preview",
+      );
+      if (generatedPreview) {
+        assertVideoPreviewDimensions(generatedPreview);
       }
 
       setStatus("signing");

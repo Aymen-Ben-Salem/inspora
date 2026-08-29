@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAdminPostForm } from "./post-validation";
+import { z } from "zod";
+
+import { formatValidationError, parseAdminPostForm } from "./post-validation";
 
 function validForm() {
   const form = new FormData();
@@ -212,6 +214,45 @@ describe("admin post validation", () => {
 
     withR2BaseUrl(() => {
       expect(() => parseAdminPostForm(form)).toThrow();
+    });
+  });
+
+  it("reports the complete nested media field for preview validation errors", () => {
+    const form = validForm();
+    form.set(
+      "media",
+      JSON.stringify([
+        {
+          type: "video",
+          url: "https://pub-example.r2.dev/posts/example.mp4",
+          posterUrl: "https://pub-example.r2.dev/posts/example.webp",
+          storageProvider: "r2",
+          storageKey: "posts/example.mp4",
+          videoPreview: {
+            url: "https://pub-example.r2.dev/posts/example-feed.mp4",
+            storageKey: "posts/example-feed.mp4",
+            width: 1081,
+            height: 608,
+            bytes: 234_173,
+            format: "mp4",
+          },
+          alt: "Example motion clip",
+          width: 3840,
+          height: 2160,
+        },
+      ]),
+    );
+
+    withR2BaseUrl(() => {
+      try {
+        parseAdminPostForm(form);
+        throw new Error("Expected preview validation to fail.");
+      } catch (error) {
+        expect(error).toBeInstanceOf(z.ZodError);
+        expect(formatValidationError(error as z.ZodError)).toBe(
+          "Media 1 videoPreview.width: Too big: expected number to be <=1080",
+        );
+      }
     });
   });
 });

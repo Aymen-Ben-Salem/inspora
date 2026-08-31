@@ -39,38 +39,27 @@ export function BottomSheet({
     };
   }, [onClose, open]);
 
+  if (!open) return null;
+
   return (
-    <div
-      aria-hidden={!open}
-      className={[
-        "fixed inset-0 z-[100] flex items-end justify-center transition-[visibility] duration-300 motion-reduce:transition-none",
-        open ? "visible" : "invisible pointer-events-none",
-      ].join(" ")}
-    >
+    <div className="fixed inset-0 z-[100] flex items-end justify-center">
       <button
         type="button"
         aria-label="Close dialog"
-        tabIndex={open ? 0 : -1}
         onClick={onClose}
-        className={[
-          "absolute inset-0 size-full bg-black/20 transition-opacity duration-300 motion-reduce:transition-none",
-          open ? "opacity-100" : "opacity-0",
-        ].join(" ")}
+        className="absolute inset-0 size-full animate-[sheet-backdrop-in_220ms_ease-out_both] bg-black/20 motion-reduce:animate-none"
       />
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className={[
-          "relative w-full max-w-[720px] border border-black/10 bg-white px-6 pb-[max(32px,env(safe-area-inset-bottom))] pt-14 shadow-[0_-20px_60px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:rounded-t-[20px] sm:px-12 sm:pb-12 sm:pt-16",
-          open ? "translate-y-0" : "translate-y-full",
-        ].join(" ")}
+        style={{ width: "min(100dvw, 720px)" }}
+        className="relative z-[1] max-h-[calc(100dvh-16px)] max-w-[720px] animate-[sheet-rise-in_300ms_cubic-bezier(0.22,1,0.36,1)_both] overflow-y-auto rounded-t-[18px] border border-black/10 bg-white px-6 pb-[max(32px,env(safe-area-inset-bottom))] pt-14 shadow-[0_-20px_60px_rgba(0,0,0,0.12)] motion-reduce:animate-none sm:rounded-t-[20px] sm:px-12 sm:pb-12 sm:pt-16"
       >
         <button
           ref={closeButtonRef}
           type="button"
-          tabIndex={open ? 0 : -1}
           aria-label="Close"
           onClick={onClose}
           className="focus-ring absolute right-5 top-5 flex size-9 items-center justify-center text-[#777] transition-colors hover:text-[#262626] sm:right-7 sm:top-7"

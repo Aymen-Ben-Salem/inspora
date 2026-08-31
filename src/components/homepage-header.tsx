@@ -10,36 +10,25 @@ import { BrandMark } from "./brand-mark";
 import { CategoryFilter } from "./category-filter";
 import { ContactSheet } from "./contact-sheet";
 import { NewsletterForm } from "./newsletter-form";
+import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SITE_NAV_ITEMS } from "./site-navigation";
 import { SubscribeSheet } from "./subscribe-sheet";
 import { ViewFilter } from "./view-filter";
 
-function NavigationItems({
-  mobile = false,
-  onContact,
-  onNavigate,
-}: {
-  mobile?: boolean;
-  onContact: () => void;
-  onNavigate?: () => void;
-}) {
+function NavigationItems({ onContact }: { onContact: () => void }) {
   return SITE_NAV_ITEMS.map((item) => {
-    const className = mobile
-      ? "focus-ring flex min-h-11 items-center border-b border-black/10 py-3 text-[16px] text-[#555] transition-colors hover:text-[#262626]"
-      : "focus-ring whitespace-nowrap text-[13px] text-[#777] transition-colors hover:text-[#262626] min-[1700px]:text-[14px]";
+    const className =
+      "focus-ring whitespace-nowrap text-[13px] font-normal leading-none tracking-[0.2px] text-[#777] transition-colors hover:text-[#262626] min-[1700px]:text-[14px]";
 
     if (item.kind === "action") {
       return (
         <button
           key={item.label}
           type="button"
-          onClick={() => {
-            onNavigate?.();
-            onContact();
-          }}
+          onClick={onContact}
           className={className}
         >
-          {mobile ? null : <span aria-hidden="true">\ </span>}
+          <span aria-hidden="true">\ </span>
           {item.label}
         </button>
       );
@@ -50,16 +39,14 @@ function NavigationItems({
         key={item.label}
         href={item.href as Route}
         aria-current={item.href === "/" ? "page" : undefined}
-        onClick={onNavigate}
         className={className}
       >
-        {mobile ? null : <span aria-hidden="true">\ </span>}
+        <span aria-hidden="true">\ </span>
         {item.label}
       </Link>
     );
   });
 }
-
 export function HomepageHeader({
   category,
   view,
@@ -68,22 +55,30 @@ export function HomepageHeader({
   view: PostView;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
 
   const closeContact = useCallback(() => setContactOpen(false), []);
   const closeSubscribe = useCallback(() => setSubscribeOpen(false), []);
+  const closeMobileMenu = useCallback(() => setMobileMenuClosing(true), []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
 
+    const previousOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMobileMenuOpen(false);
+      if (event.key === "Escape") closeMobileMenu();
     }
 
     document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [mobileMenuOpen]);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.documentElement.style.overflow = previousOverflow;
+    };
+  }, [closeMobileMenu, mobileMenuOpen]);
 
   return (
     <>
@@ -122,7 +117,15 @@ export function HomepageHeader({
               type="button"
               aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
               aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen((current) => !current)}
+              onClick={() => {
+                if (mobileMenuOpen) {
+                  closeMobileMenu();
+                  return;
+                }
+
+                setMobileMenuClosing(false);
+                setMobileMenuOpen(true);
+              }}
               className="focus-ring flex size-10 items-center justify-center border border-black/15 text-[#262626]"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" fill="none">
@@ -136,21 +139,24 @@ export function HomepageHeader({
           </div>
         </div>
 
-        {mobileMenuOpen ? (
-          <nav aria-label="Mobile navigation" className="mt-6 border-t border-black/10 lg:hidden">
-            <NavigationItems
-              mobile
-              onContact={() => setContactOpen(true)}
-              onNavigate={() => setMobileMenuOpen(false)}
-            />
-          </nav>
-        ) : null}
 
         <div className="mt-8 flex min-w-0 items-center justify-between gap-3 lg:mt-9 min-[1500px]:mt-11">
           <CategoryFilter current={category} view={view} />
           <ViewFilter category={category} view={view} />
         </div>
       </header>
+
+      {mobileMenuOpen ? (
+        <MobileNavigationOverlay
+          closing={mobileMenuClosing}
+          onClose={closeMobileMenu}
+          onClosed={() => {
+            setMobileMenuOpen(false);
+            setMobileMenuClosing(false);
+          }}
+          onContact={() => setContactOpen(true)}
+        />
+      ) : null}
 
       <SubscribeSheet open={subscribeOpen} onClose={closeSubscribe} />
       <ContactSheet open={contactOpen} onClose={closeContact} />

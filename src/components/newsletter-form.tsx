@@ -1,13 +1,21 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useId, useState } from "react";
 
 import { captureAnalyticsEvent } from "@/analytics/client";
 import { ANALYTICS_EVENTS } from "@/analytics/events";
 
 type Status = "idle" | "pending" | "success" | "error";
+type NewsletterSource = "header" | "mobile-sheet" | "post-detail";
 
-export function NewsletterForm({ compact = false }: { compact?: boolean }) {
+export function NewsletterForm({
+  compact = false,
+  source = compact ? "header" : "post-detail",
+}: {
+  compact?: boolean;
+  source?: NewsletterSource;
+}) {
+  const emailId = useId();
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
 
@@ -26,7 +34,7 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
         body: JSON.stringify({
           email: data.get("email"),
           company: data.get("company"),
-          source: compact ? "header" : "post-detail",
+          source,
         }),
       });
       let payload: { message?: string } = {};
@@ -49,7 +57,7 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
       setStatus("success");
       setMessage("You're on the list.");
       captureAnalyticsEvent(ANALYTICS_EVENTS.newsletterSubscribed, {
-        source: compact ? "header" : "post-detail",
+        source,
       });
     } catch (error) {
       setStatus("error");
@@ -70,11 +78,11 @@ export function NewsletterForm({ compact = false }: { compact?: boolean }) {
       className={`min-w-0 items-center ${compact ? "grid w-full grid-cols-[minmax(0,1fr)_82px] gap-2 sm:flex xl:gap-3" : "flex w-full max-w-[429px] gap-2 lg:gap-2 xl:gap-2.5 min-[1700px]:gap-3"}`}
       onSubmit={handleSubmit}
     >
-      <label className="sr-only" htmlFor={compact ? "header-email" : "detail-email"}>
+      <label className="sr-only" htmlFor={emailId}>
         Email address
       </label>
       <input
-        id={compact ? "header-email" : "detail-email"}
+        id={emailId}
         name="email"
         type="email"
         autoComplete="email"

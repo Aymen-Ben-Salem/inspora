@@ -1,4 +1,5 @@
 import type { MediaType, PostCategory } from "@/domain/post";
+import type { LogoKind, LogoStatus } from "@/domain/logo";
 import type {
   ImageVariant,
   ManagedMediaAsset,
@@ -67,6 +68,44 @@ export type AdminPostRecord = Omit<AdminPostInput, "status" | "creator"> & {
   id: string;
   creator: AdminCreatorRecord;
   status: AdminPostStatus;
+  publishedAt?: string;
+  archivedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminLogoMediaInput = {
+  url: string;
+  storageProvider?: MediaStorageProvider;
+  storageKey?: string;
+  mimeType?: string;
+  sourceMimeType?: string;
+  sizeBytes?: number;
+  variants?: ImageVariant[];
+  alt: string;
+  width: number;
+  height: number;
+};
+
+export type AdminLogoInput = {
+  slug: string;
+  title: string;
+  kind: LogoKind;
+  creator: AdminCreatorInput;
+  description: string;
+  industry: string;
+  colors: string[];
+  styles: string[];
+  shape: string;
+  sourceUrl: string;
+  status: Exclude<LogoStatus, "archived">;
+  media: AdminLogoMediaInput;
+};
+
+export type AdminLogoRecord = Omit<AdminLogoInput, "status" | "creator"> & {
+  id: string;
+  creator: AdminCreatorRecord;
+  status: LogoStatus;
   publishedAt?: string;
   archivedAt?: string;
   createdAt: string;

@@ -11,6 +11,13 @@ import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError, parseAdminPostForm } from "./post-validation";
+import { parseAdminLogoForm } from "./logo-validation";
+import {
+  archiveAdminLogo,
+  createAdminLogo,
+  deleteArchivedLogo,
+  updateAdminLogo,
+} from "./logos-repository";
 import {
   archiveAdminPost,
   createAdminPost,
@@ -61,6 +68,80 @@ function revalidatePostPaths(slug: string, previousSlug?: string) {
   if (previousSlug && previousSlug !== slug) {
     revalidatePath(`/posts/${previousSlug}` as Route);
   }
+}
+
+function logoErrorState(error: unknown): AdminActionState {
+  if (error instanceof z.ZodError) {
+    return { status: "error", message: formatValidationError(error) };
+  }
+
+  if (isUniqueViolation(error)) {
+    return { status: "error", message: "That slug is already used by another logo." };
+  }
+
+  console.error("Admin logo mutation failed", error);
+  return { status: "error", message: "The logo could not be saved. Try again." };
+}
+
+function revalidateLogoPaths() {
+  revalidatePath("/logos");
+  revalidatePath("/admin/logos");
+}
+
+export async function createLogoAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const { userId } = await requireAdmin();
+  let created: Awaited<ReturnType<typeof createAdminLogo>>;
+
+  try {
+    created = await createAdminLogo(parseAdminLogoForm(formData), userId);
+  } catch (error) {
+    return logoErrorState(error);
+  }
+
+  await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
+  revalidateLogoPaths();
+  redirect(`/admin/logos/${created.id}/edit?saved=created` as Route);
+}
+
+export async function updateLogoAction(
+  id: string,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const { userId } = await requireAdmin();
+  let logoId: string;
+  let updated: Awaited<ReturnType<typeof updateAdminLogo>>;
+
+  try {
+    logoId = idSchema.parse(id);
+    updated = await updateAdminLogo(logoId, parseAdminLogoForm(formData), userId);
+  } catch (error) {
+    return logoErrorState(error);
+  }
+
+  await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
+  revalidateLogoPaths();
+  redirect(`/admin/logos/${logoId}/edit?saved=updated` as Route);
+}
+
+export async function archiveLogoAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const id = idSchema.parse(formData.get("id"));
+  await archiveAdminLogo(id, userId);
+  revalidateLogoPaths();
+  redirect("/admin/logos" as Route);
+}
+
+export async function deleteLogoAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const id = idSchema.parse(formData.get("id"));
+  const deleted = await deleteArchivedLogo(id, userId);
+  await deleteManagedMediaAssetsSafely(deleted.removedManagedMedia);
+  revalidateLogoPaths();
+  redirect("/admin/logos" as Route);
 }
 
 export async function createPostAction(

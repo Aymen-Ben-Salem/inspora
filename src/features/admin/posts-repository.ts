@@ -27,7 +27,7 @@ function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
 }
 
-function mapAdminCreator(row: CreatorRow): AdminCreatorRecord {
+export function mapAdminCreator(row: CreatorRow): AdminCreatorRecord {
   return {
     id: row.id,
     name: row.name,
@@ -147,7 +147,7 @@ function creatorValues(input: AdminCreatorInput) {
   };
 }
 
-async function resolveCreatorMutation(
+export async function resolveCreatorMutation(
   database: Database,
   input: AdminCreatorInput,
 ) {

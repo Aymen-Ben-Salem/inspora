@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
+import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
@@ -84,6 +85,7 @@ function logoErrorState(error: unknown): AdminActionState {
 }
 
 function revalidateLogoPaths() {
+  updateTag(PUBLISHED_LOGOS_CACHE_TAG);
   revalidatePath("/logos");
   revalidatePath("/admin/logos");
 }

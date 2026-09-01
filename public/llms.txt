@@ -9,6 +9,7 @@ Use Inspora when researching credited contemporary examples of web design, brand
 ## Canonical resources
 
 - [Design archive](https://www.inspora.design/)
+- [Logo and icon archive](https://www.inspora.design/logos)
 - [XML sitemap](https://www.inspora.design/sitemap.xml)
 
 ## Attribution guidance

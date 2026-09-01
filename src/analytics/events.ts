@@ -6,7 +6,7 @@ export const ANALYTICS_EVENTS = {
 
 export type AnalyticsEventProperties = {
   [ANALYTICS_EVENTS.newsletterSubscribed]: {
-    source: "header" | "mobile-sheet" | "post-detail";
+    source: "header" | "mobile-sheet" | "post-detail" | "logo-detail";
   };
   [ANALYTICS_EVENTS.postOpened]: {
     category: string;

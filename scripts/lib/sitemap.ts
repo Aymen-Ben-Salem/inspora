@@ -17,6 +17,11 @@ export function renderSitemap(slugs: readonly string[]) {
       priority: "1.0",
     },
     {
+      url: `${SITE_URL}/logos`,
+      changeFrequency: "weekly",
+      priority: "0.8",
+    },
+    {
       url: `${SITE_URL}/info`,
       changeFrequency: "monthly",
       priority: "0.6",

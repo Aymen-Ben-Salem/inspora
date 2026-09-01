@@ -31,7 +31,7 @@ async function main() {
   const target = resolve(process.cwd(), "public", "sitemap.xml");
 
   await writeFile(target, renderSitemap(slugs), "utf8");
-  process.stdout.write(`Generated public/sitemap.xml with ${slugs.length + 2} URLs.\n`);
+  process.stdout.write(`Generated public/sitemap.xml with ${slugs.length + 3} URLs.\n`);
 }
 
 main().catch((cause: unknown) => {

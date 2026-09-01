@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import { renderSitemap } from "./sitemap";
 
 describe("renderSitemap", () => {
-  it("renders the canonical homepage, info page, and post URLs", () => {
+  it("renders the canonical homepage, logos page, info page, and post URLs", () => {
     const xml = renderSitemap(["first-project", "second-project"]);
 
     expect(xml).toContain("<loc>https://www.inspora.design/</loc>");
     expect(xml).toContain("<loc>https://www.inspora.design/info</loc>");
+    expect(xml).toContain("<loc>https://www.inspora.design/logos</loc>");
     expect(xml).toContain(
       "<loc>https://www.inspora.design/posts/first-project</loc>",
     );

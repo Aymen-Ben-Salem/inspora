@@ -15,7 +15,13 @@ import { SITE_NAV_ITEMS } from "./site-navigation";
 import { SubscribeSheet } from "./subscribe-sheet";
 import { ViewFilter } from "./view-filter";
 
-function NavigationItems({ onContact }: { onContact: () => void }) {
+function NavigationItems({
+  onContact,
+  activeHref,
+}: {
+  onContact: () => void;
+  activeHref: "/" | "/logos";
+}) {
   return SITE_NAV_ITEMS.map((item) => {
     const className =
       "focus-ring whitespace-nowrap text-[13px] font-normal leading-none tracking-[0.2px] text-[#777] transition-colors hover:text-[#262626] min-[1700px]:text-[14px]";
@@ -38,7 +44,7 @@ function NavigationItems({ onContact }: { onContact: () => void }) {
       <Link
         key={item.label}
         href={item.href as Route}
-        aria-current={item.href === "/" ? "page" : undefined}
+        aria-current={item.href === activeHref ? "page" : undefined}
         className={className}
       >
         <span aria-hidden="true">\ </span>
@@ -49,10 +55,12 @@ function NavigationItems({ onContact }: { onContact: () => void }) {
 }
 export function HomepageHeader({
   category,
-  view,
+  view = "latest",
+  page = "design",
 }: {
   category?: PostCategory;
-  view: PostView;
+  view?: PostView;
+  page?: "design" | "logos";
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
@@ -97,14 +105,27 @@ export function HomepageHeader({
               aria-label="Primary navigation"
               className="hidden items-center gap-5 lg:flex xl:gap-6"
             >
-              <NavigationItems onContact={() => setContactOpen(true)} />
+              <NavigationItems
+                activeHref={page === "logos" ? "/logos" : "/"}
+                onContact={() => setContactOpen(true)}
+              />
             </nav>
           </div>
 
           <h1 className="col-span-3 row-start-2 mt-9 max-w-[540px] text-[23px] font-normal leading-[1.15] tracking-[-0.025em] text-[#777] min-[640px]:max-[1499px]:text-[25px] lg:mt-10 min-[1500px]:col-span-1 min-[1500px]:col-start-2 min-[1500px]:row-start-1 min-[1500px]:mt-0 min-[1500px]:max-w-none min-[1500px]:whitespace-nowrap min-[1500px]:text-center min-[1500px]:text-[14px] min-[1700px]:text-[15px]">
-            A <span className="text-[#262626]">curated</span> archive of recent{" "}
-            <span className="text-[#262626]">visual design</span> inspiration
-            and <span className="text-[#262626]">creative work.</span>
+            {page === "logos" ? (
+              <>
+                A <span className="text-[#262626]">curated</span> archive of{" "}
+                <span className="text-[#262626]">logos and icons</span> for
+                identity and <span className="text-[#262626]">brand inspiration.</span>
+              </>
+            ) : (
+              <>
+                A <span className="text-[#262626]">curated</span> archive of recent{" "}
+                <span className="text-[#262626]">visual design</span> inspiration
+                and <span className="text-[#262626]">creative work.</span>
+              </>
+            )}
           </h1>
 
           <div className="col-start-3 row-start-1 hidden w-[310px] justify-self-end lg:block xl:w-[489px]">
@@ -163,10 +184,12 @@ export function HomepageHeader({
         </div>
 
 
-        <div className="mt-8 flex min-w-0 items-center justify-between gap-3 lg:mt-9 min-[1500px]:mt-11">
-          <CategoryFilter current={category} view={view} />
-          <ViewFilter category={category} view={view} />
-        </div>
+        {page === "design" ? (
+          <div className="mt-8 flex min-w-0 items-center justify-between gap-3 lg:mt-9 min-[1500px]:mt-11">
+            <CategoryFilter current={category} view={view} />
+            <ViewFilter category={category} view={view} />
+          </div>
+        ) : null}
       </header>
 
       {mobileMenuOpen ? (
@@ -178,6 +201,7 @@ export function HomepageHeader({
             setMobileMenuClosing(false);
           }}
           onContact={() => setContactOpen(true)}
+          activeHref={page === "logos" ? "/logos" : "/"}
         />
       ) : null}
 

@@ -1,4 +1,5 @@
 import type { Post } from "@/domain/post";
+import type { Logo } from "@/domain/logo";
 
 export const SITE_NAME = "Inspora";
 export const SITE_URL = "https://www.inspora.design";
@@ -69,6 +70,51 @@ export function buildPostStructuredData(post: Post) {
     },
     publisher: { "@id": absoluteUrl("/#organization") },
     citation: post.sourceUrl,
+  };
+}
+
+export function buildLogoCollectionStructuredData(logos: Logo[]) {
+  const collectionUrl = absoluteUrl("/logos");
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${collectionUrl}#collection`,
+    url: collectionUrl,
+    name: "Curated logo and icon inspiration",
+    description:
+      "A curated archive of logos and icons with creator attribution, industry, colour, style, and shape details.",
+    inLanguage: "en",
+    isPartOf: { "@id": absoluteUrl("/#website") },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: logos.length,
+      itemListElement: logos.map((logo, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "CreativeWork",
+          name: logo.title,
+          description: logo.description,
+          image: absoluteUrl(logo.media.url),
+          genre: logo.kind,
+          keywords: [
+            logo.kind,
+            logo.industry,
+            logo.shape,
+            ...logo.colors,
+            ...logo.styles,
+          ],
+          datePublished: logo.publishedAt,
+          creator: {
+            "@type": "Person",
+            name: logo.creator.name,
+            ...(logo.creator.url ? { url: logo.creator.url } : {}),
+          },
+          citation: logo.sourceUrl,
+        },
+      })),
+    },
   };
 }
 

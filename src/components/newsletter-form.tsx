@@ -6,7 +6,11 @@ import { captureAnalyticsEvent } from "@/analytics/client";
 import { ANALYTICS_EVENTS } from "@/analytics/events";
 
 type Status = "idle" | "pending" | "success" | "error";
-type NewsletterSource = "header" | "mobile-sheet" | "post-detail";
+type NewsletterSource =
+  | "header"
+  | "mobile-sheet"
+  | "post-detail"
+  | "logo-detail";
 
 export function NewsletterForm({
   compact = false,

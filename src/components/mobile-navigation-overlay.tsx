@@ -20,11 +20,13 @@ export function MobileNavigationOverlay({
   onClose,
   onClosed,
   onContact,
+  activeHref,
 }: {
   closing: boolean;
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
+  activeHref: "/" | "/logos";
 }) {
   return (
     <div
@@ -77,10 +79,10 @@ export function MobileNavigationOverlay({
               <Link
                 key={item.label}
                 href={item.href as Route}
-                aria-current={item.href === "/" ? "page" : undefined}
+                aria-current={item.href === activeHref ? "page" : undefined}
                 onClick={onClose}
                 className={`focus-ring py-0.5 text-[17px] font-normal leading-[1.45] tracking-[-0.012em] transition-colors capitalize ${
-                  item.href === "/"
+                  item.href === activeHref
                     ? "text-[#262626]"
                     : "text-[#777] hover:text-[#262626]"
                 }`}

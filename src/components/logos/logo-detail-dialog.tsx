@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Logo } from "@/domain/logo";
 import { getLogoAssetFileName } from "@/lib/logo-asset";
@@ -11,10 +11,12 @@ import {
   DetailArrowIcon,
   DetailCloseIcon,
   DetailIntro,
+  DetailMetadataList,
+  DetailSidebarLayout,
+  DetailSidebarNavigation,
   detailOriginalLinkClassName,
   detailSecondaryActionClassName,
 } from "../detail-sidebar-primitives";
-import { NewsletterForm } from "../newsletter-form";
 import {
   PostCloseButton,
   postNavigationControlClassName,
@@ -46,39 +48,6 @@ async function toClipboardPng(blob: Blob) {
   } finally {
     image.close();
   }
-}
-
-function LogoMetadataList({
-  rows,
-}: {
-  rows: Array<{ label: string; values: string[] }>;
-}) {
-  const visibleRows = rows.filter((row) => row.values.length > 0);
-
-  return (
-    <div className="logo-detail-metadata flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
-      {visibleRows.map((row, index) => (
-        <Fragment key={row.label}>
-          <div className="logo-detail-metadata-row flex items-start justify-between gap-6 text-[#262626]">
-            <p className="logo-detail-metadata-label shrink-0 text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:text-[20px]">
-              {row.label}
-            </p>
-            <div className="logo-detail-metadata-values flex min-w-0 flex-col items-end gap-2 text-right text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:gap-2.5 min-[1700px]:text-[20px] capitalize">
-              {row.values.map((value) => (
-                <span key={value}>{value}</span>
-              ))}
-            </div>
-          </div>
-          {index < visibleRows.length - 1 ? (
-            <span
-              aria-hidden="true"
-              className="h-[0.75px] w-full bg-[#e6e6e6]"
-            />
-          ) : null}
-        </Fragment>
-      ))}
-    </div>
-  );
 }
 
 export function LogoDetailDialog({
@@ -186,123 +155,110 @@ export function LogoDetailDialog({
           </figure>
         </DetailMotion>
 
-        <aside
-          data-post-dialog-surface
-          data-post-dialog-sidebar
-          className="logo-detail-sidebar flex min-h-fit w-full flex-none flex-col border-t border-[#e6e6e6] bg-white lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:border-l lg:border-t-0"
-        >
-          <div className="logo-detail-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
-            <nav
-              className="logo-detail-nav flex h-10 shrink-0 items-center justify-between"
-              aria-label="Logo navigation"
-            >
-              <PostCloseButton
-                className="logo-detail-nav-button"
-                closeMode="custom"
-                label="Close logo details"
-              >
-                <DetailCloseIcon />
-              </PostCloseButton>
-              <div className="flex items-center gap-3 xl:gap-4 min-[1700px]:gap-5">
+        <DetailSidebarLayout
+          newsletterSource="logo-detail"
+          navigation={
+            <DetailSidebarNavigation
+              label="Logo navigation"
+              closeControl={
+                <PostCloseButton
+                  closeMode="custom"
+                  label="Close logo details"
+                >
+                  <DetailCloseIcon />
+                </PostCloseButton>
+              }
+              previousControl={
                 <button
                   type="button"
                   aria-label="Previous logo"
                   onClick={onPrevious}
-                  className={`${postNavigationControlClassName} logo-detail-nav-button`}
+                  className={postNavigationControlClassName}
                 >
                   <DetailArrowIcon direction="left" />
                 </button>
+              }
+              nextControl={
                 <button
                   type="button"
                   aria-label="Next logo"
                   onClick={onNext}
-                  className={`${postNavigationControlClassName} logo-detail-nav-button`}
+                  className={postNavigationControlClassName}
                 >
                   <DetailArrowIcon direction="right" />
                 </button>
-              </div>
-            </nav>
+              }
+            />
+          }
+        >
+          <DetailIntro
+            category={logo.industry}
+            title={logo.title}
+            titleId="logo-dialog-title"
+            headingAs="h2"
+            creator={logo.creator}
+            description={logo.description}
+            layout="logo"
+            publishedAt={logo.publishedAt}
+          />
 
-            <div className="logo-detail-sidebar-content flex min-h-0 flex-1 items-start">
-              <div className="logo-detail-groups flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
-                <DetailIntro
-                  category={logo.industry}
-                  title={logo.title}
-                  titleId="logo-dialog-title"
-                  headingAs="h2"
-                  creator={logo.creator}
-                  description={logo.description}
-                  layout="logo"
-                  publishedAt={logo.publishedAt}
+          <DetailMetadataList
+            capitalizeValues
+            rows={[
+              { label: "Type", values: [logo.shape] },
+              { label: "Industry", values: [logo.industry] },
+              { label: "Style", values: logo.styles },
+              { label: "Colours", values: logo.colors },
+            ]}
+          />
+
+          <div className="detail-fit-actions flex flex-col gap-3">
+            <a
+              href={logo.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${detailOriginalLinkClassName} detail-fit-action`}
+            >
+              View original
+            </a>
+            <div className="grid grid-cols-2 gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
+              <button
+                type="button"
+                onClick={() => void copyImage()}
+                className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5`}
+              >
+                <Image
+                  src="/icons/logos-copy.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
+                  width={24}
+                  height={24}
                 />
-
-                <LogoMetadataList
-                  rows={[
-                    { label: "Type", values: [logo.shape] },
-                    { label: "Industry", values: [logo.industry] },
-                    { label: "Style", values: logo.styles },
-                    { label: "Colours", values: logo.colors },
-                  ]}
+                {copyState === "copied"
+                  ? "Copied"
+                  : copyState === "error"
+                    ? "Copy unavailable"
+                    : `Copy ${copyNoun}`}
+              </button>
+              <button
+                type="button"
+                onClick={downloadImage}
+                className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5`}
+              >
+                <Image
+                  src="/icons/logos-download.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
+                  width={24}
+                  height={24}
                 />
-
-                <div className="logo-detail-actions flex flex-col gap-3">
-                  <a
-                    href={logo.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${detailOriginalLinkClassName} logo-detail-action`}
-                  >
-                    View original
-                  </a>
-                  <div className="grid grid-cols-2 gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
-                    <button
-                      type="button"
-                      onClick={() => void copyImage()}
-                      className={`${detailSecondaryActionClassName} logo-detail-action gap-2.5`}
-                    >
-                      <Image
-                        src="/icons/logos-copy.svg"
-                        alt=""
-                        aria-hidden="true"
-                        className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
-                        width={24}
-                        height={24}
-                      />
-                      {copyState === "copied"
-                        ? "Copied"
-                        : copyState === "error"
-                          ? "Copy unavailable"
-                          : `Copy ${copyNoun}`}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={downloadImage}
-                      className={`${detailSecondaryActionClassName} logo-detail-action gap-2.5`}
-                    >
-                      <Image
-                        src="/icons/logos-download.svg"
-                        alt=""
-                        aria-hidden="true"
-                        className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
-                        width={24}
-                        height={24}
-                      />
-                      Download
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="logo-detail-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
-              <NewsletterForm source="logo-detail" />
-              <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
-                <span className="text-[#505050]">Subscribe</span> to a weekly
-                email
-              </p>
+                Download
+              </button>
             </div>
           </div>
-        </aside>
+        </DetailSidebarLayout>
       </main>
     </PostDialog>
   );

@@ -1,9 +1,10 @@
-import type { ElementType } from "react";
+import { Fragment, type ElementType, type ReactNode } from "react";
 
 import type { MediaStorageProvider } from "@/storage/types";
 import { formatPostAddedTime } from "@/lib/post-added-time";
 
 import { CreatorAvatar } from "./creator-avatar";
+import { NewsletterForm } from "./newsletter-form";
 
 type DetailCreatorData = {
   avatarStorageProvider?: MediaStorageProvider;
@@ -19,6 +20,113 @@ export const detailSecondaryActionClassName =
 
 export const detailSidebarScrollRegionClassName =
   "flex flex-1 items-start pb-8 pt-8 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-5 lg:pt-6 lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden xl:pt-[30px]";
+
+export function DetailSidebarLayout({
+  children,
+  mode = "overlay",
+  navigation,
+  newsletterSource,
+}: {
+  children: ReactNode;
+  mode?: "overlay" | "page";
+  navigation: ReactNode;
+  newsletterSource: "logo-detail" | "post-detail";
+}) {
+  const overlay = mode === "overlay";
+
+  return (
+    <aside
+      data-post-dialog-surface={overlay ? "" : undefined}
+      data-post-dialog-sidebar={overlay ? "" : undefined}
+      className={`detail-fit-sidebar flex w-full flex-col border-t border-[#e6e6e6] bg-white lg:border-l lg:border-t-0 ${
+        overlay
+          ? "min-h-fit flex-none lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0"
+          : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:min-h-0 lg:w-[clamp(360px,30vw,510px)]"
+      }`}
+    >
+      <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
+        {navigation}
+
+        <div className="detail-fit-sidebar-content flex min-h-0 flex-1 items-start">
+          <div className="detail-fit-groups flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
+            {children}
+          </div>
+        </div>
+
+        <div className="detail-fit-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
+          <NewsletterForm source={newsletterSource} />
+          <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
+            <span className="text-[#505050]">Subscribe</span> to a weekly email
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+export function DetailSidebarNavigation({
+  closeControl,
+  label,
+  nextControl,
+  previousControl,
+}: {
+  closeControl: ReactNode;
+  label: string;
+  nextControl: ReactNode;
+  previousControl: ReactNode;
+}) {
+  return (
+    <nav
+      className="detail-fit-nav flex h-10 shrink-0 items-center justify-between"
+      aria-label={label}
+    >
+      {closeControl}
+      <div className="flex items-center gap-3 xl:gap-4 min-[1700px]:gap-5">
+        {previousControl}
+        {nextControl}
+      </div>
+    </nav>
+  );
+}
+
+export function DetailMetadataList({
+  capitalizeValues = false,
+  rows,
+}: {
+  capitalizeValues?: boolean;
+  rows: Array<{ label: string; values: string[] }>;
+}) {
+  const visibleRows = rows.filter((row) => row.values.length > 0);
+
+  return (
+    <div className="detail-fit-metadata flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
+      {visibleRows.map((row, index) => (
+        <Fragment key={row.label}>
+          <div className="detail-fit-metadata-row flex items-start justify-between gap-6 text-[#262626]">
+            <p className="detail-fit-metadata-label shrink-0 text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:text-[20px]">
+              {row.label}
+            </p>
+            <div
+              className={`detail-fit-metadata-values flex min-w-0 flex-col items-end gap-2 text-right text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:gap-2.5 min-[1700px]:text-[20px] ${
+                capitalizeValues ? "capitalize" : ""
+              }`}
+            >
+              {row.values.map((value) => (
+                <span key={value}>{value}</span>
+              ))}
+            </div>
+          </div>
+          {index < visibleRows.length - 1 ? (
+            <span
+              aria-hidden="true"
+              className="h-[0.75px] w-full bg-[#e6e6e6]"
+            />
+          ) : null}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
 
 export function DetailCloseIcon() {
   return (

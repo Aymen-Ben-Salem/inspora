@@ -13,6 +13,7 @@ import {
   DetailIntro,
   detailOriginalLinkClassName,
   detailSecondaryActionClassName,
+  detailSidebarScrollRegionClassName,
 } from "../detail-sidebar-primitives";
 import { NewsletterForm } from "../newsletter-form";
 import { PostCloseButton, postNavigationControlClassName } from "../post-close-button";
@@ -181,10 +182,10 @@ export function LogoDetailDialog({
         <aside
           data-post-dialog-surface
           data-post-dialog-sidebar
-          className="flex min-h-fit w-full flex-none flex-col border-t border-[#e6e6e6] bg-white lg:min-h-full lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:border-l lg:border-t-0"
+          className="flex min-h-fit w-full flex-none flex-col border-t border-[#e6e6e6] bg-white lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:overflow-hidden lg:border-l lg:border-t-0"
         >
-          <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
-            <nav className="flex h-10 items-center justify-between" aria-label="Logo navigation">
+          <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
+            <nav className="flex h-10 shrink-0 items-center justify-between" aria-label="Logo navigation">
               <PostCloseButton closeMode="custom" label="Close logo details">
                 <DetailCloseIcon />
               </PostCloseButton>
@@ -208,7 +209,7 @@ export function LogoDetailDialog({
               </div>
             </nav>
 
-            <div className="flex flex-1 items-start pt-8 lg:pt-6 xl:pt-[30px]">
+            <div className={detailSidebarScrollRegionClassName}>
               <div className="flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
                 <DetailIntro
                   category={logo.industry}
@@ -279,7 +280,7 @@ export function LogoDetailDialog({
               </div>
             </div>
 
-            <div className="mt-auto flex flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
+            <div className="mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
               <NewsletterForm source="logo-detail" />
               <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
                 <span className="text-[#505050]">Subscribe</span> to a weekly email

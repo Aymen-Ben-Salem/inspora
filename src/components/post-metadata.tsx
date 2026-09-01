@@ -10,6 +10,7 @@ import {
   DetailIntro,
   DetailMetadataRow,
   detailOriginalLinkClassName,
+  detailSidebarScrollRegionClassName,
 } from "./detail-sidebar-primitives";
 import {
   PostCloseButton,
@@ -66,12 +67,12 @@ export function PostMetadata({
       data-post-dialog-sidebar={overlay ? "" : undefined}
       className={`flex w-full flex-col border-t border-[#e6e6e6] bg-white lg:border-l lg:border-t-0 ${
         overlay
-          ? "min-h-fit flex-none lg:min-h-full lg:w-[clamp(360px,30vw,510px)] lg:shrink-0"
-          : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:w-[clamp(360px,30vw,510px)]"
+          ? "min-h-fit flex-none lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:overflow-hidden"
+          : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:overflow-hidden"
       }`}
     >
-      <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
-        <nav className="flex h-10 items-center justify-between" aria-label="Post navigation">
+      <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
+        <nav className="flex h-10 shrink-0 items-center justify-between" aria-label="Post navigation">
           {closeMode ? (
             <PostCloseButton closeMode={closeMode}>
               <DetailCloseIcon />
@@ -101,7 +102,7 @@ export function PostMetadata({
           </div>
         </nav>
 
-        <div className="flex flex-1 items-start pt-8 lg:pt-6 xl:pt-[30px]">
+        <div className={detailSidebarScrollRegionClassName}>
           <div className="flex w-full flex-col">
             <DetailIntro
               category={post.category}
@@ -124,7 +125,7 @@ export function PostMetadata({
           </div>
         </div>
 
-        <div className="mt-auto flex flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
+        <div className="mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
           <NewsletterForm />
           <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
             <span className="text-[#505050]">Subscribe</span> to a weekly email

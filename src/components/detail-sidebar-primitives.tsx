@@ -17,6 +17,9 @@ export const detailOriginalLinkClassName =
 export const detailSecondaryActionClassName =
   "focus-ring inline-flex h-9 w-full items-center justify-center bg-[#d2d1d1] px-3 text-[14px] font-medium leading-normal tracking-[0.036px] text-black transition-colors hover:bg-[#c5c4c4] xl:h-[42px] xl:text-[16px] min-[1700px]:h-[43px] min-[1700px]:text-[18px]";
 
+export const detailSidebarScrollRegionClassName =
+  "flex flex-1 items-start pb-8 pt-8 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-5 lg:pt-6 lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden xl:pt-[30px]";
+
 export function DetailCloseIcon() {
   return (
     <svg

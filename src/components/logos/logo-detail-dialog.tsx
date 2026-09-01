@@ -103,6 +103,7 @@ export function LogoDetailDialog({
   const maxViewportHeight = isPortrait ? 94 : 86;
   const maxViewportWidth =
     maxViewportHeight * (logo.media.width / logo.media.height);
+  const maxRenderedWidth = Math.round(logo.media.width * 1.5);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -165,11 +166,11 @@ export function LogoDetailDialog({
               data-post-dialog-surface
               data-post-dialog-hero
               data-post-dialog-max-viewport-height={maxViewportHeight}
-              data-post-dialog-max-pixel-width={logo.media.width}
+              data-post-dialog-max-pixel-width={maxRenderedWidth}
               className="relative shrink-0 overflow-hidden bg-transparent"
               style={{
                 aspectRatio: `${logo.media.width} / ${logo.media.height}`,
-                width: `min(100%, ${maxViewportWidth}dvh, ${logo.media.width}px)`,
+                width: `min(100%, ${maxViewportWidth}dvh, ${maxRenderedWidth}px)`,
               }}
             >
               <ResponsiveR2Image
@@ -178,7 +179,7 @@ export function LogoDetailDialog({
                 width={logo.media.width}
                 height={logo.media.height}
                 variants={logo.media.variants}
-                sizes={`(min-width: 1024px) min(48vw, ${logo.media.width}px), min(90vw, ${logo.media.width}px)`}
+                sizes={`(min-width: 1024px) min(48vw, ${maxRenderedWidth}px), min(90vw, ${maxRenderedWidth}px)`}
                 priority
                 className="size-full object-contain"
               />

@@ -5,6 +5,7 @@ export const SITE_URL = "https://www.inspora.design";
 export const SITE_DESCRIPTION =
   "A curated archive of recent visual design and creative work.";
 export const SITE_EMAIL = "Neroodesigner@gmail.com";
+export const SITE_OG_IMAGE = "/brand/inspora-og.png";
 
 export function absoluteUrl(path = "/") {
   if (/^https?:\/\//i.test(path)) return path;

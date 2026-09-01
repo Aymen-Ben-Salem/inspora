@@ -7,6 +7,7 @@ import {
   buildPostStructuredData,
   buildWebsiteStructuredData,
   serializeJsonLd,
+  SITE_OG_IMAGE,
   SITE_URL,
 } from "./seo";
 
@@ -37,6 +38,9 @@ describe("SEO helpers", () => {
     expect(SITE_URL).toBe("https://www.inspora.design");
     expect(absoluteUrl("/posts/example-project")).toBe(
       "https://www.inspora.design/posts/example-project",
+    );
+    expect(absoluteUrl(SITE_OG_IMAGE)).toBe(
+      "https://www.inspora.design/brand/inspora-og.png",
     );
   });
 

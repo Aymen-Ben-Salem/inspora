@@ -10,6 +10,7 @@ import {
   serializeJsonLd,
   SITE_DESCRIPTION,
   SITE_NAME,
+  SITE_OG_IMAGE,
   SITE_URL,
 } from "@/lib/seo";
 
@@ -49,11 +50,20 @@ export const metadata: Metadata = {
     locale: "en_US",
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: SITE_OG_IMAGE,
+        width: 1201,
+        height: 630,
+        alt: `${SITE_NAME} — a curated visual design archive`,
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE],
   },
 };
 

@@ -18,9 +18,6 @@ export const detailOriginalLinkClassName =
 export const detailSecondaryActionClassName =
   "focus-ring inline-flex h-9 w-full items-center justify-center bg-[#d2d1d1] px-3 text-[14px] font-medium leading-normal tracking-[0.036px] text-black transition-colors hover:bg-[#c5c4c4] xl:h-[42px] xl:text-[16px] min-[1700px]:h-[43px] min-[1700px]:text-[18px]";
 
-export const detailSidebarScrollRegionClassName =
-  "flex flex-1 items-start pb-8 pt-8 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-5 lg:pt-6 lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden xl:pt-[30px]";
-
 export function DetailSidebarLayout({
   children,
   mode = "overlay",
@@ -228,34 +225,6 @@ export function DetailIntro({
         >
           {addedLabel}
         </time>
-      </div>
-    </div>
-  );
-}
-
-export function DetailMetadataRow({
-  label,
-  values,
-}: {
-  label: string;
-  values: string[];
-}) {
-  if (!values.length) return null;
-
-  return (
-    <div className="grid grid-cols-[84px_minmax(0,1fr)] items-start gap-3 xl:grid-cols-[92px_minmax(0,1fr)] xl:gap-4 min-[1700px]:grid-cols-[112px_minmax(0,1fr)] min-[1700px]:gap-5">
-      <p className="pt-1 text-[14px] tracking-[0.04px] text-[#262626] xl:text-[16px] min-[1700px]:text-[20px]">
-        {label}
-      </p>
-      <div className="flex flex-wrap gap-2.5">
-        {values.map((value) => (
-          <span
-            key={value}
-            className="inline-flex min-h-7 items-center bg-[#e6e6e6] px-2 py-1.5 text-[11px] tracking-[0.024px] text-[#262626] xl:min-h-8 xl:px-2.5 xl:py-2 xl:text-[12px]"
-          >
-            {value}
-          </span>
-        ))}
       </div>
     </div>
   );

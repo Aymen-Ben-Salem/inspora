@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 
 import type { Post } from "@/domain/post";
 
-import { NewsletterForm } from "./newsletter-form";
 import {
   DetailArrowIcon,
   DetailCloseIcon,
   DetailIntro,
-  DetailMetadataRow,
+  DetailMetadataList,
+  DetailSidebarLayout,
+  DetailSidebarNavigation,
   detailOriginalLinkClassName,
-  detailSidebarScrollRegionClassName,
 } from "./detail-sidebar-primitives";
 import {
   PostCloseButton,
@@ -62,27 +62,24 @@ export function PostMetadata({
   overlay?: boolean;
 }) {
   return (
-    <aside
-      data-post-dialog-surface={overlay ? "" : undefined}
-      data-post-dialog-sidebar={overlay ? "" : undefined}
-      className={`flex w-full flex-col border-t border-[#e6e6e6] bg-white lg:border-l lg:border-t-0 ${
-        overlay
-          ? "min-h-fit flex-none lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:overflow-hidden"
-          : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:overflow-hidden"
-      }`}
-    >
-      <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
-        <nav className="flex h-10 shrink-0 items-center justify-between" aria-label="Post navigation">
-          {closeMode ? (
-            <PostCloseButton closeMode={closeMode}>
-              <DetailCloseIcon />
-            </PostCloseButton>
-          ) : (
-            <CircleLink href="/" label="Close post">
-              <DetailCloseIcon />
-            </CircleLink>
-          )}
-          <div className="flex items-center gap-3 xl:gap-4 min-[1700px]:gap-5">
+    <DetailSidebarLayout
+      mode={overlay ? "overlay" : "page"}
+      newsletterSource="post-detail"
+      navigation={
+        <DetailSidebarNavigation
+          label="Post navigation"
+          closeControl={
+            closeMode ? (
+              <PostCloseButton closeMode={closeMode}>
+                <DetailCloseIcon />
+              </PostCloseButton>
+            ) : (
+              <CircleLink href="/" label="Close post">
+                <DetailCloseIcon />
+              </CircleLink>
+            )
+          }
+          previousControl={
             <CircleLink
               href={`/posts/${previousPost.slug}` as Route}
               label={`Previous post: ${previousPost.title}`}
@@ -91,6 +88,8 @@ export function PostMetadata({
             >
               <DetailArrowIcon direction="left" />
             </CircleLink>
+          }
+          nextControl={
             <CircleLink
               href={`/posts/${nextPost.slug}` as Route}
               label={`Next post: ${nextPost.title}`}
@@ -99,39 +98,34 @@ export function PostMetadata({
             >
               <DetailArrowIcon direction="right" />
             </CircleLink>
-          </div>
-        </nav>
+          }
+        />
+      }
+    >
+      <DetailIntro
+        category={post.category}
+        title={post.title}
+        creator={post.creator}
+        description={post.description}
+        layout="logo"
+        publishedAt={post.publishedAt}
+      />
 
-        <div className={detailSidebarScrollRegionClassName}>
-          <div className="flex w-full flex-col">
-            <DetailIntro
-              category={post.category}
-              title={post.title}
-              creator={post.creator}
-              description={post.description}
-              publishedAt={post.publishedAt}
-            />
+      <DetailMetadataList
+        capitalizeValues
+        rows={[
+          { label: "Industries", values: post.industries },
+          { label: "Colors", values: post.colors },
+          { label: "Styles", values: post.styles },
+        ]}
+      />
 
-            <div className="mt-7 flex flex-col gap-3 xl:mt-8 xl:gap-3.5 min-[1700px]:mt-9 min-[1700px]:gap-[15px]">
-              <DetailMetadataRow label="Industries" values={post.industries} />
-              <DetailMetadataRow label="Colors" values={post.colors} />
-              <DetailMetadataRow label="Styles" values={post.styles} />
-            </div>
-
-            <TrackedOriginalLink
-              post={post}
-              className={`${detailOriginalLinkClassName} mt-6 xl:mt-7 min-[1700px]:mt-8`}
-            />
-          </div>
-        </div>
-
-        <div className="mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
-          <NewsletterForm />
-          <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
-            <span className="text-[#505050]">Subscribe</span> to a weekly email
-          </p>
-        </div>
+      <div className="detail-fit-actions flex flex-col gap-3">
+        <TrackedOriginalLink
+          post={post}
+          className={`${detailOriginalLinkClassName} detail-fit-action`}
+        />
       </div>
-    </aside>
+    </DetailSidebarLayout>
   );
 }

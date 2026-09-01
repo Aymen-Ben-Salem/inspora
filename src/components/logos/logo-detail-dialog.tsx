@@ -13,7 +13,6 @@ import {
   DetailIntro,
   detailOriginalLinkClassName,
   detailSecondaryActionClassName,
-  detailSidebarScrollRegionClassName,
 } from "../detail-sidebar-primitives";
 import { NewsletterForm } from "../newsletter-form";
 import { PostCloseButton, postNavigationControlClassName } from "../post-close-button";
@@ -52,14 +51,14 @@ function LogoMetadataList({
   const visibleRows = rows.filter((row) => row.values.length > 0);
 
   return (
-    <div className="flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
+    <div className="logo-detail-metadata flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
       {visibleRows.map((row, index) => (
         <Fragment key={row.label}>
-          <div className="flex items-start justify-between gap-6 text-[#262626]">
-            <p className="shrink-0 text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:text-[20px]">
+          <div className="logo-detail-metadata-row flex items-start justify-between gap-6 text-[#262626]">
+            <p className="logo-detail-metadata-label shrink-0 text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:text-[20px]">
               {row.label}
             </p>
-            <div className="flex min-w-0 flex-col items-end gap-2 text-right text-[12px] tracking-[0.03px] xl:text-[14px] min-[1700px]:gap-2.5 min-[1700px]:text-[15px]">
+            <div className="logo-detail-metadata-values flex min-w-0 flex-col items-end gap-2 text-right text-[12px] tracking-[0.03px] xl:text-[14px] min-[1700px]:gap-2.5 min-[1700px]:text-[15px]">
               {row.values.map((value) => (
                 <span key={value}>{value}</span>
               ))}
@@ -182,11 +181,18 @@ export function LogoDetailDialog({
         <aside
           data-post-dialog-surface
           data-post-dialog-sidebar
-          className="flex min-h-fit w-full flex-none flex-col border-t border-[#e6e6e6] bg-white lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:overflow-hidden lg:border-l lg:border-t-0"
+          className="logo-detail-sidebar flex min-h-fit w-full flex-none flex-col border-t border-[#e6e6e6] bg-white lg:h-full lg:min-h-0 lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:border-l lg:border-t-0"
         >
-          <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
-            <nav className="flex h-10 shrink-0 items-center justify-between" aria-label="Logo navigation">
-              <PostCloseButton closeMode="custom" label="Close logo details">
+          <div className="logo-detail-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
+            <nav
+              className="logo-detail-nav flex h-10 shrink-0 items-center justify-between"
+              aria-label="Logo navigation"
+            >
+              <PostCloseButton
+                className="logo-detail-nav-button"
+                closeMode="custom"
+                label="Close logo details"
+              >
                 <DetailCloseIcon />
               </PostCloseButton>
               <div className="flex items-center gap-3 xl:gap-4 min-[1700px]:gap-5">
@@ -194,7 +200,7 @@ export function LogoDetailDialog({
                   type="button"
                   aria-label="Previous logo"
                   onClick={onPrevious}
-                  className={postNavigationControlClassName}
+                  className={`${postNavigationControlClassName} logo-detail-nav-button`}
                 >
                   <DetailArrowIcon direction="left" />
                 </button>
@@ -202,15 +208,15 @@ export function LogoDetailDialog({
                   type="button"
                   aria-label="Next logo"
                   onClick={onNext}
-                  className={postNavigationControlClassName}
+                  className={`${postNavigationControlClassName} logo-detail-nav-button`}
                 >
                   <DetailArrowIcon direction="right" />
                 </button>
               </div>
             </nav>
 
-            <div className={detailSidebarScrollRegionClassName}>
-              <div className="flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
+            <div className="logo-detail-sidebar-content flex min-h-0 flex-1 items-start">
+              <div className="logo-detail-groups flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
                 <DetailIntro
                   category={logo.industry}
                   title={logo.title}
@@ -231,12 +237,12 @@ export function LogoDetailDialog({
                   ]}
                 />
 
-                <div className="flex flex-col gap-3">
+                <div className="logo-detail-actions flex flex-col gap-3">
                   <a
                     href={logo.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={detailOriginalLinkClassName}
+                    className={`${detailOriginalLinkClassName} logo-detail-action`}
                   >
                     View original
                   </a>
@@ -244,7 +250,7 @@ export function LogoDetailDialog({
                     <button
                       type="button"
                       onClick={() => void copyImage()}
-                      className={`${detailSecondaryActionClassName} gap-2.5`}
+                      className={`${detailSecondaryActionClassName} logo-detail-action gap-2.5`}
                     >
                       <Image
                         src="/icons/logos-copy.svg"
@@ -263,7 +269,7 @@ export function LogoDetailDialog({
                     <button
                       type="button"
                       onClick={downloadImage}
-                      className={`${detailSecondaryActionClassName} gap-2.5`}
+                      className={`${detailSecondaryActionClassName} logo-detail-action gap-2.5`}
                     >
                       <Image
                         src="/icons/logos-download.svg"
@@ -280,7 +286,7 @@ export function LogoDetailDialog({
               </div>
             </div>
 
-            <div className="mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
+            <div className="logo-detail-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
               <NewsletterForm source="logo-detail" />
               <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
                 <span className="text-[#505050]">Subscribe</span> to a weekly email

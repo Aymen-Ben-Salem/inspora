@@ -70,14 +70,14 @@ export function DetailIntro({
   const isLogoLayout = layout === "logo";
 
   return (
-    <div className="flex flex-col items-start">
-      <span className="inline-flex min-h-6 items-center bg-[#f0f0f0] px-2.5 py-1 text-[12px] tracking-[0.2px] text-[#7b7b7b] xl:min-h-[27px] xl:px-3 xl:py-1.5 xl:text-[13px] min-[1700px]:text-[14px]">
+    <div className="detail-intro flex flex-col items-start">
+      <span className="detail-intro-category inline-flex min-h-6 items-center bg-[#f0f0f0] px-2.5 py-1 text-[12px] tracking-[0.2px] text-[#7b7b7b] xl:min-h-[27px] xl:px-3 xl:py-1.5 xl:text-[13px] min-[1700px]:text-[14px]">
         {category}
       </span>
 
       <Heading
         id={titleId}
-        className={`text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[20px] min-[1700px]:text-[22px] ${
+        className={`detail-intro-title text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[20px] min-[1700px]:text-[22px] ${
           isLogoLayout ? "mt-2.5" : "mt-2.5 xl:mt-3"
         }`}
       >
@@ -85,7 +85,7 @@ export function DetailIntro({
       </Heading>
 
       <div
-        className={`flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:h-7 xl:text-[14px] min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px] ${
+        className={`detail-intro-creator flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:h-7 xl:text-[14px] min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px] ${
           isLogoLayout ? "mt-2.5" : "mt-3 xl:mt-3.5 min-[1700px]:mt-4"
         }`}
       >
@@ -95,20 +95,24 @@ export function DetailIntro({
           width={25}
           height={25}
           sizes="25px"
-          className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
+          className="detail-intro-avatar size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
         />
         <span>{creator.name}</span>
       </div>
 
       <p
-        className={`max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:text-[16px] min-[1700px]:text-[18px] ${
+        className={`detail-intro-description max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:text-[16px] min-[1700px]:text-[18px] ${
           isLogoLayout ? "mt-5" : "mt-5 xl:mt-6"
         }`}
       >
         {description}
       </p>
 
-      <div className={isLogoLayout ? "mt-5" : "mt-3.5 xl:mt-4"}>
+      <div
+        className={`detail-intro-time ${
+          isLogoLayout ? "mt-5" : "mt-3.5 xl:mt-4"
+        }`}
+      >
         <time
           dateTime={publishedAt}
           aria-label={`Added to Inspora ${addedLabel}`}

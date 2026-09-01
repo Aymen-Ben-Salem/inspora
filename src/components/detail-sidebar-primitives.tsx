@@ -1,10 +1,10 @@
 import { Fragment, type ElementType, type ReactNode } from "react";
 
 import type { MediaStorageProvider } from "@/storage/types";
-import { formatPostAddedTime } from "@/lib/post-added-time";
 
 import { CreatorAvatar } from "./creator-avatar";
 import { NewsletterForm } from "./newsletter-form";
+import { RelativeAddedTime } from "./relative-added-time";
 
 type DetailCreatorData = {
   avatarStorageProvider?: MediaStorageProvider;
@@ -27,7 +27,7 @@ export function DetailSidebarLayout({
   children: ReactNode;
   mode?: "overlay" | "page";
   navigation: ReactNode;
-  newsletterSource: "logo-detail" | "post-detail";
+  newsletterSource: "logo-detail" | "post-detail" | "website-detail";
 }) {
   const overlay = mode === "overlay";
 
@@ -171,7 +171,6 @@ export function DetailIntro({
   titleId?: string;
 }) {
   const Heading = headingAs;
-  const addedLabel = formatPostAddedTime(publishedAt);
   const isLogoLayout = layout === "logo";
 
   return (
@@ -218,13 +217,10 @@ export function DetailIntro({
           isLogoLayout ? "mt-5" : "mt-3.5 xl:mt-4"
         }`}
       >
-        <time
-          dateTime={publishedAt}
-          aria-label={`Added to Inspora ${addedLabel}`}
+        <RelativeAddedTime
+          publishedAt={publishedAt}
           className="text-[13px] leading-normal tracking-[0.032px] text-[#95959d] xl:text-[14px] min-[1700px]:text-[16px]"
-        >
-          {addedLabel}
-        </time>
+        />
       </div>
     </div>
   );

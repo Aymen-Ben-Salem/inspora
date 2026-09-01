@@ -21,7 +21,7 @@ export function HomepageHeader({
 }: {
   category?: PostCategory;
   view?: PostView;
-  page?: "design" | "logos";
+  page?: "design" | "logos" | "websites";
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
@@ -67,7 +67,7 @@ export function HomepageHeader({
               className="hidden items-center gap-5 lg:flex xl:gap-6"
             >
               <DesktopSiteNavigationItems
-                activeHref={page === "logos" ? "/logos" : "/"}
+                activeHref={page === "logos" ? "/logos" : page === "websites" ? "/websites" : "/"}
                 onContact={() => setContactOpen(true)}
               />
             </nav>
@@ -79,6 +79,12 @@ export function HomepageHeader({
                 A <span className="text-[#262626]">curated</span> archive of{" "}
                 <span className="text-[#262626]">logos and icons</span> for
                 identity and <span className="text-[#262626]">brand inspiration.</span>
+              </>
+            ) : page === "websites" ? (
+              <>
+                A <span className="text-[#262626]">curated</span> archive of{" "}
+                <span className="text-[#262626]">website design</span> for
+                digital products and <span className="text-[#262626]">creative inspiration.</span>
               </>
             ) : (
               <>
@@ -162,7 +168,7 @@ export function HomepageHeader({
             setMobileMenuClosing(false);
           }}
           onContact={() => setContactOpen(true)}
-          activeHref={page === "logos" ? "/logos" : "/"}
+          activeHref={page === "logos" ? "/logos" : page === "websites" ? "/websites" : "/"}
         />
       ) : null}
 

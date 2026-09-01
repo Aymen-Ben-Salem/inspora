@@ -111,3 +111,32 @@ export async function getPublishedWebsites(): Promise<Website[]> {
   });
   return rows.map(mapPublishedWebsite);
 }
+
+export async function getPublishedWebsiteAsset(id: string) {
+  const database = getDatabase();
+  if (!database) return null;
+  const row = await database.query.websites.findFirst({
+    where: and(eq(websites.id, id), eq(websites.status, "published")),
+    columns: { slug: true },
+    with: {
+      media: {
+        where: eq(websiteMedia.role, "full_page"),
+        columns: {
+          url: true,
+          storageProvider: true,
+          storageKey: true,
+          mimeType: true,
+        },
+      },
+    },
+  });
+  const media = row?.media[0];
+  if (!row || !media) return null;
+  return {
+    slug: row.slug,
+    url: media.url,
+    storageProvider: media.storageProvider,
+    storageKey: media.storageKey,
+    mimeType: media.mimeType,
+  };
+}

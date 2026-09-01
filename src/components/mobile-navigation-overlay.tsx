@@ -26,7 +26,7 @@ export function MobileNavigationOverlay({
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
-  activeHref: "/" | "/logos";
+  activeHref: "/" | "/websites" | "/logos";
 }) {
   return (
     <div

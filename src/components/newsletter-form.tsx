@@ -10,7 +10,8 @@ type NewsletterSource =
   | "header"
   | "mobile-sheet"
   | "post-detail"
-  | "logo-detail";
+  | "logo-detail"
+  | "website-detail";
 
 export function NewsletterForm({
   compact = false,

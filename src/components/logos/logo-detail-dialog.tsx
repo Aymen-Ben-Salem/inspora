@@ -15,7 +15,10 @@ import {
   detailSecondaryActionClassName,
 } from "../detail-sidebar-primitives";
 import { NewsletterForm } from "../newsletter-form";
-import { PostCloseButton, postNavigationControlClassName } from "../post-close-button";
+import {
+  PostCloseButton,
+  postNavigationControlClassName,
+} from "../post-close-button";
 import { PostDialog } from "../post-dialog";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 
@@ -34,7 +37,9 @@ async function toClipboardPng(blob: Blob) {
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
         (png) =>
-          png ? resolve(png) : reject(new Error("The image could not be copied.")),
+          png
+            ? resolve(png)
+            : reject(new Error("The image could not be copied.")),
         "image/png",
       );
     });
@@ -58,14 +63,17 @@ function LogoMetadataList({
             <p className="logo-detail-metadata-label shrink-0 text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:text-[20px]">
               {row.label}
             </p>
-            <div className="logo-detail-metadata-values flex min-w-0 flex-col items-end gap-2 text-right text-[12px] tracking-[0.03px] xl:text-[14px] min-[1700px]:gap-2.5 min-[1700px]:text-[15px]">
+            <div className="logo-detail-metadata-values flex min-w-0 flex-col items-end gap-2 text-right text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:gap-2.5 min-[1700px]:text-[20px] capitalize">
               {row.values.map((value) => (
                 <span key={value}>{value}</span>
               ))}
             </div>
           </div>
           {index < visibleRows.length - 1 ? (
-            <span aria-hidden="true" className="h-px w-full bg-[#e6e6e6]" />
+            <span
+              aria-hidden="true"
+              className="h-[0.75px] w-full bg-[#e6e6e6]"
+            />
           ) : null}
         </Fragment>
       ))}
@@ -289,7 +297,8 @@ export function LogoDetailDialog({
             <div className="logo-detail-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8 lg:pt-5 xl:pt-6 min-[1700px]:gap-2.5">
               <NewsletterForm source="logo-detail" />
               <p className="text-center text-[11px] leading-[1.3] tracking-[-0.024px] text-[#95959d] xl:text-[12px]">
-                <span className="text-[#505050]">Subscribe</span> to a weekly email
+                <span className="text-[#505050]">Subscribe</span> to a weekly
+                email
               </p>
             </div>
           </div>

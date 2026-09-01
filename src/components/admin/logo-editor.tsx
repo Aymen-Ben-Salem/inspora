@@ -55,11 +55,17 @@ export function LogoEditor({
   creators,
   logo,
 }: {
-  action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
+  action: (
+    state: AdminActionState,
+    formData: FormData,
+  ) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
   logo?: AdminLogoRecord;
 }) {
-  const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
+  const [state, formAction, isPending] = useActionState(
+    action,
+    initialAdminActionState,
+  );
   const [creator, setCreator] = useState<AdminCreatorInput>(
     logo?.creator ? creatorDraft(logo.creator) : blankCreator(),
   );
@@ -76,7 +82,8 @@ export function LogoEditor({
 
   function updateCreator(field: keyof AdminCreatorInput, value: string) {
     setCreator((current) => {
-      const avatarChanged = field === "avatarUrl" && value !== current.avatarUrl;
+      const avatarChanged =
+        field === "avatarUrl" && value !== current.avatarUrl;
       return {
         ...current,
         [field]: value,
@@ -134,7 +141,10 @@ export function LogoEditor({
   }
 
   return (
-    <form action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <form
+      action={formAction}
+      className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]"
+    >
       <input type="hidden" name="media" value={JSON.stringify(media)} />
       <input type="hidden" name="creatorId" value={creator.id ?? ""} />
       <input
@@ -160,14 +170,19 @@ export function LogoEditor({
 
         {logo?.status === "archived" ? (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            This logo is archived. Saving it as a draft or publishing it will restore it.
+            This logo is archived. Saving it as a draft or publishing it will
+            restore it.
           </p>
         ) : null}
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Content</p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Logo details</h2>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
+              Content
+            </p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
+              Logo details
+            </h2>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className={`${labelClass} sm:col-span-2`}>
@@ -194,7 +209,11 @@ export function LogoEditor({
             </label>
             <label className={labelClass}>
               Content type
-              <select className={inputClass} name="kind" defaultValue={logo?.kind ?? "logo"}>
+              <select
+                className={inputClass}
+                name="kind"
+                defaultValue={logo?.kind ?? "logo"}
+              >
                 {LOGO_KINDS.map((kind) => (
                   <option key={kind} value={kind}>
                     {kind === "logo" ? "Logo" : "Icon"}
@@ -270,8 +289,12 @@ export function LogoEditor({
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Attribution</p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Creator</h2>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
+              Attribution
+            </p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
+              Creator
+            </h2>
           </div>
           <label className={labelClass}>
             Use an existing creator
@@ -306,7 +329,9 @@ export function LogoEditor({
                 name="creatorHandle"
                 placeholder="@studio"
                 value={creator.handle ?? ""}
-                onChange={(event) => updateCreator("handle", event.target.value)}
+                onChange={(event) =>
+                  updateCreator("handle", event.target.value)
+                }
               />
             </label>
             <label className={`${labelClass} sm:col-span-2`}>
@@ -326,11 +351,15 @@ export function LogoEditor({
                 name="creatorAvatarUrl"
                 required
                 value={creator.avatarUrl}
-                onChange={(event) => updateCreator("avatarUrl", event.target.value)}
+                onChange={(event) =>
+                  updateCreator("avatarUrl", event.target.value)
+                }
               />
             </label>
             <div className="grid gap-2 sm:col-span-2">
-              <span className="text-sm font-medium text-[#333]">Or upload an avatar</span>
+              <span className="text-sm font-medium text-[#333]">
+                Or upload an avatar
+              </span>
               <MediaUploadButton
                 kind="creator-avatar"
                 label="Upload avatar"
@@ -342,10 +371,15 @@ export function LogoEditor({
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Asset</p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Logo image</h2>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
+              Asset
+            </p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
+              Logo image
+            </h2>
             <p className="mt-1 text-sm leading-relaxed text-[#777]">
-              Static AVIF, JPEG, PNG, or WebP only. Transparent backgrounds are supported.
+              Static AVIF, JPEG, PNG, or WebP only. Transparent backgrounds are
+              supported.
             </p>
           </div>
           <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-[#f7f7f4] lg:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.4fr)]">
@@ -359,7 +393,9 @@ export function LogoEditor({
                   className="max-h-72 max-w-full object-contain"
                 />
               ) : (
-                <p className="text-sm text-[#777]">Upload or enter a URL to preview.</p>
+                <p className="text-sm text-[#777]">
+                  Upload or enter a URL to preview.
+                </p>
               )}
             </div>
             <div className="grid gap-4 p-5">
@@ -398,7 +434,9 @@ export function LogoEditor({
                     max={12000}
                     required
                     value={media.width}
-                    onChange={(event) => updateMedia("width", event.target.value)}
+                    onChange={(event) =>
+                      updateMedia("width", event.target.value)
+                    }
                   />
                 </label>
                 <label className={labelClass}>
@@ -410,7 +448,9 @@ export function LogoEditor({
                     max={12000}
                     required
                     value={media.height}
-                    onChange={(event) => updateMedia("height", event.target.value)}
+                    onChange={(event) =>
+                      updateMedia("height", event.target.value)
+                    }
                   />
                 </label>
               </div>
@@ -422,8 +462,12 @@ export function LogoEditor({
       <aside className="grid content-start gap-5 xl:sticky xl:top-24 xl:self-start">
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Publishing</p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Status</h2>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
+              Publishing
+            </p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
+              Status
+            </h2>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {(["draft", "published"] as const).map((status) => (

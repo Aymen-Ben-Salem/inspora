@@ -8,17 +8,25 @@ import { z } from "zod";
 import { requireAdmin } from "@/auth/require-admin";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
+import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
 import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError, parseAdminPostForm } from "./post-validation";
 import { parseAdminLogoForm } from "./logo-validation";
+import { parseAdminWebsiteForm } from "./website-validation";
 import {
   archiveAdminLogo,
   createAdminLogo,
   deleteArchivedLogo,
   updateAdminLogo,
 } from "./logos-repository";
+import {
+  archiveAdminWebsite,
+  createAdminWebsite,
+  deleteArchivedWebsite,
+  updateAdminWebsite,
+} from "./websites-repository";
 import {
   archiveAdminPost,
   createAdminPost,
@@ -88,6 +96,73 @@ function revalidateLogoPaths() {
   updateTag(PUBLISHED_LOGOS_CACHE_TAG);
   revalidatePath("/logos");
   revalidatePath("/admin/logos");
+}
+
+function websiteErrorState(error: unknown): AdminActionState {
+  if (error instanceof z.ZodError) {
+    return { status: "error", message: formatValidationError(error) };
+  }
+  if (isUniqueViolation(error)) {
+    return { status: "error", message: "That slug is already used by another website." };
+  }
+  console.error("Admin website mutation failed", error);
+  return { status: "error", message: "The website could not be saved. Try again." };
+}
+
+function revalidateWebsitePaths() {
+  updateTag(PUBLISHED_WEBSITES_CACHE_TAG);
+  revalidatePath("/websites");
+  revalidatePath("/admin/websites");
+}
+
+export async function createWebsiteAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const { userId } = await requireAdmin();
+  let created: Awaited<ReturnType<typeof createAdminWebsite>>;
+  try {
+    created = await createAdminWebsite(parseAdminWebsiteForm(formData), userId);
+  } catch (error) {
+    return websiteErrorState(error);
+  }
+  await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
+  revalidateWebsitePaths();
+  redirect(`/admin/websites/${created.id}/edit?saved=created` as Route);
+}
+
+export async function updateWebsiteAction(
+  id: string,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const { userId } = await requireAdmin();
+  let updated: Awaited<ReturnType<typeof updateAdminWebsite>>;
+  let websiteId: string;
+  try {
+    websiteId = idSchema.parse(id);
+    updated = await updateAdminWebsite(websiteId, parseAdminWebsiteForm(formData), userId);
+  } catch (error) {
+    return websiteErrorState(error);
+  }
+  await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
+  revalidateWebsitePaths();
+  redirect(`/admin/websites/${websiteId}/edit?saved=updated` as Route);
+}
+
+export async function archiveWebsiteAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  await archiveAdminWebsite(idSchema.parse(formData.get("id")), userId);
+  revalidateWebsitePaths();
+  redirect("/admin/websites" as Route);
+}
+
+export async function deleteWebsiteAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const deleted = await deleteArchivedWebsite(idSchema.parse(formData.get("id")), userId);
+  await deleteManagedMediaAssetsSafely(deleted.removedManagedMedia);
+  revalidateWebsitePaths();
+  redirect("/admin/websites" as Route);
 }
 
 export async function createLogoAction(

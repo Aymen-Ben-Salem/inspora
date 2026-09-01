@@ -274,7 +274,9 @@ export function MediaUploadButton({
           ref={inputRef}
           type="file"
           accept={
-            kind === "creator-avatar" || kind === "logo-media"
+            kind === "creator-avatar" ||
+            kind === "logo-media" ||
+            kind === "website-media"
               ? "image/avif,image/jpeg,image/png,image/webp"
               : "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm"
           }

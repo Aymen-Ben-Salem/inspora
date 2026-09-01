@@ -19,6 +19,7 @@ const UPLOAD_EXPIRES_SECONDS = 10 * 60;
 const PREFIXES: Record<MediaUploadKind, string> = {
   "post-media": "posts",
   "logo-media": "logos",
+  "website-media": "websites",
   "creator-avatar": "creators",
   "sponsor-media": "sponsors",
   "sponsor-icon": "sponsors",

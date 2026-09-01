@@ -91,6 +91,12 @@ async function AdminContent({ children }: { children: ReactNode }) {
               Logos
             </Link>
             <Link
+              href={"/admin/websites" as Route}
+              className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
+            >
+              Websites
+            </Link>
+            <Link
               href={"/admin/sponsor" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >

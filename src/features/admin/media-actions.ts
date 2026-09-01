@@ -27,6 +27,7 @@ const uploadRequestSchema = z.object({
   kind: z.enum([
     "post-media",
     "logo-media",
+    "website-media",
     "creator-avatar",
     "sponsor-media",
     "sponsor-icon",
@@ -45,7 +46,7 @@ export async function createMediaUploadSignatureAction(
   if (
     !parsed.success ||
     !isAcceptedUploadForKind(parsed.data.kind, parsed.data.contentType) ||
-    parsed.data.size > getMediaUploadLimit(parsed.data.contentType)
+    parsed.data.size > getMediaUploadLimit(parsed.data.contentType, parsed.data.kind)
   ) {
     return {
       ok: false,
@@ -54,6 +55,8 @@ export async function createMediaUploadSignatureAction(
           ? "Creator avatars must be images up to 10 MB."
           : parsed.success && parsed.data.kind === "logo-media"
             ? "Logo assets must be static images up to 10 MB."
+            : parsed.success && parsed.data.kind === "website-media"
+              ? "Website screenshots and favicons must be static images up to 25 MB."
           : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
     };
   }
@@ -90,7 +93,7 @@ export async function completeMediaUploadAction(
   if (
     !parsed.success ||
     !isAcceptedUploadForKind(parsed.data.kind, parsed.data.contentType) ||
-    parsed.data.size > getMediaUploadLimit(parsed.data.contentType)
+    parsed.data.size > getMediaUploadLimit(parsed.data.contentType, parsed.data.kind)
   ) {
     return { ok: false, message: "The uploaded file details are invalid." };
   }
@@ -123,6 +126,7 @@ const discardSchema = z.object({
   kind: z.enum([
     "post-media",
     "logo-media",
+    "website-media",
     "creator-avatar",
     "sponsor-media",
     "sponsor-icon",

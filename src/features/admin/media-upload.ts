@@ -1,6 +1,7 @@
 import type { AdminMediaInput } from "./types";
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const MAX_WEBSITE_IMAGE_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const RECOMMENDED_VIDEO_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -18,6 +19,7 @@ export type AcceptedMediaMimeType = (typeof ACCEPTED_MEDIA_MIME_TYPES)[number];
 export type MediaUploadKind =
   | "post-media"
   | "logo-media"
+  | "website-media"
   | "creator-avatar"
   | "sponsor-media"
   | "sponsor-icon";
@@ -33,7 +35,13 @@ export function isAcceptedUploadForKind(
   );
 }
 
-export function getMediaUploadLimit(contentType: AcceptedMediaMimeType) {
+export function getMediaUploadLimit(
+  contentType: AcceptedMediaMimeType,
+  kind?: MediaUploadKind,
+) {
+  if (kind === "website-media" && contentType.startsWith("image/")) {
+    return MAX_WEBSITE_IMAGE_UPLOAD_BYTES;
+  }
   return contentType.startsWith("video/")
     ? MAX_VIDEO_UPLOAD_BYTES
     : MAX_IMAGE_UPLOAD_BYTES;

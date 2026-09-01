@@ -33,16 +33,18 @@ export function LogoCard({
           sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
           className="absolute inset-0 size-full object-contain"
         />
-        <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
-          <CreatorAvatar
-            creator={logo.creator}
-            role="feed"
-            width={35}
-            height={35}
-            sizes="35px"
-            className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
-          />
-        </span>
+        {logo.kind === "logo" ? (
+          <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
+            <CreatorAvatar
+              creator={logo.creator}
+              role="feed"
+              width={35}
+              height={35}
+              sizes="35px"
+              className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
+            />
+          </span>
+        ) : null}
         <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
       </button>
     </article>

@@ -45,7 +45,9 @@ export function LogoCard({
             />
           </span>
         ) : null}
-        <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
+        {logo.kind === "logo" ? (
+          <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
+        ) : null}
       </button>
     </article>
   );

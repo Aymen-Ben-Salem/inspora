@@ -10,6 +10,9 @@ import {
   posts,
   sponsors,
   subscribers,
+  websiteMedia,
+  websites,
+  websiteSections,
 } from "./schema";
 
 describe("database schema", () => {
@@ -20,6 +23,9 @@ describe("database schema", () => {
     const sponsorsConfig = getTableConfig(sponsors);
     const logosConfig = getTableConfig(logos);
     const logoMediaConfig = getTableConfig(logoMedia);
+    const websitesConfig = getTableConfig(websites);
+    const websiteMediaConfig = getTableConfig(websiteMedia);
+    const websiteSectionsConfig = getTableConfig(websiteSections);
 
     expect(creatorsConfig.name).toBe("creators");
     expect(creatorsConfig.indexes).toHaveLength(1);
@@ -45,6 +51,18 @@ describe("database schema", () => {
     expect(logoMediaConfig.indexes).toHaveLength(1);
     expect(logoMediaConfig.checks).toHaveLength(3);
     expect(logoMediaConfig.foreignKeys).toHaveLength(1);
+    expect(websitesConfig.name).toBe("websites");
+    expect(websitesConfig.indexes).toHaveLength(2);
+    expect(websitesConfig.checks).toHaveLength(6);
+    expect(websitesConfig.foreignKeys).toHaveLength(1);
+    expect(websiteMediaConfig.name).toBe("website_media");
+    expect(websiteMediaConfig.indexes).toHaveLength(1);
+    expect(websiteMediaConfig.checks).toHaveLength(4);
+    expect(websiteMediaConfig.foreignKeys).toHaveLength(1);
+    expect(websiteSectionsConfig.name).toBe("website_sections");
+    expect(websiteSectionsConfig.indexes).toHaveLength(1);
+    expect(websiteSectionsConfig.checks).toHaveLength(3);
+    expect(websiteSectionsConfig.foreignKeys).toHaveLength(1);
   });
 
   it("enforces one normalized subscriber row per email", () => {

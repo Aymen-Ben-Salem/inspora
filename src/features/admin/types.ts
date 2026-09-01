@@ -1,5 +1,6 @@
 import type { MediaType, PostCategory } from "@/domain/post";
 import type { LogoKind, LogoStatus } from "@/domain/logo";
+import type { WebsiteMediaRole, WebsiteStatus } from "@/domain/website";
 import type {
   ImageVariant,
   ManagedMediaAsset,
@@ -106,6 +107,51 @@ export type AdminLogoRecord = Omit<AdminLogoInput, "status" | "creator"> & {
   id: string;
   creator: AdminCreatorRecord;
   status: LogoStatus;
+  publishedAt?: string;
+  archivedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminWebsiteMediaInput = {
+  role: WebsiteMediaRole;
+  url: string;
+  storageProvider?: MediaStorageProvider;
+  storageKey?: string;
+  mimeType?: string;
+  sourceMimeType?: string;
+  sizeBytes?: number;
+  alt: string;
+  width: number;
+  height: number;
+};
+
+export type AdminWebsiteSectionInput = {
+  label: string;
+  top: number;
+  height: number;
+  position: number;
+};
+
+export type AdminWebsiteInput = {
+  slug: string;
+  title: string;
+  tagline: string;
+  creator: AdminCreatorInput;
+  description: string;
+  categories: string[];
+  themes: string[];
+  colors: string[];
+  sourceUrl: string;
+  status: Exclude<WebsiteStatus, "archived">;
+  media: AdminWebsiteMediaInput[];
+  sections: AdminWebsiteSectionInput[];
+};
+
+export type AdminWebsiteRecord = Omit<AdminWebsiteInput, "status" | "creator"> & {
+  id: string;
+  creator: AdminCreatorRecord;
+  status: WebsiteStatus;
   publishedAt?: string;
   archivedAt?: string;
   createdAt: string;

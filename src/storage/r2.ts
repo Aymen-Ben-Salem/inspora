@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   DeleteObjectsCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -147,6 +148,20 @@ export async function verifyR2Upload(input: {
     await deleteR2StorageKeys([input.storageKey]);
     throw new Error("The uploaded object did not match the signed file.");
   }
+}
+
+export async function getR2MediaAsset(storageKey: string) {
+  const configuration = requireConfiguration();
+  const response = await createClient(configuration).send(
+    new GetObjectCommand({ Bucket: configuration.bucket, Key: storageKey }),
+  );
+
+  if (!response.Body) throw new Error("R2 returned an empty media object.");
+
+  return {
+    bytes: await response.Body.transformToByteArray(),
+    contentType: response.ContentType,
+  };
 }
 
 export async function deleteR2StorageKeys(storageKeys: string[]) {

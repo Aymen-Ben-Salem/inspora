@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { Logo } from "@/domain/logo";
+import { getLogoAssetFileName } from "@/lib/logo-asset";
 
 import { DetailMotion } from "../detail-motion";
 import {
@@ -18,12 +19,28 @@ import { PostCloseButton, postNavigationControlClassName } from "../post-close-b
 import { PostDialog } from "../post-dialog";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 
-function fileExtension(logo: Logo) {
-  const mimeType = logo.media.mimeType ?? "";
-  if (mimeType === "image/png") return "png";
-  if (mimeType === "image/jpeg") return "jpg";
-  if (mimeType === "image/avif") return "avif";
-  return "webp";
+async function toClipboardPng(blob: Blob) {
+  if (blob.type === "image/png") return blob;
+
+  const image = await createImageBitmap(blob);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("The image could not be prepared.");
+    context.drawImage(image, 0, 0);
+
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (png) =>
+          png ? resolve(png) : reject(new Error("The image could not be copied.")),
+        "image/png",
+      );
+    });
+  } finally {
+    image.close();
+  }
 }
 
 export function LogoDetailDialog({
@@ -43,6 +60,7 @@ export function LogoDetailDialog({
   }>();
   const copyState = copyStatus?.logoId === logo.id ? copyStatus.state : "idle";
   const copyNoun = logo.kind === "icon" ? "icon" : "logo";
+  const assetUrl = `/api/logos/${encodeURIComponent(logo.id)}/asset`;
   const isPortrait = logo.media.height / logo.media.width >= 1.15;
   const maxViewportHeight = isPortrait ? 85 : 72;
   const maxViewportWidth =
@@ -63,11 +81,12 @@ export function LogoDetailDialog({
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
         throw new Error("Image clipboard is unavailable.");
       }
-      const response = await fetch(logo.media.url);
-      if (!response.ok) throw new Error("The image could not be loaded.");
-      const blob = await response.blob();
+      const png = fetch(assetUrl).then(async (response) => {
+        if (!response.ok) throw new Error("The image could not be loaded.");
+        return toClipboardPng(await response.blob());
+      });
       await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type || "image/png"]: blob }),
+        new ClipboardItem({ "image/png": png }),
       ]);
       setCopyStatus({ logoId: logo.id, state: "copied" });
     } catch {
@@ -75,25 +94,13 @@ export function LogoDetailDialog({
     }
   }
 
-  async function downloadImage() {
-    const fileName = `${logo.slug}.${fileExtension(logo)}`;
-    try {
-      const response = await fetch(logo.media.url);
-      if (!response.ok) throw new Error();
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = objectUrl;
-      anchor.download = fileName;
-      anchor.click();
-      URL.revokeObjectURL(objectUrl);
-    } catch {
-      const anchor = document.createElement("a");
-      anchor.href = logo.media.url;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.click();
-    }
+  function downloadImage() {
+    const anchor = document.createElement("a");
+    anchor.href = assetUrl;
+    anchor.download = getLogoAssetFileName(logo.slug, logo.media.mimeType);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   }
 
   return (
@@ -212,7 +219,7 @@ export function LogoDetailDialog({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void downloadImage()}
+                      onClick={downloadImage}
                       className={detailSecondaryActionClassName}
                     >
                       Download

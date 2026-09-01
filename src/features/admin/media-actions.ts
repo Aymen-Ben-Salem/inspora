@@ -26,6 +26,7 @@ import {
 const uploadRequestSchema = z.object({
   kind: z.enum([
     "post-media",
+    "logo-media",
     "creator-avatar",
     "sponsor-media",
     "sponsor-icon",
@@ -51,6 +52,8 @@ export async function createMediaUploadSignatureAction(
       message:
         parsed.success && parsed.data.kind === "creator-avatar"
           ? "Creator avatars must be images up to 10 MB."
+          : parsed.success && parsed.data.kind === "logo-media"
+            ? "Logo assets must be static images up to 10 MB."
           : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
     };
   }
@@ -119,6 +122,7 @@ export async function completeMediaUploadAction(
 const discardSchema = z.object({
   kind: z.enum([
     "post-media",
+    "logo-media",
     "creator-avatar",
     "sponsor-media",
     "sponsor-icon",

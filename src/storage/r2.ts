@@ -17,6 +17,7 @@ const CACHE_CONTROL = "public, max-age=31536000, immutable";
 const UPLOAD_EXPIRES_SECONDS = 10 * 60;
 const PREFIXES: Record<MediaUploadKind, string> = {
   "post-media": "posts",
+  "logo-media": "logos",
   "creator-avatar": "creators",
   "sponsor-media": "sponsors",
   "sponsor-icon": "sponsors",

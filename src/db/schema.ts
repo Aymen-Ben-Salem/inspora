@@ -144,6 +144,86 @@ export const postMedia = pgTable(
   ],
 );
 
+export const logos = pgTable(
+  "logos",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").default("logo").notNull(),
+    creatorId: uuid("creator_id")
+      .notNull()
+      .references(() => creators.id, { onDelete: "restrict" }),
+    description: text("description").notNull(),
+    industry: text("industry").notNull(),
+    colors: text("colors").array().default(sql`'{}'::text[]`).notNull(),
+    styles: text("styles").array().default(sql`'{}'::text[]`).notNull(),
+    shape: text("shape").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    status: text("status").default("draft").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true, mode: "date" }),
+    archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("logos_slug_unique").on(table.slug),
+    index("logos_kind_created_at_idx")
+      .on(table.kind, table.createdAt.desc(), table.id.desc())
+      .where(sql`${table.status} = 'published'`),
+    index("logos_created_at_idx")
+      .on(table.createdAt.desc(), table.id.desc())
+      .where(sql`${table.status} = 'published'`),
+    check("logos_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'`),
+    check("logos_title_not_blank", sql`length(trim(${table.title})) > 0`),
+    check("logos_kind_valid", sql`${table.kind} in ('logo', 'icon')`),
+    check("logos_industry_not_blank", sql`length(trim(${table.industry})) > 0`),
+    check("logos_shape_not_blank", sql`length(trim(${table.shape})) > 0`),
+    check("logos_status_valid", sql`${table.status} in ('draft', 'published', 'archived')`),
+    check(
+      "logos_published_at_required",
+      sql`${table.status} <> 'published' or ${table.publishedAt} is not null`,
+    ),
+    check(
+      "logos_archived_at_consistent",
+      sql`(${table.status} = 'archived' and ${table.archivedAt} is not null) or (${table.status} <> 'archived' and ${table.archivedAt} is null)`,
+    ),
+  ],
+);
+
+export const logoMedia = pgTable(
+  "logo_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    logoId: uuid("logo_id")
+      .notNull()
+      .references(() => logos.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    storageProvider: text("storage_provider"),
+    storageKey: text("storage_key"),
+    mimeType: text("mime_type"),
+    sourceMimeType: text("source_mime_type"),
+    sizeBytes: integer("size_bytes"),
+    variants: jsonb("variants").$type<ImageVariant[]>().default([]).notNull(),
+    alt: text("alt").default("").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("logo_media_logo_unique").on(table.logoId),
+    check(
+      "logo_media_storage_consistent",
+      sql`(${table.storageProvider} is null and ${table.storageKey} is null) or (${table.storageProvider} = 'r2' and length(trim(${table.storageKey})) > 0)`,
+    ),
+    check("logo_media_size_valid", sql`${table.sizeBytes} is null or ${table.sizeBytes} > 0`),
+    check("logo_media_dimensions_valid", sql`${table.width} > 0 and ${table.height} > 0`),
+  ],
+);
+
 export const subscribers = pgTable(
   "subscribers",
   {
@@ -231,7 +311,7 @@ export const adminAuditLogs = pgTable(
     check("admin_audit_logs_action_not_blank", sql`length(trim(${table.action})) > 0`),
     check(
       "admin_audit_logs_resource_type_valid",
-      sql`${table.resourceType} in ('post', 'subscriber', 'sponsor')`,
+      sql`${table.resourceType} in ('post', 'logo', 'subscriber', 'sponsor')`,
     ),
   ],
 );
@@ -281,6 +361,7 @@ export const mediaMigrationAudits = pgTable(
 
 export const creatorsRelations = relations(creators, ({ many }) => ({
   posts: many(posts),
+  logos: many(logos),
 }));
 
 export const postsRelations = relations(posts, ({ many, one }) => ({
@@ -295,5 +376,20 @@ export const postMediaRelations = relations(postMedia, ({ one }) => ({
   post: one(posts, {
     fields: [postMedia.postId],
     references: [posts.id],
+  }),
+}));
+
+export const logosRelations = relations(logos, ({ many, one }) => ({
+  creator: one(creators, {
+    fields: [logos.creatorId],
+    references: [creators.id],
+  }),
+  media: many(logoMedia),
+}));
+
+export const logoMediaRelations = relations(logoMedia, ({ one }) => ({
+  logo: one(logos, {
+    fields: [logoMedia.logoId],
+    references: [logos.id],
   }),
 }));

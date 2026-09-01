@@ -69,6 +69,8 @@ export function MediaUploadButton({
       setError(
         kind === "creator-avatar"
           ? "Creator avatars must be images up to 10 MB."
+          : kind === "logo-media"
+            ? "Logo assets must be static images up to 10 MB."
           : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
       );
       return;
@@ -234,7 +236,8 @@ export function MediaUploadButton({
             }
           : undefined,
         variants:
-          isOptimizableStaticImage(contentType) && kind === "post-media"
+          isOptimizableStaticImage(contentType) &&
+          (kind === "post-media" || kind === "logo-media")
             ? uploaded
                 .filter((_, index) => uploadItems[index]?.role === "variant")
                 .map(({ media }) => ({
@@ -271,7 +274,7 @@ export function MediaUploadButton({
           ref={inputRef}
           type="file"
           accept={
-            kind === "creator-avatar"
+            kind === "creator-avatar" || kind === "logo-media"
               ? "image/avif,image/jpeg,image/png,image/webp"
               : "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm"
           }

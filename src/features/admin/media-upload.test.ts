@@ -20,4 +20,10 @@ describe("media upload limits", () => {
     expect(isAcceptedUploadForKind("creator-avatar", "video/mp4")).toBe(false);
     expect(isAcceptedUploadForKind("post-media", "video/mp4")).toBe(true);
   });
+
+  it("keeps logo media static and separate from posts", () => {
+    expect(isAcceptedUploadForKind("logo-media", "image/png")).toBe(true);
+    expect(isAcceptedUploadForKind("logo-media", "image/gif")).toBe(false);
+    expect(isAcceptedUploadForKind("logo-media", "video/mp4")).toBe(false);
+  });
 });

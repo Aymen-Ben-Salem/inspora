@@ -17,6 +17,7 @@ export const ACCEPTED_MEDIA_MIME_TYPES = [
 export type AcceptedMediaMimeType = (typeof ACCEPTED_MEDIA_MIME_TYPES)[number];
 export type MediaUploadKind =
   | "post-media"
+  | "logo-media"
   | "creator-avatar"
   | "sponsor-media"
   | "sponsor-icon";

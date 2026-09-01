@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 
 import type { Logo, LogoKind } from "@/domain/logo";
@@ -11,6 +12,9 @@ import { LogoCard } from "./logo-card";
 import { LogoDetailDialog } from "./logo-detail-dialog";
 
 type FilterKey = "colors" | "industries" | "styles" | "shapes";
+
+const SEARCH_ICON_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAVCAYAAABG1c6oAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAe9JREFUeAGtlUvLcVEUx/+PpFwGGLgWJpQoEwYupWTkA8hIMldmJFOKic+gJCMmZgZKkQG5DKSMJEUhJAk5r7Pr0ZP3HHnfx6/O5Ozdb6+1zlr7fJ3PZwofhIMPw2Vb2O/36PV62G63EAgE0Ol00Ov1+GfharVCPp/HcDgEj8eDUCjE6XTC4XCAXC5HMBiExWJhFX79rOF8PkcqlQKfz0c4HIbJZHpsXC6XKJVK6Ha7CIVC8Hg8zEZaSD/31KhoNEolk0lqs9lQ3++fn3K5TPn9fmowGDCuPz5Ko9HAer1GJBKBSCRiTcnn85GUK5UK4/pD2Ol04HQ6IZFI8AoOhwO3243xeIzFYsEunE6n0Gq1eAez2Yzb7YbZbMYuvOcPLpf7lvB73/V6ZRcqFArSe+9AdwONTCZjF9psNtTrdbxDs9mEUqlkLNFDaLfbSfPSvfaKyWSCWq0Gr9fLWKKHUK1WIxAIoFqtolgs4nK5/LW53W4jl8sRkdVqZTzw6/m2abVaKBQKoCgKRqMRKpWKRN7v98lYOhwO0hE0sVgMUqn0tZDmeDySet6nAfepIaNoMBhI/2k0Gux2O6TTaXJoIpGAWCx+LXwH+qBMJkOk8Xj8Eel/34e0gI6OJpvN4tcR/ox0NBrB5XJ9RvjMx38BfwDi9w0treTAFwAAAABJRU5ErkJggg==";
 
 function uniqueSorted(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort((left, right) =>
@@ -37,25 +41,30 @@ function FilterMenu({
   onToggle: (value: string) => void;
 }) {
   return (
-    <details className="group relative shrink-0">
+    <details className="group relative shrink-0 open:z-40">
       <summary
-        className={`focus-ring flex h-[41px] cursor-pointer list-none items-center justify-center gap-2 border px-4 text-[14px] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${
+        className={`focus-ring flex h-[41px] min-w-[120px] cursor-pointer list-none items-center justify-center gap-2.5 border px-4 text-[14px] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${
           selected.length > 0
             ? "border-[#262626] text-[#262626]"
             : "border-[#e6e6e6] text-[#7b7b7b]"
         }`}
       >
         {label}
-        <span aria-hidden="true" className="text-[13px] transition-transform group-open:rotate-180">
-          ⌄
-        </span>
+        <Image
+          src="/icons/logos-filter-chevron.svg"
+          alt=""
+          aria-hidden="true"
+          width={9.2}
+          height={5.2}
+          className="h-[5.2px] w-[9.2px] shrink-0 transition-transform group-open:rotate-180"
+        />
         {selected.length > 0 ? (
-          <span className="flex min-w-5 items-center justify-center rounded-full bg-[#262626] px-1.5 py-0.5 text-[11px] text-white">
+          <span className="flex min-w-[21px] items-center justify-center rounded-full bg-[#262626] px-1 py-0.5 text-[14px] leading-normal text-white">
             {selected.length}
           </span>
         ) : null}
       </summary>
-      <div className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-52 border border-[#e6e6e6] bg-white p-2 shadow-[0_14px_35px_rgba(0,0,0,0.12)]">
+      <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-60 border border-[#e6e6e6] bg-white p-2 shadow-[0_14px_35px_rgba(0,0,0,0.12)]">
         {options.length > 0 ? (
           <div className="grid max-h-64 gap-0.5 overflow-y-auto">
             {options.map((option) => (
@@ -166,19 +175,27 @@ export function LogoArchive({
       <main className="mx-auto w-full max-w-[1705px] px-4 pb-16 pt-9 sm:px-5 lg:pt-10 xl:px-6 min-[1700px]:px-11 min-[1700px]:pt-11">
         <section aria-label="Browse logos and icons">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center">
-              <label className="relative block w-full md:w-[397px]">
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-10">
+              <label className="relative block w-full shrink-0 lg:w-[397px]">
                 <span className="sr-only">Search logos and icons</span>
+                <Image
+                  src={SEARCH_ICON_DATA_URL}
+                  alt=""
+                  aria-hidden="true"
+                  width={20}
+                  height={21}
+                  className="pointer-events-none absolute left-[11px] top-1/2 size-5 -translate-y-1/2 object-contain"
+                />
                 <input
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search logos, colors, styles..."
-                  className="ios-no-focus-zoom focus-ring h-[43px] w-full border border-[#e6e6e6] bg-[#fafafa] px-3 text-[16px] text-[#505050] outline-none placeholder:text-[#8a8a8a]"
+                  className="ios-no-focus-zoom focus-ring h-[43px] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[16px] text-[#505050] outline-none placeholder:text-[#8a8a8a]"
                 />
               </label>
 
-              <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 md:pb-0">
+              <div className="flex min-w-0 flex-wrap gap-2 overflow-visible">
                 <FilterMenu
                   label="Color"
                   options={options.colors}

@@ -204,6 +204,71 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   outline-offset: 3px;
 }
 
+.logo-filter-options {
+  max-height: clamp(156px, 10.62vw, 181px);
+  gap: clamp(12px, 0.94vw, 16px);
+  scrollbar-color: #c7c7c7 #ededed;
+  scrollbar-width: thin;
+}
+
+.logo-filter-menu {
+  width: min(calc(100vw - 2rem), clamp(280px, 18.77vw, 320px));
+  gap: clamp(12px, 0.94vw, 16px);
+  padding: clamp(12px, 0.94vw, 16px);
+}
+
+.logo-filter-menu-search {
+  height: clamp(38px, 2.4vw, 41px);
+  padding-right: clamp(9px, 0.65vw, 11px);
+  padding-left: clamp(35px, 2.29vw, 39px);
+  font-size: clamp(13px, 0.82vw, 14px);
+}
+
+.logo-filter-search-icon {
+  left: clamp(9px, 0.65vw, 11px);
+  width: clamp(16px, 1.06vw, 18px);
+  height: clamp(16px, 1.11vw, 18.9px);
+}
+
+.logo-filter-menu-title {
+  margin-bottom: clamp(12px, 0.94vw, 16px);
+  font-size: clamp(13px, 0.82vw, 14px);
+}
+
+.logo-filter-option {
+  min-height: clamp(16px, 1vw, 17px);
+  gap: clamp(12px, 0.94vw, 16px);
+  font-size: clamp(13px, 0.82vw, 14px);
+}
+
+.logo-filter-checkbox {
+  width: clamp(11px, 0.7vw, 12px);
+  height: clamp(11px, 0.7vw, 12px);
+}
+
+.logo-filter-checkbox:checked {
+  background-color: #262626;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='m2.5 6 2.2 2.2 4.8-4.8' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.logo-filter-options::-webkit-scrollbar {
+  width: clamp(9px, 0.7vw, 12px);
+}
+
+.logo-filter-options::-webkit-scrollbar-track {
+  background: #ededed;
+}
+
+.logo-filter-options::-webkit-scrollbar-thumb {
+  min-height: clamp(56px, 4.28vw, 73px);
+  border: clamp(3px, 0.23vw, 4px) solid #ededed;
+  border-radius: 32px;
+  background: #c7c7c7;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -1,27 +1,9 @@
 "use client";
 
-import { useState } from "react";
-
 import { BottomSheet } from "./bottom-sheet";
 
 const CONTACT_EMAIL = "neroodesigner@gmail.com";
 const X_PROFILE_URL = "https://x.com/neropursue?s=11";
-
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  textarea.remove();
-}
 
 export function ContactSheet({
   open,
@@ -30,23 +12,11 @@ export function ContactSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    try {
-      await copyText(CONTACT_EMAIL);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   return (
     <BottomSheet
       open={open}
       onClose={onClose}
-      title="Let’s talk."
+      title={"Let\u2019s talk."}
       description="For collaborations, questions, or anything Inspora-related, reach us on X or by email."
     >
       <div className="grid gap-3 sm:grid-cols-2">
@@ -61,21 +31,27 @@ export function ContactSheet({
           </svg>
           Continue on X
         </a>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="focus-ring flex h-12 items-center justify-center gap-2 bg-[#262626] text-[14px] text-white transition-colors hover:bg-black"
+        <label
+          htmlFor="contact-email"
+          className="flex h-12 cursor-text items-center gap-2 bg-[#262626] px-4 text-white transition-colors hover:bg-black focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-[#111]"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[17px]" fill="none">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="size-[17px] shrink-0" fill="none">
             <path d="M3.5 6.5h17v11h-17v-11Z" stroke="currentColor" strokeWidth="1.4" />
             <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
           </svg>
-          {copied ? "Email copied" : "Copy email"}
-        </button>
+          <input
+            id="contact-email"
+            type="text"
+            readOnly
+            value={CONTACT_EMAIL}
+            aria-label="Email address. Select it, then copy with your browser or keyboard."
+            title="Select and copy email"
+            onFocus={(event) => event.currentTarget.select()}
+            onClick={(event) => event.currentTarget.select()}
+            className="min-w-0 flex-1 cursor-text bg-transparent text-center text-[14px] text-white outline-none selection:bg-white selection:text-[#262626]"
+          />
+        </label>
       </div>
-      <p className="sr-only" aria-live="polite">
-        {copied ? CONTACT_EMAIL + " copied to clipboard." : ""}
-      </p>
     </BottomSheet>
   );
 }

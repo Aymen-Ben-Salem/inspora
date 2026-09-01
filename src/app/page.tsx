@@ -4,6 +4,7 @@ import { ArchiveView } from "@/components/archive-view";
 import { getPostPage } from "@/data/posts-repository";
 import { getActiveSponsor } from "@/data/sponsor-repository";
 import { isPostCategory, isPostView } from "@/domain/post";
+import { SITE_NAME, SITE_OG_IMAGE } from "@/lib/seo";
 
 type HomeProps = {
   searchParams: Promise<{
@@ -21,7 +22,17 @@ export async function generateMetadata({ searchParams }: HomeProps): Promise<Met
     robots: isFiltered
       ? { index: false, follow: true }
       : { index: true, follow: true },
-    openGraph: { url: "/" },
+    openGraph: {
+      url: "/",
+      images: [
+        {
+          url: SITE_OG_IMAGE,
+          width: 1201,
+          height: 630,
+          alt: `${SITE_NAME} — a curated visual design archive`,
+        },
+      ],
+    },
   };
 }
 

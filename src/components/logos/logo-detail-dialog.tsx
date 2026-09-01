@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { Fragment, useEffect, useState } from "react";
 
 import type { Logo } from "@/domain/logo";
 import { getLogoAssetFileName } from "@/lib/logo-asset";
@@ -10,7 +11,6 @@ import {
   DetailArrowIcon,
   DetailCloseIcon,
   DetailIntro,
-  DetailMetadataRow,
   detailOriginalLinkClassName,
   detailSecondaryActionClassName,
 } from "../detail-sidebar-primitives";
@@ -41,6 +41,36 @@ async function toClipboardPng(blob: Blob) {
   } finally {
     image.close();
   }
+}
+
+function LogoMetadataList({
+  rows,
+}: {
+  rows: Array<{ label: string; values: string[] }>;
+}) {
+  const visibleRows = rows.filter((row) => row.values.length > 0);
+
+  return (
+    <div className="flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
+      {visibleRows.map((row, index) => (
+        <Fragment key={row.label}>
+          <div className="flex items-start justify-between gap-6 text-[#262626]">
+            <p className="shrink-0 text-[14px] tracking-[0.04px] xl:text-[16px] min-[1700px]:text-[20px]">
+              {row.label}
+            </p>
+            <div className="flex min-w-0 flex-col items-end gap-2 text-right text-[12px] tracking-[0.03px] xl:text-[14px] min-[1700px]:gap-2.5 min-[1700px]:text-[15px]">
+              {row.values.map((value) => (
+                <span key={value}>{value}</span>
+              ))}
+            </div>
+          </div>
+          {index < visibleRows.length - 1 ? (
+            <span aria-hidden="true" className="h-px w-full bg-[#e6e6e6]" />
+          ) : null}
+        </Fragment>
+      ))}
+    </div>
+  );
 }
 
 export function LogoDetailDialog({
@@ -127,10 +157,11 @@ export function LogoDetailDialog({
               data-post-dialog-surface
               data-post-dialog-hero
               data-post-dialog-max-viewport-height={maxViewportHeight}
+              data-post-dialog-max-pixel-width={logo.media.width}
               className="relative shrink-0 overflow-hidden bg-transparent"
               style={{
                 aspectRatio: `${logo.media.width} / ${logo.media.height}`,
-                width: `min(100%, ${maxViewportWidth}dvh)`,
+                width: `min(100%, ${maxViewportWidth}dvh, ${logo.media.width}px)`,
               }}
             >
               <ResponsiveR2Image
@@ -139,7 +170,7 @@ export function LogoDetailDialog({
                 width={logo.media.width}
                 height={logo.media.height}
                 variants={logo.media.variants}
-                sizes="(min-width: 1024px) 48vw, 90vw"
+                sizes={`(min-width: 1024px) min(48vw, ${logo.media.width}px), min(90vw, ${logo.media.width}px)`}
                 priority
                 className="size-full object-contain"
               />
@@ -178,7 +209,7 @@ export function LogoDetailDialog({
             </nav>
 
             <div className="flex flex-1 items-start pt-8 lg:pt-6 xl:pt-[30px]">
-              <div className="flex w-full flex-col">
+              <div className="flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
                 <DetailIntro
                   category={logo.industry}
                   title={logo.title}
@@ -186,17 +217,20 @@ export function LogoDetailDialog({
                   headingAs="h2"
                   creator={logo.creator}
                   description={logo.description}
+                  layout="logo"
                   publishedAt={logo.publishedAt}
                 />
 
-                <div className="mt-7 flex flex-col gap-3 xl:mt-8 xl:gap-3.5 min-[1700px]:mt-9 min-[1700px]:gap-[15px]">
-                  <DetailMetadataRow label="Type" values={[logo.shape]} />
-                  <DetailMetadataRow label="Industry" values={[logo.industry]} />
-                  <DetailMetadataRow label="Style" values={logo.styles} />
-                  <DetailMetadataRow label="Colours" values={logo.colors} />
-                </div>
+                <LogoMetadataList
+                  rows={[
+                    { label: "Type", values: [logo.shape] },
+                    { label: "Industry", values: [logo.industry] },
+                    { label: "Style", values: logo.styles },
+                    { label: "Colours", values: logo.colors },
+                  ]}
+                />
 
-                <div className="mt-6 flex flex-col gap-3 xl:mt-7 xl:gap-3.5 min-[1700px]:mt-8 min-[1700px]:gap-[15px]">
+                <div className="flex flex-col gap-3">
                   <a
                     href={logo.sourceUrl}
                     target="_blank"
@@ -209,8 +243,16 @@ export function LogoDetailDialog({
                     <button
                       type="button"
                       onClick={() => void copyImage()}
-                      className={detailSecondaryActionClassName}
+                      className={`${detailSecondaryActionClassName} gap-2.5`}
                     >
+                      <Image
+                        src="/icons/logos-copy.svg"
+                        alt=""
+                        aria-hidden="true"
+                        className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
+                        width={24}
+                        height={24}
+                      />
                       {copyState === "copied"
                         ? "Copied"
                         : copyState === "error"
@@ -220,8 +262,16 @@ export function LogoDetailDialog({
                     <button
                       type="button"
                       onClick={downloadImage}
-                      className={detailSecondaryActionClassName}
+                      className={`${detailSecondaryActionClassName} gap-2.5`}
                     >
+                      <Image
+                        src="/icons/logos-download.svg"
+                        alt=""
+                        aria-hidden="true"
+                        className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
+                        width={24}
+                        height={24}
+                      />
                       Download
                     </button>
                   </div>

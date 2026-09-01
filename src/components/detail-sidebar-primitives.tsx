@@ -48,6 +48,7 @@ export function DetailIntro({
   creator,
   description,
   headingAs = "h1",
+  layout = "post",
   publishedAt,
   title,
   titleId,
@@ -56,12 +57,14 @@ export function DetailIntro({
   creator: DetailCreatorData;
   description: string;
   headingAs?: ElementType;
+  layout?: "logo" | "post";
   publishedAt: string;
   title: string;
   titleId?: string;
 }) {
   const Heading = headingAs;
   const addedLabel = formatPostAddedTime(publishedAt);
+  const isLogoLayout = layout === "logo";
 
   return (
     <div className="flex flex-col items-start">
@@ -71,12 +74,18 @@ export function DetailIntro({
 
       <Heading
         id={titleId}
-        className="mt-2.5 text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:mt-3 xl:text-[20px] min-[1700px]:text-[22px]"
+        className={`text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[20px] min-[1700px]:text-[22px] ${
+          isLogoLayout ? "mt-2.5" : "mt-2.5 xl:mt-3"
+        }`}
       >
         {title}
       </Heading>
 
-      <div className="mt-3 flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:mt-3.5 xl:h-7 xl:text-[14px] min-[1700px]:mt-4 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
+      <div
+        className={`flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:h-7 xl:text-[14px] min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px] ${
+          isLogoLayout ? "mt-2.5" : "mt-3 xl:mt-3.5 min-[1700px]:mt-4"
+        }`}
+      >
         <CreatorAvatar
           creator={creator}
           role="dialog"
@@ -88,11 +97,15 @@ export function DetailIntro({
         <span>{creator.name}</span>
       </div>
 
-      <p className="mt-5 max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:mt-6 xl:text-[16px] min-[1700px]:text-[18px]">
+      <p
+        className={`max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:text-[16px] min-[1700px]:text-[18px] ${
+          isLogoLayout ? "mt-5" : "mt-5 xl:mt-6"
+        }`}
+      >
         {description}
       </p>
 
-      <div className="mt-3.5 xl:mt-4">
+      <div className={isLogoLayout ? "mt-5" : "mt-3.5 xl:mt-4"}>
         <time
           dateTime={publishedAt}
           aria-label={`Added to Inspora ${addedLabel}`}

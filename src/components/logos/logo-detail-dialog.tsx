@@ -100,7 +100,7 @@ export function LogoDetailDialog({
   const copyNoun = logo.kind === "icon" ? "icon" : "logo";
   const assetUrl = `/api/logos/${encodeURIComponent(logo.id)}/asset`;
   const isPortrait = logo.media.height / logo.media.width >= 1.15;
-  const maxViewportHeight = isPortrait ? 90 : 76;
+  const maxViewportHeight = isPortrait ? 94 : 86;
   const maxViewportWidth =
     maxViewportHeight * (logo.media.width / logo.media.height);
 

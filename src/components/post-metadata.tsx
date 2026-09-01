@@ -3,6 +3,7 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import type { Post } from "@/domain/post";
+import { formatPostAddedTime } from "@/lib/post-added-time";
 
 import { NewsletterForm } from "./newsletter-form";
 import {
@@ -106,6 +107,8 @@ export function PostMetadata({
   closeMode?: PostDialogCloseMode;
   overlay?: boolean;
 }) {
+  const initialAddedLabel = formatPostAddedTime(post.publishedAt);
+
   return (
     <aside
       data-post-dialog-surface={overlay ? "" : undefined}
@@ -148,54 +151,65 @@ export function PostMetadata({
         </nav>
 
         <div className="flex flex-1 items-start pt-8 lg:pt-6 xl:pt-[30px]">
-          <div className="flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
-            <div className="flex flex-col gap-3 xl:gap-4 min-[1700px]:gap-5">
-              <div className="flex flex-col items-start gap-2.5">
-                <span className="inline-flex min-h-6 items-center bg-[#f0f0f0] px-2.5 py-1 text-[12px] tracking-[0.2px] text-[#7b7b7b] xl:min-h-[27px] xl:px-3 xl:py-1.5 xl:text-[13px] min-[1700px]:text-[14px]">
-                  {post.category}
-                </span>
-                <div>
-                  <h1 className="text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[20px] min-[1700px]:text-[22px]">
-                    {post.title}
-                  </h1>
-                  <div className="mt-1 flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:mt-1.5 xl:h-7 xl:text-[14px] min-[1700px]:mt-2 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
-                    {post.creator.avatarStorageProvider === "r2" ? (
-                      <ResponsiveR2Image
-                        data-post-dialog-creator-avatar
-                        src={post.creator.avatarUrl}
-                        alt=""
-                        width={25}
-                        height={25}
-                        sizes="25px"
-                        className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
-                      />
-                    ) : (
-                      <Image
-                        data-post-dialog-creator-avatar
-                        src={post.creator.avatarUrl}
-                        alt=""
-                        width={25}
-                        height={25}
-                        className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
-                      />
-                    )}
-                    <span>{post.creator.name}</span>
-                  </div>
-                </div>
+          <div className="flex w-full flex-col">
+            <div className="flex flex-col items-start">
+              <span className="inline-flex min-h-6 items-center bg-[#f0f0f0] px-2.5 py-1 text-[12px] tracking-[0.2px] text-[#7b7b7b] xl:min-h-[27px] xl:px-3 xl:py-1.5 xl:text-[13px] min-[1700px]:text-[14px]">
+                {post.category}
+              </span>
+
+              <h1 className="mt-2.5 text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:mt-3 xl:text-[20px] min-[1700px]:text-[22px]">
+                {post.title}
+              </h1>
+
+              <div className="mt-3 flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:mt-3.5 xl:h-7 xl:text-[14px] min-[1700px]:mt-4 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
+                {post.creator.avatarStorageProvider === "r2" ? (
+                  <ResponsiveR2Image
+                    data-post-dialog-creator-avatar
+                    src={post.creator.avatarUrl}
+                    alt=""
+                    width={25}
+                    height={25}
+                    sizes="25px"
+                    className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
+                  />
+                ) : (
+                  <Image
+                    data-post-dialog-creator-avatar
+                    src={post.creator.avatarUrl}
+                    alt=""
+                    width={25}
+                    height={25}
+                    className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
+                  />
+                )}
+                <span>{post.creator.name}</span>
               </div>
 
-              <p className="max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:text-[16px] min-[1700px]:text-[18px]">
+              <p className="mt-5 max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:mt-6 xl:text-[16px] min-[1700px]:text-[18px]">
                 {post.description}
               </p>
+
+              <div className="mt-3.5 xl:mt-4">
+                <time
+                  dateTime={post.publishedAt}
+                  aria-label={`Added to Inspora ${initialAddedLabel}`}
+                  className="text-[13px] leading-normal tracking-[0.032px] text-[#95959d] xl:text-[14px] min-[1700px]:text-[16px]"
+                >
+                  {initialAddedLabel}
+                </time>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
+            <div className="mt-7 flex flex-col gap-3 xl:mt-8 xl:gap-3.5 min-[1700px]:mt-9 min-[1700px]:gap-[15px]">
               <MetadataRow label="Industries" values={post.industries} />
               <MetadataRow label="Colors" values={post.colors} />
               <MetadataRow label="Styles" values={post.styles} />
             </div>
 
-            <TrackedOriginalLink post={post} className={originalLinkClassName} />
+            <TrackedOriginalLink
+              post={post}
+              className={`${originalLinkClassName} mt-6 xl:mt-7 min-[1700px]:mt-8`}
+            />
           </div>
         </div>
 

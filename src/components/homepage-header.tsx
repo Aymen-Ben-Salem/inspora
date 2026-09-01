@@ -1,6 +1,5 @@
 "use client";
 
-import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -9,50 +8,12 @@ import type { PostCategory, PostView } from "@/domain/post";
 import { BrandMark } from "./brand-mark";
 import { CategoryFilter } from "./category-filter";
 import { ContactSheet } from "./contact-sheet";
+import { DesktopSiteNavigationItems } from "./desktop-site-navigation-items";
 import { NewsletterForm } from "./newsletter-form";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
-import { SITE_NAV_ITEMS } from "./site-navigation";
 import { SubscribeSheet } from "./subscribe-sheet";
 import { ViewFilter } from "./view-filter";
 
-function NavigationItems({
-  onContact,
-  activeHref,
-}: {
-  onContact: () => void;
-  activeHref: "/" | "/logos";
-}) {
-  return SITE_NAV_ITEMS.map((item) => {
-    const className =
-      "focus-ring whitespace-nowrap text-[13px] font-normal leading-none tracking-[0.2px] text-[#777] transition-colors hover:text-[#262626] min-[1700px]:text-[14px]";
-
-    if (item.kind === "action") {
-      return (
-        <button
-          key={item.label}
-          type="button"
-          onClick={onContact}
-          className={className}
-        >
-          <span aria-hidden="true">\ </span>
-          {item.label}
-        </button>
-      );
-    }
-
-    return (
-      <Link
-        key={item.label}
-        href={item.href as Route}
-        aria-current={item.href === activeHref ? "page" : undefined}
-        className={className}
-      >
-        <span aria-hidden="true">\ </span>
-        {item.label}
-      </Link>
-    );
-  });
-}
 export function HomepageHeader({
   category,
   view = "latest",
@@ -105,7 +66,7 @@ export function HomepageHeader({
               aria-label="Primary navigation"
               className="hidden items-center gap-5 lg:flex xl:gap-6"
             >
-              <NavigationItems
+              <DesktopSiteNavigationItems
                 activeHref={page === "logos" ? "/logos" : "/"}
                 onContact={() => setContactOpen(true)}
               />

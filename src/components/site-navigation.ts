@@ -1,7 +1,9 @@
+export type SiteNavigationHref = "/" | "/websites" | "/logos" | "/info";
+
 type SiteNavigationLink = {
   kind: "link";
   label: string;
-  href: "/" | "/websites" | "/logos" | "/info";
+  href: SiteNavigationHref;
 };
 
 type SiteNavigationAction = {

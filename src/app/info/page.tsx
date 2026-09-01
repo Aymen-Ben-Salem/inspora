@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
+import { DesktopSiteNavigationItems } from "@/components/desktop-site-navigation-items";
 import { InfoPageNavigation } from "@/components/info-page-navigation";
 import { SITE_EMAIL } from "@/lib/seo";
 
@@ -45,40 +46,13 @@ export default function InfoPage() {
 
           <nav
             aria-label="Primary navigation"
-            className="hidden items-center gap-5 text-[13px] leading-none tracking-[0.2px] sm:flex xl:gap-6 min-[1700px]:text-[14px]"
+            className="hidden items-center gap-5 sm:flex xl:gap-6"
           >
-            <Link
-              href="/"
-              className="focus-ring whitespace-nowrap text-[#777] transition-colors hover:text-[#262626]"
-            >
-              <span aria-hidden="true">\ </span>
-              design
-            </Link>
-            <Link
-              href="/websites"
-              className="focus-ring whitespace-nowrap text-[#777] transition-colors hover:text-[#262626]"
-            >
-              <span aria-hidden="true">\ </span>
-              websites
-            </Link>
-            <Link
-              href="/logos"
-              className="focus-ring whitespace-nowrap text-[#777] transition-colors hover:text-[#262626]"
-            >
-              <span aria-hidden="true">\ </span>
-              logos
-            </Link>
-            <a
-              href="#contact"
-              className="focus-ring whitespace-nowrap text-[#777] transition-colors hover:text-[#262626]"
-            >
-              <span aria-hidden="true">\ </span>
-              contact
-            </a>
-            <span aria-current="page" className="whitespace-nowrap text-[#262626]">
-              <span aria-hidden="true">\ </span>
-              info
-            </span>
+            <DesktopSiteNavigationItems
+              activeHref="/info"
+              contactHref="#contact"
+              highlightActive
+            />
           </nav>
         </div>
 

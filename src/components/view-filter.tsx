@@ -93,7 +93,7 @@ export function ViewFilter({
             if (!open) toggleMenu();
           }
         }}
-        className={`focus-ring group inline-flex h-10 min-w-[96px] items-center justify-center gap-1.5 border px-4 text-[13px] font-normal leading-none tracking-[0.2px] transition-[background,border-color,opacity] sm:h-[41px] min-[1200px]:min-w-[111px] min-[1200px]:px-6 min-[1700px]:text-[14px] ${
+        className={`focus-ring group inline-flex h-10 min-w-[96px] items-center justify-center gap-1.5 border px-4 text-[13px] font-normal leading-none tracking-[0.2px] transition-[background,border-color,opacity] sm:h-[41px] lg:text-[14px] min-[1200px]:min-w-[111px] min-[1200px]:px-6 ${
           open
             ? "border-black/20 bg-white"
             : "border-black/15 bg-white hover:border-black/20 hover:bg-[#f5f5f5]"
@@ -149,7 +149,7 @@ export function ViewFilter({
               onFocus={() => setPreviewView(option.value)}
               onMouseEnter={() => setPreviewView(option.value)}
               onClick={() => changeView(option.value)}
-              className={`focus-ring relative z-10 flex h-8 w-full items-center px-2.5 text-left text-[13px] leading-none tracking-[0.2px] transition-colors min-[1700px]:text-[14px] ${
+              className={`focus-ring relative z-10 flex h-8 w-full items-center px-2.5 text-left text-[13px] leading-none tracking-[0.2px] transition-colors lg:text-[14px] ${
                 highlightedView === option.value ? "text-black" : "text-[#3f3f3f]"
               }`}
             >

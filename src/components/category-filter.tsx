@@ -46,7 +46,7 @@ export function CategoryFilter({
               key={category}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`focus-ring inline-flex h-10 w-[92px] shrink-0 items-center justify-center px-3 text-[13px] leading-none tracking-[0.2px] transition-colors duration-150 sm:h-[41px] sm:w-[120px] min-[1700px]:text-[14px] ${
+              className={`focus-ring inline-flex h-10 w-[92px] shrink-0 items-center justify-center px-3 text-[13px] leading-none tracking-[0.2px] transition-colors duration-150 sm:h-[41px] sm:w-[120px] lg:text-[14px] ${
                 active
                   ? "bg-[#262626] text-white"
                   : "bg-[#f0f0f0] text-[#7b7b7b] hover:bg-[#DCDCDC] hover:text-[#5D5D5D] focus-visible:bg-[#DCDCDC] focus-visible:text-[#5D5D5D]"

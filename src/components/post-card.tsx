@@ -6,6 +6,7 @@ import { isGifUrl, type PostCardData } from "@/domain/post";
 import { LoopingVideo } from "./looping-video";
 import { IntentPrefetchLink } from "./intent-prefetch-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
+import { CreatorAvatar } from "./creator-avatar";
 
 export function PostCard({
   post,
@@ -82,26 +83,14 @@ export function PostCard({
           />
         )}
         <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
-          {post.creator.avatarStorageProvider === "r2" ? (
-            <ResponsiveR2Image
-              data-feed-creator-avatar
-              src={post.creator.avatarUrl}
-              alt=""
-              width={35}
-              height={35}
-              sizes="35px"
-              className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
-            />
-          ) : (
-            <Image
-              data-feed-creator-avatar
-              src={post.creator.avatarUrl}
-              alt=""
-              width={35}
-              height={35}
-              className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
-            />
-          )}
+          <CreatorAvatar
+            creator={post.creator}
+            role="feed"
+            width={35}
+            height={35}
+            sizes="35px"
+            className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
+          />
         </span>
         {post.mediaCount > 1 ? (
           <span className="absolute right-[10px] top-[10px] z-10 flex h-6 min-w-6 items-center justify-center border border-black/10 bg-white/90 px-1.5 text-[10px] text-[#262626] backdrop-blur-md xl:h-[26px] xl:min-w-[26px] xl:text-[11px] min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:h-7 min-[1800px]:min-w-7 min-[1800px]:text-xs">

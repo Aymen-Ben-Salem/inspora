@@ -168,7 +168,7 @@ export function createMediaProxy({
 
   proxy.dataset.postDialogMediaProxy = "";
   Object.assign(proxy.style, {
-    background: "#f3f3f3",
+    background: getComputedStyle(media).backgroundColor,
     height: `${rect.height}px`,
     left: `${rect.left}px`,
     overflow: "hidden",

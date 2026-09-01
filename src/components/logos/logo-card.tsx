@@ -1,5 +1,6 @@
 import type { Logo } from "@/domain/logo";
 
+import { CreatorAvatar } from "../creator-avatar";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 
 export function LogoCard({
@@ -9,49 +10,41 @@ export function LogoCard({
   logo: Logo;
   onSelect: (logo: Logo) => void;
 }) {
-  const isIcon = logo.kind === "icon";
-
   return (
-    <button
-      type="button"
-      data-logo-card
-      aria-label={`View ${logo.title} ${logo.kind}`}
-      onClick={() => onSelect(logo)}
-      className={`focus-ring group relative block w-full overflow-visible text-left ${
-        isIcon ? "aspect-square" : "aspect-[1080/659]"
-      }`}
-    >
-      <span
-        className={`absolute inset-0 flex items-center justify-center overflow-hidden bg-[#f0f0ed] ${
-          isIcon ? "rounded-[20%] p-[12%]" : "p-[9%]"
-        }`}
+    <article data-feed-card>
+      <button
+        type="button"
+        data-feed-post-id={logo.id}
+        data-feed-post-pathname={`/logos?logo=${logo.slug}`}
+        data-feed-post-title={logo.title}
+        data-feed-creator-name={logo.creator.name}
+        aria-label={`View ${logo.title} ${logo.kind}`}
+        onClick={() => onSelect(logo)}
+        className="focus-ring group relative block w-full overflow-hidden bg-transparent text-left"
+        style={{ aspectRatio: `${logo.media.width}/${logo.media.height}` }}
       >
         <ResponsiveR2Image
+          data-feed-transition-media
           src={logo.media.url}
           alt={logo.media.alt}
           width={logo.media.width}
           height={logo.media.height}
           variants={logo.media.variants}
-          sizes={
-            isIcon
-              ? "(min-width: 1500px) 155px, (min-width: 1024px) 12vw, 28vw"
-              : "(min-width: 1120px) 25vw, (min-width: 760px) 33vw, 50vw"
-          }
-          className="max-h-full max-w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.025]"
+          sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
+          className="absolute inset-0 size-full object-contain"
         />
-        <span className="pointer-events-none absolute inset-0 bg-black/[0.035] opacity-0 transition-opacity group-hover:opacity-100" />
-      </span>
-      {!isIcon ? (
-        <span className="absolute bottom-[-3px] left-4 flex size-9 items-center justify-center overflow-hidden rounded-full border border-[#e6e6e6] bg-white p-1 shadow-[0_1px_5px_rgba(0,0,0,0.04)]">
-          {/* Creator avatar domains are admin-managed and may be added before Next config. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={logo.creator.avatarUrl}
-            alt=""
-            className="size-full rounded-full object-cover"
+        <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
+          <CreatorAvatar
+            creator={logo.creator}
+            role="feed"
+            width={35}
+            height={35}
+            sizes="35px"
+            className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
           />
         </span>
-      ) : null}
-    </button>
+        <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
+      </button>
+    </article>
   );
 }

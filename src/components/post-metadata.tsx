@@ -1,11 +1,16 @@
-import Image from "next/image";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import type { Post } from "@/domain/post";
-import { formatPostAddedTime } from "@/lib/post-added-time";
 
 import { NewsletterForm } from "./newsletter-form";
+import {
+  DetailArrowIcon,
+  DetailCloseIcon,
+  DetailIntro,
+  DetailMetadataRow,
+  detailOriginalLinkClassName,
+} from "./detail-sidebar-primitives";
 import {
   PostCloseButton,
   postNavigationControlClassName,
@@ -13,60 +18,8 @@ import {
 import type { PostDialogCloseMode } from "./post-dialog";
 import { PostNavigationLink } from "./post-navigation-link";
 import { TrackedOriginalLink } from "./tracked-original-link";
-import { ResponsiveR2Image } from "./responsive-r2-image";
-
-const originalLinkClassName =
-  "focus-ring inline-flex h-9 w-full items-center justify-center bg-[#262626] px-3 text-[14px] font-medium leading-normal tracking-[0.036px] text-white transition-colors hover:bg-black xl:h-[42px] xl:text-[16px] min-[1700px]:h-[43px] min-[1700px]:px-[14px] min-[1700px]:text-[18px]";
 
 type AdjacentPost = Pick<Post, "slug" | "title">;
-
-function MetadataRow({ label, values }: { label: string; values: string[] }) {
-  if (!values.length) return null;
-
-  return (
-    <div className="grid grid-cols-[84px_minmax(0,1fr)] items-start gap-3 xl:grid-cols-[92px_minmax(0,1fr)] xl:gap-4 min-[1700px]:grid-cols-[112px_minmax(0,1fr)] min-[1700px]:gap-5">
-      <p className="pt-1 text-[14px] tracking-[0.04px] text-[#262626] xl:text-[16px] min-[1700px]:text-[20px]">
-        {label}
-      </p>
-      <div className="flex flex-wrap gap-2.5">
-        {values.map((value) => (
-          <span
-            key={value}
-            className="inline-flex min-h-7 items-center bg-[#e6e6e6] px-2 py-1.5 text-[11px] tracking-[0.024px] text-[#262626] xl:min-h-8 xl:px-2.5 xl:py-2 xl:text-[12px]"
-          >
-            {value}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="size-5 xl:size-[22px] min-[1800px]:size-6"
-      fill="none"
-    >
-      <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ArrowIcon({ direction }: { direction: "left" | "right" }) {
-  return (
-    <svg
-      viewBox="0 0 27 27"
-      aria-hidden="true"
-      className={`size-[22px] xl:size-6 min-[1800px]:size-[27px] ${direction === "right" ? "rotate-180" : ""}`}
-      fill="none"
-    >
-      <path d="M22 13.5H5m0 0 7-7m-7 7 7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function CircleLink({
   href,
@@ -107,8 +60,6 @@ export function PostMetadata({
   closeMode?: PostDialogCloseMode;
   overlay?: boolean;
 }) {
-  const initialAddedLabel = formatPostAddedTime(post.publishedAt);
-
   return (
     <aside
       data-post-dialog-surface={overlay ? "" : undefined}
@@ -123,11 +74,11 @@ export function PostMetadata({
         <nav className="flex h-10 items-center justify-between" aria-label="Post navigation">
           {closeMode ? (
             <PostCloseButton closeMode={closeMode}>
-              <CloseIcon />
+              <DetailCloseIcon />
             </PostCloseButton>
           ) : (
             <CircleLink href="/" label="Close post">
-              <CloseIcon />
+              <DetailCloseIcon />
             </CircleLink>
           )}
           <div className="flex items-center gap-3 xl:gap-4 min-[1700px]:gap-5">
@@ -137,7 +88,7 @@ export function PostMetadata({
               replace={overlay}
               prefetch={false}
             >
-              <ArrowIcon direction="left" />
+              <DetailArrowIcon direction="left" />
             </CircleLink>
             <CircleLink
               href={`/posts/${nextPost.slug}` as Route}
@@ -145,70 +96,30 @@ export function PostMetadata({
               replace={overlay}
               prefetch={false}
             >
-              <ArrowIcon direction="right" />
+              <DetailArrowIcon direction="right" />
             </CircleLink>
           </div>
         </nav>
 
         <div className="flex flex-1 items-start pt-8 lg:pt-6 xl:pt-[30px]">
           <div className="flex w-full flex-col">
-            <div className="flex flex-col items-start">
-              <span className="inline-flex min-h-6 items-center bg-[#f0f0f0] px-2.5 py-1 text-[12px] tracking-[0.2px] text-[#7b7b7b] xl:min-h-[27px] xl:px-3 xl:py-1.5 xl:text-[13px] min-[1700px]:text-[14px]">
-                {post.category}
-              </span>
-
-              <h1 className="mt-2.5 text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:mt-3 xl:text-[20px] min-[1700px]:text-[22px]">
-                {post.title}
-              </h1>
-
-              <div className="mt-3 flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:mt-3.5 xl:h-7 xl:text-[14px] min-[1700px]:mt-4 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
-                {post.creator.avatarStorageProvider === "r2" ? (
-                  <ResponsiveR2Image
-                    data-post-dialog-creator-avatar
-                    src={post.creator.avatarUrl}
-                    alt=""
-                    width={25}
-                    height={25}
-                    sizes="25px"
-                    className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
-                  />
-                ) : (
-                  <Image
-                    data-post-dialog-creator-avatar
-                    src={post.creator.avatarUrl}
-                    alt=""
-                    width={25}
-                    height={25}
-                    className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]"
-                  />
-                )}
-                <span>{post.creator.name}</span>
-              </div>
-
-              <p className="mt-5 max-w-[429px] text-[14px] leading-[1.3] tracking-[0.036px] text-[#505050] xl:mt-6 xl:text-[16px] min-[1700px]:text-[18px]">
-                {post.description}
-              </p>
-
-              <div className="mt-3.5 xl:mt-4">
-                <time
-                  dateTime={post.publishedAt}
-                  aria-label={`Added to Inspora ${initialAddedLabel}`}
-                  className="text-[13px] leading-normal tracking-[0.032px] text-[#95959d] xl:text-[14px] min-[1700px]:text-[16px]"
-                >
-                  {initialAddedLabel}
-                </time>
-              </div>
-            </div>
+            <DetailIntro
+              category={post.category}
+              title={post.title}
+              creator={post.creator}
+              description={post.description}
+              publishedAt={post.publishedAt}
+            />
 
             <div className="mt-7 flex flex-col gap-3 xl:mt-8 xl:gap-3.5 min-[1700px]:mt-9 min-[1700px]:gap-[15px]">
-              <MetadataRow label="Industries" values={post.industries} />
-              <MetadataRow label="Colors" values={post.colors} />
-              <MetadataRow label="Styles" values={post.styles} />
+              <DetailMetadataRow label="Industries" values={post.industries} />
+              <DetailMetadataRow label="Colors" values={post.colors} />
+              <DetailMetadataRow label="Styles" values={post.styles} />
             </div>
 
             <TrackedOriginalLink
               post={post}
-              className={`${originalLinkClassName} mt-6 xl:mt-7 min-[1700px]:mt-8`}
+              className={`${detailOriginalLinkClassName} mt-6 xl:mt-7 min-[1700px]:mt-8`}
             />
           </div>
         </div>

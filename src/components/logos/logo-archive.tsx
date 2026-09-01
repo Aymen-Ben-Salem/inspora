@@ -5,6 +5,8 @@ import { useCallback, useMemo, useState } from "react";
 import type { Logo, LogoKind } from "@/domain/logo";
 import { matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
 
+import { FeedMotion } from "../feed-motion";
+import { RowFirstMasonry } from "../row-first-masonry";
 import { LogoCard } from "./logo-card";
 import { LogoDetailDialog } from "./logo-detail-dialog";
 
@@ -227,16 +229,24 @@ export function LogoArchive({
           </div>
 
           {filtered.length > 0 ? (
-            <div
-              className={
-                kind === "icon"
-                  ? "mt-10 grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 min-[1500px]:grid-cols-9 min-[1500px]:gap-7"
-                  : "mt-10 grid grid-cols-1 gap-x-[15px] gap-y-7 min-[460px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-              }
-            >
-              {filtered.map((logo) => (
-                <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} />
-              ))}
+            <div className="mt-10">
+              {kind === "icon" ? (
+                <FeedMotion itemCount={filtered.length}>
+                  <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 min-[1500px]:grid-cols-9 min-[1500px]:gap-7">
+                    {filtered.map((logo) => (
+                      <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} />
+                    ))}
+                  </div>
+                </FeedMotion>
+              ) : (
+                <FeedMotion itemCount={filtered.length}>
+                  <RowFirstMasonry itemCount={filtered.length}>
+                    {filtered.map((logo) => (
+                      <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} />
+                    ))}
+                  </RowFirstMasonry>
+                </FeedMotion>
+              )}
             </div>
           ) : (
             <div className="mt-10 flex min-h-64 flex-col items-center justify-center border border-[#e6e6e6] bg-[#fafafa] px-6 text-center">
@@ -261,7 +271,6 @@ export function LogoArchive({
 
       {selectedLogo ? (
         <LogoDetailDialog
-          key={selectedLogo.id}
           logo={selectedLogo}
           onClose={closeLogo}
           onPrevious={() => navigateLogo(-1)}

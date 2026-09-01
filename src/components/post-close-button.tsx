@@ -14,9 +14,11 @@ export const postNavigationControlClassName =
 export function PostCloseButton({
   closeMode,
   children,
+  label = "Close post",
 }: {
   closeMode: PostDialogCloseMode;
   children: ReactNode;
+  label?: string;
 }) {
   const router = useRouter();
   const closeDialog = usePostDialogClose();
@@ -32,13 +34,15 @@ export function PostCloseButton({
       return;
     }
 
+    if (closeMode === "custom") return;
+
     router.push("/");
   }
 
   return (
     <button
       type="button"
-      aria-label="Close post"
+      aria-label={label}
       onClick={close}
       className={postNavigationControlClassName}
     >

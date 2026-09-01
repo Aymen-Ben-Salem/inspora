@@ -28,7 +28,7 @@ import { usePostTransition } from "./post-transition-provider";
 
 gsap.registerPlugin(useGSAP);
 
-export type PostDialogCloseMode = "back" | "home";
+export type PostDialogCloseMode = "back" | "custom" | "home";
 
 const POST_ENTRANCE_DURATION = 0.38;
 const POST_EXIT_DURATION = 0.34;
@@ -123,11 +123,20 @@ function restoreEntranceState(
 }
 
 export function PostDialog({
+  ariaLabel = "Post details",
   children,
   closeMode,
-}: PropsWithChildren<{ closeMode: PostDialogCloseMode }>) {
+  onClose,
+  transitionKey,
+}: PropsWithChildren<{
+  ariaLabel?: string;
+  closeMode: PostDialogCloseMode;
+  onClose?: () => void;
+  transitionKey?: string;
+}>) {
   const router = useRouter();
   const pathname = usePathname();
+  const transitionIdentity = transitionKey ?? pathname;
   const { isPostTransitionActive } = usePostTransition();
   const suspendFeedPlayback = useFeedPlaybackSuspension();
   const scope = useRef<HTMLDivElement>(null);
@@ -138,18 +147,23 @@ export function PostDialog({
   const entranceProxy = useRef<HTMLDivElement>(null);
   const exitProxy = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
-  const activePathname = useRef<string | null>(null);
+  const activeTransitionIdentity = useRef<string | null>(null);
 
   useEffect(() => suspendFeedPlayback(), [suspendFeedPlayback]);
 
   const finishClose = useCallback(() => {
+    if (closeMode === "custom") {
+      onClose?.();
+      return;
+    }
+
     if (closeMode === "back") {
       router.back();
       return;
     }
 
     router.push("/");
-  }, [closeMode, router]);
+  }, [closeMode, onClose, router]);
 
   const requestClose = useCallback(() => {
     if (closing.current) return;
@@ -328,7 +342,7 @@ export function PostDialog({
     () => {
       const root = scope.current;
 
-      if (!root || closeMode !== "back") return;
+      if (!root || closeMode === "home") return;
 
       closing.current = false;
       entrance.current = null;
@@ -341,10 +355,10 @@ export function PostDialog({
         .querySelectorAll<HTMLElement>("[data-post-dialog-media-proxy]")
         .forEach((proxy) => proxy.remove());
 
-      const previousPathname = activePathname.current;
+      const previousPathname = activeTransitionIdentity.current;
       const isPostSwap =
-        previousPathname !== null && previousPathname !== pathname;
-      activePathname.current = pathname;
+        previousPathname !== null && previousPathname !== transitionIdentity;
+      activeTransitionIdentity.current = transitionIdentity;
 
       let observer: MutationObserver | undefined;
 
@@ -367,7 +381,7 @@ export function PostDialog({
 
         restoreEntranceState(backdrop, gallery, sidebar, hero);
 
-        if (isPostTransitionActive(pathname)) {
+        if (closeMode === "back" && isPostTransitionActive(pathname)) {
           entranceHero.current = hero;
           entranceHeroRect.current = hero.getBoundingClientRect();
           return true;
@@ -621,7 +635,7 @@ export function PostDialog({
         }
       };
     },
-    { scope, dependencies: [pathname], revertOnUpdate: true },
+    { scope, dependencies: [transitionIdentity], revertOnUpdate: true },
   );
 
   function handleDialogClick(event: MouseEvent<HTMLDivElement>) {
@@ -669,7 +683,7 @@ export function PostDialog({
         ref={scope}
         role="dialog"
         aria-modal="true"
-        aria-label="Post details"
+        aria-label={ariaLabel}
         onClick={handleDialogClick}
         onPointerLeave={hideDismissIndicator}
         onPointerMove={handleDialogPointerMove}

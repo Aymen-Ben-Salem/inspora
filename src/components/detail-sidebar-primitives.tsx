@@ -44,7 +44,7 @@ export function DetailSidebarLayout({
       <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0 lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
         {navigation}
 
-        <div className="detail-fit-sidebar-content flex min-h-0 flex-1 items-start">
+        <div className="detail-fit-sidebar-content flex min-h-0 flex-1 items-start pt-6 sm:pt-7">
           <div className="detail-fit-groups flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
             {children}
           </div>

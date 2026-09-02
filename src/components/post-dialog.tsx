@@ -19,6 +19,7 @@ import {
   getCompensatedRadius,
   getCornerRadius,
   getIntrinsicMediaAspectRatio,
+  shouldAnimateDialogBackdrop,
 } from "./post-dialog-media-proxy";
 import {
   resumeLoopingVideos,
@@ -482,14 +483,17 @@ export function PostDialog({
 
         entrance.current = timeline;
         prepareGalleryForTransition(gallery, hero);
-        gsap.set(backdrop, { autoAlpha: 0 });
+        const animateBackdrop = shouldAnimateDialogBackdrop(hero);
+        gsap.set(backdrop, { autoAlpha: animateBackdrop ? 0 : 1 });
         gsap.set(sidebar, { xPercent: 100, willChange: "transform" });
 
-        timeline.to(
-          backdrop,
-          { autoAlpha: 1, duration: 0.22, ease: "power2.out" },
-          0,
-        );
+        if (animateBackdrop) {
+          timeline.to(
+            backdrop,
+            { autoAlpha: 1, duration: 0.22, ease: "power2.out" },
+            0,
+          );
+        }
         timeline.to(
           sidebar,
           {

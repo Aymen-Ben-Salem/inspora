@@ -19,6 +19,16 @@ function getVideoSource(video: HTMLVideoElement) {
   return video.currentSrc || video.src;
 }
 
+export function resolveProxyObjectFit(objectFit: string) {
+  return objectFit === "contain" ? "contain" : "cover";
+}
+
+export function shouldAnimateDialogBackdrop(
+  hero: Pick<HTMLElement, "hasAttribute">,
+) {
+  return !hero.hasAttribute("data-post-dialog-transparent-media");
+}
+
 export function getIntrinsicMediaAspectRatio(
   element: HTMLElement | undefined,
 ) {
@@ -60,7 +70,7 @@ function configureProxyMedia(
   Object.assign(proxyMedia.style, {
     display: "block",
     height: "100%",
-    objectFit: "cover",
+    objectFit: resolveProxyObjectFit(getComputedStyle(sourceMedia).objectFit),
     objectPosition: getComputedStyle(sourceMedia).objectPosition,
     width: "100%",
   });

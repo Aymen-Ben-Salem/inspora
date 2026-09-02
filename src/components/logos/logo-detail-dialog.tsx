@@ -133,6 +133,7 @@ export function LogoDetailDialog({
             <div
               data-post-dialog-surface
               data-post-dialog-hero
+              data-post-dialog-transparent-media
               data-post-dialog-max-viewport-height={maxViewportHeight}
               data-post-dialog-max-pixel-width={logo.media.width}
               className="relative shrink-0 overflow-hidden bg-transparent"

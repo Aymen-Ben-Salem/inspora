@@ -143,6 +143,7 @@ export type AdminWebsiteInput = {
   themes: string[];
   colors: string[];
   sourceUrl: string;
+  isFeatured: boolean;
   status: Exclude<WebsiteStatus, "archived">;
   media: AdminWebsiteMediaInput[];
   sections: AdminWebsiteSectionInput[];

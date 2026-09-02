@@ -25,6 +25,7 @@ import {
   archiveAdminWebsite,
   createAdminWebsite,
   deleteArchivedWebsite,
+  setAdminWebsiteFeatured,
   updateAdminWebsite,
 } from "./websites-repository";
 import {
@@ -163,6 +164,14 @@ export async function deleteWebsiteAction(formData: FormData) {
   await deleteManagedMediaAssetsSafely(deleted.removedManagedMedia);
   revalidateWebsitePaths();
   redirect("/admin/websites" as Route);
+}
+
+export async function setWebsiteFeaturedAction(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const id = idSchema.parse(formData.get("id"));
+  const isFeatured = z.enum(["true", "false"]).parse(formData.get("isFeatured")) === "true";
+  await setAdminWebsiteFeatured(id, isFeatured, userId);
+  revalidateWebsitePaths();
 }
 
 export async function createLogoAction(

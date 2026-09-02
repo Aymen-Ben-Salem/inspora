@@ -77,4 +77,12 @@ describe("admin website validation", () => {
 
     expect(() => parseAdminWebsiteForm(formData)).toThrow();
   });
+
+  it("marks a website as featured when selected", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const formData = validWebsiteForm();
+    formData.set("isFeatured", "on");
+
+    expect(parseAdminWebsiteForm(formData).isFeatured).toBe(true);
+  });
 });

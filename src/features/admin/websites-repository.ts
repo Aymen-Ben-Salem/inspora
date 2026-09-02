@@ -47,6 +47,7 @@ function mapAdminWebsite(
     themes: row.themes,
     colors: row.colors,
     sourceUrl: row.sourceUrl,
+    isFeatured: row.isFeatured,
     status: row.status as AdminWebsiteRecord["status"],
     publishedAt: row.publishedAt?.toISOString(),
     archivedAt: row.archivedAt?.toISOString(),
@@ -89,6 +90,7 @@ function websiteValues(input: AdminWebsiteInput, creatorId: string) {
     themes: input.themes,
     colors: input.colors,
     sourceUrl: input.sourceUrl,
+    isFeatured: input.isFeatured,
     status: input.status,
   };
 }
@@ -256,6 +258,42 @@ export async function archiveAdminWebsite(id: string, actorId: string) {
     }),
   ]);
   return existing;
+}
+
+export async function setAdminWebsiteFeatured(
+  id: string,
+  isFeatured: boolean,
+  actorId: string,
+) {
+  const database = requireDatabase();
+  const existing = await database.query.websites.findFirst({
+    where: eq(websites.id, id),
+    columns: { id: true, slug: true, isFeatured: true },
+  });
+
+  if (!existing) throw new Error("Website not found.");
+  if (existing.isFeatured === isFeatured) return existing;
+
+  const now = new Date();
+  await database.batch([
+    database
+      .update(websites)
+      .set({ isFeatured, updatedAt: now, updatedBy: actorId })
+      .where(eq(websites.id, id)),
+    database.insert(adminAuditLogs).values({
+      actorId,
+      action: isFeatured ? "website.featured" : "website.unfeatured",
+      resourceType: "website",
+      resourceId: id,
+      details: {
+        slug: existing.slug,
+        previousIsFeatured: existing.isFeatured,
+        isFeatured,
+      },
+    }),
+  ]);
+
+  return { ...existing, isFeatured };
 }
 
 export async function deleteArchivedWebsite(id: string, actorId: string) {

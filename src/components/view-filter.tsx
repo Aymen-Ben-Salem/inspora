@@ -11,9 +11,11 @@ const viewOptions = [
 ] as const satisfies ReadonlyArray<{ value: PostView; label: string }>;
 
 export function ViewFilter({
+  basePath = "/",
   category,
   view,
 }: {
+  basePath?: "/" | "/websites";
   category?: PostCategory;
   view: PostView;
 }) {
@@ -67,7 +69,7 @@ export function ViewFilter({
     if (category) searchParams.set("category", category);
     const query = searchParams.toString();
 
-    startTransition(() => router.push(query ? `/?${query}` : "/"));
+    startTransition(() => router.push(query ? `${basePath}?${query}` : basePath));
   }
 
   function toggleMenu() {
@@ -81,7 +83,7 @@ export function ViewFilter({
         ref={triggerRef}
         type="button"
         role="combobox"
-        aria-label="Sort posts"
+        aria-label="Sort archive"
         aria-controls={menuId}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -121,7 +123,7 @@ export function ViewFilter({
       <div
         id={menuId}
         role="listbox"
-        aria-label="Post order"
+        aria-label="Archive order"
         aria-hidden={!open}
         onMouseLeave={() => setPreviewView(null)}
         className={`absolute right-0 top-[calc(100%+8px)] z-50 w-[148px] origin-top-right border border-black/10 bg-white p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${

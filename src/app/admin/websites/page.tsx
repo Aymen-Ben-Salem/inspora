@@ -2,8 +2,14 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { ConfirmButton } from "@/components/admin/confirm-button";
-import { archiveWebsiteAction, deleteWebsiteAction } from "@/features/admin/actions";
+import { FeaturedToggleButton } from "@/components/admin/featured-toggle-button";
+import {
+  archiveWebsiteAction,
+  deleteWebsiteAction,
+  setWebsiteFeaturedAction,
+} from "@/features/admin/actions";
 import { getAdminWebsites } from "@/features/admin/websites-repository";
+import { isPostView } from "@/domain/post";
 
 const statusStyles = {
   published: "bg-[#dcebdd] text-[#315f37]",
@@ -11,10 +17,20 @@ const statusStyles = {
   archived: "bg-[#e7e7e4] text-[#696965]",
 } as const;
 
-export default async function AdminWebsitesPage() {
-  const websites = await getAdminWebsites();
+type AdminWebsitesPageProps = {
+  searchParams: Promise<{ view?: string | string[] }>;
+};
+
+export default async function AdminWebsitesPage({ searchParams }: AdminWebsitesPageProps) {
+  const { view: viewParam } = await searchParams;
+  const rawView = Array.isArray(viewParam) ? viewParam[0] : viewParam;
+  const view = rawView && isPostView(rawView) ? rawView : "latest";
+  const allWebsites = await getAdminWebsites();
+  const websites = view === "featured"
+    ? allWebsites.filter((website) => website.isFeatured)
+    : allWebsites;
   const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
-  const statusCounts = websites.reduce(
+  const statusCounts = allWebsites.reduce(
     (counts, website) => ({ ...counts, [website.status]: counts[website.status] + 1 }),
     { published: 0, draft: 0, archived: 0 },
   );
@@ -25,32 +41,54 @@ export default async function AdminWebsitesPage() {
         <div>
           <h1 className="text-4xl font-medium tracking-[-0.055em] sm:text-5xl">Websites</h1>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#777]">
-            <span>{websites.length} total</span>
+            <span>{allWebsites.length} total</span>
             <span>{statusCounts.published} published</span>
             <span>{statusCounts.draft} drafts</span>
             {statusCounts.archived ? <span>{statusCounts.archived} archived</span> : null}
           </div>
         </div>
-        <Link href={"/admin/websites/new" as Route} className="focus-ring inline-flex h-11 items-center rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525]">New website</Link>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <nav aria-label="Filter admin websites" className="flex items-center rounded-full bg-[#e9e9e5] p-1">
+            {(["latest", "featured"] as const).map((option) => {
+              const active = view === option;
+              return (
+                <Link
+                  key={option}
+                  href={(option === "latest" ? "/admin/websites" : "/admin/websites?view=featured") as Route}
+                  aria-current={active ? "page" : undefined}
+                  className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${active ? "bg-white text-black shadow-sm" : "text-[#666] hover:text-black"}`}
+                >
+                  {option === "latest" ? "Latest" : "Featured"}
+                </Link>
+              );
+            })}
+          </nav>
+          <Link href={"/admin/websites/new" as Route} className="focus-ring inline-flex h-11 items-center rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525]">New website</Link>
+        </div>
       </header>
 
       {websites.length === 0 ? (
         <div className="rounded-2xl border border-black/10 bg-white px-6 py-20 text-center">
-          <p className="text-lg font-medium">No websites yet.</p>
-          <p className="mt-2 text-sm text-[#777]">Create the first website in the archive.</p>
+          <p className="text-lg font-medium">{view === "featured" ? "No featured websites yet." : "No websites yet."}</p>
+          <p className="mt-2 text-sm text-[#777]">{view === "featured" ? "Switch to Latest, then use the star on a website card." : "Create the first website in the archive."}</p>
         </div>
       ) : (
         <section aria-label="Website library" className="grid gap-px overflow-hidden rounded-2xl border border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-3">
           {websites.map((website) => {
             const fullPage = website.media.find((media) => media.role === "full_page");
             return (
-              <article key={website.id} className="group flex min-w-0 flex-col bg-white">
+              <article key={website.id} className="group relative flex min-w-0 flex-col bg-white">
                 <Link href={`/admin/websites/${website.id}/edit` as Route} className="focus-ring aspect-[1080/659] overflow-hidden bg-[#ececea]">
                   {fullPage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={fullPage.url} alt={fullPage.alt} className="size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.015]" />
                   ) : null}
                 </Link>
+                <form action={setWebsiteFeaturedAction} className="absolute right-3 top-3 z-10">
+                  <input type="hidden" name="id" value={website.id} />
+                  <input type="hidden" name="isFeatured" value={String(!website.isFeatured)} />
+                  <FeaturedToggleButton title={website.title} isFeatured={website.isFeatured} />
+                </form>
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0"><h2 className="truncate text-xl font-medium">{website.title}</h2><p className="mt-1 truncate text-sm text-[#777]">by {website.creator.name}</p></div>

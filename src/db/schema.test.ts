@@ -52,7 +52,10 @@ describe("database schema", () => {
     expect(logoMediaConfig.checks).toHaveLength(3);
     expect(logoMediaConfig.foreignKeys).toHaveLength(1);
     expect(websitesConfig.name).toBe("websites");
-    expect(websitesConfig.indexes).toHaveLength(2);
+    expect(websitesConfig.indexes).toHaveLength(3);
+    expect(websitesConfig.columns.map((column) => column.name)).toContain(
+      "is_featured",
+    );
     expect(websitesConfig.checks).toHaveLength(6);
     expect(websitesConfig.foreignKeys).toHaveLength(1);
     expect(websiteMediaConfig.name).toBe("website_media");

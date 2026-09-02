@@ -240,6 +240,7 @@ export const websites = pgTable(
     colors: text("colors").array().default(sql`'{}'::text[]`).notNull(),
     sourceUrl: text("source_url").notNull(),
     status: text("status").default("draft").notNull(),
+    isFeatured: boolean("is_featured").default(false).notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true, mode: "date" }),
     archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
     createdBy: text("created_by"),
@@ -251,6 +252,9 @@ export const websites = pgTable(
     index("websites_created_at_idx")
       .on(table.createdAt.desc(), table.id.desc())
       .where(sql`${table.status} = 'published'`),
+    index("websites_featured_created_at_idx")
+      .on(table.createdAt.desc(), table.id.desc())
+      .where(sql`${table.status} = 'published' and ${table.isFeatured} = true`),
     check("websites_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'`),
     check("websites_title_not_blank", sql`length(trim(${table.title})) > 0`),
     check("websites_tagline_not_blank", sql`length(trim(${table.tagline})) > 0`),

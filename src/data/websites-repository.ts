@@ -10,6 +10,7 @@ import {
   type Website,
   type WebsiteMedia,
 } from "@/domain/website";
+import type { PostView } from "@/domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
 export const PUBLISHED_WEBSITES_CACHE_TAG = "published-websites";
@@ -79,6 +80,7 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
     themes: row.themes,
     colors: row.colors,
     sourceUrl: row.sourceUrl,
+    isFeatured: row.isFeatured,
     createdAt: row.createdAt.toISOString(),
     publishedAt: row.publishedAt.toISOString(),
     fullPage,
@@ -93,7 +95,11 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
   };
 }
 
-export async function getPublishedWebsites(): Promise<Website[]> {
+export async function getPublishedWebsites({
+  view = "latest",
+}: {
+  view?: PostView;
+} = {}): Promise<Website[]> {
   "use cache";
   cacheLife(PUBLISHED_WEBSITES_CACHE_LIFE);
   cacheTag(PUBLISHED_WEBSITES_CACHE_TAG);
@@ -101,7 +107,11 @@ export async function getPublishedWebsites(): Promise<Website[]> {
   const database = getDatabase();
   if (!database) return [];
   const rows = await database.query.websites.findMany({
-    where: and(eq(websites.status, "published"), lte(websites.publishedAt, new Date())),
+    where: and(
+      eq(websites.status, "published"),
+      lte(websites.publishedAt, new Date()),
+      view === "featured" ? eq(websites.isFeatured, true) : undefined,
+    ),
     orderBy: [desc(websites.publishedAt), desc(websites.id)],
     with: {
       creator: true,

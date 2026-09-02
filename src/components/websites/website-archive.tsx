@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { Website } from "@/domain/website";
+import type { PostView } from "@/domain/post";
 
 import {
   ArchiveFilterMenu,
@@ -11,6 +12,7 @@ import {
   type ArchiveFilterOption,
 } from "../archive-filter-menu";
 import { FeedMotion } from "../feed-motion";
+import { ViewFilter } from "../view-filter";
 import { WebsiteCard } from "./website-card";
 import { WebsiteDetailDialog } from "./website-detail-dialog";
 
@@ -23,7 +25,15 @@ function updateWebsiteQueryParam(website?: Website) {
   window.history.replaceState(null, "", url);
 }
 
-export function WebsiteArchive({ websites, initialSlug }: { websites: Website[]; initialSlug?: string }) {
+export function WebsiteArchive({
+  websites,
+  initialSlug,
+  view,
+}: {
+  websites: Website[];
+  initialSlug?: string;
+  view: PostView;
+}) {
   const [query, setQuery] = useState("");
   const [selections, setSelections] = useState<Record<FilterKey, string[]>>({
     categories: [],
@@ -106,7 +116,9 @@ export function WebsiteArchive({ websites, initialSlug }: { websites: Website[];
                 <ArchiveFilterMenu align="right" label="Color" options={options.colors} selected={selections.colors} onToggle={(value) => toggleFilter("colors", value)} />
               </div>
             </div>
-            <span className="self-end text-[14px] tracking-[0.2px] text-[#7b7b7b] xl:self-auto">Latest</span>
+            <div className="self-end xl:self-auto">
+              <ViewFilter basePath="/websites" view={view} />
+            </div>
           </div>
 
           {filtered.length > 0 ? (

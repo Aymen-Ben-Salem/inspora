@@ -1,0 +1,2 @@
+ALTER TABLE "websites" ADD COLUMN "is_featured" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "websites_featured_created_at_idx" ON "websites" USING btree ("created_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "websites"."status" = 'published' and "websites"."is_featured" = true;

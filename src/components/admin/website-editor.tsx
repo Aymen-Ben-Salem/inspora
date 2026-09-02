@@ -289,6 +289,14 @@ export function WebsiteEditor({
               </label>
             ))}
           </div>
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3 py-3 text-sm">
+            <input
+              type="checkbox"
+              name="isFeatured"
+              defaultChecked={website?.isFeatured}
+            />
+            Feature this website
+          </label>
           <button type="submit" disabled={isPending} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">
             {isPending ? "Saving..." : website ? "Save changes" : "Create website"}
           </button>

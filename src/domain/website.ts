@@ -47,6 +47,7 @@ export type Website = {
   themes: string[];
   colors: string[];
   sourceUrl: string;
+  isFeatured: boolean;
   createdAt: string;
   publishedAt: string;
   fullPage: WebsiteMedia;

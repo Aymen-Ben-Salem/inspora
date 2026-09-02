@@ -30,7 +30,7 @@ describe("published websites repository", () => {
       id: "website", slug: "paper", title: "Paper", tagline: "Plan calmly.",
       creatorId: "creator", description: "A product website.", categories: ["SaaS"],
       themes: ["Light"], colors: ["White"], sourceUrl: "https://example.com",
-      status: "published", publishedAt: date, archivedAt: null, createdBy: null, updatedBy: null, createdAt: date, updatedAt: date,
+      status: "published", isFeatured: true, publishedAt: date, archivedAt: null, createdBy: null, updatedBy: null, createdAt: date, updatedAt: date,
       creator: { id: "creator", name: "Studio", handle: null, url: null, avatarUrl: "/brand/default-avatar.svg", avatarStorageProvider: null, avatarStorageKey: null, createdAt: date, updatedAt: date },
       media: [
         { ...baseMedia, id: "full", role: "full_page", url: "/full.webp", alt: "Full website", width: 1440, height: 9000 },
@@ -43,6 +43,7 @@ describe("published websites repository", () => {
 
     expect(website).toMatchObject({
       slug: "paper",
+      isFeatured: true,
       fullPage: { url: "/full.webp", height: 9000 },
       favicon: { url: "/icon.webp" },
       sections: [{ label: "Hero", top: 0, height: 900 }],

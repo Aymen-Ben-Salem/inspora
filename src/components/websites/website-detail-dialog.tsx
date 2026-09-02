@@ -51,8 +51,8 @@ export function WebsiteDetailDialog({
         data-post-dialog-creator-name={website.creator.name}
         className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
       >
-        <div data-post-dialog-gallery className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-gradient-to-b from-white to-[#d2d1d1] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]">
-          <nav className="sticky top-0 z-20 flex h-[72px] items-center gap-8 bg-white/94 px-5 text-[16px] backdrop-blur-sm sm:px-8 lg:h-[88px] lg:px-11 xl:text-[18px]" aria-label="Website media views">
+        <div data-post-dialog-gallery data-post-dialog-surface className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-gradient-to-b from-white to-[#d2d1d1] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]">
+          <nav className="sticky top-0 z-20 flex h-[72px] items-center gap-8 px-5 text-[16px] sm:px-8 lg:h-[88px] lg:px-11 xl:text-[18px]" aria-label="Website media views">
             {(["preview", "sections"] as const).map((option) => (
               <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)} className={`focus-ring capitalize ${view === option ? "font-medium text-[#262626]" : "text-[#95959d]"}`}>{option}</button>
             ))}
@@ -64,8 +64,6 @@ export function WebsiteDetailDialog({
                 <div
                   data-post-dialog-surface
                   data-post-dialog-hero
-                  data-post-dialog-max-viewport-height="72"
-                  data-post-dialog-max-pixel-width={website.fullPage.width}
                   className="absolute inset-x-0 top-0 overflow-visible"
                   style={{ aspectRatio: `${website.fullPage.width} / ${hero?.height ?? Math.round(website.fullPage.width * 0.61)}` }}
                 >
@@ -82,8 +80,6 @@ export function WebsiteDetailDialog({
                     {...(index === 0 ? {
                       "data-post-dialog-surface": "",
                       "data-post-dialog-hero": "",
-                      "data-post-dialog-max-viewport-height": "72",
-                      "data-post-dialog-max-pixel-width": website.fullPage.width,
                     } : {})}
                   >
                     <WebsiteCropImage website={website} section={section} className="w-full" />

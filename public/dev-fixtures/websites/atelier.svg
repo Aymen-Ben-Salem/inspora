@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="6000" viewBox="0 0 1440 6000">
+  <rect width="1440" height="6000" fill="#f3f0e8"/>
+  <text x="70" y="92" fill="#181818" font-family="Arial, sans-serif" font-size="30" font-weight="700">ATELIER / 24</text>
+  <text x="1030" y="92" fill="#181818" font-family="Arial, sans-serif" font-size="22">WORK   STUDIO   CONTACT</text>
+  <text x="70" y="360" fill="#181818" font-family="Georgia, serif" font-size="150">Ideas made</text>
+  <text x="70" y="525" fill="#181818" font-family="Georgia, serif" font-size="150" font-style="italic">visible.</text>
+  <rect x="70" y="690" width="1300" height="760" rx="24" fill="#d8ff62"/>
+  <circle cx="1060" cy="1040" r="255" fill="#7a55ff"/>
+  <path d="M190 1240C420 830 600 850 820 1240" fill="none" stroke="#181818" stroke-width="42"/>
+  <text x="70" y="1660" fill="#181818" font-family="Arial, sans-serif" font-size="28">SELECTED PROJECTS</text>
+  <rect x="70" y="1740" width="620" height="720" rx="18" fill="#ff8a67"/><rect x="750" y="1740" width="620" height="720" rx="18" fill="#161616"/>
+  <text x="115" y="2340" fill="#181818" font-family="Georgia, serif" font-size="74">Field Notes</text><text x="795" y="2340" fill="#fff" font-family="Georgia, serif" font-size="74">After Dark</text>
+  <rect x="70" y="2590" width="1300" height="980" rx="18" fill="#b7d8ff"/>
+  <text x="120" y="2800" fill="#181818" font-family="Arial, sans-serif" font-size="26">IDENTITY · DIGITAL · CAMPAIGNS</text>
+  <text x="120" y="3070" fill="#181818" font-family="Georgia, serif" font-size="126">A small studio for</text><text x="120" y="3210" fill="#181818" font-family="Georgia, serif" font-size="126">ambitious people.</text>
+  <text x="70" y="3820" fill="#181818" font-family="Arial, sans-serif" font-size="28">WHAT CLIENTS SAY</text>
+  <text x="150" y="4140" fill="#181818" font-family="Georgia, serif" font-size="88">“They found the clearest idea</text><text x="150" y="4250" fill="#181818" font-family="Georgia, serif" font-size="88">inside a complicated brief.”</text>
+  <line x1="70" y1="4550" x2="1370" y2="4550" stroke="#181818" stroke-width="3"/>
+  <text x="70" y="4830" fill="#181818" font-family="Georgia, serif" font-size="132">Have a project?</text>
+  <rect x="70" y="5010" width="1300" height="600" rx="300" fill="#181818"/>
+  <text x="330" y="5360" fill="#f3f0e8" font-family="Arial, sans-serif" font-size="96" font-weight="700">LET’S MAKE IT REAL</text>
+  <text x="70" y="5870" fill="#181818" font-family="Arial, sans-serif" font-size="22">© 2026 ATELIER / 24</text><text x="1110" y="5870" fill="#181818" font-family="Arial, sans-serif" font-size="22">INSTAGRAM   EMAIL</text>
+</svg>

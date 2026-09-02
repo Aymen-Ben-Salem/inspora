@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="6400" viewBox="0 0 1440 6400">
+  <defs><linearGradient id="hero" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#172554"/><stop offset="1" stop-color="#0b1024"/></linearGradient></defs>
+  <rect width="1440" height="6400" fill="#090d1c"/>
+  <rect width="1440" height="1280" fill="url(#hero)"/>
+  <text x="72" y="92" fill="#fff" font-family="Arial, sans-serif" font-size="34" font-weight="700">pilot</text>
+  <text x="1010" y="92" fill="#bdc8ee" font-family="Arial, sans-serif" font-size="21">PRODUCT   PRICING   LOGIN</text>
+  <rect x="1210" y="48" width="160" height="64" rx="32" fill="#8cffca"/><text x="1252" y="89" fill="#07140f" font-family="Arial" font-size="20" font-weight="700">START FREE</text>
+  <text x="140" y="390" fill="#fff" font-family="Arial, sans-serif" font-size="116" font-weight="700">Your team’s work,</text><text x="140" y="520" fill="#8cffca" font-family="Arial, sans-serif" font-size="116" font-weight="700">finally in sync.</text>
+  <text x="145" y="635" fill="#bdc8ee" font-family="Arial, sans-serif" font-size="30">Plan projects, share decisions, and ship with less noise.</text>
+  <rect x="145" y="720" width="260" height="82" rx="41" fill="#8cffca"/><text x="205" y="772" fill="#07140f" font-family="Arial" font-size="24" font-weight="700">BUILD A SPACE</text>
+  <rect x="110" y="930" width="1220" height="760" rx="34" fill="#f6f8ff"/>
+  <rect x="150" y="980" width="250" height="660" rx="20" fill="#e6eafa"/><rect x="440" y="980" width="850" height="160" rx="20" fill="#d8e0ff"/>
+  <rect x="440" y="1180" width="400" height="420" rx="20" fill="#8f6bff"/><rect x="880" y="1180" width="410" height="420" rx="20" fill="#bff5dd"/>
+  <text x="90" y="1980" fill="#8cffca" font-family="Arial" font-size="24">ONE PLACE, EVERY PROJECT</text>
+  <text x="90" y="2110" fill="#fff" font-family="Arial" font-size="82" font-weight="700">Move from idea to done.</text>
+  <g fill="#151c36"><rect x="90" y="2240" width="390" height="560" rx="28"/><rect x="525" y="2240" width="390" height="560" rx="28"/><rect x="960" y="2240" width="390" height="560" rx="28"/></g>
+  <g fill="#fff" font-family="Arial" font-size="34" font-weight="700"><text x="135" y="2370">Plan clearly</text><text x="570" y="2370">Review faster</text><text x="1005" y="2370">Ship calmly</text></g>
+  <rect x="90" y="3050" width="1260" height="1080" rx="36" fill="#f4f6ff"/>
+  <text x="150" y="3260" fill="#111936" font-family="Arial" font-size="78" font-weight="700">A dashboard that feels light.</text>
+  <rect x="150" y="3410" width="1140" height="590" rx="24" fill="#dce5ff"/><circle cx="390" cy="3705" r="150" fill="#8f6bff"/><rect x="620" y="3510" width="560" height="70" rx="20" fill="#fff"/><rect x="620" y="3620" width="470" height="70" rx="20" fill="#fff"/><rect x="620" y="3730" width="520" height="70" rx="20" fill="#fff"/>
+  <text x="100" y="4440" fill="#bdc8ee" font-family="Arial" font-size="26">TRUSTED BY FOCUSED TEAMS</text>
+  <text x="100" y="4640" fill="#fff" font-family="Arial" font-size="94" font-weight="700">“Pilot gave us Fridays back.”</text>
+  <text x="100" y="4770" fill="#8cffca" font-family="Arial" font-size="25">— MAYA, PRODUCT LEAD</text>
+  <rect x="90" y="5100" width="1260" height="800" rx="42" fill="#8cffca"/>
+  <text x="180" y="5410" fill="#07140f" font-family="Arial" font-size="94" font-weight="700">Ready for calmer work?</text>
+  <rect x="180" y="5540" width="300" height="90" rx="45" fill="#07140f"/><text x="245" y="5598" fill="#fff" font-family="Arial" font-size="25" font-weight="700">START FOR FREE</text>
+  <text x="72" y="6250" fill="#bdc8ee" font-family="Arial" font-size="22">pilot © 2026</text><text x="1030" y="6250" fill="#bdc8ee" font-family="Arial" font-size="22">PRIVACY   STATUS   X</text>
+</svg>

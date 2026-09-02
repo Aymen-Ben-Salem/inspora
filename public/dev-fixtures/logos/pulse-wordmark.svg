@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#3255f4"/>
+  <path d="M180 420h120l52-150 92 300 68-205 46 55h120" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="735" y="447" fill="#fff" font-family="Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="-6">pulse</text>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#f3efe4"/>
+  <circle cx="310" cy="400" r="128" fill="#202624"/>
+  <path d="m310 280 28 86 90 0-73 53 28 86-73-53-73 53 28-86-73-53h90z" fill="#f3efe4"/>
+  <text x="485" y="430" fill="#202624" font-family="Arial, sans-serif" font-size="92" font-weight="700" letter-spacing="-4">NORTHSTAR</text>
+</svg>

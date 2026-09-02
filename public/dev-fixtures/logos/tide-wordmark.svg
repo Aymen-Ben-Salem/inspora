@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#0c6b65"/>
+  <path d="M130 420c95-150 190-150 285 0s190 150 285 0 190-150 285 0" fill="none" stroke="#f8efcf" stroke-width="44" stroke-linecap="round"/>
+  <text x="455" y="300" fill="#f8efcf" font-family="Arial, sans-serif" font-size="118" font-weight="600" letter-spacing="12">TIDE</text>
+</svg>

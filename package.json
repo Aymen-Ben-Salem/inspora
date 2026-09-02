@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:production": "drizzle-kit migrate --config=drizzle.production.config.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:archives": "tsx scripts/seed-dev-archives.ts",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
     "media:bootstrap:r2": "tsx scripts/bootstrap-r2-media.ts",

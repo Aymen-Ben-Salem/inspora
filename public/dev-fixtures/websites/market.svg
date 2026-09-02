@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="5800" viewBox="0 0 1440 5800">
+  <rect width="1440" height="5800" fill="#fff8ec"/>
+  <rect width="1440" height="120" fill="#ef5d42"/>
+  <text x="64" y="78" fill="#fff8ec" font-family="Georgia, serif" font-size="42" font-weight="700">MORNING MARKET</text>
+  <text x="1020" y="76" fill="#fff8ec" font-family="Arial" font-size="20">SHOP   JOURNAL   CART (0)</text>
+  <text x="80" y="390" fill="#3b211c" font-family="Georgia, serif" font-size="132">Useful things</text><text x="80" y="530" fill="#ef5d42" font-family="Georgia, serif" font-size="132" font-style="italic">made beautifully.</text>
+  <rect x="80" y="670" width="1280" height="710" rx="28" fill="#efc765"/>
+  <circle cx="1050" cy="1025" r="250" fill="#65a985"/><rect x="260" y="820" width="410" height="430" rx="205" fill="#fff8ec"/>
+  <text x="80" y="1570" fill="#3b211c" font-family="Arial" font-size="24">NEW FOR THE EVERYDAY</text>
+  <g><rect x="80" y="1650" width="390" height="600" rx="18" fill="#d4d9f8"/><rect x="525" y="1650" width="390" height="600" rx="18" fill="#f2ae9b"/><rect x="970" y="1650" width="390" height="600" rx="18" fill="#b8d8be"/></g>
+  <g fill="#3b211c" font-family="Georgia" font-size="42"><text x="100" y="2330">Cloud Lamp · $120</text><text x="545" y="2330">Soft Tray · $48</text><text x="990" y="2330">Field Vase · $84</text></g>
+  <rect x="80" y="2510" width="1280" height="1030" rx="28" fill="#3b211c"/>
+  <text x="150" y="2780" fill="#fff8ec" font-family="Georgia" font-size="102">Made slowly.</text><text x="150" y="2900" fill="#fff8ec" font-family="Georgia" font-size="102">Kept for years.</text>
+  <text x="150" y="3070" fill="#d9c8b5" font-family="Arial" font-size="28">Objects from independent workshops, selected for daily use.</text>
+  <circle cx="1050" cy="3100" r="260" fill="#ef5d42"/>
+  <text x="80" y="3820" fill="#3b211c" font-family="Arial" font-size="24">FROM THE JOURNAL</text>
+  <rect x="80" y="3900" width="610" height="650" rx="22" fill="#65a985"/><rect x="750" y="3900" width="610" height="650" rx="22" fill="#efc765"/>
+  <text x="110" y="4650" fill="#3b211c" font-family="Georgia" font-size="54">A room with fewer things</text><text x="780" y="4650" fill="#3b211c" font-family="Georgia" font-size="54">Meet the makers</text>
+  <rect x="80" y="4880" width="1280" height="520" rx="28" fill="#ef5d42"/>
+  <text x="150" y="5120" fill="#fff8ec" font-family="Georgia" font-size="88">Notes worth opening.</text><text x="150" y="5220" fill="#fff8ec" font-family="Arial" font-size="25">A thoughtful email, twice a month.</text>
+  <text x="80" y="5650" fill="#3b211c" font-family="Arial" font-size="22">MORNING MARKET © 2026</text><text x="1030" y="5650" fill="#3b211c" font-family="Arial" font-size="22">SHIPPING   RETURNS   CONTACT</text>
+</svg>

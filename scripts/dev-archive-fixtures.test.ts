@@ -3,27 +3,50 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  devLogoFixtures,
-  devWebsiteFixtures,
-} from "./dev-archive-fixtures";
+import { devLogoFixtures, devWebsiteFixtures } from "./dev-archive-fixtures";
 
 function publicAssetExists(url: string) {
-  return url.startsWith("/") &&
-    existsSync(path.join(process.cwd(), "public", url.slice(1)));
+  return (
+    url.startsWith("/") &&
+    existsSync(path.join(process.cwd(), "public", url.slice(1)))
+  );
 }
 
 describe("development archive fixtures", () => {
-  it("contains four logos and four icons", () => {
-    expect(devLogoFixtures.filter((item) => item.kind === "logo")).toHaveLength(4);
-    expect(devLogoFixtures.filter((item) => item.kind === "icon")).toHaveLength(4);
+  it("contains fifteen logos and fifteen icons", () => {
+    expect(devLogoFixtures.filter((item) => item.kind === "logo")).toHaveLength(
+      15,
+    );
+    expect(devLogoFixtures.filter((item) => item.kind === "icon")).toHaveLength(
+      15,
+    );
   });
 
-  it("contains three websites with mixed featured states", () => {
-    expect(devWebsiteFixtures).toHaveLength(3);
+  it("contains eleven websites with mixed featured states", () => {
+    expect(devWebsiteFixtures).toHaveLength(11);
     expect(new Set(devWebsiteFixtures.map((item) => item.isFeatured))).toEqual(
       new Set([true, false]),
     );
+  });
+
+  it("reuses only four logo visuals, four icon visuals, and three website visuals", () => {
+    expect(
+      new Set(
+        devLogoFixtures
+          .filter((item) => item.kind === "logo")
+          .map((item) => item.media.url),
+      ).size,
+    ).toBe(4);
+    expect(
+      new Set(
+        devLogoFixtures
+          .filter((item) => item.kind === "icon")
+          .map((item) => item.media.url),
+      ).size,
+    ).toBe(4);
+    expect(
+      new Set(devWebsiteFixtures.map((item) => item.fullPage.url)).size,
+    ).toBe(3);
   });
 
   it("uses unique, reserved development slugs", () => {

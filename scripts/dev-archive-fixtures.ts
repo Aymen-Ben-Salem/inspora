@@ -78,13 +78,14 @@ const creators = {
   },
 } satisfies Record<string, DevCreatorFixture>;
 
-export const devLogoFixtures: DevLogoFixture[] = [
+const devLogoVisualFixtures: DevLogoFixture[] = [
   {
     slug: "dev-sample-northstar",
     title: "Northstar",
     kind: "logo",
     creator: creators.northPractice,
-    description: "A sturdy geometric wordmark paired with a compact directional star.",
+    description:
+      "A sturdy geometric wordmark paired with a compact directional star.",
     industry: "Technology",
     colors: ["Cream", "Black"],
     styles: ["Geometric", "Minimal"],
@@ -103,7 +104,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Pulse",
     kind: "logo",
     creator: creators.signalWorks,
-    description: "An energetic lowercase wordmark connected to a sharp waveform symbol.",
+    description:
+      "An energetic lowercase wordmark connected to a sharp waveform symbol.",
     industry: "Health",
     colors: ["Blue", "White"],
     styles: ["Bold", "Modern"],
@@ -122,7 +124,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Quarry",
     kind: "logo",
     creator: creators.fieldOffice,
-    description: "A warm editorial serif balanced by two interlocking masonry forms.",
+    description:
+      "A warm editorial serif balanced by two interlocking masonry forms.",
     industry: "Architecture",
     colors: ["Grey", "Orange", "Black"],
     styles: ["Editorial", "Classic"],
@@ -141,7 +144,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Tide",
     kind: "logo",
     creator: creators.quietStudio,
-    description: "A relaxed wave-led identity built for a coastal hospitality brand.",
+    description:
+      "A relaxed wave-led identity built for a coastal hospitality brand.",
     industry: "Hospitality",
     colors: ["Teal", "Cream"],
     styles: ["Organic", "Minimal"],
@@ -160,7 +164,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Lumen",
     kind: "icon",
     creator: creators.signalWorks,
-    description: "A high-contrast sun symbol designed to remain clear at compact sizes.",
+    description:
+      "A high-contrast sun symbol designed to remain clear at compact sizes.",
     industry: "Utilities",
     colors: ["Purple", "White"],
     styles: ["Rounded", "Bold"],
@@ -179,7 +184,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Orbit",
     kind: "icon",
     creator: creators.northPractice,
-    description: "An orbital system with a bright satellite accent and soft central core.",
+    description:
+      "An orbital system with a bright satellite accent and soft central core.",
     industry: "Science",
     colors: ["Black", "Mint", "Coral"],
     styles: ["Futuristic", "Geometric"],
@@ -198,7 +204,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Seed",
     kind: "icon",
     creator: creators.quietStudio,
-    description: "A simple sprouting mark for testing organic and sustainability filters.",
+    description:
+      "A simple sprouting mark for testing organic and sustainability filters.",
     industry: "Agriculture",
     colors: ["Green", "Cream"],
     styles: ["Organic", "Friendly"],
@@ -217,7 +224,8 @@ export const devLogoFixtures: DevLogoFixture[] = [
     title: "Prism",
     kind: "icon",
     creator: creators.fieldOffice,
-    description: "A bright faceted emblem that exercises multi-colour icon presentation.",
+    description:
+      "A bright faceted emblem that exercises multi-colour icon presentation.",
     industry: "Creative",
     colors: ["Pink", "Yellow", "Purple"],
     styles: ["Playful", "Geometric"],
@@ -233,13 +241,14 @@ export const devLogoFixtures: DevLogoFixture[] = [
   },
 ];
 
-export const devWebsiteFixtures: DevWebsiteFixture[] = [
+const devWebsiteVisualFixtures: DevWebsiteFixture[] = [
   {
     slug: "dev-sample-atelier-24",
     title: "Atelier / 24",
     tagline: "A bright editorial portfolio for an independent creative studio.",
     creator: creators.fieldOffice,
-    description: "An expressive studio website combining large serif typography, playful colour fields, selected work, testimonials, and a direct project call to action.",
+    description:
+      "An expressive studio website combining large serif typography, playful colour fields, selected work, testimonials, and a direct project call to action.",
     categories: ["Portfolio", "Agency"],
     themes: ["Light", "Editorial"],
     colors: ["Cream", "Lime", "Purple", "Orange"],
@@ -269,9 +278,11 @@ export const devWebsiteFixtures: DevWebsiteFixture[] = [
   {
     slug: "dev-sample-pilot-workspace",
     title: "Pilot Workspace",
-    tagline: "A focused project-management landing page for modern product teams.",
+    tagline:
+      "A focused project-management landing page for modern product teams.",
     creator: creators.signalWorks,
-    description: "A dark software website with a product-led hero, interface preview, benefit cards, dashboard story, customer proof, and conversion-focused closing section.",
+    description:
+      "A dark software website with a product-led hero, interface preview, benefit cards, dashboard story, customer proof, and conversion-focused closing section.",
     categories: ["SaaS", "Product"],
     themes: ["Dark", "Technology"],
     colors: ["Navy", "Mint", "Purple", "White"],
@@ -303,7 +314,8 @@ export const devWebsiteFixtures: DevWebsiteFixture[] = [
     title: "Morning Market",
     tagline: "A warm online shop for useful objects from independent makers.",
     creator: creators.quietStudio,
-    description: "A colourful editorial commerce concept featuring a product-led hero, new arrivals, brand story, journal cards, newsletter invitation, and practical footer.",
+    description:
+      "A colourful editorial commerce concept featuring a product-led hero, new arrivals, brand story, journal cards, newsletter invitation, and practical footer.",
     categories: ["E-commerce", "Retail"],
     themes: ["Light", "Playful"],
     colors: ["Cream", "Orange", "Green", "Yellow"],
@@ -331,3 +343,71 @@ export const devWebsiteFixtures: DevWebsiteFixture[] = [
     ],
   },
 ];
+
+function repeatLogoFixtures(
+  kind: DevLogoFixture["kind"],
+  count: number,
+  hourOffset: number,
+) {
+  const visuals = devLogoVisualFixtures.filter(
+    (fixture) => fixture.kind === kind,
+  );
+
+  return Array.from({ length: count }, (_, index): DevLogoFixture => {
+    const visual = visuals[index % visuals.length];
+
+    if (index < visuals.length) return visual;
+
+    const repetition = Math.floor(index / visuals.length) + 1;
+    const title = `${visual.title} Study ${repetition}`;
+
+    return {
+      ...visual,
+      slug: `${visual.slug}-repeat-${repetition}`,
+      title,
+      sourceUrl: `${visual.sourceUrl}?sample=${repetition}`,
+      createdAt: new Date(
+        Date.UTC(2026, 8, 2, hourOffset + index),
+      ).toISOString(),
+      media: {
+        ...visual.media,
+        alt: `${title} development sample ${kind}`,
+      },
+    };
+  });
+}
+
+function repeatWebsiteFixtures(count: number) {
+  return Array.from({ length: count }, (_, index): DevWebsiteFixture => {
+    const visual =
+      devWebsiteVisualFixtures[index % devWebsiteVisualFixtures.length];
+
+    if (index < devWebsiteVisualFixtures.length) return visual;
+
+    const repetition = Math.floor(index / devWebsiteVisualFixtures.length) + 1;
+    const title = `${visual.title} Edition ${repetition}`;
+
+    return {
+      ...visual,
+      slug: `${visual.slug}-repeat-${repetition}`,
+      title,
+      sourceUrl: `${visual.sourceUrl}?sample=${repetition}`,
+      createdAt: new Date(Date.UTC(2026, 8, 3, index)).toISOString(),
+      fullPage: {
+        ...visual.fullPage,
+        alt: `Full-page development sample of ${title}`,
+      },
+      favicon: {
+        ...visual.favicon,
+        alt: `${title} favicon`,
+      },
+    };
+  });
+}
+
+export const devLogoFixtures: DevLogoFixture[] = [
+  ...repeatLogoFixtures("logo", 15, 0),
+  ...repeatLogoFixtures("icon", 15, 12),
+];
+
+export const devWebsiteFixtures = repeatWebsiteFixtures(11);

@@ -326,7 +326,7 @@ function PostHogToolLinks({ tools }: { tools: PostHogTool[] }) {
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const { days } = await searchParams;
   const range = parseRange(days);
-  const visitorUnit = typeof range === "number" ? "visitor-days" : "visitors";
+  const visitorUnit = "visitors";
 
   let analytics: AdminAnalytics | null = null;
   let liveAnalytics: LiveVisitorAnalytics | null = null;
@@ -393,14 +393,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 title={`${analytics.summary.averageDailyVisitors.toFixed(1)} average visitors per day`}
               />
               <AudienceMetricCard
-                label="Total visitors"
-                value={analytics.summary.visitorDays}
-                detail={
-                  typeof range === "number"
-                    ? "Daily unique visitors added together"
-                    : "Cookieless daily estimate"
-                }
-                title={`${exactNumber.format(analytics.summary.visitorDays)} ${visitorUnit}; returning visitors on different days may be counted again`}
+                label="Unique visitors"
+                value={analytics.summary.uniqueVisitors}
+                detail="Distinct browsers in the selected period"
+                title={`${exactNumber.format(analytics.summary.uniqueVisitors)} unique browsers`}
               />
             </div>
             <div className="grid gap-px border-t border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-5">
@@ -432,7 +428,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             />
           </div>
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4 text-[11px] leading-5 text-[#888]">
-            <p>Cookieless daily reach · No persistent visitor profiles or session replay</p>
+            <p>Anonymous browser reach · No person profiles, heatmaps, or session replay</p>
             <p>
               Cached for five minutes · Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(analytics.generatedAt))}
             </p>

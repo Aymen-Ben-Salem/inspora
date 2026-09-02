@@ -4,7 +4,7 @@ export type AnalyticsRange = (typeof ANALYTICS_RANGES)[number];
 
 export type AnalyticsSummary = {
   pageviews: number;
-  visitorDays: number;
+  uniqueVisitors: number;
   averageDailyVisitors: number;
   averageVisitDurationSeconds: number;
   postOpens: number;
@@ -134,12 +134,8 @@ export function formatAnalyticsDuration(value: number) {
 export function calculateAverageDailyVisitors(daily: DailyAnalytics[]) {
   if (daily.length === 0) return 0;
 
-  const total = calculateVisitorDays(daily);
+  const total = daily.reduce((sum, day) => sum + day.uniqueVisitors, 0);
   return total / daily.length;
-}
-
-export function calculateVisitorDays(daily: DailyAnalytics[]) {
-  return daily.reduce((sum, day) => sum + day.uniqueVisitors, 0);
 }
 
 export function mapAnalyticsBreakdownRows(
@@ -172,11 +168,6 @@ export function createPostHogTools({
       label: "Web analytics",
       description: "Explore paths, channels, live traffic, and conversion goals.",
       href: `${projectUrl}/web`,
-    },
-    {
-      label: "Heatmaps",
-      description: "Inspect click, movement, rage-click, and scroll-depth patterns.",
-      href: `${projectUrl}/heatmaps`,
     },
     {
       label: "Web vitals",

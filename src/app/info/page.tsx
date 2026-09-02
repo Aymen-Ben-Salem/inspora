@@ -210,7 +210,7 @@ export default function InfoPage() {
                 <p>
                   Inspora uses PostHog for first-party audience measurement and
                   site improvement. Analytics can include the page path without
-                  URL parameters or fragments, the referring page, browser and
+                  URL parameters or fragments, the referring site, browser and
                   device information, web performance measurements, post opens,
                   source-link clicks, and completed newsletter subscriptions.
                 </p>

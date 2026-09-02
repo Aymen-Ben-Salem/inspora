@@ -6,7 +6,6 @@ import { z } from "zod";
 import { ANALYTICS_EVENTS } from "./events";
 import {
   calculateAverageDailyVisitors,
-  calculateVisitorDays,
   createPostHogTools,
   fillDailyAnalytics,
   fillHourlyAnalytics,
@@ -120,6 +119,7 @@ export async function getAdminAnalytics(
       "Inspora admin summary",
       `SELECT
         countIf(event = '$pageview') AS pageviews,
+        uniqIf(distinct_id, event = '$pageview') AS unique_visitors,
         countIf(event = '${ANALYTICS_EVENTS.postOpened}') AS post_opens,
         countIf(event = '${ANALYTICS_EVENTS.postSourceVisited}') AS source_clicks,
         countIf(event = '${ANALYTICS_EVENTS.newsletterSubscribed}') AS subscriptions,
@@ -229,7 +229,7 @@ export async function getAdminAnalytics(
   const daily = fillDailyAnalytics(
     dailyRows,
     getAnalyticsRangeDayCount(range),
-    getAnalyticsEndDateKey(String(summary[4] ?? ""), range),
+    getAnalyticsEndDateKey(String(summary[5] ?? ""), range),
   );
 
   return {
@@ -237,12 +237,12 @@ export async function getAdminAnalytics(
     generatedAt: new Date().toISOString(),
     summary: {
       pageviews: toAnalyticsNumber(summary[0]),
-      visitorDays: calculateVisitorDays(daily),
+      uniqueVisitors: toAnalyticsNumber(summary[1]),
       averageDailyVisitors: calculateAverageDailyVisitors(daily),
       averageVisitDurationSeconds: toAnalyticsNumber(visitDurationRows[0]?.[0]),
-      postOpens: toAnalyticsNumber(summary[1]),
-      sourceClicks: toAnalyticsNumber(summary[2]),
-      subscriptions: toAnalyticsNumber(summary[3]),
+      postOpens: toAnalyticsNumber(summary[2]),
+      sourceClicks: toAnalyticsNumber(summary[3]),
+      subscriptions: toAnalyticsNumber(summary[4]),
     },
     daily,
     topPosts: topPostRows.map((row) => ({

@@ -15,7 +15,7 @@ export function uniqueArchiveValues(values: string[]) {
 
 export function ArchiveSearchIcon() {
   return (
-    <Image src={ARCHIVE_SEARCH_ICON_DATA_URL} alt="" aria-hidden="true" width={20} height={21} className="size-full object-contain" />
+    <Image src={ARCHIVE_SEARCH_ICON_DATA_URL} alt="" aria-hidden="true" width={20} height={21} className="h-auto w-full object-contain" />
   );
 }
 

@@ -14,6 +14,30 @@ import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SubscribeSheet } from "./subscribe-sheet";
 import { ViewFilter } from "./view-filter";
 
+type ArchivePage = "design" | "logos" | "websites";
+
+function ArchiveHeading({ page }: { page: ArchivePage }) {
+  return page === "logos" ? (
+    <>
+      A <span className="text-[#262626]">curated</span> archive of{" "}
+      <span className="text-[#262626]">logos and icons</span> for identity and{" "}
+      <span className="text-[#262626]">brand inspiration.</span>
+    </>
+  ) : page === "websites" ? (
+    <>
+      A <span className="text-[#262626]">curated</span> archive of{" "}
+      <span className="text-[#262626]">website design</span> for digital
+      products and <span className="text-[#262626]">creative inspiration.</span>
+    </>
+  ) : (
+    <>
+      A <span className="text-[#262626]">curated</span> archive of recent{" "}
+      <span className="text-[#262626]">visual design</span> inspiration and{" "}
+      <span className="text-[#262626]">creative work.</span>
+    </>
+  );
+}
+
 export function HomepageHeader({
   category,
   view = "latest",
@@ -21,7 +45,7 @@ export function HomepageHeader({
 }: {
   category?: PostCategory;
   view?: PostView;
-  page?: "design" | "logos" | "websites";
+  page?: ArchivePage;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
@@ -51,8 +75,9 @@ export function HomepageHeader({
 
   return (
     <>
-      <header className="mx-auto w-full max-w-[1705px] px-4 pt-5 sm:px-5 sm:pt-6 xl:px-6 min-[1700px]:px-11 min-[1700px]:pt-7">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 lg:gap-x-8 min-[1500px]:gap-x-10">
+      <header className="sticky top-0 z-40 w-full bg-white">
+        <div className="mx-auto w-full max-w-[1705px] px-4 py-5 sm:px-5 sm:py-6 xl:px-6 min-[1700px]:px-11 min-[1700px]:py-7">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 lg:gap-x-8 min-[1500px]:gap-x-10">
           <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-8">
             <Link
               href="/"
@@ -73,27 +98,9 @@ export function HomepageHeader({
             </nav>
           </div>
 
-          <h1 className="col-span-3 row-start-2 mt-9 max-w-[540px] text-[23px] font-normal leading-[1.15] tracking-[-0.025em] text-[#777] min-[640px]:max-[1499px]:text-[25px] lg:mt-10 min-[1500px]:col-span-1 min-[1500px]:col-start-2 min-[1500px]:row-start-1 min-[1500px]:mt-0 min-[1500px]:max-w-none min-[1500px]:whitespace-nowrap min-[1500px]:text-center min-[1500px]:text-[14px] min-[1700px]:text-[15px]">
-            {page === "logos" ? (
-              <>
-                A <span className="text-[#262626]">curated</span> archive of{" "}
-                <span className="text-[#262626]">logos and icons</span> for
-                identity and <span className="text-[#262626]">brand inspiration.</span>
-              </>
-            ) : page === "websites" ? (
-              <>
-                A <span className="text-[#262626]">curated</span> archive of{" "}
-                <span className="text-[#262626]">website design</span> for
-                digital products and <span className="text-[#262626]">creative inspiration.</span>
-              </>
-            ) : (
-              <>
-                A <span className="text-[#262626]">curated</span> archive of recent{" "}
-                <span className="text-[#262626]">visual design</span> inspiration
-                and <span className="text-[#262626]">creative work.</span>
-              </>
-            )}
-          </h1>
+              <p aria-hidden="true" className="col-start-2 row-start-1 hidden max-w-none whitespace-nowrap text-center text-[14px] font-normal leading-[1.15] tracking-[-0.025em] text-[#777] min-[1500px]:block min-[1700px]:text-[15px]">
+                <ArchiveHeading page={page} />
+              </p>
 
           <div className="col-start-3 row-start-1 hidden w-[310px] justify-self-end lg:block xl:w-[489px]">
             <NewsletterForm compact />
@@ -149,15 +156,21 @@ export function HomepageHeader({
             </button>
           </div>
         </div>
+      </div>
+      </header>
 
+      <div className="mx-auto w-full max-w-[1705px] px-4 sm:px-5 xl:px-6 min-[1700px]:px-11">
+        <h1 className="mt-4 max-w-[540px] text-[23px] font-normal leading-[1.15] tracking-[-0.025em] text-[#777] min-[640px]:max-[1499px]:text-[25px] min-[1500px]:sr-only">
+          <ArchiveHeading page={page} />
+        </h1>
 
         {page === "design" ? (
-          <div className="mt-8 flex min-w-0 items-center justify-between gap-3 lg:mt-9 min-[1500px]:mt-11">
+          <div className="mt-8 flex min-w-0 items-center justify-between gap-3 lg:mt-9 min-[1500px]:mt-4">
             <CategoryFilter current={category} view={view} />
             <ViewFilter category={category} view={view} />
           </div>
         ) : null}
-      </header>
+      </div>
 
       {mobileMenuOpen ? (
         <MobileNavigationOverlay

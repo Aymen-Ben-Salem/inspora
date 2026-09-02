@@ -19,6 +19,7 @@ import {
   getCompensatedRadius,
   getCornerRadius,
   getIntrinsicMediaAspectRatio,
+  resolveProxyTargetBoxShadow,
   shouldAnimateDialogBackdrop,
 } from "./post-dialog-media-proxy";
 import {
@@ -550,7 +551,7 @@ export function PostDialog({
                 scaleX: 1,
                 scaleY: 1,
                 borderRadius: targetRadius,
-                boxShadow: "0 18px 60px rgba(0, 0, 0, 0.12)",
+                boxShadow: resolveProxyTargetBoxShadow(animateBackdrop),
                 duration: POST_ENTRANCE_DURATION,
                 ease: "power3.out",
               },

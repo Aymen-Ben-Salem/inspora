@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  resolveProxyTargetBoxShadow,
   resolveProxyObjectFit,
   shouldAnimateDialogBackdrop,
 } from "./post-dialog-media-proxy";
@@ -22,5 +23,11 @@ describe("post dialog media transitions", () => {
 
     expect(shouldAnimateDialogBackdrop(transparentHero)).toBe(false);
     expect(shouldAnimateDialogBackdrop(opaqueHero)).toBe(true);
+    expect(resolveProxyTargetBoxShadow(false)).toBe(
+      "0 0 0 rgba(0, 0, 0, 0)",
+    );
+    expect(resolveProxyTargetBoxShadow(true)).toBe(
+      "0 18px 60px rgba(0, 0, 0, 0.12)",
+    );
   });
 });

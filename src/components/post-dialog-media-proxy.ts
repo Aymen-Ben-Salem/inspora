@@ -29,6 +29,12 @@ export function shouldAnimateDialogBackdrop(
   return !hero.hasAttribute("data-post-dialog-transparent-media");
 }
 
+export function resolveProxyTargetBoxShadow(animateBackdrop: boolean) {
+  return animateBackdrop
+    ? "0 18px 60px rgba(0, 0, 0, 0.12)"
+    : "0 0 0 rgba(0, 0, 0, 0)";
+}
+
 export function getIntrinsicMediaAspectRatio(
   element: HTMLElement | undefined,
 ) {

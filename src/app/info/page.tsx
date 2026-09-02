@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AnalyticsPreferences } from "@/components/analytics-preferences";
 import { BrandMark } from "@/components/brand-mark";
 import { DesktopSiteNavigationItems } from "@/components/desktop-site-navigation-items";
 import { InfoPageNavigation } from "@/components/info-page-navigation";
 import { SITE_EMAIL } from "@/lib/seo";
 
 const description =
-  "Learn what Inspora is, how work is selected and credited, and how to request a correction or takedown.";
+  "Learn what Inspora is, how work is selected and credited, how audience analytics works, and how to contact us.";
 
 const contactEmail = SITE_EMAIL.toLowerCase();
 const xProfileUrl = "https://x.com/neropursue?s=11";
@@ -32,6 +33,7 @@ const pageLinks = [
   { href: "#about", label: "About Inspora" },
   { href: "#curation", label: "Editorial and curation" },
   { href: "#attribution", label: "Attribution and ownership" },
+  { href: "#privacy", label: "Privacy and analytics" },
   { href: "#contact", label: "Contact and requests" },
 ] as const;
 
@@ -190,6 +192,60 @@ export default function InfoPage() {
                   incomplete or incorrect, we welcome a correction. Broken
                   source links can be reported through the same contact route.
                 </p>
+              </div>
+            </section>
+
+            <section
+              id="privacy"
+              aria-labelledby="privacy-title"
+              className="scroll-mt-8 border-t border-black/10 py-16 sm:py-20"
+            >
+              <h2
+                id="privacy-title"
+                className="text-[27px] font-normal leading-[1.1] tracking-[-0.035em] sm:text-[34px]"
+              >
+                Privacy and audience analytics
+              </h2>
+              <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
+                <p>
+                  Inspora uses PostHog for first-party audience measurement and
+                  site improvement. Analytics can include the page path without
+                  URL parameters or fragments, the referring page, browser and
+                  device information, web performance measurements, post opens,
+                  source-link clicks, and completed newsletter subscriptions.
+                </p>
+                <p>
+                  A first-party cookie stores a random browser identifier for up
+                  to 90 days after the most recent visit. It lets us estimate
+                  unique browsers across weekly and monthly periods. The
+                  identifier is not a name or email address, and separate browsers
+                  or devices are counted separately.
+                </p>
+                <p>
+                  We do not use this data for targeted advertising or cross-site
+                  tracking. Person profiles, session replay, heatmaps, and
+                  automatic interaction capture are disabled. Sponsors may receive
+                  aggregate figures such as unique browsers and pageviews; they do
+                  not receive browser identifiers or event-level analytics data.
+                </p>
+                <p>
+                  You can disable analytics for this browser below. The preference
+                  remains until you enable analytics again or clear this site&apos;s
+                  browser data. PostHog&apos;s own data handling is described in its{" "}
+                  <a
+                    href="https://posthog.com/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="focus-ring text-[#262626] underline decoration-black/25 underline-offset-4 transition-colors hover:decoration-black"
+                  >
+                    privacy notice
+                  </a>
+                  .
+                </p>
+              </div>
+
+              <div className="mt-8">
+                <AnalyticsPreferences />
               </div>
             </section>
 

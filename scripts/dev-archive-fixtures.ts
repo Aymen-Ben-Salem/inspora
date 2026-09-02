@@ -367,7 +367,7 @@ function repeatLogoFixtures(
       title,
       sourceUrl: `${visual.sourceUrl}?sample=${repetition}`,
       createdAt: new Date(
-        Date.UTC(2026, 8, 2, hourOffset + index),
+        Date.UTC(2026, 7, 30, hourOffset + index),
       ).toISOString(),
       media: {
         ...visual.media,
@@ -392,7 +392,7 @@ function repeatWebsiteFixtures(count: number) {
       slug: `${visual.slug}-repeat-${repetition}`,
       title,
       sourceUrl: `${visual.sourceUrl}?sample=${repetition}`,
-      createdAt: new Date(Date.UTC(2026, 8, 3, index)).toISOString(),
+      createdAt: new Date(Date.UTC(2026, 7, 31, index)).toISOString(),
       fullPage: {
         ...visual.fullPage,
         alt: `Full-page development sample of ${title}`,

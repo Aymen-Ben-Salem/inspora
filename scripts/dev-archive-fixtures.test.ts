@@ -59,6 +59,18 @@ describe("development archive fixtures", () => {
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
+  it("publishes every fixture before the development test date", () => {
+    const testDate = Date.parse("2026-09-02T00:00:00.000Z");
+    const publicationDates = [
+      ...devLogoFixtures.map((item) => item.createdAt),
+      ...devWebsiteFixtures.map((item) => item.createdAt),
+    ];
+
+    expect(
+      publicationDates.every((date) => Date.parse(date) < testDate),
+    ).toBe(true);
+  });
+
   it("references complete local media with valid dimensions", () => {
     for (const logo of devLogoFixtures) {
       expect(publicAssetExists(logo.media.url)).toBe(true);

@@ -107,6 +107,7 @@ async function seedLogo(fixture: DevLogoFixture) {
       set: {
         archivedAt: null,
         colors: fixture.colors,
+        createdAt: publishedAt,
         creatorId,
         description: fixture.description,
         industry: fixture.industry,
@@ -180,6 +181,7 @@ async function seedWebsite(fixture: DevWebsiteFixture) {
         archivedAt: null,
         categories: fixture.categories,
         colors: fixture.colors,
+        createdAt: publishedAt,
         creatorId,
         description: fixture.description,
         isFeatured: fixture.isFeatured,
@@ -248,8 +250,11 @@ async function verifySeededRecords() {
     select
       (select count(*)::int from logos where slug like 'dev-sample-%' and kind = 'logo') as logos,
       (select count(*)::int from logos where slug like 'dev-sample-%' and kind = 'icon') as icons,
+      (select count(*)::int from logos where slug like 'dev-sample-%' and kind = 'logo' and status = 'published' and published_at <= now()) as visible_logos,
+      (select count(*)::int from logos where slug like 'dev-sample-%' and kind = 'icon' and status = 'published' and published_at <= now()) as visible_icons,
       (select count(*)::int from logos l where l.slug like 'dev-sample-%' and exists (select 1 from logo_media m where m.logo_id = l.id)) as logos_with_media,
       (select count(*)::int from websites where slug like 'dev-sample-%') as websites,
+      (select count(*)::int from websites where slug like 'dev-sample-%' and status = 'published' and published_at <= now()) as visible_websites,
       (select count(*)::int from websites where slug like 'dev-sample-%' and is_featured = true) as featured_websites,
       (select count(*)::int from websites w where w.slug like 'dev-sample-%' and exists (select 1 from website_media m where m.website_id = w.id and m.role = 'full_page') and exists (select 1 from website_media m where m.website_id = w.id and m.role = 'favicon')) as websites_with_media,
       (select count(*)::int from website_sections s join websites w on w.id = s.website_id where w.slug like 'dev-sample-%') as website_sections
@@ -259,6 +264,9 @@ async function verifySeededRecords() {
     icons: devLogoFixtures.filter((item) => item.kind === "icon").length,
     logos: devLogoFixtures.filter((item) => item.kind === "logo").length,
     logos_with_media: devLogoFixtures.length,
+    visible_icons: devLogoFixtures.filter((item) => item.kind === "icon").length,
+    visible_logos: devLogoFixtures.filter((item) => item.kind === "logo").length,
+    visible_websites: devWebsiteFixtures.length,
     website_sections: devWebsiteFixtures.reduce(
       (total, item) => total + item.sections.length,
       0,
@@ -276,7 +284,7 @@ async function verifySeededRecords() {
   }
 
   console.log(
-    `Verified ${expected.logos} logos, ${expected.icons} icons, ${expected.logos_with_media} logo media records, ${expected.websites} websites, ${expected.websites_with_media * 2} website media records, ${expected.website_sections} website sections, and ${expected.featured_websites} featured websites.`,
+    `Verified ${expected.visible_logos} feed-visible logos, ${expected.visible_icons} feed-visible icons, ${expected.logos_with_media} logo media records, ${expected.visible_websites} feed-visible websites, ${expected.websites_with_media * 2} website media records, ${expected.website_sections} website sections, and ${expected.featured_websites} featured websites.`,
   );
 }
 

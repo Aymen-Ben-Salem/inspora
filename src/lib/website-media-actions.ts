@@ -36,6 +36,16 @@ export function getDefaultWebsiteSectionId(
   return sections[0]?.id;
 }
 
+export function shouldClearWebsiteSectionSelection({
+  clickedMediaTabs,
+  clickedSection,
+}: {
+  clickedMediaTabs: boolean;
+  clickedSection: boolean;
+}) {
+  return !clickedMediaTabs && !clickedSection;
+}
+
 export function getScaledWebsiteSectionCrop({
   bitmapHeight,
   bitmapWidth,

@@ -7,6 +7,7 @@ import {
   cropWebsiteSectionToPng,
   getDefaultWebsiteSectionId,
   getWebsiteSectionFileName,
+  shouldClearWebsiteSectionSelection,
 } from "@/lib/website-media-actions";
 
 import {
@@ -93,8 +94,29 @@ export function WebsiteDetailDialog({
           data-post-dialog-gallery
           data-post-dialog-surface
           className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-gradient-to-b from-white to-[#d2d1d1] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]"
+          onClick={(event) => {
+            if (view !== "sections") return;
+
+            const target = event.target;
+            const clickedSection =
+              target instanceof Element &&
+              Boolean(target.closest("[data-website-section-select]"));
+            const clickedMediaTabs =
+              target instanceof Element &&
+              Boolean(target.closest("[data-website-media-tabs]"));
+
+            if (
+              shouldClearWebsiteSectionSelection({
+                clickedMediaTabs,
+                clickedSection,
+              })
+            ) {
+              setSectionSelection({ websiteId: website.id });
+            }
+          }}
         >
           <nav
+            data-website-media-tabs
             className="sticky top-0 z-20 flex h-[72px] items-center gap-8 px-5 text-[16px] sm:px-8 lg:h-[88px] lg:px-11 xl:text-[18px]"
             aria-label="Website media views"
           >
@@ -142,20 +164,14 @@ export function WebsiteDetailDialog({
               </div>
             </div>
           ) : (
-            <div
-              className="grid grid-cols-1 gap-x-7 gap-y-10 px-4 pb-12 sm:grid-cols-2 sm:px-8 lg:px-11"
-              onClick={(event) => {
-                if (event.target === event.currentTarget) {
-                  setSectionSelection({ websiteId: website.id });
-                }
-              }}
-            >
+            <div className="grid grid-cols-1 gap-x-7 gap-y-10 px-4 pb-12 sm:grid-cols-2 sm:px-8 lg:px-11">
               {website.sections.map((section, index) => {
                 const selected = section.id === selectedSectionId;
 
                 return (
                   <figure key={section.id} data-detail-media>
                     <button
+                      data-website-section-select
                       type="button"
                       aria-pressed={selected}
                       aria-label={`Select ${section.label} section`}

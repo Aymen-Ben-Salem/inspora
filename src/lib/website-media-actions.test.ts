@@ -4,6 +4,7 @@ import {
   getDefaultWebsiteSectionId,
   getScaledWebsiteSectionCrop,
   getWebsiteSectionFileName,
+  shouldClearWebsiteSectionSelection,
 } from "./website-media-actions";
 
 describe("website media actions", () => {
@@ -12,6 +13,27 @@ describe("website media actions", () => {
       getDefaultWebsiteSectionId([{ id: "hero" }, { id: "features" }]),
     ).toBe("hero");
     expect(getDefaultWebsiteSectionId([])).toBeUndefined();
+  });
+
+  it("clears a section only when the gallery canvas is clicked", () => {
+    expect(
+      shouldClearWebsiteSectionSelection({
+        clickedMediaTabs: false,
+        clickedSection: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldClearWebsiteSectionSelection({
+        clickedMediaTabs: false,
+        clickedSection: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldClearWebsiteSectionSelection({
+        clickedMediaTabs: true,
+        clickedSection: false,
+      }),
+    ).toBe(false);
   });
 
   it("scales stored section coordinates to the decoded bitmap", () => {

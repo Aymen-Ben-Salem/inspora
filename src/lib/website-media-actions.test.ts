@@ -15,22 +15,22 @@ describe("website media actions", () => {
     expect(getDefaultWebsiteSectionId([])).toBeUndefined();
   });
 
-  it("clears a section only when the gallery canvas is clicked", () => {
+  it("clears a section on blank gallery surfaces, including the tab row", () => {
     expect(
       shouldClearWebsiteSectionSelection({
-        clickedMediaTabs: false,
+        clickedMediaTab: false,
         clickedSection: false,
       }),
     ).toBe(true);
     expect(
       shouldClearWebsiteSectionSelection({
-        clickedMediaTabs: false,
+        clickedMediaTab: false,
         clickedSection: true,
       }),
     ).toBe(false);
     expect(
       shouldClearWebsiteSectionSelection({
-        clickedMediaTabs: true,
+        clickedMediaTab: true,
         clickedSection: false,
       }),
     ).toBe(false);

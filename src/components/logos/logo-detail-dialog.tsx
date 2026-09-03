@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import type { Logo } from "@/domain/logo";
 import { getLogoAssetFileName } from "@/lib/logo-asset";
 
 import { DetailMotion } from "../detail-motion";
+import { MediaAssetActions } from "../media-asset-actions";
 import {
   DetailArrowIcon,
   DetailCloseIcon,
@@ -15,7 +15,6 @@ import {
   DetailSidebarLayout,
   DetailSidebarNavigation,
   detailOriginalLinkClassName,
-  detailSecondaryActionClassName,
 } from "../detail-sidebar-primitives";
 import {
   PostCloseButton,
@@ -23,32 +22,6 @@ import {
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
 import { ResponsiveR2Image } from "../responsive-r2-image";
-
-async function toClipboardPng(blob: Blob) {
-  if (blob.type === "image/png") return blob;
-
-  const image = await createImageBitmap(blob);
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("The image could not be prepared.");
-    context.drawImage(image, 0, 0);
-
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (png) =>
-          png
-            ? resolve(png)
-            : reject(new Error("The image could not be copied.")),
-        "image/png",
-      );
-    });
-  } finally {
-    image.close();
-  }
-}
 
 export function LogoDetailDialog({
   logo,
@@ -61,11 +34,6 @@ export function LogoDetailDialog({
   onPrevious: () => void;
   onNext: () => void;
 }) {
-  const [copyStatus, setCopyStatus] = useState<{
-    logoId: string;
-    state: "copied" | "error";
-  }>();
-  const copyState = copyStatus?.logoId === logo.id ? copyStatus.state : "idle";
   const copyNoun = logo.kind === "icon" ? "icon" : "logo";
   const assetUrl = `/api/logos/${encodeURIComponent(logo.id)}/asset`;
   const isPortrait = logo.media.height / logo.media.width >= 1.15;
@@ -82,33 +50,6 @@ export function LogoDetailDialog({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onNext, onPrevious]);
-
-  async function copyImage() {
-    try {
-      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-        throw new Error("Image clipboard is unavailable.");
-      }
-      const png = fetch(assetUrl).then(async (response) => {
-        if (!response.ok) throw new Error("The image could not be loaded.");
-        return toClipboardPng(await response.blob());
-      });
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": png }),
-      ]);
-      setCopyStatus({ logoId: logo.id, state: "copied" });
-    } catch {
-      setCopyStatus({ logoId: logo.id, state: "error" });
-    }
-  }
-
-  function downloadImage() {
-    const anchor = document.createElement("a");
-    anchor.href = assetUrl;
-    anchor.download = getLogoAssetFileName(logo.slug, logo.media.mimeType);
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  }
 
   return (
     <PostDialog
@@ -222,42 +163,15 @@ export function LogoDetailDialog({
             >
               View original
             </a>
-            <div className="grid grid-cols-2 gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
-              <button
-                type="button"
-                onClick={() => void copyImage()}
-                className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5`}
-              >
-                <Image
-                  src="/icons/logos-copy.svg"
-                  alt=""
-                  aria-hidden="true"
-                  className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
-                  width={24}
-                  height={24}
-                />
-                {copyState === "copied"
-                  ? "Copied"
-                  : copyState === "error"
-                    ? "Copy unavailable"
-                    : `Copy ${copyNoun}`}
-              </button>
-              <button
-                type="button"
-                onClick={downloadImage}
-                className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5`}
-              >
-                <Image
-                  src="/icons/logos-download.svg"
-                  alt=""
-                  aria-hidden="true"
-                  className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
-                  width={24}
-                  height={24}
-                />
-                Download
-              </button>
-            </div>
+            <MediaAssetActions
+              assetKey={logo.id}
+              assetUrl={assetUrl}
+              copyLabel={`Copy ${copyNoun}`}
+              downloadFileName={getLogoAssetFileName(
+                logo.slug,
+                logo.media.mimeType,
+              )}
+            />
           </div>
         </DetailSidebarLayout>
       </main>

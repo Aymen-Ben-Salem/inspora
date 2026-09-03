@@ -19,8 +19,50 @@ function getVideoSource(video: HTMLVideoElement) {
   return video.currentSrc || video.src;
 }
 
+type MediaProxyRect = Pick<DOMRect, "height" | "left" | "top" | "width">;
+
+export function resolveFeedTransitionTarget(source: HTMLElement | undefined) {
+  return (
+    source?.querySelector<HTMLElement>("[data-feed-transition-target]") ??
+    source
+  );
+}
+
 export function resolveProxyObjectFit(objectFit: string) {
   return objectFit === "contain" ? "contain" : "cover";
+}
+
+export function resolveProxyObjectPosition(
+  objectPosition: string,
+  override: string | undefined,
+) {
+  return override?.trim() || objectPosition;
+}
+
+export function resolveExitMediaRect({
+  heroRect,
+  matchSourceAspectRatio,
+  sourceRect,
+}: {
+  heroRect: MediaProxyRect;
+  matchSourceAspectRatio: boolean;
+  sourceRect: MediaProxyRect | undefined;
+}): MediaProxyRect {
+  if (
+    !matchSourceAspectRatio ||
+    !sourceRect ||
+    sourceRect.width <= 0 ||
+    sourceRect.height <= 0
+  ) {
+    return heroRect;
+  }
+
+  return {
+    height: heroRect.width * (sourceRect.height / sourceRect.width),
+    left: heroRect.left,
+    top: heroRect.top,
+    width: heroRect.width,
+  };
 }
 
 export function shouldAnimateDialogBackdrop(
@@ -72,14 +114,23 @@ function cloneImage(source: HTMLImageElement) {
 function configureProxyMedia(
   proxyMedia: HTMLImageElement | HTMLVideoElement,
   sourceMedia: HTMLImageElement | HTMLVideoElement,
+  media: HTMLElement,
 ) {
+  const objectPositionOverride =
+    media.dataset.postDialogProxyObjectPosition;
+
   Object.assign(proxyMedia.style, {
     display: "block",
     height: "100%",
     objectFit: resolveProxyObjectFit(getComputedStyle(sourceMedia).objectFit),
-    objectPosition: getComputedStyle(sourceMedia).objectPosition,
+    objectPosition: resolveProxyObjectPosition(
+      getComputedStyle(sourceMedia).objectPosition,
+      objectPositionOverride,
+    ),
     width: "100%",
   });
+
+  if (objectPositionOverride) proxyMedia.style.transform = "none";
 
   proxyMedia.draggable = false;
 
@@ -158,7 +209,7 @@ export function createMediaProxy({
 }: {
   fallback?: HTMLElement;
   media: HTMLElement;
-  rect: DOMRect;
+  rect: MediaProxyRect;
   root: HTMLElement;
   mediaSourcePreference?: "fallback" | "media";
 }) {
@@ -197,7 +248,7 @@ export function createMediaProxy({
     zIndex: "3",
   });
 
-  configureProxyMedia(proxyMedia, mediaElement);
+  configureProxyMedia(proxyMedia, mediaElement, media);
   proxy.appendChild(proxyMedia);
   root.appendChild(proxy);
 

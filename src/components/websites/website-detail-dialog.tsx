@@ -6,6 +6,7 @@ import type { Website } from "@/domain/website";
 import {
   cropWebsiteSectionToPng,
   getDefaultWebsiteSectionId,
+  getWebsiteTransitionHero,
   getWebsiteSectionFileName,
   shouldClearWebsiteSectionSelection,
 } from "@/lib/website-media-actions";
@@ -43,7 +44,7 @@ export function WebsiteDetailDialog({
     sectionId?: string;
     websiteId: string;
   }>({ websiteId: website.id });
-  const hero = website.sections[0];
+  const hero = getWebsiteTransitionHero(website);
   const selectedSectionId =
     view === "sections"
       ? sectionSelection.websiteId === website.id
@@ -134,24 +135,14 @@ export function WebsiteDetailDialog({
           </nav>
 
           {view === "preview" ? (
-            <div
-              data-detail-media
-              className="mx-auto w-full max-w-[1108px] px-4 pb-12 sm:px-8 lg:px-11"
-            >
+            <div className="mx-auto w-full max-w-[1108px] px-4 pb-12 sm:px-8 lg:px-11">
               <div
                 className="relative w-full"
                 style={{
                   aspectRatio: `${website.fullPage.width} / ${website.fullPage.height}`,
                 }}
               >
-                <div
-                  data-post-dialog-surface
-                  data-post-dialog-hero
-                  className="absolute inset-x-0 top-0 overflow-visible"
-                  style={{
-                    aspectRatio: `${website.fullPage.width} / ${hero?.height ?? Math.round(website.fullPage.width * 0.61)}`,
-                  }}
-                >
+                <div data-detail-media className="absolute inset-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={website.fullPage.url}
@@ -160,6 +151,31 @@ export function WebsiteDetailDialog({
                     height={website.fullPage.height}
                     className="h-auto w-full max-w-none"
                   />
+                </div>
+                <div
+                  data-detail-media
+                  className="pointer-events-none absolute inset-x-0 top-0"
+                >
+                  <div
+                    data-post-dialog-surface
+                    data-post-dialog-hero
+                    data-post-dialog-match-feed-aspect
+                    data-post-dialog-proxy-object-position="center top"
+                    className="overflow-hidden"
+                    style={{
+                      aspectRatio: `${website.fullPage.width} / ${hero?.height ?? Math.round(website.fullPage.width * 0.61)}`,
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={website.fullPage.url}
+                      alt=""
+                      aria-hidden="true"
+                      width={website.fullPage.width}
+                      height={website.fullPage.height}
+                      className="h-auto w-full max-w-none"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -188,6 +204,9 @@ export function WebsiteDetailDialog({
                           ? {
                               "data-post-dialog-surface": "",
                               "data-post-dialog-hero": "",
+                              "data-post-dialog-match-feed-aspect": "",
+                              "data-post-dialog-proxy-object-position":
+                                "center top",
                             }
                           : {})}
                         className={`transition-shadow ${selected ? "ring-2 ring-[#262626] ring-offset-4" : ""}`}

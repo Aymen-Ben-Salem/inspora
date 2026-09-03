@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getDefaultWebsiteSectionId,
   getScaledWebsiteSectionCrop,
+  getWebsiteTransitionHero,
   getWebsiteSectionFileName,
   shouldClearWebsiteSectionSelection,
 } from "./website-media-actions";
@@ -13,6 +14,17 @@ describe("website media actions", () => {
       getDefaultWebsiteSectionId([{ id: "hero" }, { id: "features" }]),
     ).toBe("hero");
     expect(getDefaultWebsiteSectionId([])).toBeUndefined();
+  });
+
+  it("matches the transition hero to the website feed crop", () => {
+    expect(
+      getWebsiteTransitionHero({
+        fullPage: { height: 6000, width: 1080 },
+        sections: [
+          { id: "hero", height: 1500, label: "Hero", position: 0, top: 0 },
+        ],
+      } as Pick<import("@/domain/website").Website, "fullPage" | "sections">),
+    ).toMatchObject({ id: "hero", height: 659, top: 0 });
   });
 
   it("clears a section on blank gallery surfaces, including the tab row", () => {

@@ -19,6 +19,8 @@ import {
   getCompensatedRadius,
   getCornerRadius,
   getIntrinsicMediaAspectRatio,
+  resolveExitMediaRect,
+  resolveFeedTransitionTarget,
   resolveProxyTargetBoxShadow,
   shouldAnimateDialogBackdrop,
 } from "./post-dialog-media-proxy";
@@ -199,12 +201,21 @@ export function PostDialog({
     const hero = root.querySelector<HTMLElement>("[data-post-dialog-hero]");
     const postId = root.querySelector<HTMLElement>("[data-post-dialog-post-id]")
       ?.dataset.postDialogPostId;
-    const source = findFeedPost(postId);
+    const source = resolveFeedTransitionTarget(findFeedPost(postId));
     const sourceRect = source?.getBoundingClientRect();
-    const finalHeroRect =
+    const measuredHeroRect =
       hero === entranceHero.current && entranceHeroRect.current
         ? entranceHeroRect.current
         : hero?.getBoundingClientRect();
+    const finalHeroRect = measuredHeroRect
+      ? resolveExitMediaRect({
+          heroRect: measuredHeroRect,
+          matchSourceAspectRatio: Boolean(
+            hero?.hasAttribute("data-post-dialog-match-feed-aspect"),
+          ),
+          sourceRect,
+        })
+      : undefined;
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -389,7 +400,7 @@ export function PostDialog({
           return true;
         }
 
-        const source = findFeedPost(postId);
+        const source = resolveFeedTransitionTarget(findFeedPost(postId));
         const intrinsicAspectRatio = getIntrinsicMediaAspectRatio(source);
         const maxViewportHeight = Number(
           hero.dataset.postDialogMaxViewportHeight,

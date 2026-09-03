@@ -1,4 +1,4 @@
-import type { WebsiteSection } from "@/domain/website";
+import type { Website, WebsiteSection } from "@/domain/website";
 
 type SectionCropInput = {
   bitmapHeight: number;
@@ -34,6 +34,21 @@ export function getDefaultWebsiteSectionId(
   sections: ReadonlyArray<Pick<WebsiteSection, "id">>,
 ) {
   return sections[0]?.id;
+}
+
+export function getWebsiteTransitionHero(
+  website: Pick<Website, "fullPage" | "sections">,
+) {
+  const hero = website.sections[0];
+  if (!hero) return undefined;
+
+  return {
+    ...hero,
+    height: Math.min(
+      website.fullPage.height - hero.top,
+      Math.round((website.fullPage.width * 659) / 1080),
+    ),
+  };
 }
 
 export function shouldClearWebsiteSectionSelection({

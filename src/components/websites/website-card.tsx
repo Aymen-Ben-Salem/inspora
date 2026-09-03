@@ -1,17 +1,11 @@
 import type { Website } from "@/domain/website";
+import { getWebsiteTransitionHero } from "@/lib/website-media-actions";
 
 import { WebsiteCropImage } from "./website-crop-image";
 
 export function WebsiteCard({ website, onSelect }: { website: Website; onSelect: (website: Website) => void }) {
-  const hero = website.sections[0];
-  if (!hero) return null;
-  const feedHero = {
-    ...hero,
-    height: Math.min(
-      website.fullPage.height - hero.top,
-      Math.round((website.fullPage.width * 659) / 1080),
-    ),
-  };
+  const feedHero = getWebsiteTransitionHero(website);
+  if (!feedHero) return null;
 
   return (
     <article data-feed-card>

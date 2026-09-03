@@ -16,6 +16,7 @@ export function WebsiteCropImage({
   const translate = (section.top / website.fullPage.height) * 100;
   return (
     <div
+      data-feed-transition-target={transitionMedia ? "" : undefined}
       className={`relative overflow-hidden bg-[#f2f2f2] ${className}`}
       style={{ aspectRatio: `${website.fullPage.width} / ${section.height}` }}
     >

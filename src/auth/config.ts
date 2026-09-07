@@ -21,6 +21,7 @@ export function getClerkAuthorizedParties() {
       [
         toOrigin(process.env.SITE_URL),
         toOrigin(process.env.VERCEL_URL),
+        toOrigin(process.env.VERCEL_BRANCH_URL),
         toOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
       ].filter((origin): origin is string => Boolean(origin)),
     ),

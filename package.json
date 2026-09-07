@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:preview": "drizzle-kit migrate --config=drizzle.preview.config.ts",
     "db:migrate:production": "drizzle-kit migrate --config=drizzle.production.config.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:archives": "tsx scripts/seed-dev-archives.ts",

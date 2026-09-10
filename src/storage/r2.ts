@@ -13,7 +13,10 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { MediaUploadKind } from "@/features/admin/media-upload";
 import type { ManagedMediaAsset } from "@/storage/types";
-import { assertDataOperationEnvironment } from "../../scripts/lib/environment-fingerprint";
+import {
+  assertDataOperationEnvironment,
+  runtimeDataEnvironmentFromValues,
+} from "../../scripts/lib/environment-fingerprint";
 
 const CACHE_CONTROL = "public, max-age=31536000, immutable";
 const UPLOAD_EXPIRES_SECONDS = 10 * 60;
@@ -72,13 +75,7 @@ function requireConfiguration(): R2Configuration {
     throw new R2StorageConfigurationError();
   }
 
-  assertDataOperationEnvironment({
-    dataEnvironment: process.env.DATA_ENVIRONMENT ?? "",
-    databaseUrl: process.env.DATABASE_URL ?? "",
-    databaseUrlUnpooled: process.env.DATABASE_URL_UNPOOLED ?? "",
-    r2BucketName: bucket,
-    r2PublicBaseUrl: publicBaseUrl,
-  });
+  assertDataOperationEnvironment(runtimeDataEnvironmentFromValues(process.env));
 
   return { accountId, accessKeyId, secretAccessKey, bucket, publicBaseUrl };
 }

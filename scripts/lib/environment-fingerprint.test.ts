@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertDataOperationEnvironment,
   assertEnvironmentFingerprint,
+  runtimeDataEnvironmentFromValues,
   type EnvironmentFingerprint,
   type FingerprintedEnvironment,
 } from "./environment-fingerprint";
@@ -28,6 +29,18 @@ const safeEnvironment: FingerprintedEnvironment = {
 };
 
 describe("environment fingerprints", () => {
+  it("uses the pooled Neon URL when runtime configuration omits the direct URL", () => {
+    const environment = runtimeDataEnvironmentFromValues({
+      DATA_ENVIRONMENT: "development",
+      DATABASE_URL: safeEnvironment.databaseUrl,
+      R2_BUCKET_NAME: safeEnvironment.r2BucketName,
+      R2_PUBLIC_BASE_URL: safeEnvironment.r2PublicBaseUrl,
+    });
+
+    expect(environment.databaseUrlUnpooled).toBe(safeEnvironment.databaseUrl);
+    expect(() => assertEnvironmentFingerprint(environment, approved)).not.toThrow();
+  });
+
   it("accepts only the exact approved destination identifiers", () => {
     expect(() => assertEnvironmentFingerprint(safeEnvironment, approved)).not.toThrow();
   });

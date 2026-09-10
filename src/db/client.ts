@@ -3,7 +3,10 @@ import "server-only";
 import { neon } from "@neondatabase/serverless";
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 
-import { assertDataOperationEnvironment } from "../../scripts/lib/environment-fingerprint";
+import {
+  assertDataOperationEnvironment,
+  runtimeDataEnvironmentFromValues,
+} from "../../scripts/lib/environment-fingerprint";
 import * as schema from "./schema";
 
 export type Database = NeonHttpDatabase<typeof schema>;
@@ -26,13 +29,7 @@ export function getDatabase(): Database | null {
     return cachedDatabase;
   }
 
-  assertDataOperationEnvironment({
-    dataEnvironment: process.env.DATA_ENVIRONMENT ?? "",
-    databaseUrl: connectionString,
-    databaseUrlUnpooled: process.env.DATABASE_URL_UNPOOLED ?? "",
-    r2BucketName: process.env.R2_BUCKET_NAME ?? "",
-    r2PublicBaseUrl: process.env.R2_PUBLIC_BASE_URL ?? "",
-  });
+  assertDataOperationEnvironment(runtimeDataEnvironmentFromValues(process.env));
 
   const client = neon(connectionString);
   cachedDatabase = drizzle({ client, schema });

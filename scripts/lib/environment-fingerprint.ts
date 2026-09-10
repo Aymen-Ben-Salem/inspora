@@ -15,6 +15,20 @@ export type EnvironmentFingerprint = {
   publicMediaHostSha256: string;
 };
 
+export function runtimeDataEnvironmentFromValues(
+  values: Record<string, string | undefined>,
+): FingerprintedEnvironment {
+  const databaseUrl = values.DATABASE_URL ?? "";
+
+  return {
+    dataEnvironment: values.DATA_ENVIRONMENT ?? "",
+    databaseUrl,
+    databaseUrlUnpooled: values.DATABASE_URL_UNPOOLED ?? databaseUrl,
+    r2BucketName: values.R2_BUCKET_NAME ?? "",
+    r2PublicBaseUrl: values.R2_PUBLIC_BASE_URL ?? "",
+  };
+}
+
 export const APPROVED_ENVIRONMENT_FINGERPRINTS = {
   development: {
     dataEnvironment: "development",

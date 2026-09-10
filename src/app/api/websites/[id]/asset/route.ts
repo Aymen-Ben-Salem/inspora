@@ -1,10 +1,7 @@
 import { getPublishedWebsiteAsset } from "@/data/websites-repository";
 import { getAttachmentDisposition } from "@/lib/logo-asset";
 import { getWebsiteSectionFileName } from "@/lib/website-media-actions";
-import {
-  createR2PresignedDownload,
-  getR2MediaAsset,
-} from "@/storage/r2";
+import { getR2MediaAsset } from "@/storage/r2";
 
 const ASSET_CACHE_CONTROL =
   "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
@@ -31,16 +28,39 @@ export async function GET(
 
   try {
     if (asset.kind === "recording") {
-      const fileName = recordingFileName(asset.slug, asset.mimeType);
-      if (asset.storageProvider === "r2" && asset.storageKey) {
-        const url = await createR2PresignedDownload({
-          storageKey: asset.storageKey,
-          fileName,
-          contentType: asset.mimeType,
-        });
-        return Response.redirect(url, 307);
+      const range = request.headers.get("Range");
+      const response = await fetch(new URL(asset.url, request.url), {
+        cache: "no-store",
+        headers: range ? { Range: range } : undefined,
+      });
+      if (!response.ok) throw new Error("The recording could not be loaded.");
+
+      const type = normalizedType(
+        response.headers.get("Content-Type") ?? asset.mimeType,
+      );
+      const headers = new Headers({
+        "Cache-Control": ASSET_CACHE_CONTROL,
+        "Content-Disposition": getAttachmentDisposition(
+          recordingFileName(asset.slug, type),
+        ),
+        "Content-Type": type,
+        "X-Content-Type-Options": "nosniff",
+      });
+      for (const name of [
+        "Accept-Ranges",
+        "Content-Length",
+        "Content-Range",
+        "ETag",
+        "Last-Modified",
+      ]) {
+        const value = response.headers.get(name);
+        if (value) headers.set(name, value);
       }
-      return Response.redirect(new URL(asset.url, request.url), 307);
+
+      return new Response(response.body, {
+        headers,
+        status: response.status,
+      });
     }
 
     let bytes: Uint8Array;

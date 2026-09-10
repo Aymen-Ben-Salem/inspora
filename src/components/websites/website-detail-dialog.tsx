@@ -139,26 +139,35 @@ export function WebsiteDetailDialog({
             ))}
           </nav>
 
-          {view === "preview" ? (
-            <div className="flex min-h-[calc(68dvh-72px)] items-center justify-center px-4 pb-12 sm:px-8 lg:min-h-[calc(100dvh-88px)] lg:px-11">
-              <div
-                data-detail-media
-                data-post-dialog-surface
-                data-post-dialog-hero
-                data-post-dialog-animated-media
-                data-post-dialog-max-viewport-height="79"
-                className="aspect-video w-full max-w-[1108px] overflow-hidden bg-[#ececea]"
-              >
-                <LoopingVideo
-                  src={website.recording.url}
-                  poster={website.recording.posterUrl}
-                  aria-label={website.recording.alt}
-
-                  className="size-full object-contain"
-                />
-              </div>
+          <div
+            aria-hidden={view !== "preview"}
+            className={
+              view === "preview"
+                ? "flex min-h-[calc(68dvh-72px)] items-center justify-center px-4 pb-12 sm:px-8 lg:min-h-[calc(100dvh-88px)] lg:px-11"
+                : "hidden"
+            }
+          >
+            <div
+              data-detail-media
+              data-post-dialog-surface
+              data-post-dialog-hero
+              data-post-dialog-animated-media
+              data-post-dialog-max-viewport-height="79"
+              className="aspect-video w-full max-w-[1108px] overflow-hidden bg-[#ececea]"
+            >
+              <LoopingVideo
+                src={website.recording.url}
+                poster={website.recording.posterUrl}
+                aria-label={website.recording.alt}
+                active={view === "preview"}
+                preservePositionWhileInactive
+                releaseWhenNotVisible
+                className="size-full object-contain"
+              />
             </div>
-          ) : (
+          </div>
+
+          {view === "sections" ? (
             <div className="grid grid-cols-1 gap-x-7 gap-y-10 px-4 pb-12 sm:grid-cols-2 sm:px-8 lg:px-11">
               {website.sections.map((section, index) => {
                 const selected = section.id === selectedSectionId;
@@ -206,7 +215,7 @@ export function WebsiteDetailDialog({
                 );
               })}
             </div>
-          )}
+          ) : null}
         </div>
 
         <DetailSidebarLayout

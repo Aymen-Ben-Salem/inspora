@@ -187,6 +187,16 @@ function createVideoProxy(source: HTMLVideoElement) {
   return video;
 }
 
+export function removeMediaProxy(proxy: HTMLElement | null | undefined) {
+  if (!proxy) return;
+  proxy.querySelectorAll<HTMLVideoElement>("video").forEach((video) => {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  });
+  proxy.remove();
+}
+
 export function getCornerRadius(element: HTMLElement) {
   return Number.parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0;
 }

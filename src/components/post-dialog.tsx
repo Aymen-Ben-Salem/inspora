@@ -22,6 +22,7 @@ import {
   resolveExitMediaRect,
   resolveFeedTransitionTarget,
   resolveProxyTargetBoxShadow,
+  removeMediaProxy,
   shouldAnimateDialogBackdrop,
 } from "./post-dialog-media-proxy";
 import {
@@ -186,9 +187,9 @@ export function PostDialog({
     }
     entrance.current?.kill();
     entrance.current = null;
-    entranceProxy.current?.remove();
+    removeMediaProxy(entranceProxy.current);
     entranceProxy.current = null;
-    exitProxy.current?.remove();
+    removeMediaProxy(exitProxy.current);
     exitProxy.current = null;
 
     if (entranceHero.current) {
@@ -237,7 +238,7 @@ export function PostDialog({
 
     const timeline = gsap.timeline({
       onComplete: () => {
-        exitProxy.current?.remove();
+        removeMediaProxy(exitProxy.current);
         exitProxy.current = null;
         finishClose();
       },
@@ -344,9 +345,9 @@ export function PostDialog({
     return () => {
       document.documentElement.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
-      entranceProxy.current?.remove();
+      removeMediaProxy(entranceProxy.current);
       entranceProxy.current = null;
-      exitProxy.current?.remove();
+      removeMediaProxy(exitProxy.current);
       exitProxy.current = null;
     };
   }, [requestClose]);
@@ -360,13 +361,13 @@ export function PostDialog({
       closing.current = false;
       entrance.current = null;
       gsap.set(root, { clearProps: "pointerEvents" });
-      entranceProxy.current?.remove();
+      removeMediaProxy(entranceProxy.current);
       entranceProxy.current = null;
-      exitProxy.current?.remove();
+      removeMediaProxy(exitProxy.current);
       exitProxy.current = null;
       root
         .querySelectorAll<HTMLElement>("[data-post-dialog-media-proxy]")
-        .forEach((proxy) => proxy.remove());
+        .forEach(removeMediaProxy);
 
       const previousPathname = activeTransitionIdentity.current;
       const isPostSwap =
@@ -480,7 +481,7 @@ export function PostDialog({
         let proxy: HTMLDivElement | undefined;
         const settleEntrance = () => {
           if (proxy) {
-            proxy.remove();
+            removeMediaProxy(proxy);
             if (entranceProxy.current === proxy) {
               entranceProxy.current = null;
             }
@@ -619,7 +620,7 @@ export function PostDialog({
 
       return () => {
         observer?.disconnect();
-        entranceProxy.current?.remove();
+        removeMediaProxy(entranceProxy.current);
         entranceProxy.current = null;
         entrance.current = null;
 

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPlaybackSuspensionStore } from "./looping-video-state";
+import {
+  createPlaybackSuspensionStore,
+  getHiddenVideoGraceRemaining,
+} from "./looping-video-state";
 
 describe("feed playback suspension", () => {
   it("remains suspended until every caller releases its token", () => {
@@ -34,4 +37,10 @@ describe("feed playback suspension", () => {
     expect(store.isSuspended()).toBe(false);
     expect(onChange.mock.calls).toEqual([[true], [false]]);
   });
+  it("expires hidden media after the 30-second grace window", () => {
+    expect(getHiddenVideoGraceRemaining(1_000, 16_000)).toBe(15_000);
+    expect(getHiddenVideoGraceRemaining(1_000, 31_000)).toBe(0);
+    expect(getHiddenVideoGraceRemaining(1_000, 45_000)).toBe(0);
+  });
+
 });

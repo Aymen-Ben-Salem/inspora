@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   resolveExitMediaRect,
   resolveFeedTransitionTarget,
+  removeMediaProxy,
   resolveProxyTargetBoxShadow,
   resolveProxyObjectFit,
   resolveProxyObjectPosition,
@@ -43,6 +44,24 @@ describe("post dialog media transitions", () => {
     ).toEqual({ height: 659, left: 24, top: 80, width: 1080 });
   });
 
+  it("pauses and detaches temporary video proxies before removal", () => {
+    const video = {
+      load: vi.fn(),
+      pause: vi.fn(),
+      removeAttribute: vi.fn(),
+    };
+    const proxy = {
+      querySelectorAll: () => [video],
+      remove: vi.fn(),
+    };
+
+    removeMediaProxy(proxy as unknown as HTMLElement);
+
+    expect(video.pause).toHaveBeenCalledOnce();
+    expect(video.removeAttribute).toHaveBeenCalledWith("src");
+    expect(video.load).toHaveBeenCalledOnce();
+    expect(proxy.remove).toHaveBeenCalledOnce();
+  });
   it("keeps the backdrop visible behind transparent media", () => {
     const transparentHero = {
       hasAttribute: (name: string) =>

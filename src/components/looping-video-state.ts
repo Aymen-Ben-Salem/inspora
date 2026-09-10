@@ -1,3 +1,9 @@
+export const HIDDEN_VIDEO_GRACE_MS = 30_000;
+
+export function getHiddenVideoGraceRemaining(hiddenAt: number, now: number) {
+  return Math.max(0, HIDDEN_VIDEO_GRACE_MS - (now - hiddenAt));
+}
+
 export type PlaybackSuspensionStore = {
   isSuspended: () => boolean;
   suspend: () => () => void;

@@ -57,6 +57,7 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
                   aria-label={media.alt}
                   draggable={false}
                   eager
+                  releaseWhenNotVisible
                   width={media.width}
                   height={media.height}
                   className="size-full object-cover"

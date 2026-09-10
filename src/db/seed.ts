@@ -1,21 +1,13 @@
 import { neon } from "@neondatabase/serverless";
-import { config } from "dotenv";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 
+import { loadDevelopmentMediaEnvironment } from "../../scripts/lib/development-environment";
 import { seedPosts } from "../data/seed-posts";
 import { creators, postMedia, posts } from "./schema";
 
-config({ path: ".env.local" });
-config();
-
-const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("Set DATABASE_URL_UNPOOLED or DATABASE_URL before seeding Neon.");
-}
-
-const database = drizzle({ client: neon(connectionString) });
+const environment = loadDevelopmentMediaEnvironment();
+const database = drizzle({ client: neon(environment.databaseUrlUnpooled) });
 
 async function main() {
   for (const post of seedPosts) {

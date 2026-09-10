@@ -308,8 +308,7 @@ async function main() {
   console.log(
     `${options.execute ? "Executing" : "Dry run:"} ${runnableCandidates.length} development video preview(s).`,
   );
-  console.log(`Database host: ${new URL(environment.databaseUrlUnpooled).hostname}`);
-  console.log(`R2 bucket: ${environment.r2BucketName}`);
+  console.log("Verified the approved development environment fingerprint.");
   if (partitioned.missing.length > 0) {
     console.warn(
       `Skipped ${partitioned.missing.length} row(s) without a trusted readable source.`,

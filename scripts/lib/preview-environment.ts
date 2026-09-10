@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 
 import { parse } from "dotenv";
 
+import {
+  APPROVED_ENVIRONMENT_FINGERPRINTS,
+  assertEnvironmentFingerprint,
+  type EnvironmentFingerprint,
+} from "./environment-fingerprint";
+
 export type PreviewEnvironment = {
   dataEnvironment: string;
   databaseUrl: string;
@@ -15,70 +21,21 @@ export type PreviewEnvironment = {
 };
 
 const ENV_PATH = resolve(process.cwd(), ".env.preview.local");
-const PRODUCTION_NEON_PREFIX = "ep-plain-glade-aswp1anv";
 
-function required(values: Record<string, string>, name: string) {
+function required(values: Record<string, string | undefined>, name: string) {
   const value = values[name]?.trim();
   if (!value) throw new Error(`${name} is missing from .env.preview.local.`);
   return value;
 }
 
-function neonEndpoint(name: string, value: string) {
-  const url = new URL(value);
-  if (
-    (url.protocol !== "postgresql:" && url.protocol !== "postgres:") ||
-    !url.hostname.endsWith(".neon.tech")
-  ) {
-    throw new Error(`${name} must point to a Neon PostgreSQL database.`);
-  }
-  if (url.hostname.startsWith(PRODUCTION_NEON_PREFIX)) {
-    throw new Error(`${name} must not point to the production Neon database.`);
-  }
-  return url.hostname.replace("-pooler.", ".");
-}
-
-export function assertPreviewEnvironment(
-  environment: PreviewEnvironment,
-  nodeEnvironment = process.env.NODE_ENV,
-) {
-  if (nodeEnvironment === "production") {
-    throw new Error("Preview commands refuse to run with NODE_ENV=production.");
-  }
-  if (environment.dataEnvironment !== "preview") {
-    throw new Error("DATA_ENVIRONMENT must be preview in .env.preview.local.");
-  }
-
-  const pooledEndpoint = neonEndpoint("DATABASE_URL", environment.databaseUrl);
-  const directEndpoint = neonEndpoint(
-    "DATABASE_URL_UNPOOLED",
-    environment.databaseUrlUnpooled,
-  );
-  if (pooledEndpoint !== directEndpoint) {
-    throw new Error("Preview database URLs must belong to the same Neon branch.");
-  }
-
-  if (environment.r2BucketName !== "inspora-media-preview") {
-    throw new Error("R2_BUCKET_NAME must be inspora-media-preview.");
-  }
-
-  const publicUrl = new URL(environment.r2PublicBaseUrl);
-  if (
-    publicUrl.protocol !== "https:" ||
-    !publicUrl.hostname.endsWith(".r2.dev") ||
-    (publicUrl.pathname !== "/" && publicUrl.pathname !== "") ||
-    publicUrl.search ||
-    publicUrl.hash
-  ) {
-    throw new Error("R2_PUBLIC_BASE_URL must be the preview bucket's r2.dev URL.");
-  }
-}
-
-export function loadPreviewEnvironment(): PreviewEnvironment {
-  if (!existsSync(ENV_PATH)) {
-    throw new Error("Create the ignored .env.preview.local file first.");
-  }
-
-  const values = parse(readFileSync(ENV_PATH));
+export function previewEnvironmentFromValues(
+  values: Record<string, string | undefined>,
+  options: {
+    source?: string;
+    approvedFingerprint?: EnvironmentFingerprint;
+  } = {},
+): PreviewEnvironment {
+  const source = options.source ?? ".env.preview.local";
   const environment = {
     dataEnvironment: required(values, "DATA_ENVIRONMENT"),
     databaseUrl: required(values, "DATABASE_URL"),
@@ -90,6 +47,34 @@ export function loadPreviewEnvironment(): PreviewEnvironment {
     r2PublicBaseUrl: required(values, "R2_PUBLIC_BASE_URL").replace(/\/+$/, ""),
   } satisfies PreviewEnvironment;
 
-  assertPreviewEnvironment(environment);
+  try {
+    assertEnvironmentFingerprint(
+      environment,
+      options.approvedFingerprint ?? APPROVED_ENVIRONMENT_FINGERPRINTS.preview,
+    );
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`${source}: ${error.message}`, { cause: error });
+    }
+    throw error;
+  }
   return environment;
+}
+
+export function loadPreviewEnvironment(options: {
+  path?: string;
+  readFile?: (path: string) => string;
+  approvedFingerprint?: EnvironmentFingerprint;
+} = {}): PreviewEnvironment {
+  const path = options.path ?? ENV_PATH;
+  if (!options.readFile && !existsSync(path)) {
+    throw new Error("Create the ignored .env.preview.local file first.");
+  }
+
+  const readFile = options.readFile ?? ((target: string) => readFileSync(target, "utf8"));
+  const values = parse(readFile(path));
+  return previewEnvironmentFromValues(values, {
+    source: path,
+    approvedFingerprint: options.approvedFingerprint,
+  });
 }

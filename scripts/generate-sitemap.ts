@@ -2,19 +2,16 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { neon } from "@neondatabase/serverless";
-import { config } from "dotenv";
 
-import { seedPosts } from "../src/data/seed-posts";
+import { previewEnvironmentFromValues } from "./lib/preview-environment";
 import { renderSitemap } from "./lib/sitemap";
 
-config({ path: ".env.production.local", quiet: true });
-config({ path: ".env.local", quiet: true });
-
 async function loadPublishedSlugs() {
-  const connectionString = process.env.DATABASE_URL?.trim();
-  if (!connectionString) return seedPosts.map((post) => post.slug);
+  const environment = previewEnvironmentFromValues(process.env, {
+    source: "guarded Preview build environment",
+  });
 
-  const sql = neon(connectionString);
+  const sql = neon(environment.databaseUrl);
   const rows = await sql`
     select slug
     from posts

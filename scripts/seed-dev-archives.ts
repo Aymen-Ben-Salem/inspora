@@ -1,7 +1,4 @@
-import { readFileSync } from "node:fs";
-
 import { neon } from "@neondatabase/serverless";
-import { parse } from "dotenv";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 
@@ -19,23 +16,13 @@ import {
   type DevLogoFixture,
   type DevWebsiteFixture,
 } from "./dev-archive-fixtures";
-import { assertDevelopmentDatabase } from "./dev-seed-safety";
+import { loadDevelopmentMediaEnvironment } from "./lib/development-environment";
 
-const developmentEnv = parse(readFileSync(".env.local", "utf8"));
-const productionEnv = parse(readFileSync(".env.production.local", "utf8"));
-const developmentUrl =
-  developmentEnv.DATABASE_URL_UNPOOLED ?? developmentEnv.DATABASE_URL;
-const productionUrl =
-  productionEnv.DATABASE_URL_UNPOOLED ?? productionEnv.DATABASE_URL;
-const target = assertDevelopmentDatabase(developmentUrl, productionUrl);
+const environment = loadDevelopmentMediaEnvironment();
 const dryRun = process.argv.includes("--dry-run");
 
-if (!developmentUrl) {
-  throw new Error("Development database URL is required before seeding.");
-}
-
 const actorId = "dev-archive-seed";
-const sql = neon(developmentUrl);
+const sql = neon(environment.databaseUrlUnpooled);
 const database = drizzle({ client: sql });
 
 type FixtureCreator =
@@ -295,7 +282,7 @@ async function main() {
     `${devWebsiteFixtures.length} websites`;
 
   console.log(
-    `Verified development target ${target.host}/${target.database}; production endpoint differs.`,
+    "Verified the approved development environment fingerprint.",
   );
   if (dryRun) {
     console.log(`Dry run: would upsert ${summary}. No database writes were made.`);

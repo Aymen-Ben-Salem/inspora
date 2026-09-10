@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "tsx scripts/reject-plain-build.ts",
+    "build": "next build",
     "build:preview": "tsx scripts/build-preview.ts",
     "start": "next start",
     "lint": "eslint .",

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  findVisibleDialogHero,
   resolveExitMediaRect,
   resolveFeedTransitionTarget,
   removeMediaProxy,
@@ -11,6 +12,20 @@ import {
 } from "./post-dialog-media-proxy";
 
 describe("post dialog media transitions", () => {
+  it("ignores a preserved hidden hero when a visible website section is active", () => {
+    const hiddenHero = {
+      getBoundingClientRect: () => ({ height: 0, width: 0 }),
+    } as unknown as HTMLElement;
+    const visibleHero = {
+      getBoundingClientRect: () => ({ height: 720, width: 1280 }),
+    } as unknown as HTMLElement;
+    const root = {
+      querySelectorAll: () => [hiddenHero, visibleHero],
+    } as unknown as HTMLElement;
+
+    expect(findVisibleDialogHero(root)).toBe(visibleHero);
+  });
+
   it("preserves contain sizing for transparent logo media", () => {
     expect(resolveProxyObjectFit("contain")).toBe("contain");
     expect(resolveProxyObjectFit("cover")).toBe("cover");

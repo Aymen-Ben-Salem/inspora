@@ -28,6 +28,19 @@ export function resolveFeedTransitionTarget(source: HTMLElement | undefined) {
   );
 }
 
+export function findVisibleDialogHero(root: HTMLElement) {
+  const heroes = Array.from(
+    root.querySelectorAll<HTMLElement>("[data-post-dialog-hero]"),
+  );
+
+  return (
+    heroes.find((hero) => {
+      const rect = hero.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    }) ?? heroes[0]
+  );
+}
+
 export function resolveProxyObjectFit(objectFit: string) {
   return objectFit === "contain" ? "contain" : "cover";
 }

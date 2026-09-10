@@ -16,6 +16,7 @@ import {
 
 import {
   createMediaProxy,
+  findVisibleDialogHero,
   getCompensatedRadius,
   getCornerRadius,
   getIntrinsicMediaAspectRatio,
@@ -199,7 +200,7 @@ export function PostDialog({
     const backdrop = root.querySelector<HTMLElement>("[data-post-dialog-backdrop]");
     const gallery = root.querySelector<HTMLElement>("[data-post-dialog-gallery]");
     const sidebar = root.querySelector<HTMLElement>("[data-post-dialog-sidebar]");
-    const hero = root.querySelector<HTMLElement>("[data-post-dialog-hero]");
+    const hero = findVisibleDialogHero(root);
     const postId = root.querySelector<HTMLElement>("[data-post-dialog-post-id]")
       ?.dataset.postDialogPostId;
     const source = resolveFeedTransitionTarget(findFeedPost(postId));
@@ -386,7 +387,7 @@ export function PostDialog({
         const sidebar = root.querySelector<HTMLElement>(
           "[data-post-dialog-sidebar]",
         );
-        const hero = root.querySelector<HTMLElement>("[data-post-dialog-hero]");
+        const hero = findVisibleDialogHero(root);
         const postId = root.querySelector<HTMLElement>(
           "[data-post-dialog-post-id]",
         )?.dataset.postDialogPostId;

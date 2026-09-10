@@ -279,11 +279,15 @@ export const websiteMedia = pgTable(
       .references(() => websites.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     url: text("url").notNull(),
+    posterUrl: text("poster_url"),
     storageProvider: text("storage_provider"),
     storageKey: text("storage_key"),
     mimeType: text("mime_type"),
     sourceMimeType: text("source_mime_type"),
     sizeBytes: integer("size_bytes"),
+    variants: jsonb("variants").$type<ImageVariant[]>().default([]).notNull(),
+    videoPreview: jsonb("video_preview").$type<VideoPreview>(),
+    posterStorageKey: text("poster_storage_key"),
     alt: text("alt").default("").notNull(),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
@@ -293,12 +297,19 @@ export const websiteMedia = pgTable(
   },
   (table) => [
     uniqueIndex("website_media_website_role_unique").on(table.websiteId, table.role),
-    check("website_media_role_valid", sql`${table.role} in ('full_page', 'favicon')`),
+    check(
+      "website_media_role_valid",
+      sql`${table.role} in ('full_page', 'recording', 'favicon')`,
+    ),
     check(
       "website_media_storage_consistent",
       sql`(${table.storageProvider} is null and ${table.storageKey} is null) or (${table.storageProvider} = 'r2' and length(trim(${table.storageKey})) > 0)`,
     ),
     check("website_media_size_valid", sql`${table.sizeBytes} is null or ${table.sizeBytes} > 0`),
+    check(
+      "website_media_poster_storage_consistent",
+      sql`${table.posterStorageKey} is null or (${table.storageProvider} = 'r2' and ${table.posterUrl} is not null and length(trim(${table.posterStorageKey})) > 0)`,
+    ),
     check("website_media_dimensions_valid", sql`${table.width} > 0 and ${table.height} > 0`),
   ],
 );
@@ -311,9 +322,22 @@ export const websiteSections = pgTable(
       .notNull()
       .references(() => websites.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
-    top: integer("top").notNull(),
-    height: integer("height").notNull(),
+    top: integer("top"),
+    height: integer("height"),
     position: integer("position").notNull(),
+    imageUrl: text("image_url"),
+    imageStorageProvider: text("image_storage_provider"),
+    imageStorageKey: text("image_storage_key"),
+    imageMimeType: text("image_mime_type"),
+    imageSourceMimeType: text("image_source_mime_type"),
+    imageSizeBytes: integer("image_size_bytes"),
+    imageVariants: jsonb("image_variants")
+      .$type<ImageVariant[]>()
+      .default([])
+      .notNull(),
+    imageAlt: text("image_alt").default("").notNull(),
+    imageWidth: integer("image_width"),
+    imageHeight: integer("image_height"),
     ...timestamps,
   },
   (table) => [
@@ -322,7 +346,22 @@ export const websiteSections = pgTable(
       table.position,
     ),
     check("website_sections_label_not_blank", sql`length(trim(${table.label})) > 0`),
-    check("website_sections_crop_valid", sql`${table.top} >= 0 and ${table.height} > 0`),
+    check(
+      "website_sections_crop_valid",
+      sql`(${table.top} is null and ${table.height} is null) or (${table.top} >= 0 and ${table.height} > 0)`,
+    ),
+    check(
+      "website_sections_image_storage_consistent",
+      sql`(${table.imageStorageProvider} is null and ${table.imageStorageKey} is null) or (${table.imageStorageProvider} = 'r2' and length(trim(${table.imageStorageKey})) > 0)`,
+    ),
+    check(
+      "website_sections_image_size_valid",
+      sql`${table.imageSizeBytes} is null or ${table.imageSizeBytes} > 0`,
+    ),
+    check(
+      "website_sections_image_dimensions_valid",
+      sql`(${table.imageWidth} is null and ${table.imageHeight} is null) or (${table.imageWidth} > 0 and ${table.imageHeight} > 0)`,
+    ),
     check("website_sections_position_valid", sql`${table.position} >= 0`),
   ],
 );

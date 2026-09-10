@@ -60,11 +60,11 @@ describe("database schema", () => {
     expect(websitesConfig.foreignKeys).toHaveLength(1);
     expect(websiteMediaConfig.name).toBe("website_media");
     expect(websiteMediaConfig.indexes).toHaveLength(1);
-    expect(websiteMediaConfig.checks).toHaveLength(4);
+    expect(websiteMediaConfig.checks).toHaveLength(5);
     expect(websiteMediaConfig.foreignKeys).toHaveLength(1);
     expect(websiteSectionsConfig.name).toBe("website_sections");
     expect(websiteSectionsConfig.indexes).toHaveLength(1);
-    expect(websiteSectionsConfig.checks).toHaveLength(3);
+    expect(websiteSectionsConfig.checks).toHaveLength(6);
     expect(websiteSectionsConfig.foreignKeys).toHaveLength(1);
   });
 

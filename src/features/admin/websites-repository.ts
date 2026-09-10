@@ -14,10 +14,13 @@ import { isWebsiteMediaRole } from "@/domain/website";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
 import { mapAdminCreator, resolveCreatorMutation } from "./posts-repository";
+import {
+  collectWebsiteManagedAssets,
+  getRetainedWebsiteStorageKeys,
+} from "./website-media-ownership";
 import type {
   AdminWebsiteInput,
   AdminWebsiteRecord,
-  ManagedMediaAsset,
 } from "./types";
 
 type WebsiteRow = typeof websites.$inferSelect;
@@ -35,7 +38,21 @@ function mapAdminWebsite(
     media: WebsiteMediaRow[];
     sections: WebsiteSectionRow[];
   },
-): AdminWebsiteRecord {
+): AdminWebsiteRecord | null {
+  const supportedMedia = row.media.filter((media) => isWebsiteMediaRole(media.role));
+  const hasCompleteSections = row.sections.every(
+    (section) =>
+      section.imageUrl && section.imageWidth && section.imageHeight,
+  );
+  if (
+    supportedMedia.length !== 2 ||
+    !supportedMedia.some((media) => media.role === "recording") ||
+    !supportedMedia.some((media) => media.role === "favicon") ||
+    !hasCompleteSections
+  ) {
+    return null;
+  }
+
   return {
     id: row.id,
     slug: row.slug,
@@ -53,27 +70,39 @@ function mapAdminWebsite(
     archivedAt: row.archivedAt?.toISOString(),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    media: row.media.map((media) => {
-      if (!isWebsiteMediaRole(media.role)) throw new Error(`Unsupported media role: ${media.role}`);
-      return {
-        role: media.role,
-        url: media.url,
-        storageProvider: isStorageProvider(media.storageProvider)
-          ? (media.storageProvider as AdminWebsiteRecord["media"][number]["storageProvider"])
-          : undefined,
-        storageKey: media.storageKey ?? undefined,
-        mimeType: media.mimeType ?? undefined,
-        sourceMimeType: media.sourceMimeType ?? undefined,
-        sizeBytes: media.sizeBytes ?? undefined,
-        alt: media.alt,
-        width: media.width,
-        height: media.height,
-      };
-    }),
+    media: supportedMedia.map((media) => ({
+      role: media.role as AdminWebsiteRecord["media"][number]["role"],
+      url: media.url,
+      posterUrl: media.posterUrl ?? undefined,
+      storageProvider: isStorageProvider(media.storageProvider)
+        ? (media.storageProvider as AdminWebsiteRecord["media"][number]["storageProvider"])
+        : undefined,
+      storageKey: media.storageKey ?? undefined,
+      mimeType: media.mimeType ?? undefined,
+      sourceMimeType: media.sourceMimeType ?? undefined,
+      sizeBytes: media.sizeBytes ?? undefined,
+      variants: media.variants,
+      videoPreview: media.videoPreview ?? undefined,
+      posterStorageKey: media.posterStorageKey ?? undefined,
+      alt: media.alt,
+      width: media.width,
+      height: media.height,
+    })),
     sections: row.sections.map((section) => ({
+      id: section.id,
       label: section.label,
-      top: section.top,
-      height: section.height,
+      alt: section.imageAlt,
+      url: section.imageUrl!,
+      storageProvider: isStorageProvider(section.imageStorageProvider)
+        ? (section.imageStorageProvider as AdminWebsiteRecord["sections"][number]["storageProvider"])
+        : undefined,
+      storageKey: section.imageStorageKey ?? undefined,
+      mimeType: section.imageMimeType ?? undefined,
+      sourceMimeType: section.imageSourceMimeType ?? undefined,
+      sizeBytes: section.imageSizeBytes ?? undefined,
+      variants: section.imageVariants,
+      width: section.imageWidth!,
+      height: section.imageHeight!,
       position: section.position,
     })),
   };
@@ -100,11 +129,15 @@ function mediaValues(websiteId: string, input: AdminWebsiteInput) {
     websiteId,
     role: media.role,
     url: media.url,
+    posterUrl: media.posterUrl,
     storageProvider: media.storageProvider,
     storageKey: media.storageKey,
     mimeType: media.mimeType,
     sourceMimeType: media.sourceMimeType,
     sizeBytes: media.sizeBytes,
+    variants: media.variants ?? [],
+    videoPreview: media.videoPreview,
+    posterStorageKey: media.posterStorageKey,
     alt: media.alt,
     width: media.width,
     height: media.height,
@@ -112,19 +145,22 @@ function mediaValues(websiteId: string, input: AdminWebsiteInput) {
 }
 
 function sectionValues(websiteId: string, input: AdminWebsiteInput) {
-  return input.sections.map((section) => ({ websiteId, ...section }));
-}
-
-function managedAssets(media: WebsiteMediaRow[]): ManagedMediaAsset[] {
-  return media.flatMap((item) =>
-    isStorageProvider(item.storageProvider) && item.storageKey
-      ? [{
-          storageProvider: item.storageProvider as ManagedMediaAsset["storageProvider"],
-          storageKey: item.storageKey,
-          type: "image" as const,
-        }]
-      : [],
-  );
+  return input.sections.map((section) => ({
+    id: section.id,
+    websiteId,
+    label: section.label,
+    position: section.position,
+    imageUrl: section.url,
+    imageStorageProvider: section.storageProvider,
+    imageStorageKey: section.storageKey,
+    imageMimeType: section.mimeType,
+    imageSourceMimeType: section.sourceMimeType,
+    imageSizeBytes: section.sizeBytes,
+    imageVariants: section.variants ?? [],
+    imageAlt: section.alt,
+    imageWidth: section.width,
+    imageHeight: section.height,
+  }));
 }
 
 function websiteRelations() {
@@ -141,7 +177,7 @@ export async function getAdminWebsites() {
     orderBy: [desc(websites.createdAt), desc(websites.id)],
     with: websiteRelations(),
   });
-  return rows.map(mapAdminWebsite);
+  return rows.map(mapAdminWebsite).filter((website): website is AdminWebsiteRecord => Boolean(website));
 }
 
 export async function getAdminWebsiteById(id: string) {
@@ -191,15 +227,15 @@ export async function updateAdminWebsite(
   const database = requireDatabase();
   const existing = await database.query.websites.findFirst({
     where: eq(websites.id, id),
-    with: { creator: true, media: true },
+    with: { creator: true, media: true, sections: true },
   });
   if (!existing) throw new Error("Website not found.");
 
   const now = new Date();
   const creator = await resolveCreatorMutation(database, input.creator);
   const publishedAt = input.status === "published" ? (existing.publishedAt ?? now) : null;
-  const retainedKeys = new Set(input.media.map((media) => media.storageKey).filter(Boolean));
-  const removedManagedMedia = managedAssets(existing.media).filter(
+  const retainedKeys = getRetainedWebsiteStorageKeys(input);
+  const removedManagedMedia = collectWebsiteManagedAssets(existing.media, existing.sections).filter(
     (asset) => !retainedKeys.has(asset.storageKey),
   );
 
@@ -300,11 +336,11 @@ export async function deleteArchivedWebsite(id: string, actorId: string) {
   const database = requireDatabase();
   const existing = await database.query.websites.findFirst({
     where: and(eq(websites.id, id), eq(websites.status, "archived")),
-    with: { media: true },
+    with: { media: true, sections: true },
   });
   if (!existing) throw new Error("Archive the website before deleting it permanently.");
 
-  const removedManagedMedia = managedAssets(existing.media);
+  const removedManagedMedia = collectWebsiteManagedAssets(existing.media, existing.sections);
   await database.batch([
     database.delete(websites).where(and(eq(websites.id, id), eq(websites.status, "archived"))),
     database.insert(adminAuditLogs).values({

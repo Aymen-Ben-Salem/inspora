@@ -10,7 +10,10 @@ export type OptimizedImage = {
 };
 
 export function getOptimizedImageWidths(sourceWidth: number, kind: MediaUploadKind) {
-  const isSmallAsset = kind === "creator-avatar" || kind === "sponsor-icon";
+  const isSmallAsset =
+    kind === "creator-avatar" ||
+    kind === "sponsor-icon" ||
+    kind === "website-favicon";
   const maximumWidth = isSmallAsset ? 256 : 2560;
   const outputWidth = Math.min(sourceWidth, maximumWidth);
   if (isSmallAsset) return [outputWidth];

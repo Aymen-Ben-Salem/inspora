@@ -20,7 +20,10 @@ const UPLOAD_EXPIRES_SECONDS = 10 * 60;
 const PREFIXES: Record<MediaUploadKind, string> = {
   "post-media": "posts",
   "logo-media": "logos",
-  "website-media": "websites",
+  "website-recording": "websites",
+  "website-poster": "websites",
+  "website-section": "websites",
+  "website-favicon": "websites",
   "creator-avatar": "creators",
   "sponsor-media": "sponsors",
   "sponsor-icon": "sponsors",
@@ -158,6 +161,21 @@ export async function verifyR2Upload(input: {
     await deleteR2StorageKeys([input.storageKey]);
     throw new Error("The uploaded object did not match the signed file.");
   }
+}
+
+export async function createR2PresignedDownload(input: {
+  storageKey: string;
+  fileName: string;
+  contentType?: string | null;
+}) {
+  const configuration = requireConfiguration();
+  const command = new GetObjectCommand({
+    Bucket: configuration.bucket,
+    Key: input.storageKey,
+    ResponseContentDisposition: `attachment; filename="${input.fileName}"`,
+    ResponseContentType: input.contentType ?? undefined,
+  });
+  return getSignedUrl(createClient(configuration), command, { expiresIn: 5 * 60 });
 }
 
 export async function getR2MediaAsset(storageKey: string) {

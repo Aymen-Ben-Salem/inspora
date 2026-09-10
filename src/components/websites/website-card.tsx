@@ -1,12 +1,14 @@
 import type { Website } from "@/domain/website";
-import { getWebsiteTransitionHero } from "@/lib/website-media-actions";
 
-import { WebsiteCropImage } from "./website-crop-image";
+import { LoopingVideo } from "../looping-video";
 
-export function WebsiteCard({ website, onSelect }: { website: Website; onSelect: (website: Website) => void }) {
-  const feedHero = getWebsiteTransitionHero(website);
-  if (!feedHero) return null;
-
+export function WebsiteCard({
+  website,
+  onSelect,
+}: {
+  website: Website;
+  onSelect: (website: Website) => void;
+}) {
   return (
     <article data-feed-card>
       <button
@@ -19,7 +21,18 @@ export function WebsiteCard({ website, onSelect }: { website: Website; onSelect:
         onClick={() => onSelect(website)}
         className="focus-ring group block w-full text-left"
       >
-        <WebsiteCropImage website={website} section={feedHero} transitionMedia className="w-full" />
+        <div
+          data-feed-transition-target
+          className="aspect-video w-full overflow-hidden bg-[#ececea]"
+        >
+          <LoopingVideo
+            src={website.recording.videoPreview.url}
+            poster={website.recording.posterUrl}
+            aria-label={website.recording.alt}
+            suspendWithFeed
+            className="size-full object-contain"
+          />
+        </div>
         <div className="mt-5 flex items-start gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={website.favicon.url} alt="" aria-hidden="true" width={39} height={39} className="size-[39px] shrink-0 object-contain" />

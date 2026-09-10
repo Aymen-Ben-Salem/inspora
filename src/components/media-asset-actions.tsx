@@ -51,6 +51,7 @@ function triggerDownload(url: string, fileName?: string) {
 export function MediaAssetActions({
   assetKey,
   assetUrl,
+  copyText,
   copyLabel,
   downloadFileName,
   downloadLabel = "Download",
@@ -58,6 +59,7 @@ export function MediaAssetActions({
 }: {
   assetKey: string;
   assetUrl?: string;
+  copyText?: string;
   copyLabel: string;
   downloadFileName?: string;
   downloadLabel?: string;
@@ -69,13 +71,19 @@ export function MediaAssetActions({
   }>();
   const copyState =
     copyStatus?.assetKey === assetKey ? copyStatus.state : "idle";
-  const disabled = !assetUrl;
+  const copyDisabled = !assetUrl && !copyText;
+  const downloadDisabled = !assetUrl;
 
   async function copyAsset() {
-    if (!assetUrl) return;
+    if (!assetUrl && !copyText) return;
 
     try {
-      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+      if (copyText) {
+        await navigator.clipboard.writeText(copyText);
+        setCopyStatus({ assetKey, state: "copied" });
+        return;
+      }
+      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined" || !assetUrl) {
         throw new Error("Image clipboard is unavailable.");
       }
       const png = fetchAsset(assetUrl)
@@ -115,7 +123,7 @@ export function MediaAssetActions({
     <div className="grid grid-cols-2 gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
       <button
         type="button"
-        disabled={disabled}
+        disabled={copyDisabled}
         onClick={() => void copyAsset()}
         className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 ${disabledClassName}`}
       >
@@ -135,7 +143,7 @@ export function MediaAssetActions({
       </button>
       <button
         type="button"
-        disabled={disabled}
+        disabled={downloadDisabled}
         onClick={() => void downloadAsset()}
         className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 ${disabledClassName}`}
       >

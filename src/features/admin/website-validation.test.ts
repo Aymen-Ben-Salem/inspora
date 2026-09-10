@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parseAdminWebsiteForm } from "./website-validation";
 
 const previousR2BaseUrl = process.env.R2_PUBLIC_BASE_URL;
+const base = "https://media.example.com/websites";
 
 function validWebsiteForm() {
   const formData = new FormData();
@@ -22,20 +23,31 @@ function validWebsiteForm() {
   formData.set("status", "published");
   formData.set("media", JSON.stringify([
     {
-      role: "full_page",
-      url: "https://media.example.com/websites/paper.webp",
+      role: "recording",
+      url: `${base}/paper.webm`,
+      posterUrl: `${base}/paper-poster.webp`,
       storageProvider: "r2",
-      storageKey: "websites/00000000-0000-4000-8000-000000000000.webp",
-      mimeType: "image/webp",
-      alt: "Paper website",
-      width: 1440,
-      height: 9000,
+      storageKey: "websites/00000000-0000-4000-8000-000000000000.webm",
+      mimeType: "video/webm",
+      sizeBytes: 20_000_000,
+      videoPreview: {
+        url: `${base}/paper-preview.mp4`,
+        storageKey: "websites/00000000-0000-4000-8000-000000000001.mp4",
+        width: 1080,
+        height: 1920,
+        bytes: 10_000_000,
+        format: "mp4",
+      },
+      posterStorageKey: "websites/00000000-0000-4000-8000-000000000002.webp",
+      alt: "Paper website recording",
+      width: 1080,
+      height: 1920,
     },
     {
       role: "favicon",
-      url: "https://media.example.com/websites/paper-icon.webp",
+      url: `${base}/paper-icon.webp`,
       storageProvider: "r2",
-      storageKey: "websites/00000000-0000-4000-8000-000000000001.webp",
+      storageKey: "websites/00000000-0000-4000-8000-000000000003.webp",
       mimeType: "image/webp",
       alt: "Paper icon",
       width: 64,
@@ -43,8 +55,27 @@ function validWebsiteForm() {
     },
   ]));
   formData.set("sections", JSON.stringify([
-    { label: "Hero", top: 0, height: 900, position: 0 },
-    { label: "Features", top: 900, height: 1200, position: 1 },
+    {
+      id: "00000000-0000-4000-8000-000000000010",
+      label: "Hero",
+      alt: "Paper hero",
+      url: `${base}/paper-hero.webp`,
+      storageProvider: "r2",
+      storageKey: "websites/00000000-0000-4000-8000-000000000010.webp",
+      mimeType: "image/webp",
+      sizeBytes: 2_000_000,
+      variants: [{
+        url: `${base}/paper-hero-small.webp`,
+        storageKey: "websites/00000000-0000-4000-8000-000000000011.webp",
+        width: 720,
+        height: 450,
+        bytes: 500_000,
+        format: "webp",
+      }],
+      width: 1440,
+      height: 900,
+      position: 0,
+    },
   ]));
   return formData;
 }
@@ -55,26 +86,36 @@ afterEach(() => {
 });
 
 describe("admin website validation", () => {
-  it("parses one screenshot into ordered crop regions", () => {
+  it("parses recording metadata and independent section ownership", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const website = parseAdminWebsiteForm(validWebsiteForm());
 
-    expect(website.media.map((media) => media.role)).toEqual(["full_page", "favicon"]);
-    expect(website.sections[0]).toEqual({
+    expect(website.media.map((media) => media.role)).toEqual(["recording", "favicon"]);
+    expect(website.media[0]?.videoPreview?.format).toBe("mp4");
+    expect(website.sections[0]).toMatchObject({
       label: "Hero",
-      top: 0,
-      height: 900,
+      url: `${base}/paper-hero.webp`,
       position: 0,
+      variants: [{ width: 720 }],
     });
   });
 
-  it("rejects a crop outside the full screenshot", () => {
+  it("rejects recordings without verified preview and poster ownership", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const formData = validWebsiteForm();
-    formData.set("sections", JSON.stringify([
-      { label: "Footer", top: 8500, height: 1000, position: 0 },
-    ]));
+    const media = JSON.parse(String(formData.get("media")));
+    delete media[0].videoPreview;
+    formData.set("media", JSON.stringify(media));
+    expect(() => parseAdminWebsiteForm(formData)).toThrow();
+  });
 
+  it("rejects oversized or non-image section uploads", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const formData = validWebsiteForm();
+    const sections = JSON.parse(String(formData.get("sections")));
+    sections[0].mimeType = "video/mp4";
+    sections[0].sizeBytes = 26 * 1024 * 1024;
+    formData.set("sections", JSON.stringify(sections));
     expect(() => parseAdminWebsiteForm(formData)).toThrow();
   });
 
@@ -82,7 +123,6 @@ describe("admin website validation", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const formData = validWebsiteForm();
     formData.set("isFeatured", "on");
-
     expect(parseAdminWebsiteForm(formData).isFeatured).toBe(true);
   });
 });

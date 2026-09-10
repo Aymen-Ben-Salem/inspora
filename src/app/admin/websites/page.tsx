@@ -75,13 +75,13 @@ export default async function AdminWebsitesPage({ searchParams }: AdminWebsitesP
       ) : (
         <section aria-label="Website library" className="grid gap-px overflow-hidden rounded-2xl border border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-3">
           {websites.map((website) => {
-            const fullPage = website.media.find((media) => media.role === "full_page");
+            const recording = website.media.find((media) => media.role === "recording");
             return (
               <article key={website.id} className="group relative flex min-w-0 flex-col bg-white">
                 <Link href={`/admin/websites/${website.id}/edit` as Route} className="focus-ring aspect-[1080/659] overflow-hidden bg-[#ececea]">
-                  {fullPage ? (
+                  {recording?.posterUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={fullPage.url} alt={fullPage.alt} className="size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.015]" />
+                    <img src={recording.posterUrl} alt={recording.alt} className="size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.015]" />
                   ) : null}
                 </Link>
                 <form action={setWebsiteFeaturedAction} className="absolute right-3 top-3 z-10">

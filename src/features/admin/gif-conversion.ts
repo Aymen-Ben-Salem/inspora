@@ -18,6 +18,24 @@ type ConversionStage =
 
 const CONVERSION_TIMEOUT_MS = 2 * 60 * 1000;
 let enginePromise: Promise<import("@ffmpeg/ffmpeg").FFmpeg> | undefined;
+let conversionQueue: Promise<void> = Promise.resolve();
+
+function runConversionExclusive<T>(
+  signal: AbortSignal,
+  operation: () => Promise<T>,
+) {
+  const run = conversionQueue.then(async () => {
+    if (signal.aborted) {
+      throw new DOMException("Media conversion was cancelled.", "AbortError");
+    }
+    return operation();
+  });
+  conversionQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
 
 async function loadEngine(
   configuration: ConverterConfiguration,
@@ -46,7 +64,7 @@ async function loadEngine(
   return enginePromise;
 }
 
-export async function convertGifToMp4({
+async function convertGifToMp4Unlocked({
   file,
   configuration,
   signal,
@@ -122,6 +140,11 @@ export async function convertGifToMp4({
   }
 }
 
+export function convertGifToMp4(
+  input: Parameters<typeof convertGifToMp4Unlocked>[0],
+) {
+  return runConversionExclusive(input.signal, () => convertGifToMp4Unlocked(input));
+}
 export function buildVideoPreviewFfmpegArgs(
   inputName: string,
   outputName: string,
@@ -148,7 +171,7 @@ export function buildVideoPreviewFfmpegArgs(
   ];
 }
 
-export async function createVideoPreview({
+async function createVideoPreviewUnlocked({
   file,
   configuration,
   signal,
@@ -205,4 +228,9 @@ export async function createVideoPreview({
       await ffmpeg.deleteFile(outputName);
     } catch {}
   }
+}
+export function createVideoPreview(
+  input: Parameters<typeof createVideoPreviewUnlocked>[0],
+) {
+  return runConversionExclusive(input.signal, () => createVideoPreviewUnlocked(input));
 }

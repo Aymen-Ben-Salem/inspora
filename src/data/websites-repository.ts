@@ -36,17 +36,22 @@ function isStorageProvider(value: string | null) {
 }
 
 function mapMedia(media: MediaRow): WebsiteMedia {
-  if (!isWebsiteMediaRole(media.role)) throw new Error(`Unsupported website media role: ${media.role}`);
+  if (!isWebsiteMediaRole(media.role)) {
+    throw new Error(`Unsupported website media role: ${media.role}`);
+  }
   return {
     id: media.id,
     role: media.role,
     url: media.url,
+    posterUrl: media.posterUrl ?? undefined,
     storageProvider: isStorageProvider(media.storageProvider)
       ? (media.storageProvider as WebsiteMedia["storageProvider"])
       : undefined,
     mimeType: media.mimeType ?? undefined,
     sourceMimeType: media.sourceMimeType ?? undefined,
     sizeBytes: media.sizeBytes ?? undefined,
+    variants: media.variants,
+    videoPreview: media.videoPreview ?? undefined,
     alt: media.alt,
     width: media.width,
     height: media.height,
@@ -55,10 +60,34 @@ function mapMedia(media: MediaRow): WebsiteMedia {
 
 export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
   const media = row.media.map(mapMedia);
-  const fullPage = media.find((item) => item.role === "full_page");
+  const recording = media.find((item) => item.role === "recording");
   const favicon = media.find((item) => item.role === "favicon");
-  if (!fullPage || !favicon) throw new Error(`Published website ${row.id} has incomplete media.`);
+  if (!recording?.posterUrl || !recording.videoPreview || !favicon) {
+    throw new Error(`Published website ${row.id} has incomplete recording media.`);
+  }
   if (!row.publishedAt) throw new Error(`Published website ${row.id} has no publish date.`);
+
+  const sections = row.sections.map((section) => {
+    if (!section.imageUrl || !section.imageWidth || !section.imageHeight) {
+      throw new Error(`Published website ${row.id} has incomplete section media.`);
+    }
+    return {
+      id: section.id,
+      label: section.label,
+      alt: section.imageAlt,
+      url: section.imageUrl,
+      storageProvider: isStorageProvider(section.imageStorageProvider)
+        ? (section.imageStorageProvider as Website["sections"][number]["storageProvider"])
+        : undefined,
+      mimeType: section.imageMimeType ?? undefined,
+      sourceMimeType: section.imageSourceMimeType ?? undefined,
+      sizeBytes: section.imageSizeBytes ?? undefined,
+      variants: section.imageVariants,
+      width: section.imageWidth,
+      height: section.imageHeight,
+      position: section.position,
+    };
+  });
 
   return {
     id: row.id,
@@ -83,16 +112,23 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
     isFeatured: row.isFeatured,
     createdAt: row.createdAt.toISOString(),
     publishedAt: row.publishedAt.toISOString(),
-    fullPage,
+    recording: { ...recording, posterUrl: recording.posterUrl, videoPreview: recording.videoPreview },
     favicon,
-    sections: row.sections.map((section) => ({
-      id: section.id,
-      label: section.label,
-      top: section.top,
-      height: section.height,
-      position: section.position,
-    })),
+    sections,
   };
+}
+
+function hasCompleteRecording(row: PublicWebsiteRecord) {
+  const recording = row.media.find((media) => media.role === "recording");
+  return Boolean(
+    recording?.posterUrl &&
+      recording.videoPreview &&
+      row.media.some((media) => media.role === "favicon") &&
+      row.sections.length > 0 &&
+      row.sections.every(
+        (section) => section.imageUrl && section.imageWidth && section.imageHeight,
+      ),
+  );
 }
 
 export async function getPublishedWebsites({
@@ -119,34 +155,73 @@ export async function getPublishedWebsites({
       sections: { orderBy: [asc(websiteSections.position)] },
     },
   });
-  return rows.map(mapPublishedWebsite);
+  return rows.filter(hasCompleteRecording).map(mapPublishedWebsite);
 }
 
-export async function getPublishedWebsiteAsset(id: string) {
+export async function getPublishedWebsiteAsset(
+  id: string,
+  sectionId?: string,
+) {
   const database = getDatabase();
   if (!database) return null;
   const row = await database.query.websites.findFirst({
     where: and(eq(websites.id, id), eq(websites.status, "published")),
     columns: { slug: true },
-    with: {
-      media: {
-        where: eq(websiteMedia.role, "full_page"),
-        columns: {
-          url: true,
-          storageProvider: true,
-          storageKey: true,
-          mimeType: true,
+    with: sectionId
+      ? {
+          sections: {
+            where: eq(websiteSections.id, sectionId),
+            columns: {
+              id: true,
+              label: true,
+              imageUrl: true,
+              imageStorageProvider: true,
+              imageStorageKey: true,
+              imageMimeType: true,
+            },
+          },
+        }
+      : {
+          media: {
+            where: eq(websiteMedia.role, "recording"),
+            columns: {
+              url: true,
+              storageProvider: true,
+              storageKey: true,
+              mimeType: true,
+              sourceMimeType: true,
+            },
+          },
         },
-      },
-    },
   });
-  const media = row?.media[0];
-  if (!row || !media) return null;
-  return {
-    slug: row.slug,
-    url: media.url,
-    storageProvider: media.storageProvider,
-    storageKey: media.storageKey,
-    mimeType: media.mimeType,
-  };
+  if (!row) return null;
+
+  if (sectionId && "sections" in row) {
+    const section = (row.sections as SectionRow[])[0];
+    if (!section?.imageUrl) return null;
+    return {
+      kind: "section" as const,
+      slug: row.slug,
+      label: section.label,
+      url: section.imageUrl,
+      storageProvider: section.imageStorageProvider,
+      storageKey: section.imageStorageKey,
+      mimeType: section.imageMimeType,
+    };
+  }
+
+  if ("media" in row) {
+    const recording = (row.media as MediaRow[])[0];
+    if (!recording) return null;
+    return {
+      kind: "recording" as const,
+      slug: row.slug,
+      url: recording.url,
+      storageProvider: recording.storageProvider,
+      storageKey: recording.storageKey,
+      mimeType: recording.mimeType ?? recording.sourceMimeType,
+    };
+  }
+
+  return null;
 }

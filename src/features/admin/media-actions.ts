@@ -27,7 +27,10 @@ const uploadRequestSchema = z.object({
   kind: z.enum([
     "post-media",
     "logo-media",
-    "website-media",
+    "website-recording",
+    "website-poster",
+    "website-section",
+    "website-favicon",
     "creator-avatar",
     "sponsor-media",
     "sponsor-icon",
@@ -55,8 +58,12 @@ export async function createMediaUploadSignatureAction(
           ? "Creator avatars must be images up to 10 MB."
           : parsed.success && parsed.data.kind === "logo-media"
             ? "Logo assets must be static images up to 10 MB."
-            : parsed.success && parsed.data.kind === "website-media"
-              ? "Website screenshots and favicons must be static images up to 25 MB."
+            : parsed.success && parsed.data.kind === "website-recording"
+              ? "Website recordings must be MP4 or WebM videos up to 50 MB."
+              : parsed.success && parsed.data.kind === "website-section"
+                ? "Website sections must be static images up to 25 MB."
+                : parsed.success && (parsed.data.kind === "website-favicon" || parsed.data.kind === "website-poster")
+                  ? "Website image assets must be supported static images up to 10 MB."
           : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
     };
   }
@@ -126,7 +133,10 @@ const discardSchema = z.object({
   kind: z.enum([
     "post-media",
     "logo-media",
-    "website-media",
+    "website-recording",
+    "website-poster",
+    "website-section",
+    "website-favicon",
     "creator-avatar",
     "sponsor-media",
     "sponsor-icon",

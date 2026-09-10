@@ -25,6 +25,7 @@ import { createVideoPoster } from "@/features/admin/video-processing";
 import { assertVideoPreviewDimensions } from "@/features/admin/video-preview-validation";
 
 type PreparedUpload = OptimizedImage & {
+  uploadKind: MediaUploadKind;
   role: "primary" | "variant" | "video-preview" | "poster";
 };
 
@@ -40,6 +41,29 @@ type UploadStatus =
   | "signing"
   | "uploading"
   | "verifying";
+
+function uploadError(kind: MediaUploadKind) {
+  if (kind === "creator-avatar") return "Creator avatars must be images up to 10 MB.";
+  if (kind === "logo-media") return "Logo assets must be static images up to 10 MB.";
+  if (kind === "website-recording") return "Website recordings must be MP4 or WebM videos up to 50 MB.";
+  if (kind === "website-section") return "Website sections must be static images up to 25 MB.";
+  if (kind === "website-favicon") return "Favicons must be supported static images up to 10 MB.";
+  return "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.";
+}
+
+function acceptedTypes(kind: MediaUploadKind) {
+  if (kind === "website-recording") return "video/mp4,video/webm";
+  if (
+    kind === "creator-avatar" ||
+    kind === "logo-media" ||
+    kind === "website-section" ||
+    kind === "website-favicon" ||
+    kind === "website-poster"
+  ) {
+    return "image/avif,image/jpeg,image/png,image/webp";
+  }
+  return "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm";
+}
 
 export function MediaUploadButton({
   kind = "post-media",
@@ -64,15 +88,9 @@ export function MediaUploadButton({
     if (
       !contentType ||
       !isAcceptedUploadForKind(kind, contentType) ||
-      file.size > getMediaUploadLimit(contentType)
+      file.size > getMediaUploadLimit(contentType, kind)
     ) {
-      setError(
-        kind === "creator-avatar"
-          ? "Creator avatars must be images up to 10 MB."
-          : kind === "logo-media"
-            ? "Logo assets must be static images up to 10 MB."
-          : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
-      );
+      setError(uploadError(kind));
       return;
     }
 
@@ -83,6 +101,7 @@ export function MediaUploadButton({
         const images = await optimizeStaticImage(file, kind);
         uploadItems = images.map((image, index) => ({
           ...image,
+          uploadKind: kind,
           role: index === images.length - 1 ? "primary" : "variant",
         }));
       } else if (contentType === "image/gif") {
@@ -107,14 +126,9 @@ export function MediaUploadButton({
         });
         const poster = await createVideoPoster(preview);
         uploadItems = [
-          { file: converted, ...originalDimensions, role: "primary" },
-          {
-            file: preview,
-            width: poster.videoWidth,
-            height: poster.videoHeight,
-            role: "video-preview",
-          },
-          { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
+          { file: converted, ...originalDimensions, uploadKind: kind, role: "primary" },
+          { file: preview, width: poster.videoWidth, height: poster.videoHeight, uploadKind: kind, role: "video-preview" },
+          { file: poster.file, width: poster.width, height: poster.height, uploadKind: kind, role: "poster" },
         ];
       } else if (contentType.startsWith("video/")) {
         const controller = new AbortController();
@@ -132,32 +146,31 @@ export function MediaUploadButton({
         });
         const poster = await createVideoPoster(preview);
         uploadItems = [
-          { file, ...originalDimensions, role: "primary" },
+          { file, ...originalDimensions, uploadKind: kind, role: "primary" },
+          { file: preview, width: poster.videoWidth, height: poster.videoHeight, uploadKind: kind, role: "video-preview" },
           {
-            file: preview,
-            width: poster.videoWidth,
-            height: poster.videoHeight,
-            role: "video-preview",
+            file: poster.file,
+            width: poster.width,
+            height: poster.height,
+            uploadKind: kind === "website-recording" ? "website-poster" : kind,
+            role: "poster",
           },
-          { file: poster.file, width: poster.width, height: poster.height, role: "poster" },
         ];
       } else {
         setStatus("analyzing");
-        uploadItems = [{ file, ...(await readMediaDimensions(file)), role: "primary" }];
+        uploadItems = [
+          { file, ...(await readMediaDimensions(file)), uploadKind: kind, role: "primary" },
+        ];
       }
 
-      const generatedPreview = uploadItems.find(
-        (item) => item.role === "video-preview",
-      );
-      if (generatedPreview) {
-        assertVideoPreviewDimensions(generatedPreview);
-      }
+      const generatedPreview = uploadItems.find((item) => item.role === "video-preview");
+      if (generatedPreview) assertVideoPreviewDimensions(generatedPreview);
 
       setStatus("signing");
       const signatures = await Promise.all(
         uploadItems.map((item) =>
           createMediaUploadSignatureAction({
-            kind,
+            kind: item.uploadKind,
             fileName: item.file.name,
             contentType: item.file.type,
             size: item.file.size,
@@ -192,7 +205,7 @@ export function MediaUploadButton({
         prepared.map((signature, index) => {
           const item = uploadItems[index];
           return completeMediaUploadAction({
-            kind,
+            kind: item?.uploadKind,
             fileName: file.name,
             contentType: item?.file.type,
             size: item?.file.size,
@@ -214,11 +227,8 @@ export function MediaUploadButton({
       if (!primary) throw new Error("The optimized upload returned no media.");
       const posterIndex = uploadItems.findIndex((item) => item.role === "poster");
       const poster = posterIndex >= 0 ? uploaded[posterIndex]?.media : undefined;
-      const videoPreviewIndex = uploadItems.findIndex(
-        (item) => item.role === "video-preview",
-      );
-      const videoPreviewMedia =
-        videoPreviewIndex >= 0 ? uploaded[videoPreviewIndex]?.media : undefined;
+      const videoPreviewIndex = uploadItems.findIndex((item) => item.role === "video-preview");
+      const videoPreviewMedia = videoPreviewIndex >= 0 ? uploaded[videoPreviewIndex]?.media : undefined;
 
       onUploaded({
         ...primary,
@@ -237,16 +247,16 @@ export function MediaUploadButton({
           : undefined,
         variants:
           isOptimizableStaticImage(contentType) &&
-          (kind === "post-media" || kind === "logo-media")
+          (kind === "post-media" || kind === "logo-media" || kind === "website-section")
             ? uploaded
                 .filter((_, index) => uploadItems[index]?.role === "variant")
                 .map(({ media }) => ({
-                url: media.url,
-                storageKey: media.storageKey!,
-                width: media.width,
-                height: media.height,
-                bytes: media.sizeBytes!,
-                format: "webp" as const,
+                  url: media.url,
+                  storageKey: media.storageKey!,
+                  width: media.width,
+                  height: media.height,
+                  bytes: media.sizeBytes!,
+                  format: "webp" as const,
                 }))
             : [],
       });
@@ -267,19 +277,11 @@ export function MediaUploadButton({
 
   return (
     <div className="grid justify-items-start gap-2">
-      <label
-        className={`focus-within:ring-2 focus-within:ring-black focus-within:ring-offset-2 inline-flex h-9 cursor-pointer items-center rounded-full border border-black/10 bg-white px-3 text-xs font-medium transition-colors hover:bg-[#efefec] ${isPending ? "pointer-events-none opacity-60" : ""}`}
-      >
+      <label className={`focus-within:ring-2 focus-within:ring-black focus-within:ring-offset-2 inline-flex h-9 cursor-pointer items-center rounded-full border border-black/10 bg-white px-3 text-xs font-medium transition-colors hover:bg-[#efefec] ${isPending ? "pointer-events-none opacity-60" : ""}`}>
         <input
           ref={inputRef}
           type="file"
-          accept={
-            kind === "creator-avatar" ||
-            kind === "logo-media" ||
-            kind === "website-media"
-              ? "image/avif,image/jpeg,image/png,image/webp"
-              : "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm"
-          }
+          accept={acceptedTypes(kind)}
           disabled={isPending}
           className="sr-only"
           onChange={(event) => {
@@ -297,17 +299,17 @@ export function MediaUploadButton({
                 ? "Analyzing video..."
                 : status === "optimizing-video"
                   ? "Optimizing video..."
-        : status === "optimizing"
-          ? "Optimizing..."
-          : status === "analyzing"
-          ? "Analyzing..."
-          : status === "signing"
-          ? "Preparing..."
-          : status === "uploading"
-            ? "Uploading..."
-            : status === "verifying"
-              ? "Verifying..."
-            : label}
+                  : status === "optimizing"
+                    ? "Optimizing..."
+                    : status === "analyzing"
+                      ? "Analyzing..."
+                      : status === "signing"
+                        ? "Preparing..."
+                        : status === "uploading"
+                          ? "Uploading..."
+                          : status === "verifying"
+                            ? "Verifying..."
+                            : label}
       </label>
       {status === "loading-converter" ||
       status === "analyzing-gif" ||
@@ -322,11 +324,7 @@ export function MediaUploadButton({
           Cancel conversion
         </button>
       ) : null}
-      {error ? (
-        <p role="alert" className="max-w-sm text-xs leading-relaxed text-red-700">
-          {error}
-        </p>
-      ) : null}
+      {error ? <p role="alert" className="max-w-sm text-xs leading-relaxed text-red-700">{error}</p> : null}
     </div>
   );
 }

@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 
 import type { Website } from "@/domain/website";
 import {
-  cropWebsiteSectionToPng,
   getDefaultWebsiteSectionId,
-  getWebsiteTransitionHero,
   getWebsiteSectionFileName,
   shouldClearWebsiteSectionSelection,
 } from "@/lib/website-media-actions";
@@ -20,6 +18,7 @@ import {
   DetailSidebarNavigation,
   detailOriginalLinkClassName,
 } from "../detail-sidebar-primitives";
+import { LoopingVideo } from "../looping-video";
 import { MediaAssetActions } from "../media-asset-actions";
 import {
   PostCloseButton,
@@ -44,8 +43,7 @@ export function WebsiteDetailDialog({
     sectionId?: string;
     websiteId: string;
   }>({ websiteId: website.id });
-  const hero = getWebsiteTransitionHero(website);
-  const selectedSectionId =
+   const selectedSectionId =
     view === "sections"
       ? sectionSelection.websiteId === website.id
         ? sectionSelection.sectionId
@@ -54,7 +52,14 @@ export function WebsiteDetailDialog({
   const selectedSection = website.sections.find(
     (section) => section.id === selectedSectionId,
   );
-  const assetUrl = `/api/websites/${encodeURIComponent(website.id)}/asset`;
+  const recordingAssetUrl = `/api/websites/${encodeURIComponent(website.id)}/asset`;
+  const sectionAssetUrl = selectedSection
+    ? `${recordingAssetUrl}?section=${encodeURIComponent(selectedSection.id)}`
+    : undefined;
+  const canonicalUrl =
+    typeof window === "undefined"
+      ? `/websites?website=${website.slug}`
+      : new URL(`/websites?website=${website.slug}`, window.location.origin).href;
 
   function changeView(nextView: "preview" | "sections") {
     setView(nextView);
@@ -135,48 +140,22 @@ export function WebsiteDetailDialog({
           </nav>
 
           {view === "preview" ? (
-            <div className="mx-auto w-full max-w-[1108px] px-4 pb-12 sm:px-8 lg:px-11">
+            <div className="flex min-h-[calc(68dvh-72px)] items-center justify-center px-4 pb-12 sm:px-8 lg:min-h-[calc(100dvh-88px)] lg:px-11">
               <div
-                className="relative w-full"
-                style={{
-                  aspectRatio: `${website.fullPage.width} / ${website.fullPage.height}`,
-                }}
+                data-detail-media
+                data-post-dialog-surface
+                data-post-dialog-hero
+                data-post-dialog-animated-media
+                data-post-dialog-max-viewport-height="79"
+                className="aspect-video w-full max-w-[1108px] overflow-hidden bg-[#ececea]"
               >
-                <div data-detail-media className="absolute inset-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={website.fullPage.url}
-                    alt={website.fullPage.alt}
-                    width={website.fullPage.width}
-                    height={website.fullPage.height}
-                    className="h-auto w-full max-w-none"
-                  />
-                </div>
-                <div
-                  data-detail-media
-                  className="pointer-events-none absolute inset-x-0 top-0"
-                >
-                  <div
-                    data-post-dialog-surface
-                    data-post-dialog-hero
-                    data-post-dialog-match-feed-aspect
-                    data-post-dialog-proxy-object-position="center top"
-                    className="overflow-hidden"
-                    style={{
-                      aspectRatio: `${website.fullPage.width} / ${hero?.height ?? Math.round(website.fullPage.width * 0.61)}`,
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={website.fullPage.url}
-                      alt=""
-                      aria-hidden="true"
-                      width={website.fullPage.width}
-                      height={website.fullPage.height}
-                      className="h-auto w-full max-w-none"
-                    />
-                  </div>
-                </div>
+                <LoopingVideo
+                  src={website.recording.url}
+                  poster={website.recording.posterUrl}
+                  aria-label={website.recording.alt}
+
+                  className="size-full object-contain"
+                />
               </div>
             </div>
           ) : (
@@ -298,26 +277,17 @@ export function WebsiteDetailDialog({
                   ? `${website.id}:preview`
                   : `${website.id}:section:${selectedSection?.id ?? "none"}`
               }
-              assetUrl={
-                view === "preview" || selectedSection ? assetUrl : undefined
-              }
-              copyLabel={view === "preview" ? "Copy website" : "Copy section"}
+              assetUrl={view === "preview" ? recordingAssetUrl : sectionAssetUrl}
+              copyText={view === "preview" ? canonicalUrl : undefined}
+              copyLabel={view === "preview" ? "Copy link" : "Copy section"}
+              downloadLabel={view === "preview" ? "Download video" : "Download section"}
               downloadFileName={
                 selectedSection
                   ? getWebsiteSectionFileName(
                       website.slug,
                       selectedSection.label,
+                      selectedSection.mimeType,
                     )
-                  : undefined
-              }
-              transformAsset={
-                view === "sections" && selectedSection
-                  ? (blob) =>
-                      cropWebsiteSectionToPng(
-                        blob,
-                        website.fullPage.height,
-                        selectedSection,
-                      )
                   : undefined
               }
             />

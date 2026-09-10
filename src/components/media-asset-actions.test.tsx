@@ -36,4 +36,16 @@ describe("MediaAssetActions", () => {
     expect(markup).toContain("Copy website");
     expect(markup).not.toContain('disabled=""');
   });
+  it("enables canonical-link copying without enabling download", () => {
+    const markup = renderToStaticMarkup(
+      <MediaAssetActions
+        assetKey="website:preview"
+        copyText="https://example.com/websites?website=paper"
+        copyLabel="Copy link"
+      />,
+    );
+
+    expect(markup).toContain("Copy link");
+    expect(markup.match(/disabled=""/g)).toHaveLength(1);
+  });
 });

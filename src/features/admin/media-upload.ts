@@ -19,7 +19,10 @@ export type AcceptedMediaMimeType = (typeof ACCEPTED_MEDIA_MIME_TYPES)[number];
 export type MediaUploadKind =
   | "post-media"
   | "logo-media"
-  | "website-media"
+  | "website-recording"
+  | "website-poster"
+  | "website-section"
+  | "website-favicon"
   | "creator-avatar"
   | "sponsor-media"
   | "sponsor-icon";
@@ -28,18 +31,17 @@ export function isAcceptedUploadForKind(
   kind: MediaUploadKind,
   contentType: AcceptedMediaMimeType,
 ) {
-  return (
-    kind === "post-media" ||
-    kind === "sponsor-media" ||
-    (contentType.startsWith("image/") && contentType !== "image/gif")
-  );
+  const staticImage = contentType.startsWith("image/") && contentType !== "image/gif";
+  if (kind === "post-media" || kind === "sponsor-media") return true;
+  if (kind === "website-recording") return contentType === "video/mp4" || contentType === "video/webm";
+  return staticImage;
 }
 
 export function getMediaUploadLimit(
   contentType: AcceptedMediaMimeType,
   kind?: MediaUploadKind,
 ) {
-  if (kind === "website-media" && contentType.startsWith("image/")) {
+  if (kind === "website-section" && contentType.startsWith("image/")) {
     return MAX_WEBSITE_IMAGE_UPLOAD_BYTES;
   }
   return contentType.startsWith("video/")

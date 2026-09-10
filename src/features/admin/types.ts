@@ -116,19 +116,32 @@ export type AdminLogoRecord = Omit<AdminLogoInput, "status" | "creator"> & {
 export type AdminWebsiteMediaInput = {
   role: WebsiteMediaRole;
   url: string;
+  posterUrl?: string;
   storageProvider?: MediaStorageProvider;
   storageKey?: string;
   mimeType?: string;
   sourceMimeType?: string;
   sizeBytes?: number;
+  variants?: ImageVariant[];
+  videoPreview?: VideoPreview;
+  posterStorageKey?: string;
   alt: string;
   width: number;
   height: number;
 };
 
 export type AdminWebsiteSectionInput = {
+  id: string;
   label: string;
-  top: number;
+  alt: string;
+  url: string;
+  storageProvider?: MediaStorageProvider;
+  storageKey?: string;
+  mimeType?: string;
+  sourceMimeType?: string;
+  sizeBytes?: number;
+  variants?: ImageVariant[];
+  width: number;
   height: number;
   position: number;
 };

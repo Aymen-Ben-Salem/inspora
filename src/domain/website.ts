@@ -1,9 +1,13 @@
-import type { MediaStorageProvider } from "@/storage/types";
+import type {
+  ImageVariant,
+  MediaStorageProvider,
+  VideoPreview,
+} from "@/storage/types";
 
 export const WEBSITE_STATUSES = ["draft", "published", "archived"] as const;
 export type WebsiteStatus = (typeof WEBSITE_STATUSES)[number];
 
-export const WEBSITE_MEDIA_ROLES = ["full_page", "favicon"] as const;
+export const WEBSITE_MEDIA_ROLES = ["recording", "favicon"] as const;
 export type WebsiteMediaRole = (typeof WEBSITE_MEDIA_ROLES)[number];
 
 export type WebsiteCreator = {
@@ -19,10 +23,13 @@ export type WebsiteMedia = {
   id: string;
   role: WebsiteMediaRole;
   url: string;
+  posterUrl?: string;
   storageProvider?: MediaStorageProvider;
   mimeType?: string;
   sourceMimeType?: string;
   sizeBytes?: number;
+  variants?: ImageVariant[];
+  videoPreview?: VideoPreview;
   alt: string;
   width: number;
   height: number;
@@ -31,7 +38,14 @@ export type WebsiteMedia = {
 export type WebsiteSection = {
   id: string;
   label: string;
-  top: number;
+  alt: string;
+  url: string;
+  storageProvider?: MediaStorageProvider;
+  mimeType?: string;
+  sourceMimeType?: string;
+  sizeBytes?: number;
+  variants: ImageVariant[];
+  width: number;
   height: number;
   position: number;
 };
@@ -50,7 +64,7 @@ export type Website = {
   isFeatured: boolean;
   createdAt: string;
   publishedAt: string;
-  fullPage: WebsiteMedia;
+  recording: WebsiteMedia & { posterUrl: string; videoPreview: VideoPreview };
   favicon: WebsiteMedia;
   sections: WebsiteSection[];
 };

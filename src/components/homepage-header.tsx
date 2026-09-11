@@ -188,7 +188,7 @@ export function HomepageHeader({
         <div className="archive-frame">
           <h1
             style={{ color: archiveMuted }}
-            className="mt-[var(--archive-header-gap)] max-w-[590px] text-[length:var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em]"
+            className="mt-[var(--archive-header-gap)] text-[length:var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em] md:whitespace-nowrap"
           >
             <ArchiveHeading page={page} />
           </h1>

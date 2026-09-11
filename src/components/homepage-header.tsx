@@ -13,14 +13,16 @@ import { SubscribeSheet } from "./subscribe-sheet";
 import { ViewFilter } from "./view-filter";
 
 type ArchivePage = "design" | "info" | "logos" | "websites";
+const archiveInk = "#262626";
+const archiveMuted = "rgba(38, 38, 38, 0.6)";
 
 function ArchiveHeading({ page }: { page: ArchivePage }) {
   void page;
   return (
     <>
-      A <span className="text-[#262626]">curated</span> archive of recent{" "}
-      <span className="text-[#262626]">visual design</span> inspiration and{" "}
-      <span className="text-[#262626]">creative work.</span>
+      A <span style={{ color: archiveInk }}>curated</span> archive of recent{" "}
+      <span style={{ color: archiveInk }}>visual design</span> inspiration and{" "}
+      <span style={{ color: archiveInk }}>creative work</span>.
     </>
   );
 }
@@ -87,13 +89,12 @@ export function HomepageHeader({
                 ] as const).map(([label, href, itemPage]) => (
                   <Link
                     key={href}
-                    href={href}
-                    aria-current={page === itemPage ? "page" : undefined}
-                    className={`focus-ring inline-flex h-[34px] items-center px-3 text-[var(--archive-copy-size)] font-medium leading-normal whitespace-nowrap transition-colors hover:text-[#262626] ${
-                      page === itemPage
-                        ? "text-[#262626]"
-                        : "text-[rgba(38,38,38,0.6)]"
-                    }`}
+                  href={href}
+                  aria-current={page === itemPage ? "page" : undefined}
+                    style={{
+                      color: page === itemPage ? archiveInk : archiveMuted,
+                    }}
+                    className="focus-ring inline-flex h-[34px] items-center px-3 text-[var(--archive-copy-size)] font-medium leading-normal whitespace-nowrap transition-colors hover:!text-[#262626]"
                   >
                     <span aria-hidden="true">{"\\ "}</span>
                     {label}
@@ -187,7 +188,10 @@ export function HomepageHeader({
 
       {showArchiveContent ? (
         <div className="archive-frame">
-          <h1 className="mt-[var(--archive-header-gap)] max-w-[590px] text-[var(--archive-copy-size)] font-normal leading-normal tracking-[-0.02em] text-[rgba(38,38,38,0.6)]">
+          <h1
+            style={{ color: archiveMuted }}
+            className="mt-[var(--archive-header-gap)] max-w-[590px] text-[var(--archive-copy-size)] font-normal leading-normal tracking-[-0.02em]"
+          >
             <ArchiveHeading page={page} />
           </h1>
 

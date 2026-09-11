@@ -39,10 +39,13 @@ export function ArchiveFilterMenu({
 
   return (
     <details name="archive-filter-menu" className="group relative shrink-0 open:z-40">
-      <summary className={`focus-ring flex h-[var(--archive-control-height)] min-w-[96px] cursor-pointer list-none items-center justify-center gap-2.5 border bg-white px-[var(--archive-control-x)] text-[var(--archive-control-size)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#e6e6e6] text-[#262626]" : "border-transparent text-[#585858]/80"}`}>
+      <summary
+        style={{ color: "#8a8a8a" }}
+        className={`focus-ring flex h-[var(--archive-control-height)] min-w-[96px] cursor-pointer list-none items-center justify-center gap-2.5 border bg-white px-[var(--archive-control-x)] text-[var(--archive-control-size)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#e6e6e6]" : "border-transparent"}`}
+      >
         {label}
         <Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden="true" width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0 transition-transform group-open:rotate-180" />
-        {selected.length > 0 ? <span className="flex min-w-[21px] items-center justify-center rounded-full bg-[#262626] px-1 py-0.5 text-[14px] leading-normal text-white">{selected.length}</span> : null}
+        {selected.length > 0 ? <span className="flex size-[21px] shrink-0 items-center justify-center rounded-full bg-[#262626] p-0 text-[13px] leading-none text-white">{selected.length}</span> : null}
       </summary>
       <div className={`logo-filter-menu absolute top-[calc(100%+6px)] z-50 flex max-w-[calc(100vw-2rem)] flex-col border border-[#e6e6e6] bg-white ${align === "right" ? "right-0" : "left-0"}`}>
         <label className="relative block w-full">

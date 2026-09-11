@@ -16,7 +16,7 @@ type ConversionStage =
   | "analyzing-video"
   | "optimizing-video";
 
-const CONVERSION_TIMEOUT_MS = 2 * 60 * 1000;
+const CONVERSION_TIMEOUT_MS = 5 * 60 * 1000;
 let enginePromise: Promise<import("@ffmpeg/ffmpeg").FFmpeg> | undefined;
 let conversionQueue: Promise<void> = Promise.resolve();
 
@@ -154,11 +154,11 @@ export function buildVideoPreviewFfmpegArgs(
     inputName,
     "-an",
     "-vf",
-    `scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1`,
+    `fps=30,scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1`,
     "-c:v",
     "libx264",
     "-preset",
-    "fast",
+    "veryfast",
     "-crf",
     "18",
     "-pix_fmt",

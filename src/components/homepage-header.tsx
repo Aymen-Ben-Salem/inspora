@@ -96,7 +96,7 @@ export function HomepageHeader({
                     }}
                     className="focus-ring inline-flex h-[34px] items-center px-3 text-[var(--archive-nav-size)] font-medium leading-normal whitespace-nowrap transition-colors hover:!text-[#262626]"
                   >
-                    <span aria-hidden="true">&#92;</span>
+                    <span aria-hidden="true">&#92;{" "}</span>
                     {label}
                   </Link>
                 ))}

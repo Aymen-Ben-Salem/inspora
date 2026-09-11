@@ -73,4 +73,26 @@ describe("admin logo validation", () => {
 
     expect(() => parseAdminLogoForm(formData)).toThrow();
   });
+
+  it("accepts legacy avatar URLs for read-only existing Preview creators", () => {
+    const previousDataEnvironment = process.env.DATA_ENVIRONMENT;
+    process.env.DATA_ENVIRONMENT = "preview";
+
+    try {
+      process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+      const formData = validLogoForm();
+      formData.set("creatorId", "f97161eb-a54b-4f47-b30a-72334c03405d");
+      formData.set(
+        "creatorAvatarUrl",
+        "https://legacy.example.com/creator-avatar.png",
+      );
+
+      expect(parseAdminLogoForm(formData).creator.id).toBe(
+        "f97161eb-a54b-4f47-b30a-72334c03405d",
+      );
+    } finally {
+      if (previousDataEnvironment === undefined) delete process.env.DATA_ENVIRONMENT;
+      else process.env.DATA_ENVIRONMENT = previousDataEnvironment;
+    }
+  });
 });

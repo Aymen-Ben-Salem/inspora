@@ -24,3 +24,22 @@ export function shouldLockExistingCreator(
 ) {
   return dataEnvironment === "preview" && Boolean(creatorId);
 }
+
+export function normalizeCreatorValidationInput(
+  input: unknown,
+  dataEnvironment: string | undefined,
+) {
+  if (typeof input !== "object" || input === null || !("id" in input)) {
+    return input;
+  }
+
+  const id = typeof input.id === "string" ? input.id : undefined;
+  if (!shouldLockExistingCreator(id, dataEnvironment)) return input;
+
+  return {
+    id,
+    name: "Existing creator",
+    url: "",
+    avatarUrl: "/brand/default-avatar.svg",
+  };
+}

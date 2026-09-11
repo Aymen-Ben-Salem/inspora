@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { POST_CATEGORIES } from "../../domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "../../storage/types";
+import { normalizeCreatorValidationInput } from "./creator-environment-policy";
 
 import type { AdminPostInput } from "./types";
 
@@ -46,7 +47,9 @@ const optionalAssetUrl = z
   .optional()
   .transform((value) => value || undefined);
 
-const creatorSchema = z
+const creatorSchema = z.preprocess(
+  (input) => normalizeCreatorValidationInput(input, process.env.DATA_ENVIRONMENT),
+  z
   .object({
     id: z.union([z.literal(""), z.uuid()]).transform((value) => value || undefined),
     name: z.string().trim().min(1).max(160),
@@ -60,7 +63,8 @@ const creatorSchema = z
     (creator) =>
       Boolean(creator.avatarStorageProvider) === Boolean(creator.avatarStorageKey),
     "Managed creator avatars must include their storage provider and key.",
-  );
+  ),
+);
 
 const mediaSchema = z
   .object({

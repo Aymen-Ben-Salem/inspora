@@ -203,6 +203,8 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 /* Scale from the 1705px archive frame, following the detail sidebar pattern. */
 .archive-frame {
   --archive-copy-size: clamp(14px, 0.938vw, 18px);
+  --archive-nav-size: clamp(15px, 1.173vw, 22px);
+  --archive-heading-size: clamp(16px, 1.173vw, 22px);
   --archive-control-size: clamp(13px, 0.938vw, 17px);
   --archive-header-pad-y: clamp(16px, 1.173vw, 24px);
   --archive-header-gap: clamp(10px, 0.704vw, 14px);

@@ -94,9 +94,9 @@ export function HomepageHeader({
                     style={{
                       color: page === itemPage ? archiveInk : archiveMuted,
                     }}
-                    className="focus-ring inline-flex h-[34px] items-center px-3 text-[var(--archive-copy-size)] font-medium leading-normal whitespace-nowrap transition-colors hover:!text-[#262626]"
+                    className="focus-ring inline-flex h-[34px] items-center px-3 text-[var(--archive-nav-size)] font-medium leading-normal whitespace-nowrap transition-colors hover:!text-[#262626]"
                   >
-                    <span aria-hidden="true">{"\\ "}</span>
+                    <span aria-hidden="true">&#92;</span>
                     {label}
                   </Link>
                 ))}
@@ -188,7 +188,7 @@ export function HomepageHeader({
         <div className="archive-frame">
           <h1
             style={{ color: archiveMuted }}
-            className="mt-[var(--archive-header-gap)] max-w-[590px] text-[var(--archive-copy-size)] font-normal leading-normal tracking-[-0.02em]"
+            className="mt-[var(--archive-header-gap)] max-w-[590px] text-[var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em]"
           >
             <ArchiveHeading page={page} />
           </h1>

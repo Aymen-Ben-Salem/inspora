@@ -38,6 +38,7 @@ export function LogoEditor({
   action,
   creators,
   logo,
+  lockExistingCreators = false,
 }: {
   action: (
     state: AdminActionState,
@@ -45,6 +46,7 @@ export function LogoEditor({
   ) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
   logo?: AdminLogoRecord;
+  lockExistingCreators?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     action,
@@ -230,6 +232,7 @@ export function LogoEditor({
           creator={creator}
           creators={creators}
           onChange={setCreator}
+          lockExistingCreators={lockExistingCreators}
         />
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">

@@ -11,7 +11,11 @@ export default async function NewPostPage() {
         <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Posts</p>
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New post</h1>
       </div>
-      <PostEditor action={createPostAction} creators={creators} />
+      <PostEditor
+        action={createPostAction}
+        creators={creators}
+        lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
+      />
     </div>
   );
 }

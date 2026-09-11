@@ -27,7 +27,12 @@ export default async function EditWebsitePage({ params, searchParams }: EditWebs
         </div>
         {saved ? <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">Changes saved.</p> : null}
       </div>
-      <WebsiteEditor action={updateWebsiteAction.bind(null, website.id)} website={website} creators={creators} />
+      <WebsiteEditor
+        action={updateWebsiteAction.bind(null, website.id)}
+        website={website}
+        creators={creators}
+        lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
+      />
     </div>
   );
 }

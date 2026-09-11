@@ -11,7 +11,11 @@ export default async function NewLogoPage() {
         <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Logos</p>
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New logo</h1>
       </div>
-      <LogoEditor action={createLogoAction} creators={creators} />
+      <LogoEditor
+        action={createLogoAction}
+        creators={creators}
+        lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
+      />
     </div>
   );
 }

@@ -73,10 +73,12 @@ export function PostEditor({
   action,
   creators,
   post,
+  lockExistingCreators = false,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
   post?: AdminPostRecord;
+  lockExistingCreators?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [media, setMedia] = useState<MediaDraft[]>(
@@ -85,6 +87,7 @@ export function PostEditor({
   const [creator, setCreator] = useState<AdminCreatorInput>(
     post?.creator ? creatorDraft(post.creator) : blankCreator(),
   );
+  const isExistingLocked = lockExistingCreators && Boolean(creator.id);
 
   function selectCreator(id: string) {
     if (id === "new") {
@@ -240,7 +243,9 @@ export function PostEditor({
               </h2>
             </div>
             <p className="max-w-sm text-xs leading-relaxed text-[#777] sm:text-right">
-              Changes to an existing creator update every post connected to them.
+              {isExistingLocked
+                ? "Existing creator profiles are read-only in Preview."
+                : "Changes to an existing creator update every post connected to them."}
             </p>
           </div>
 
@@ -282,6 +287,7 @@ export function PostEditor({
                   className={inputClass}
                   name="creatorName"
                   required
+                  readOnly={isExistingLocked}
                   value={creator.name}
                   onChange={(event) => updateCreator("name", event.target.value)}
                 />
@@ -292,6 +298,7 @@ export function PostEditor({
                   className={inputClass}
                   name="creatorHandle"
                   placeholder="@studio"
+                  readOnly={isExistingLocked}
                   value={creator.handle ?? ""}
                   onChange={(event) => updateCreator("handle", event.target.value)}
                 />
@@ -302,6 +309,7 @@ export function PostEditor({
                   className={inputClass}
                   name="creatorUrl"
                   type="url"
+                  readOnly={isExistingLocked}
                   value={creator.url ?? ""}
                   onChange={(event) => updateCreator("url", event.target.value)}
                 />
@@ -312,19 +320,26 @@ export function PostEditor({
                   className={inputClass}
                   name="creatorAvatarUrl"
                   required
+                  readOnly={isExistingLocked}
                   placeholder="/brand/default-avatar.svg"
                   value={creator.avatarUrl}
                   onChange={(event) => updateCreator("avatarUrl", event.target.value)}
                 />
               </label>
-              <div className="grid gap-2 sm:col-span-2">
-                <span className="text-sm font-medium text-[#333]">Or upload an avatar</span>
-                <MediaUploadButton
-                  kind="creator-avatar"
-                  label="Upload avatar"
-                  onUploaded={applyUploadedCreatorAvatar}
-                />
-              </div>
+              {isExistingLocked ? (
+                <p className="text-xs leading-relaxed text-[#777] sm:col-span-2">
+                  Choose &quot;Create a new creator&quot; to enter a different profile or upload a new avatar.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:col-span-2">
+                  <span className="text-sm font-medium text-[#333]">Or upload an avatar</span>
+                  <MediaUploadButton
+                    kind="creator-avatar"
+                    label="Upload avatar"
+                    onUploaded={applyUploadedCreatorAvatar}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </section>

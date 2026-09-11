@@ -36,6 +36,7 @@ export default async function EditLogoPage({ params, searchParams }: EditLogoPag
         action={updateLogoAction.bind(null, logo.id)}
         logo={logo}
         creators={creators}
+        lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
       />
     </div>
   );

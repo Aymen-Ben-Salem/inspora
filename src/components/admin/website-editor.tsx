@@ -67,10 +67,12 @@ export function WebsiteEditor({
   action,
   creators,
   website,
+  lockExistingCreators = false,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
   website?: AdminWebsiteRecord;
+  lockExistingCreators?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [creator, setCreator] = useState<AdminCreatorInput>(
@@ -193,7 +195,12 @@ export function WebsiteEditor({
           </div>
         </section>
 
-        <AdminCreatorEditor creator={creator} creators={creators} onChange={setCreator} />
+        <AdminCreatorEditor
+          creator={creator}
+          creators={creators}
+          onChange={setCreator}
+          lockExistingCreators={lockExistingCreators}
+        />
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div>

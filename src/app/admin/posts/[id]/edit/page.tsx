@@ -38,6 +38,7 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
         action={updatePostAction.bind(null, post.id)}
         post={post}
         creators={creators}
+        lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
       />
     </div>
   );

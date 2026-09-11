@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { AnalyticsPreferences } from "@/components/analytics-preferences";
-import { BrandMark } from "@/components/brand-mark";
-import { DesktopSiteNavigationItems } from "@/components/desktop-site-navigation-items";
+import { HomepageHeader } from "@/components/homepage-header";
 import { InfoPageNavigation } from "@/components/info-page-navigation";
 import { SITE_EMAIL } from "@/lib/seo";
 
@@ -40,31 +38,7 @@ const pageLinks = [
 export default function InfoPage() {
   return (
     <main aria-label="Info" className="min-h-[100dvh] bg-white text-[#262626]">
-      <header className="mx-auto flex w-full max-w-[1705px] items-center justify-between gap-6 px-4 pt-5 sm:px-5 sm:pt-6 xl:px-6 min-[1700px]:px-11 min-[1700px]:pt-7">
-        <div className="flex min-w-0 items-center gap-8">
-          <Link href="/" aria-label="Inspora home" className="focus-ring shrink-0">
-            <BrandMark responsive />
-          </Link>
-
-          <nav
-            aria-label="Primary navigation"
-            className="hidden items-center gap-5 sm:flex xl:gap-6"
-          >
-            <DesktopSiteNavigationItems
-              activeHref="/info"
-              contactHref="#contact"
-              highlightActive
-            />
-          </nav>
-        </div>
-
-        <Link
-          href="/"
-          className="focus-ring text-[13px] leading-none tracking-[0.2px] text-[#777] transition-colors hover:text-[#262626] sm:hidden"
-        >
-          Back to design
-        </Link>
-      </header>
+      <HomepageHeader page="info" showArchiveContent={false} />
 
       <div className="mx-auto w-full max-w-[1705px] px-4 pb-20 pt-16 sm:px-5 sm:pb-28 sm:pt-20 xl:px-6 xl:pb-36 xl:pt-24 min-[1700px]:px-11">
         <section aria-labelledby="info-title" className="max-w-[980px]">

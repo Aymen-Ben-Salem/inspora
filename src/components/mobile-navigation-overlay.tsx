@@ -26,7 +26,7 @@ export function MobileNavigationOverlay({
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
-  activeHref: "/" | "/websites" | "/logos";
+  activeHref: "/" | "/websites" | "/logos" | "/info";
 }) {
   return (
     <div
@@ -104,8 +104,11 @@ export function MobileNavigationOverlay({
             {infoItem ? (
               <Link
                 href={infoItem.href as Route}
+                aria-current={activeHref === "/info" ? "page" : undefined}
                 onClick={onClose}
-                className="focus-ring text-[#777] transition-colors hover:text-[#262626]"
+                className={`focus-ring transition-colors hover:text-[#262626] ${
+                  activeHref === "/info" ? "text-[#262626]" : "text-[#777]"
+                }`}
               >
                 <span className={menuItemTypography}>
                   {infoItem.label}

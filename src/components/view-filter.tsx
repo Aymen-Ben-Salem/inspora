@@ -98,7 +98,7 @@ export function ViewFilter({
         className={`focus-ring group inline-flex h-[var(--archive-control-height)] min-w-[96px] items-center justify-center gap-2.5 border px-[var(--archive-control-x)] text-[var(--archive-control-size)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] min-[1200px]:min-w-[111px] ${
           open
             ? "border-black/20 bg-white"
-            : "border-transparent bg-white hover:border-black/10 hover:bg-[#fafafa]"
+            : "border-transparent bg-white"
         } ${isPending ? "cursor-wait opacity-55" : ""}`}
       >
         <span>{currentLabel}</span>

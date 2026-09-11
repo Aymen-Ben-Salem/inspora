@@ -108,7 +108,7 @@ export function WebsiteArchive({
               <label className="relative block w-full shrink-0 lg:w-[var(--archive-search-width)]">
                 <span className="sr-only">Search websites</span>
                 <span className="pointer-events-none absolute left-[11px] top-1/2 size-5 -translate-y-1/2 text-[#777]"><ArchiveSearchIcon /></span>
-                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search websites, styles, industries..." className="ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-transparent bg-white py-2.5 pl-[41px] pr-3 text-[var(--archive-control-size)] text-[#505050] outline-none placeholder:text-[#8a8a8a] focus:border-black/10" />
+                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search websites, styles, industries..." className="archive-search-input ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-white py-2.5 pl-[41px] pr-3 text-[var(--archive-control-size)] text-[#505050] outline-none placeholder:text-[#8a8a8a]" />
               </label>
               <div className="flex min-w-0 flex-wrap gap-2 overflow-visible">
                 <ArchiveFilterMenu label="Category" options={options.categories} selected={selections.categories} onToggle={(value) => toggleFilter("categories", value)} />

@@ -48,7 +48,7 @@ export function ArchiveFilterMenu({
         <label className="relative block w-full">
           <span className="sr-only">Search {label.toLowerCase()} filters</span>
           <span className="logo-filter-search-icon pointer-events-none absolute top-1/2 -translate-y-1/2 text-[#777]"><ArchiveSearchIcon /></span>
-          <input type="search" value={menuQuery} onChange={(event) => setMenuQuery(event.target.value)} placeholder="Search....." className="logo-filter-menu-search ios-no-focus-zoom focus-ring w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 text-[#262626] outline-none placeholder:text-[#8a8a8a]" />
+          <input type="search" value={menuQuery} onChange={(event) => setMenuQuery(event.target.value)} placeholder="Search....." className="archive-search-input logo-filter-menu-search ios-no-focus-zoom focus-ring w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 text-[#262626] outline-none placeholder:text-[#8a8a8a]" />
         </label>
         <span aria-hidden="true" className="h-px w-full bg-[#e6e6e6]" />
         <div className="min-w-0">

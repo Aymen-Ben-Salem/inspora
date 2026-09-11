@@ -101,14 +101,14 @@ export function WebsiteArchive({
 
   return (
     <>
-      <main className="mx-auto w-full max-w-[1705px] px-4 pb-16 pt-9 sm:px-5 lg:pt-10 xl:px-6 min-[1700px]:px-11 min-[1700px]:pt-11">
+      <main className="archive-frame pb-16 pt-[var(--archive-description-gap)]">
         <section aria-label="Browse websites">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-10">
-              <label className="relative block w-full shrink-0 lg:w-[397px]">
+            <div className="archive-control-surface flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-[var(--archive-search-gap)]">
+              <label className="relative block w-full shrink-0 lg:w-[var(--archive-search-width)]">
                 <span className="sr-only">Search websites</span>
                 <span className="pointer-events-none absolute left-[11px] top-1/2 size-5 -translate-y-1/2 text-[#777]"><ArchiveSearchIcon /></span>
-                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search websites, styles, industries..." className="ios-no-focus-zoom focus-ring h-[43px] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[16px] text-[#505050] outline-none placeholder:text-[#8a8a8a]" />
+                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search websites, styles, industries..." className="ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-transparent bg-white py-2.5 pl-[41px] pr-3 text-[var(--archive-control-size)] text-[#505050] outline-none placeholder:text-[#8a8a8a] focus:border-black/10" />
               </label>
               <div className="flex min-w-0 flex-wrap gap-2 overflow-visible">
                 <ArchiveFilterMenu label="Category" options={options.categories} selected={selections.categories} onToggle={(value) => toggleFilter("categories", value)} />
@@ -122,7 +122,7 @@ export function WebsiteArchive({
           </div>
 
           {filtered.length > 0 ? (
-            <div className="mt-10">
+            <div className="mt-[var(--archive-feed-gap)]">
               <FeedMotion itemCount={filtered.length}>
                 <div className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-[35px] xl:gap-y-10">
                   {filtered.map((website) => <WebsiteCard key={website.id} website={website} onSelect={selectWebsite} />)}

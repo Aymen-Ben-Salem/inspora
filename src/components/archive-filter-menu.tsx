@@ -39,7 +39,7 @@ export function ArchiveFilterMenu({
 
   return (
     <details name="archive-filter-menu" className="group relative shrink-0 open:z-40">
-      <summary className={`focus-ring flex h-[41px] min-w-[120px] cursor-pointer list-none items-center justify-center gap-2.5 border px-4 text-[14px] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#262626] text-[#262626]" : "border-[#e6e6e6] text-[#7b7b7b]"}`}>
+      <summary className={`focus-ring flex h-[var(--archive-control-height)] min-w-[96px] cursor-pointer list-none items-center justify-center gap-2.5 border bg-white px-[var(--archive-control-x)] text-[var(--archive-control-size)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#e6e6e6] text-[#262626]" : "border-transparent text-[#585858]/80"}`}>
         {label}
         <Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden="true" width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0 transition-transform group-open:rotate-180" />
         {selected.length > 0 ? <span className="flex min-w-[21px] items-center justify-center rounded-full bg-[#262626] px-1 py-0.5 text-[14px] leading-normal text-white">{selected.length}</span> : null}

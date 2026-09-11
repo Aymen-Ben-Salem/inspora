@@ -8,8 +8,6 @@ import type { PostCategory, PostView } from "@/domain/post";
 import { BrandMark } from "./brand-mark";
 import { CategoryFilter } from "./category-filter";
 import { ContactSheet } from "./contact-sheet";
-import { DesktopSiteNavigationItems } from "./desktop-site-navigation-items";
-import { NewsletterForm } from "./newsletter-form";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SubscribeSheet } from "./subscribe-sheet";
 import { ViewFilter } from "./view-filter";
@@ -17,19 +15,8 @@ import { ViewFilter } from "./view-filter";
 type ArchivePage = "design" | "logos" | "websites";
 
 function ArchiveHeading({ page }: { page: ArchivePage }) {
-  return page === "logos" ? (
-    <>
-      A <span className="text-[#262626]">curated</span> archive of{" "}
-      <span className="text-[#262626]">logos and icons</span> for identity and{" "}
-      <span className="text-[#262626]">brand inspiration.</span>
-    </>
-  ) : page === "websites" ? (
-    <>
-      A <span className="text-[#262626]">curated</span> archive of{" "}
-      <span className="text-[#262626]">website design</span> for digital
-      products and <span className="text-[#262626]">creative inspiration.</span>
-    </>
-  ) : (
+  void page;
+  return (
     <>
       A <span className="text-[#262626]">curated</span> archive of recent{" "}
       <span className="text-[#262626]">visual design</span> inspiration and{" "}
@@ -76,9 +63,9 @@ export function HomepageHeader({
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-white">
-        <div className="mx-auto w-full max-w-[1705px] px-4 py-5 sm:px-5 sm:py-6 xl:px-6 min-[1700px]:px-11 min-[1700px]:py-7">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 lg:gap-x-8 min-[1500px]:gap-x-10">
-          <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-8">
+        <div className="archive-frame py-[var(--archive-header-pad-y)]">
+          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-center gap-[var(--archive-brand-gap)]">
             <Link
               href="/"
               aria-label="Inspora home"
@@ -89,24 +76,41 @@ export function HomepageHeader({
 
             <nav
               aria-label="Primary navigation"
-              className="hidden items-center gap-5 lg:flex xl:gap-6"
+              className="hidden items-center lg:flex"
             >
-              <DesktopSiteNavigationItems
-                activeHref={page === "logos" ? "/logos" : page === "websites" ? "/websites" : "/"}
-                onContact={() => setContactOpen(true)}
-              />
+              {([
+                ["Design", "/", "design"],
+                ["Websites", "/websites", "websites"],
+                ["Logos", "/logos", "logos"],
+              ] as const).map(([label, href, itemPage]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={page === itemPage ? "page" : undefined}
+                  className={`focus-ring inline-flex h-[34px] items-center px-3 text-[var(--archive-copy-size)] font-medium leading-normal whitespace-nowrap transition-colors hover:text-[#262626] ${
+                    page === itemPage ? "text-[#262626]" : "text-[#262626]/60"
+                  }`}
+                >
+                  <span aria-hidden="true">{"\\ "}</span>
+                  {label}
+                </Link>
+              ))}
             </nav>
           </div>
 
-              <p aria-hidden="true" className="col-start-2 row-start-1 hidden max-w-none whitespace-nowrap text-center text-[14px] font-normal leading-[1.15] tracking-[-0.025em] text-[#777] min-[1500px]:block min-[1700px]:text-[15px]">
-                <ArchiveHeading page={page} />
-              </p>
-
-          <div className="col-start-3 row-start-1 hidden w-[310px] justify-self-end lg:block xl:w-[489px]">
-            <NewsletterForm compact />
+          <div className="hidden items-center gap-4 text-[var(--archive-copy-size)] font-medium leading-normal text-[#262626]/60 lg:flex">
+            <Link href="/info" className="focus-ring transition-colors hover:text-[#262626]">
+              Info
+            </Link>
+            <button type="button" onClick={() => setContactOpen(true)} className="focus-ring transition-colors hover:text-[#262626]">
+              Contact
+            </button>
+            <button type="button" onClick={() => setSubscribeOpen(true)} className="focus-ring bg-[#262626] px-4 py-3 text-white transition-colors hover:bg-black">
+              Subscribe
+            </button>
           </div>
 
-          <div className="col-start-3 row-start-1 flex items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
             <button
               type="button"
               onClick={() => setSubscribeOpen(true)}
@@ -159,13 +163,13 @@ export function HomepageHeader({
       </div>
       </header>
 
-      <div className="mx-auto w-full max-w-[1705px] px-4 sm:px-5 xl:px-6 min-[1700px]:px-11">
-        <h1 className="mt-4 max-w-[540px] text-[23px] font-normal leading-[1.15] tracking-[-0.025em] text-[#777] min-[640px]:max-[1499px]:text-[25px] min-[1500px]:sr-only">
+      <div className="archive-frame">
+        <h1 className="mt-[var(--archive-header-gap)] max-w-[590px] text-[var(--archive-copy-size)] font-normal leading-normal tracking-[-0.02em] text-[#262626]/60">
           <ArchiveHeading page={page} />
         </h1>
 
         {page === "design" ? (
-          <div className="mt-8 flex min-w-0 items-center justify-between gap-3 lg:mt-9 min-[1500px]:mt-4">
+          <div className="mt-[var(--archive-description-gap)] flex min-w-0 items-center justify-between gap-3">
             <CategoryFilter current={category} view={view} />
             <ViewFilter category={category} view={view} />
           </div>

@@ -78,7 +78,7 @@ export function ViewFilter({
   }
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div ref={containerRef} className="archive-control-surface relative shrink-0">
       <button
         ref={triggerRef}
         type="button"
@@ -95,10 +95,10 @@ export function ViewFilter({
             if (!open) toggleMenu();
           }
         }}
-        className={`focus-ring group inline-flex h-10 min-w-[96px] items-center justify-center gap-1.5 border px-4 text-[13px] font-normal leading-none tracking-[0.2px] transition-[background,border-color,opacity] sm:h-[41px] lg:text-[14px] min-[1200px]:min-w-[111px] min-[1200px]:px-6 ${
+        className={`focus-ring group inline-flex h-[var(--archive-control-height)] min-w-[96px] items-center justify-center gap-2.5 border px-[var(--archive-control-x)] text-[var(--archive-control-size)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] min-[1200px]:min-w-[111px] ${
           open
             ? "border-black/20 bg-white"
-            : "border-black/15 bg-white hover:border-black/20 hover:bg-[#f5f5f5]"
+            : "border-transparent bg-white hover:border-black/10 hover:bg-[#fafafa]"
         } ${isPending ? "cursor-wait opacity-55" : ""}`}
       >
         <span>{currentLabel}</span>

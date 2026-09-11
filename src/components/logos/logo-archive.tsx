@@ -129,11 +129,11 @@ export function LogoArchive({
 
   return (
     <>
-      <main className="mx-auto w-full max-w-[1705px] px-4 pb-16 pt-9 sm:px-5 lg:pt-10 xl:px-6 min-[1700px]:px-11 min-[1700px]:pt-11">
+      <main className="archive-frame pb-16 pt-[var(--archive-description-gap)]">
         <section aria-label="Browse logos and icons">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-10">
-              <label className="relative block w-full shrink-0 lg:w-[397px]">
+            <div className="archive-control-surface flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-[var(--archive-search-gap)]">
+              <label className="relative block w-full shrink-0 lg:w-[var(--archive-search-width)]">
                 <span className="sr-only">Search logos and icons</span>
                 <span className="pointer-events-none absolute left-[11px] top-1/2 size-5 -translate-y-1/2 text-[#777]">
                   <ArchiveSearchIcon />
@@ -143,7 +143,7 @@ export function LogoArchive({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search logos, colors, styles..."
-                  className="ios-no-focus-zoom focus-ring h-[43px] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[16px] text-[#505050] outline-none placeholder:text-[#8a8a8a]"
+                  className="ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-transparent bg-white py-2.5 pl-[41px] pr-3 text-[var(--archive-control-size)] text-[#505050] outline-none placeholder:text-[#8a8a8a] focus:border-black/10"
                 />
               </label>
 
@@ -177,7 +177,7 @@ export function LogoArchive({
               </div>
             </div>
 
-            <div className="flex items-center self-end xl:self-auto">
+            <div className="archive-control-surface flex items-center self-end xl:self-auto">
               {(["logo", "icon"] as const).map((option) => {
                 const active = kind === option;
                 return (
@@ -186,10 +186,10 @@ export function LogoArchive({
                     type="button"
                     aria-pressed={active}
                     onClick={() => setKind(option)}
-                    className={`focus-ring h-[41px] min-w-[72px] border px-3 text-[16px] ${
+                    className={`focus-ring h-[var(--archive-control-height)] min-w-[72px] border px-[var(--archive-control-x)] text-[var(--archive-control-size)] ${
                       active
-                        ? "border-[#262626] bg-[#262626] text-white"
-                        : "border-[#e6e6e6] bg-white text-black/60"
+                        ? "border-transparent bg-white text-[#262626] shadow-[0_1px_1px_#e6e6e6]"
+                        : "border-transparent bg-transparent text-black/60 hover:bg-white/60"
                     }`}
                   >
                     {option === "logo" ? "Logos" : "Icons"}
@@ -200,7 +200,7 @@ export function LogoArchive({
           </div>
 
           {filtered.length > 0 ? (
-            <div className="mt-10">
+            <div className="mt-[var(--archive-feed-gap)]">
               {kind === "icon" ? (
                 <FeedMotion itemCount={filtered.length}>
                   <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 min-[1500px]:grid-cols-9 min-[1500px]:gap-7">

@@ -21,7 +21,7 @@ export function ArchiveView({
       <HomepageHeader category={category} view={view} />
       <section
         aria-label="Design inspiration"
-        className="mx-auto max-w-[1705px] px-4 pb-16 pt-7 sm:px-5 sm:pt-8 xl:px-6 2xl:px-8 min-[1700px]:px-11"
+        className="archive-frame pb-16 pt-[var(--archive-feed-gap)]"
       >
         <InfinitePostFeed
           key={`${view}:${category ?? "All"}`}

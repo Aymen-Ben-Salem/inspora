@@ -204,6 +204,32 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   outline-offset: 3px;
 }
 
+/* Scale from the 1705px archive frame, following the detail sidebar pattern. */
+.archive-frame {
+  --archive-copy-size: clamp(14px, 0.938vw, 18px);
+  --archive-control-size: clamp(13px, 0.938vw, 17px);
+  --archive-header-pad-y: clamp(16px, 1.173vw, 24px);
+  --archive-header-gap: clamp(24px, 1.877vw, 36px);
+  --archive-description-gap: clamp(14px, 0.938vw, 18px);
+  --archive-feed-gap: clamp(28px, 1.877vw, 36px);
+  --archive-brand-gap: clamp(24px, 2.346vw, 44px);
+  --archive-control-gap: clamp(6px, 0.469vw, 10px);
+  --archive-control-pad: clamp(6px, 0.469vw, 9px);
+  --archive-control-height: clamp(39px, 2.522vw, 46px);
+  --archive-control-x: clamp(14px, 1.056vw, 20px);
+  --archive-search-gap: clamp(14px, 1.408vw, 26px);
+  --archive-search-width: clamp(280px, 21.114vw, 380px);
+  width: 100%;
+  max-width: 1705px;
+  margin-inline: auto;
+  padding-inline: clamp(16px, 2.64vw, 45px);
+}
+
+.archive-control-surface {
+  padding: var(--archive-control-pad);
+  background: #f4f4f4;
+}
+
 .logo-filter-options {
   max-height: clamp(156px, 10.62vw, 181px);
   gap: clamp(12px, 0.94vw, 16px);

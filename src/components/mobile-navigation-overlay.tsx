@@ -42,14 +42,14 @@ export function MobileNavigationOverlay({
     >
       <nav
         aria-label="Mobile navigation"
-        className="mobile-nav-directory relative min-h-[100dvh] px-4 pb-[max(28px,env(safe-area-inset-bottom))] pt-[max(20px,env(safe-area-inset-top))] sm:px-5 sm:pt-[max(24px,env(safe-area-inset-top))]"
+        className="mobile-nav-directory relative min-h-[100dvh] px-4 pb-[max(28px,env(safe-area-inset-bottom))] pt-[max(16px,env(safe-area-inset-top))] sm:px-5"
       >
         <button
           type="button"
           autoFocus
           aria-label="Close navigation"
           onClick={onClose}
-          className="focus-ring absolute right-4 top-[max(20px,env(safe-area-inset-top))] flex size-10 items-center justify-center border border-black/15 text-[#262626] transition-colors hover:border-black/25 hover:text-[#777] sm:right-5 sm:top-[max(24px,env(safe-area-inset-top))]"
+          className="focus-ring absolute right-4 top-[max(16px,env(safe-area-inset-top))] flex size-10 items-center justify-center border border-black/15 text-[#262626] transition-colors hover:border-black/25 hover:text-[#777] sm:right-5"
         >
           <svg
             aria-hidden="true"

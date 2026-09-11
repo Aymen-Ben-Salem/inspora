@@ -125,9 +125,7 @@ export function HomepageHeader({
               <button
                 type="button"
                 onClick={() => setSubscribeOpen(true)}
-                className={`focus-ring inline-flex h-[var(--archive-control-height)] cursor-pointer items-center justify-center bg-[#262626] px-4 text-white transition-colors hover:bg-black ${
-                  page === "design" ? "" : "rounded-md"
-                }`}
+                className="focus-ring inline-flex h-[var(--archive-control-height)] cursor-pointer items-center justify-center bg-[#262626] px-4 text-white transition-colors hover:bg-black"
               >
                 Subscribe
               </button>

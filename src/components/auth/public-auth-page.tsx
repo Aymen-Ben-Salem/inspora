@@ -5,6 +5,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { publicAuthAppearance } from "../../auth/appearance";
 import { isClerkConfigured } from "../../auth/config";
+import { AuthModalShell } from "./auth-modal-shell";
 import { BrandMark } from "../brand-mark";
 
 type AuthFlow = "sign-in" | "sign-up";
@@ -40,43 +41,30 @@ export function PublicAuthPage({
   const label = flowLabels[flow];
 
   return (
-    <div className="relative isolate min-h-[100dvh] overflow-hidden bg-white text-[#262626]">
-      <div
-        aria-hidden="true"
-        inert
-        data-auth-backdrop
-        className="pointer-events-none absolute inset-[-8px] select-none overflow-hidden blur-[5px]"
-      >
-        {backdrop ?? <div className="min-h-[calc(100dvh+16px)] bg-[#fafafa]" />}
-      </div>
-
-      <div className="relative z-10 flex min-h-[100dvh] items-center justify-center px-5 py-8 sm:px-8 sm:py-12">
-        <section
-          role="dialog"
-          aria-modal="true"
-          aria-label={label}
-          className="w-full max-w-[429px]"
+    <AuthModalShell
+      label={label}
+      backdrop={
+        backdrop ?? <div className="min-h-[calc(100dvh+16px)] bg-[#fafafa]" />
+      }
+    >
+      {isClerkConfigured() ? (
+        <Suspense
+          fallback={
+            <div
+              aria-label={`Loading ${label.toLowerCase()}`}
+              className="min-h-[493px] w-full bg-white"
+            />
+          }
         >
-          {isClerkConfigured() ? (
-            <Suspense
-              fallback={
-                <div
-                  aria-label={`Loading ${label.toLowerCase()}`}
-                  className="min-h-[493px] w-full bg-white"
-                />
-              }
-            >
-              {flow === "sign-in" ? (
-                <SignIn appearance={publicAuthAppearance} />
-              ) : (
-                <SignUp appearance={publicAuthAppearance} />
-              )}
-            </Suspense>
+          {flow === "sign-in" ? (
+            <SignIn appearance={publicAuthAppearance} />
           ) : (
-            <UnconfiguredAuthCard />
+            <SignUp appearance={publicAuthAppearance} />
           )}
-        </section>
-      </div>
-    </div>
+        </Suspense>
+      ) : (
+        <UnconfiguredAuthCard />
+      )}
+    </AuthModalShell>
   );
 }

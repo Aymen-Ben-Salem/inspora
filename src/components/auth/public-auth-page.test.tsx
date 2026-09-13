@@ -16,6 +16,12 @@ vi.mock("@clerk/nextjs", () => ({
   SignIn: (props: ComponentProps<"div">) => renderSignIn(props),
   SignUp: (props: ComponentProps<"div">) => renderSignUp(props),
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    back: vi.fn(),
+    replace: vi.fn(),
+  }),
+}));
 
 import { PublicAuthPage } from "./public-auth-page";
 
@@ -45,6 +51,7 @@ describe("PublicAuthPage", () => {
 
       expect(html).toContain('aria-label="' + dialogLabel + '"');
       expect(html).toContain("data-auth-backdrop");
+      expect(html).toContain("data-auth-dismiss");
       expect(html).toContain('data-testid="archive-backdrop"');
       expect(html).toContain('data-clerk-flow="' + flow + '"');
       expect(html).not.toContain(

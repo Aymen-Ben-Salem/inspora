@@ -405,7 +405,7 @@ function OptimisticPostTransition({
                 <span className="detail-fit-action inline-flex h-9 w-full items-center justify-center gap-2 bg-[#262626] text-[14px] font-medium tracking-[0.028px] text-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/icons/detail/globe.svg" alt="" className="detail-primary-action-icon size-4" />
-                  View Site
+                  View Original
                 </span>
               </div>
             </div>

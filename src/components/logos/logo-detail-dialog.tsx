@@ -167,7 +167,7 @@ export function LogoDetailDialog({
               className={`${detailOriginalLinkClassName} detail-fit-action`}
             >
               <DetailGlobeIcon />
-              View Site
+              View Original
             </a>
             <MediaAssetActions
               assetKey={logo.id}

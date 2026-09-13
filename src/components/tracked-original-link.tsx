@@ -30,7 +30,7 @@ export function TrackedOriginalLink({
       className={className}
     >
       <DetailGlobeIcon />
-      View Site
+      View Original
     </a>
   );
 }

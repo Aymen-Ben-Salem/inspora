@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -12,8 +13,8 @@ vi.mock("../../auth/config", () => ({
   isClerkConfigured: () => isConfigured(),
 }));
 vi.mock("@clerk/nextjs", () => ({
-  SignIn: () => renderSignIn(),
-  SignUp: () => renderSignUp(),
+  SignIn: (props: ComponentProps<"div">) => renderSignIn(props),
+  SignUp: (props: ComponentProps<"div">) => renderSignUp(props),
 }));
 
 import { PublicAuthPage } from "./public-auth-page";
@@ -26,23 +27,32 @@ describe("PublicAuthPage", () => {
   });
 
   it.each([
-    ["sign-in" as const, "Welcome back.", "Sign in to your Inspora account.", "Sign in"],
-    ["sign-up" as const, "Join Inspora.", "Create your Inspora account.", "Sign up"],
+    ["sign-in" as const, "Sign in to Inspora"],
+    ["sign-up" as const, "Join Inspora"],
   ])(
-    "renders the %s editorial flow and matching Clerk adapter",
-    (flow, heading, description, formLabel) => {
+    "renders the %s modal flow and matching Clerk adapter",
+    (flow, dialogLabel) => {
       isConfigured.mockReturnValue(true);
       renderSignIn.mockReturnValue(<div data-clerk-flow="sign-in" />);
       renderSignUp.mockReturnValue(<div data-clerk-flow="sign-up" />);
 
-      const html = renderToStaticMarkup(<PublicAuthPage flow={flow} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthPage
+          flow={flow}
+          backdrop={<div data-testid="archive-backdrop" />}
+        />,
+      );
 
-      expect(html).toContain(heading);
-      expect(html).toContain(description);
-      expect(html).toContain('aria-label="' + formLabel + '"');
+      expect(html).toContain('aria-label="' + dialogLabel + '"');
+      expect(html).toContain("data-auth-backdrop");
+      expect(html).toContain('data-testid="archive-backdrop"');
       expect(html).toContain('data-clerk-flow="' + flow + '"');
       expect(html).not.toContain(
         'data-clerk-flow="' + (flow === "sign-in" ? "sign-up" : "sign-in") + '"',
+      );
+      const activeRenderer = flow === "sign-in" ? renderSignIn : renderSignUp;
+      expect(activeRenderer).toHaveBeenCalledWith(
+        expect.objectContaining({ appearance: expect.any(Object) }),
       );
     },
   );
@@ -61,7 +71,7 @@ describe("PublicAuthPage", () => {
       const html = renderToStaticMarkup(<PublicAuthPage flow={flow} />);
 
       expect(html).toContain("Authentication is not available yet.");
-      expect(html).toContain("Clerk configuration is required");
+      expect(html).toContain("Join Inspora");
       expect(html).not.toContain("data-clerk-flow");
     },
   );

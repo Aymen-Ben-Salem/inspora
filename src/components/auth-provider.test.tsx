@@ -63,5 +63,13 @@ describe("AuthProvider", () => {
     expect(html).toContain("data-clerk-provider");
     expect(html).toContain("Public content");
     expect(html).not.toContain("Loading authentication");
+    expect(renderClerkProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appearance: expect.any(Object),
+        localization: expect.objectContaining({
+          formButtonPrimary: "Continue with email",
+        }),
+      }),
+    );
   });
 });

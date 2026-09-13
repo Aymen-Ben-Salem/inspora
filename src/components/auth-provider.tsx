@@ -3,7 +3,7 @@ import "server-only";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Suspense, type PropsWithChildren } from "react";
 
-import { clerkAppearance } from "../auth/appearance";
+import { clerkAppearance, clerkLocalization } from "../auth/appearance";
 import { isClerkConfigured } from "../auth/config";
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -18,7 +18,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         />
       }
     >
-      <ClerkProvider appearance={clerkAppearance}>{children}</ClerkProvider>
+      <ClerkProvider
+        appearance={clerkAppearance}
+        localization={clerkLocalization}
+      >
+        {children}
+      </ClerkProvider>
     </Suspense>
   );
 }

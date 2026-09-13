@@ -2,6 +2,7 @@
 
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { SITE_NAV_ITEMS } from "./site-navigation";
 
@@ -21,12 +22,14 @@ export function MobileNavigationOverlay({
   onClosed,
   onContact,
   activeHref,
+  auth,
 }: {
   closing: boolean;
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
   activeHref: "/" | "/websites" | "/logos" | "/info";
+  auth: ReactNode;
 }) {
   return (
     <div
@@ -127,6 +130,8 @@ export function MobileNavigationOverlay({
             </button>
           </div>
         </section>
+
+        {auth}
       </nav>
     </div>
   );

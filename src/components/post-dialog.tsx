@@ -335,7 +335,9 @@ export function PostDialog({
 
   useEffect(() => {
     const previousOverflow = document.documentElement.style.overflow;
+    const previousScrollbarGutter = document.documentElement.style.scrollbarGutter;
     document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.scrollbarGutter = "auto";
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") requestClose();
@@ -345,6 +347,7 @@ export function PostDialog({
 
     return () => {
       document.documentElement.style.overflow = previousOverflow;
+      document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
       window.removeEventListener("keydown", handleKeyDown);
       removeMediaProxy(entranceProxy.current);
       entranceProxy.current = null;

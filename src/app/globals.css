@@ -324,32 +324,32 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 
 @media (min-width: 1024px) {
   .detail-fit-sidebar {
-    --detail-sidebar-pad-x: clamp(22.756px, 2.222222vw, 32px);
-    --detail-sidebar-pad-y: clamp(14.222px, 1.388889vw, 20px);
-    --detail-nav-size: clamp(24.023px, 2.345833vw, 33.783px);
-    --detail-nav-gap: clamp(12.012px, 1.172986vw, 16.891px);
-    --detail-content-top: clamp(28.444px, 2.777778vw, 40px);
-    --detail-section-gap: clamp(28.444px, 2.777778vw, 40px);
-    --detail-intro-gap: clamp(11.378px, 1.111111vw, 16px);
-    --detail-heading-gap: clamp(2.844px, 0.277778vw, 4px);
-    --detail-title-size: clamp(12px, calc(1.442308vw - 2.769px), 18px);
-    --detail-creator-height: clamp(18.018px, 1.759583vw, 25.338px);
-    --detail-creator-size: clamp(8px, calc(1.442308vw - 6.769px), 14px);
-    --detail-creator-avatar: clamp(15.015px, 1.46625vw, 21.114px);
-    --detail-creator-gap: clamp(5px, calc(0.721154vw - 2.385px), 8px);
-    --detail-description-size: clamp(10px, calc(0.961538vw + 0.154px), 14px);
-    --detail-time-size: clamp(8px, calc(0.961538vw - 1.846px), 12px);
-    --detail-meta-gap: clamp(9.009px, 0.879792vw, 12.669px);
-    --detail-meta-size: clamp(10px, calc(0.961538vw + 0.154px), 14px);
-    --detail-meta-value-gap: clamp(6.006px, 0.586528vw, 8.446px);
-    --detail-action-height: clamp(29.127px, 2.844444vw, 40.96px);
-    --detail-action-size: clamp(10px, calc(0.961538vw + 0.154px), 14px);
-    --detail-action-gap: clamp(6.006px, 0.586528vw, 8.446px);
-    --detail-actions-gap: clamp(7.207px, 0.703819vw, 10.135px);
-    --detail-primary-icon: clamp(12.012px, 1.172986vw, 16.891px);
-    --detail-secondary-icon: clamp(14.414px, 1.407625vw, 20.27px);
-    --detail-footer-gap: clamp(6.006px, 0.586528vw, 8.446px);
-    --detail-footer-note-size: clamp(7.207px, 0.703819vw, 10.135px);
+    --detail-sidebar-pad-x: clamp(18px, min(2.222222vw, 3.950617dvh), 32px);
+    --detail-sidebar-pad-y: clamp(10px, min(1.388889vw, 2.469136dvh), 20px);
+    --detail-nav-size: clamp(24px, min(2.345833vw, 4.17037dvh), 33.783px);
+    --detail-nav-gap: clamp(10px, min(1.172986vw, 2.085309dvh), 16.891px);
+    --detail-content-top: clamp(12px, min(2.777778vw, calc(14.814815dvh - 79.556px)), 40px);
+    --detail-section-gap: clamp(14px, min(2.777778vw, calc(10dvh - 44.456px)), 40px);
+    --detail-intro-gap: clamp(8px, min(1.111111vw, 1.975309dvh), 16px);
+    --detail-heading-gap: clamp(2px, min(0.277778vw, 0.493827dvh), 4px);
+    --detail-title-size: clamp(12px, min(calc(1.442308vw - 2.769px), calc(2.564103dvh - 2.769px)), 18px);
+    --detail-creator-height: clamp(16px, min(1.759583vw, 3.128148dvh), 25.338px);
+    --detail-creator-size: clamp(8px, min(calc(1.442308vw - 6.769px), calc(2.564103dvh - 6.769px)), 14px);
+    --detail-creator-avatar: clamp(14px, min(1.46625vw, 2.606667dvh), 21.114px);
+    --detail-creator-gap: clamp(4px, min(calc(0.721154vw - 2.385px), calc(1.282052dvh - 2.385px)), 8px);
+    --detail-description-size: clamp(10px, min(calc(0.961538vw + 0.154px), calc(1.709402dvh + 0.154px)), 14px);
+    --detail-time-size: clamp(8px, min(calc(0.961538vw - 1.846px), calc(1.709402dvh - 1.846px)), 12px);
+    --detail-meta-gap: clamp(6px, min(0.879792vw, 1.564074dvh), 12.669px);
+    --detail-meta-size: clamp(10px, min(calc(0.961538vw + 0.154px), calc(1.709402dvh + 0.154px)), 14px);
+    --detail-meta-value-gap: clamp(4px, min(0.586528vw, 1.042716dvh), 8.446px);
+    --detail-action-height: clamp(28px, min(2.844444vw, 5.05679dvh), 40.96px);
+    --detail-action-size: clamp(10px, min(calc(0.961538vw + 0.154px), calc(1.709402dvh + 0.154px)), 14px);
+    --detail-action-gap: clamp(4px, min(0.586528vw, 1.042716dvh), 8.446px);
+    --detail-actions-gap: clamp(6px, min(0.703819vw, 1.251234dvh), 10.135px);
+    --detail-primary-icon: clamp(11px, min(1.172986vw, 2.085309dvh), 16.891px);
+    --detail-secondary-icon: clamp(13px, min(1.407625vw, 2.502444dvh), 20.27px);
+    --detail-footer-gap: clamp(5px, min(0.586528vw, 1.042716dvh), 8.446px);
+    --detail-footer-note-size: clamp(7px, min(0.703819vw, 1.251234dvh), 10.135px);
   }
 
   .detail-fit-sidebar-inner {
@@ -366,7 +366,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   .detail-fit-sidebar .detail-fit-nav-button {
     width: var(--detail-nav-size);
     height: var(--detail-nav-size);
-    border-width: clamp(0.601px, 0.058681vw, 0.845px);
+    border-width: clamp(0.5px, min(0.058681vw, 0.104322dvh), 0.845px);
   }
 
   .detail-fit-nav-controls {
@@ -374,16 +374,17 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-sidebar .detail-close-icon {
-    width: clamp(14.414px, 1.407625vw, 20.27px);
-    height: clamp(14.414px, 1.407625vw, 20.27px);
+    width: clamp(13px, min(1.407625vw, 2.502444dvh), 20.27px);
+    height: clamp(13px, min(1.407625vw, 2.502444dvh), 20.27px);
   }
 
   .detail-fit-sidebar .detail-arrow-icon {
-    width: clamp(16.216px, 1.583576vw, 22.804px);
-    height: clamp(16.216px, 1.583576vw, 22.804px);
+    width: clamp(15px, min(1.583576vw, 2.815246dvh), 22.804px);
+    height: clamp(15px, min(1.583576vw, 2.815246dvh), 22.804px);
   }
 
   .detail-fit-sidebar-content {
+    flex: 0 0 auto;
     padding-top: var(--detail-content-top);
   }
 
@@ -415,8 +416,8 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-sidebar .detail-bookmark-icon {
-    width: clamp(12px, 1.111111vw, 16px);
-    height: clamp(15.428px, 1.428542vw, 20.571px);
+    width: clamp(11px, min(1.111111vw, 1.975309dvh), 16px);
+    height: clamp(14px, min(1.428542vw, 2.53963dvh), 20.571px);
   }
 
   .detail-fit-sidebar .detail-intro-description {
@@ -446,7 +447,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-metadata-divider {
-    height: clamp(0.601px, 0.058681vw, 0.845px);
+    height: clamp(0.5px, min(0.058681vw, 0.104322dvh), 0.845px);
   }
 
   .detail-fit-actions {
@@ -489,9 +490,9 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-footer form button {
-    width: clamp(60.061px, calc(9.615385vw - 38.4px), 100px);
-    padding-right: clamp(7.207px, calc(2.595913vw - 19.372px), 18px);
-    padding-left: clamp(7.207px, calc(2.595913vw - 19.372px), 18px);
+    width: clamp(60.061px, min(calc(9.615385vw - 38.4px), calc(17.094018dvh - 38.4px)), 100px);
+    padding-right: clamp(7.207px, min(calc(2.595913vw - 19.372px), calc(4.614956dvh - 19.372px)), 18px);
+    padding-left: clamp(7.207px, min(calc(2.595913vw - 19.372px), calc(4.614956dvh - 19.372px)), 18px);
   }
 
   .detail-fit-footer > p {

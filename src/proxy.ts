@@ -17,12 +17,12 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
 
 export const config = {
   matcher: [
-    // Authentication exists only in the private admin experience. Keeping
-    // public pages outside Routing Middleware lets Vercel serve them directly
-    // from cache without spending a Clerk/Fluid Compute invocation.
+    // Keep Clerk limited to admin, public auth, and its integration subtree.
+    // Other public pages stay outside Routing Middleware for cacheability.
     "/admin/:path*",
     "/admin-access-denied",
     "/sign-in/:path*",
+    "/sign-up/:path*",
     // Preserve Clerk's frontend API and session-handshake route.
     "/__clerk/:path*",
   ],

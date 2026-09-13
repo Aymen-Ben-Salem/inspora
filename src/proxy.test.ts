@@ -26,6 +26,13 @@ describe("Clerk proxy routing", () => {
     "/admin-access-denied",
     "/sign-in",
     "/sign-in/factor-one",
+    "/sign-in/sso-callback",
+    "/sign-in/tasks/choose-organization",
+    "/sign-in?redirect_url=/admin",
+    "/sign-up",
+    "/sign-up/verify-email-address",
+    "/sign-up/sso-callback",
+    "/sign-up/tasks/choose-organization",
     "/__clerk/v1/client",
   ])("runs Clerk for %s", (pathname) => {
     expect(matches(pathname)).toBe(true);
@@ -36,6 +43,9 @@ describe("Clerk proxy routing", () => {
     "/posts/example",
     "/api/posts",
     "/api/subscribe",
+    "/info",
+    "/logos",
+    "/websites",
     "/icon.svg",
     "/_next/static/app.js",
   ])("bypasses Clerk for %s", (pathname) => {

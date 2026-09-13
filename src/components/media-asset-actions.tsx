@@ -117,10 +117,10 @@ export function MediaAssetActions({
   }
 
   const disabledClassName =
-    "disabled:cursor-not-allowed disabled:bg-[#ececec] disabled:text-[#aaa] disabled:hover:bg-[#ececec] disabled:[&_img]:opacity-30";
+    "disabled:cursor-not-allowed disabled:bg-[#f0f0f0] disabled:text-[#767676] disabled:opacity-50 disabled:[&_img]:opacity-50";
 
   return (
-    <div className="grid grid-cols-2 gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
+    <div className="detail-secondary-actions grid grid-cols-2 gap-3">
       <button
         type="button"
         disabled={copyDisabled}
@@ -128,10 +128,10 @@ export function MediaAssetActions({
         className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 ${disabledClassName}`}
       >
         <Image
-          src="/icons/logos-copy.svg"
+          src="/icons/detail/copy.svg"
           alt=""
           aria-hidden="true"
-          className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
+          className="detail-secondary-action-icon size-5 shrink-0"
           width={24}
           height={24}
         />
@@ -148,10 +148,10 @@ export function MediaAssetActions({
         className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 ${disabledClassName}`}
       >
         <Image
-          src="/icons/logos-download.svg"
+          src="/icons/detail/download.svg"
           alt=""
           aria-hidden="true"
-          className="size-5 shrink-0 xl:size-[22px] min-[1700px]:size-6"
+          className="detail-secondary-action-icon size-5 shrink-0"
           width={24}
           height={24}
         />

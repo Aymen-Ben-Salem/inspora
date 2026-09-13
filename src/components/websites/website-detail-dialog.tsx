@@ -12,6 +12,7 @@ import {
 import {
   DetailArrowIcon,
   DetailCloseIcon,
+  DetailGlobeIcon,
   DetailIntro,
   DetailMetadataList,
   DetailSidebarLayout,
@@ -25,6 +26,7 @@ import {
   postNavigationControlClassName,
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
+import { RelativeAddedTime } from "../relative-added-time";
 import { WebsiteCropImage } from "./website-crop-image";
 
 export function WebsiteDetailDialog({
@@ -255,13 +257,11 @@ export function WebsiteDetailDialog({
           }
         >
           <DetailIntro
-            category={website.categories[0] ?? "Website"}
             title={website.title}
             titleId="website-dialog-title"
             headingAs="h2"
             creator={website.creator}
             description={website.description}
-            layout="logo"
             publishedAt={website.publishedAt}
           />
           <DetailMetadataList
@@ -269,6 +269,12 @@ export function WebsiteDetailDialog({
               { label: "Categories", values: website.categories },
               { label: "Theme", values: website.themes },
               { label: "Colours", values: website.colors },
+              {
+                label: "Last Updated",
+                values: [
+                  <RelativeAddedTime key="updated" publishedAt={website.publishedAt} />,
+                ],
+              },
             ]}
           />
           <div className="detail-fit-actions flex flex-col gap-3">
@@ -278,7 +284,8 @@ export function WebsiteDetailDialog({
               rel="noopener noreferrer"
               className={`${detailOriginalLinkClassName} detail-fit-action`}
             >
-              View website
+              <DetailGlobeIcon />
+              View Site
             </a>
             <MediaAssetActions
               assetKey={

@@ -324,24 +324,37 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 
 @media (min-width: 1024px) {
   .detail-fit-sidebar {
-    --detail-sidebar-pad-y: clamp(12px, 2.18dvh, 28px);
-    --detail-nav-size: clamp(32px, 3.11dvh, 40px);
-    --detail-content-top: clamp(10px, 2.33dvh, 30px);
-    --detail-content-bottom: clamp(8px, 1.55dvh, 20px);
-    --detail-section-gap: clamp(12px, 3.11dvh, 40px);
-    --detail-meta-gap: clamp(7px, 1.17dvh, 15px);
-    --detail-category-height: clamp(22px, 2.1dvh, 27px);
-    --detail-title-size: clamp(16px, 1.71dvh, 22px);
-    --detail-creator-size: clamp(12px, 1.24dvh, 16px);
-    --detail-description-size: clamp(13px, 1.4dvh, 18px);
-    --detail-time-size: clamp(12px, 1.24dvh, 16px);
-    --detail-meta-label-size: clamp(13px, 1.55dvh, 20px);
-    --detail-meta-value-size: clamp(12px, 1.17dvh, 15px);
-    --detail-action-height: clamp(32px, 3.34dvh, 43px);
-    --detail-action-size: clamp(13px, 1.4dvh, 18px);
+    --detail-sidebar-pad-x: clamp(22.756px, 2.222222vw, 32px);
+    --detail-sidebar-pad-y: clamp(14.222px, 1.388889vw, 20px);
+    --detail-nav-size: clamp(24.023px, 2.345833vw, 33.783px);
+    --detail-nav-gap: clamp(12.012px, 1.172986vw, 16.891px);
+    --detail-content-top: clamp(28.444px, 2.777778vw, 40px);
+    --detail-section-gap: clamp(28.444px, 2.777778vw, 40px);
+    --detail-intro-gap: clamp(11.378px, 1.111111vw, 16px);
+    --detail-heading-gap: clamp(2.844px, 0.277778vw, 4px);
+    --detail-title-size: clamp(12px, calc(1.442308vw - 2.769px), 18px);
+    --detail-creator-height: clamp(18.018px, 1.759583vw, 25.338px);
+    --detail-creator-size: clamp(8px, calc(1.442308vw - 6.769px), 14px);
+    --detail-creator-avatar: clamp(15.015px, 1.46625vw, 21.114px);
+    --detail-creator-gap: clamp(5px, calc(0.721154vw - 2.385px), 8px);
+    --detail-description-size: clamp(10px, calc(0.961538vw + 0.154px), 14px);
+    --detail-time-size: clamp(8px, calc(0.961538vw - 1.846px), 12px);
+    --detail-meta-gap: clamp(9.009px, 0.879792vw, 12.669px);
+    --detail-meta-size: clamp(10px, calc(0.961538vw + 0.154px), 14px);
+    --detail-meta-value-gap: clamp(6.006px, 0.586528vw, 8.446px);
+    --detail-action-height: clamp(29.127px, 2.844444vw, 40.96px);
+    --detail-action-size: clamp(10px, calc(0.961538vw + 0.154px), 14px);
+    --detail-action-gap: clamp(6.006px, 0.586528vw, 8.446px);
+    --detail-actions-gap: clamp(7.207px, 0.703819vw, 10.135px);
+    --detail-primary-icon: clamp(12.012px, 1.172986vw, 16.891px);
+    --detail-secondary-icon: clamp(14.414px, 1.407625vw, 20.27px);
+    --detail-footer-gap: clamp(6.006px, 0.586528vw, 8.446px);
+    --detail-footer-note-size: clamp(7.207px, 0.703819vw, 10.135px);
   }
 
   .detail-fit-sidebar-inner {
+    padding-right: var(--detail-sidebar-pad-x);
+    padding-left: var(--detail-sidebar-pad-x);
     padding-top: var(--detail-sidebar-pad-y);
     padding-bottom: var(--detail-sidebar-pad-y);
   }
@@ -353,53 +366,62 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   .detail-fit-sidebar .detail-fit-nav-button {
     width: var(--detail-nav-size);
     height: var(--detail-nav-size);
+    border-width: clamp(0.601px, 0.058681vw, 0.845px);
   }
 
-  .detail-fit-sidebar .detail-fit-nav-button > svg {
-    width: clamp(20px, 2.1dvh, 27px);
-    height: clamp(20px, 2.1dvh, 27px);
+  .detail-fit-nav-controls {
+    gap: var(--detail-nav-gap);
+  }
+
+  .detail-fit-sidebar .detail-close-icon {
+    width: clamp(14.414px, 1.407625vw, 20.27px);
+    height: clamp(14.414px, 1.407625vw, 20.27px);
+  }
+
+  .detail-fit-sidebar .detail-arrow-icon {
+    width: clamp(16.216px, 1.583576vw, 22.804px);
+    height: clamp(16.216px, 1.583576vw, 22.804px);
   }
 
   .detail-fit-sidebar-content {
     padding-top: var(--detail-content-top);
-    padding-bottom: var(--detail-content-bottom);
   }
 
   .detail-fit-groups {
     gap: var(--detail-section-gap);
   }
 
-  .detail-fit-sidebar .detail-intro-category {
-    min-height: var(--detail-category-height);
-    padding: clamp(3px, 0.47dvh, 6px) clamp(8px, 0.93dvh, 12px);
-    font-size: clamp(11px, 1.09dvh, 14px);
+  .detail-intro {
+    gap: var(--detail-intro-gap);
+  }
+
+  .detail-intro-heading {
+    gap: var(--detail-heading-gap);
   }
 
   .detail-fit-sidebar .detail-intro-title {
-    margin-top: clamp(6px, 0.78dvh, 10px);
     font-size: var(--detail-title-size);
   }
 
   .detail-fit-sidebar .detail-intro-creator {
-    height: clamp(22px, 2.33dvh, 30px);
-    margin-top: clamp(6px, 0.78dvh, 10px);
-    gap: clamp(5px, 0.54dvh, 7px);
+    height: var(--detail-creator-height);
+    gap: var(--detail-creator-gap);
     font-size: var(--detail-creator-size);
   }
 
   .detail-fit-sidebar .detail-intro-avatar {
-    width: clamp(19px, 1.94dvh, 25px);
-    height: clamp(19px, 1.94dvh, 25px);
+    width: var(--detail-creator-avatar);
+    height: var(--detail-creator-avatar);
+  }
+
+  .detail-fit-sidebar .detail-bookmark-icon {
+    width: clamp(12px, 1.111111vw, 16px);
+    height: clamp(15.428px, 1.428542vw, 20.571px);
   }
 
   .detail-fit-sidebar .detail-intro-description {
-    margin-top: clamp(10px, 1.55dvh, 20px);
     font-size: var(--detail-description-size);
-    line-height: 1.25;
-  }
-
-  .detail-fit-sidebar .detail-intro-time {
-    margin-top: clamp(10px, 1.55dvh, 20px);
+    line-height: 1.3;
   }
 
   .detail-fit-sidebar .detail-intro-time time {
@@ -411,49 +433,69 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-metadata-row {
-    gap: clamp(14px, 1.86dvh, 24px);
+    gap: clamp(14px, 1.666667vw, 24px);
   }
 
-  .detail-fit-metadata-label {
-    font-size: var(--detail-meta-label-size);
+  .detail-fit-metadata-label,
+  .detail-fit-metadata-values {
+    font-size: var(--detail-meta-size);
   }
 
   .detail-fit-metadata-values {
-    gap: clamp(4px, 0.78dvh, 10px);
-    font-size: var(--detail-meta-value-size);
+    gap: var(--detail-meta-value-gap);
+  }
+
+  .detail-fit-metadata-divider {
+    height: clamp(0.601px, 0.058681vw, 0.845px);
   }
 
   .detail-fit-actions {
-    gap: clamp(8px, 0.93dvh, 12px);
+    gap: var(--detail-actions-gap);
   }
 
-  .detail-fit-actions > div {
-    gap: clamp(8px, 1.17dvh, 15px);
+  .detail-secondary-actions {
+    gap: var(--detail-actions-gap);
   }
 
   .detail-fit-sidebar .detail-fit-action {
     height: var(--detail-action-height);
+    gap: var(--detail-action-gap);
     font-size: var(--detail-action-size);
   }
 
-  .detail-fit-sidebar .detail-fit-action img {
-    width: clamp(18px, 1.86dvh, 24px);
-    height: clamp(18px, 1.86dvh, 24px);
+  .detail-fit-sidebar .detail-primary-action-icon {
+    width: var(--detail-primary-icon);
+    height: var(--detail-primary-icon);
+  }
+
+  .detail-fit-sidebar .detail-secondary-action-icon {
+    width: var(--detail-secondary-icon);
+    height: var(--detail-secondary-icon);
   }
 
   .detail-fit-footer {
-    gap: clamp(6px, 0.78dvh, 10px);
-    padding-top: clamp(10px, 1.86dvh, 24px);
+    gap: var(--detail-footer-gap);
+    padding-top: var(--detail-content-top);
   }
 
   .detail-fit-footer form input,
   .detail-fit-footer form button {
-    height: clamp(32px, 3.19dvh, 41px);
-    font-size: clamp(12px, 1.09dvh, 14px);
+    height: var(--detail-action-height);
+    font-size: var(--detail-action-size);
+  }
+
+  .detail-fit-footer form input {
+    padding-left: clamp(8.53px, 0.833333vw, 12px);
+  }
+
+  .detail-fit-footer form button {
+    width: clamp(60.061px, calc(9.615385vw - 38.4px), 100px);
+    padding-right: clamp(7.207px, calc(2.595913vw - 19.372px), 18px);
+    padding-left: clamp(7.207px, calc(2.595913vw - 19.372px), 18px);
   }
 
   .detail-fit-footer > p {
-    font-size: clamp(10px, 0.93dvh, 12px);
+    font-size: var(--detail-footer-note-size);
   }
 }
 

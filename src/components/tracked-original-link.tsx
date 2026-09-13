@@ -4,6 +4,8 @@ import { captureAnalyticsEvent } from "@/analytics/client";
 import { ANALYTICS_EVENTS } from "@/analytics/events";
 import type { Post } from "@/domain/post";
 
+import { DetailGlobeIcon } from "./detail-sidebar-primitives";
+
 export function TrackedOriginalLink({
   post,
   className,
@@ -27,7 +29,8 @@ export function TrackedOriginalLink({
       }
       className={className}
     >
-      View original
+      <DetailGlobeIcon />
+      View Site
     </a>
   );
 }

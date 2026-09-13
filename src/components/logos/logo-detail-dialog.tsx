@@ -10,6 +10,7 @@ import { MediaAssetActions } from "../media-asset-actions";
 import {
   DetailArrowIcon,
   DetailCloseIcon,
+  DetailGlobeIcon,
   DetailIntro,
   DetailMetadataList,
   DetailSidebarLayout,
@@ -21,6 +22,7 @@ import {
   postNavigationControlClassName,
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
+import { RelativeAddedTime } from "../relative-added-time";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 
 export function LogoDetailDialog({
@@ -34,7 +36,6 @@ export function LogoDetailDialog({
   onPrevious: () => void;
   onNext: () => void;
 }) {
-  const copyNoun = logo.kind === "icon" ? "icon" : "logo";
   const assetUrl = `/api/logos/${encodeURIComponent(logo.id)}/asset`;
   const isPortrait = logo.media.height / logo.media.width >= 1.15;
   const maxViewportHeight = isPortrait ? 85 : 72;
@@ -134,13 +135,11 @@ export function LogoDetailDialog({
           }
         >
           <DetailIntro
-            category={logo.industry}
             title={logo.title}
             titleId="logo-dialog-title"
             headingAs="h2"
             creator={logo.creator}
             description={logo.description}
-            layout="logo"
             publishedAt={logo.publishedAt}
           />
 
@@ -151,6 +150,12 @@ export function LogoDetailDialog({
               { label: "Industry", values: [logo.industry] },
               { label: "Style", values: logo.styles },
               { label: "Colours", values: logo.colors },
+              {
+                label: "Last Updated",
+                values: [
+                  <RelativeAddedTime key="updated" publishedAt={logo.publishedAt} />,
+                ],
+              },
             ]}
           />
 
@@ -161,12 +166,13 @@ export function LogoDetailDialog({
               rel="noopener noreferrer"
               className={`${detailOriginalLinkClassName} detail-fit-action`}
             >
-              View original
+              <DetailGlobeIcon />
+              View Site
             </a>
             <MediaAssetActions
               assetKey={logo.id}
               assetUrl={assetUrl}
-              copyLabel={`Copy ${copyNoun}`}
+              copyLabel="Copy image"
               downloadFileName={getLogoAssetFileName(
                 logo.slug,
                 logo.media.mimeType,

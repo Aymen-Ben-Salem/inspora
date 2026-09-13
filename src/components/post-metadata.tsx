@@ -18,6 +18,7 @@ import {
 } from "./post-close-button";
 import type { PostDialogCloseMode } from "./post-dialog";
 import { PostNavigationLink } from "./post-navigation-link";
+import { RelativeAddedTime } from "./relative-added-time";
 import { TrackedOriginalLink } from "./tracked-original-link";
 
 type AdjacentPost = Pick<Post, "slug" | "title">;
@@ -103,11 +104,9 @@ export function PostMetadata({
       }
     >
       <DetailIntro
-        category={post.category}
         title={post.title}
         creator={post.creator}
         description={post.description}
-        layout="logo"
         publishedAt={post.publishedAt}
       />
 
@@ -117,6 +116,12 @@ export function PostMetadata({
           { label: "Industries", values: post.industries },
           { label: "Colors", values: post.colors },
           { label: "Styles", values: post.styles },
+          {
+            label: "Last Updated",
+            values: [
+              <RelativeAddedTime key="updated" publishedAt={post.publishedAt} />,
+            ],
+          },
         ]}
       />
 

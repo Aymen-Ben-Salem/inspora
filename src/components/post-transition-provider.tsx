@@ -341,47 +341,46 @@ function OptimisticPostTransition({
         <aside
           ref={sidebar}
           data-optimistic-post-surface
-          className="flex min-h-fit w-full flex-none flex-col border-t border-[#e6e6e6] bg-white lg:min-h-full lg:w-[clamp(360px,30vw,510px)] lg:shrink-0 lg:border-l lg:border-t-0"
+          className="detail-fit-sidebar flex min-h-fit w-full flex-none flex-col bg-white lg:min-h-full lg:w-[min(29.583333vw,426px)] lg:shrink-0 lg:overflow-y-auto"
         >
-          <div className="flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full lg:px-6 lg:py-5 xl:px-8 xl:py-6 min-[1700px]:px-10 min-[1700px]:py-7">
-            <div className="flex h-10 items-center justify-between">
-              <span className="flex size-9 items-center justify-center border border-[#e6e6e6] bg-[#e6e6e6] text-[#7b7b7b] sm:size-10 lg:size-9 xl:size-10">
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5 xl:size-[22px] min-[1800px]:size-6" fill="none">
-                  <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
+          <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full">
+            <div className="detail-fit-nav flex h-10 items-center justify-between">
+              <span className="detail-fit-nav-button flex size-9 items-center justify-center border border-[#f0f0f0] bg-[#f0f0f0] sm:size-10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/detail/close.svg" alt="" className="detail-close-icon size-5" />
               </span>
-              <span className="flex items-center gap-3 xl:gap-4 min-[1700px]:gap-5">
+              <span className="detail-fit-nav-controls flex items-center gap-3">
                 {(["left", "right"] as const).map((direction) => (
-                  <span key={direction} className="flex size-9 items-center justify-center border border-[#e6e6e6] bg-[#e6e6e6] text-[#7b7b7b] sm:size-10 lg:size-9 xl:size-10">
-                    <svg viewBox="0 0 27 27" aria-hidden="true" className={`size-[22px] xl:size-6 min-[1800px]:size-[27px] ${direction === "right" ? "rotate-180" : ""}`} fill="none">
-                      <path d="M22 13.5H5m0 0 7-7m-7 7 7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                  <span key={direction} className="detail-fit-nav-button flex size-9 items-center justify-center border border-[#f0f0f0] bg-[#f0f0f0] sm:size-10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/icons/detail/arrow-${direction}.svg`} alt="" className={`detail-arrow-icon size-[22px] ${direction === "right" ? "rotate-180" : ""}`} />
                   </span>
                 ))}
               </span>
             </div>
 
-            <div className="flex flex-1 items-start pt-8 lg:pt-6 xl:pt-[30px]">
-              <div className="flex w-full flex-col gap-6 xl:gap-8 min-[1700px]:gap-10">
-                <div className="flex flex-col gap-3 xl:gap-4 min-[1700px]:gap-5">
-                  <div className="flex flex-col items-start gap-2.5">
-                    <span className="block h-6 w-20 bg-[#f0f0f0]" />
-                    <div>
+            <div className="detail-fit-sidebar-content flex flex-1 items-start pt-6 sm:pt-7">
+              <div className="detail-fit-groups flex w-full flex-col gap-6">
+                <div className="detail-intro flex flex-col gap-4">
+                  <div className="detail-intro-heading-row flex items-center justify-between gap-4">
+                    <div className="detail-intro-heading flex flex-col gap-1">
                       {source.title ? (
-                        <h1 className="text-[18px] font-medium leading-normal tracking-[0.044px] text-black xl:text-[20px] min-[1700px]:text-[22px]">
+                        <h1 className="detail-intro-title text-[18px] font-medium leading-normal tracking-[0.036px] text-[#262626]">
                           {source.title}
                         </h1>
                       ) : null}
                       {source.creatorName ? (
-                        <div className="mt-1 flex h-6 items-center gap-1.5 text-[13px] tracking-[0.032px] text-[rgba(88,88,88,0.8)] xl:mt-1.5 xl:h-7 xl:text-[14px] min-[1700px]:mt-2 min-[1700px]:h-[30px] min-[1700px]:gap-[7px] min-[1700px]:text-[16px]">
+                        <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]">
                           {source.creatorAvatarUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={source.creatorAvatarUrl} alt="" className="size-5 rounded-full object-cover xl:size-[22px] min-[1700px]:size-[25px]" />
+                            <img src={source.creatorAvatarUrl} alt="" className="detail-intro-avatar size-5 rounded-full object-cover" />
                           ) : null}
                           <span>{source.creatorName}</span>
                         </div>
                       ) : null}
                     </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/icons/detail/bookmark.svg" alt="" className="detail-bookmark-icon h-5 w-4" />
                   </div>
                   <div className="flex max-w-[429px] flex-col gap-2" aria-hidden="true">
                     <span className="h-[18px] w-full bg-[#f0f0f0]" />
@@ -403,8 +402,10 @@ function OptimisticPostTransition({
                   ))}
                 </div>
 
-                <span className="inline-flex h-9 w-full items-center justify-center bg-[#262626] text-[14px] font-medium tracking-[0.036px] text-white xl:h-[42px] xl:text-[16px] min-[1700px]:h-[43px] min-[1700px]:text-[18px]">
-                  View original
+                <span className="detail-fit-action inline-flex h-9 w-full items-center justify-center gap-2 bg-[#262626] text-[14px] font-medium tracking-[0.028px] text-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/icons/detail/globe.svg" alt="" className="detail-primary-action-icon size-4" />
+                  View Site
                 </span>
               </div>
             </div>

@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+import { AuthProvider } from "@/components/auth-provider";
 import { FeedPlaybackProvider } from "@/components/looping-video";
 import { PostTransitionProvider } from "@/components/post-transition-provider";
 import {
@@ -85,12 +86,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-[family-name:var(--font-inter)]">
-        <FeedPlaybackProvider>
-          <PostTransitionProvider>
-            {children}
-            {modal}
-          </PostTransitionProvider>
-        </FeedPlaybackProvider>
+        <AuthProvider>
+          <FeedPlaybackProvider>
+            <PostTransitionProvider>
+              {children}
+              {modal}
+            </PostTransitionProvider>
+          </FeedPlaybackProvider>
+        </AuthProvider>
       </body>
     </html>
   );

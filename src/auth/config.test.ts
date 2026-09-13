@@ -1,6 +1,39 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getClerkAuthorizedParties, getConfiguredAdminUserIds } from "./config";
+vi.mock("server-only", () => ({}));
+
+import {
+  getClerkAuthorizedParties,
+  getConfiguredAdminUserIds,
+  isClerkConfigured,
+} from "./config";
+
+describe("Clerk configuration", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [undefined, "sk_test_dummy", false],
+    ["pk_test_dummy", undefined, false],
+    ["", "sk_test_dummy", false],
+    ["pk_test_dummy", "", false],
+    ["   ", "sk_test_dummy", false],
+    ["pk_test_dummy", "   ", false],
+    ["pk_test_REPLACE_ME", "sk_test_dummy", false],
+    ["pk_test_dummy", "sk_test_REPLACE_ME", false],
+    ["pk_test_REPLACE_ME", "sk_test_REPLACE_ME", false],
+    ["pk_test_dummy", "sk_test_dummy", true],
+  ])(
+    "checks configuration presence for case %#",
+    (publishableKey, secretKey, expected) => {
+      vi.stubEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", publishableKey);
+      vi.stubEnv("CLERK_SECRET_KEY", secretKey);
+
+      expect(isClerkConfigured()).toBe(expected);
+    },
+  );
+});
 
 describe("admin authentication configuration", () => {
   afterEach(() => {

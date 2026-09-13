@@ -3,9 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { getConfiguredAdminUserIds, isClerkConfigured } from "@/auth/config";
-import { AuthProvider } from "@/components/auth-provider";
 
 export const metadata: Metadata = {
   title: "Admin access denied",
@@ -53,8 +53,15 @@ async function AdminAccessDeniedContent() {
 
 export default function AdminAccessDeniedPage() {
   return (
-    <AuthProvider>
+    <Suspense
+      fallback={
+        <div
+          aria-label="Loading authentication"
+          className="min-h-[100dvh] bg-[#f5f5f2]"
+        />
+      }
+    >
       <AdminAccessDeniedContent />
-    </AuthProvider>
+    </Suspense>
   );
 }

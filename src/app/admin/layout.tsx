@@ -4,11 +4,10 @@ import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { getConfiguredAdminUserIds, isClerkConfigured } from "@/auth/config";
 import { requireAdmin } from "@/auth/require-admin";
-import { AuthProvider } from "@/components/auth-provider";
 import { BrandMark } from "@/components/brand-mark";
 
 export const metadata: Metadata = {
@@ -136,8 +135,15 @@ async function AdminContent({ children }: { children: ReactNode }) {
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
+    <Suspense
+      fallback={
+        <div
+          aria-label="Loading authentication"
+          className="min-h-[100dvh] bg-[#f5f5f2]"
+        />
+      }
+    >
       <AdminContent>{children}</AdminContent>
-    </AuthProvider>
+    </Suspense>
   );
 }

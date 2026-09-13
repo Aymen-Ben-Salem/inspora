@@ -1,6 +1,14 @@
+import "server-only";
+
 export function isClerkConfigured() {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+
   return Boolean(
-    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
+    publishableKey &&
+      secretKey &&
+      publishableKey !== "pk_test_REPLACE_ME" &&
+      secretKey !== "sk_test_REPLACE_ME",
   );
 }
 

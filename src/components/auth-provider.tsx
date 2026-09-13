@@ -1,7 +1,10 @@
+import "server-only";
+
 import { ClerkProvider } from "@clerk/nextjs";
 import { Suspense, type PropsWithChildren } from "react";
 
-import { isClerkConfigured } from "@/auth/config";
+import { clerkAppearance } from "../auth/appearance";
+import { isClerkConfigured } from "../auth/config";
 
 export function AuthProvider({ children }: PropsWithChildren) {
   if (!isClerkConfigured()) return children;
@@ -15,7 +18,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         />
       }
     >
-      <ClerkProvider dynamic>{children}</ClerkProvider>
+      <ClerkProvider appearance={clerkAppearance}>{children}</ClerkProvider>
     </Suspense>
   );
 }

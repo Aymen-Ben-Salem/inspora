@@ -139,7 +139,9 @@ export function SiteNavbarClient({
                 >
                   {label}
                   {itemPage === "design" ? null : (
-                    <span className="rounded-[3px] bg-[#767676] px-1 py-0.5 text-[8px] leading-none text-white">
+                    <span
+                      className={`rounded-[3px] px-1 py-0.5 text-[8px] leading-none text-white ${page === itemPage ? "bg-[#262626]" : "bg-[#767676]"}`}
+                    >
                       New
                     </span>
                   )}

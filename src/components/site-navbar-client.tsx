@@ -11,6 +11,7 @@ import {
 
 import { BrandMark } from "./brand-mark";
 import { ContactSheet } from "./contact-sheet";
+import { SaveIcon } from "./feed-save-overlay";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SubscribeSheet } from "./subscribe-sheet";
 
@@ -23,20 +24,6 @@ function PlusIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-full">
       <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function BookmarkIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-full">
-      <path
-        d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7a1.75 1.75 0 0 1 1.75 1.75V21L12 17.5 6.75 21V4.75Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }
@@ -256,9 +243,9 @@ export function SiteNavbarClient({
               <span
                 aria-label="Saved posts"
                 role="img"
-                className="size-[var(--archive-header-icon)] text-[#767676]"
+                className="size-[var(--archive-card-overlay-size)]"
               >
-                <BookmarkIcon />
+                <SaveIcon />
               </span>
               {desktopAuth}
             </div>

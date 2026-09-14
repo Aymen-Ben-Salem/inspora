@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { AnalyticsPreferences } from "@/components/analytics-preferences";
-import { HomepageHeader } from "@/components/homepage-header";
+import { SiteNavbar } from "@/components/site-navbar";
 import { InfoPageNavigation } from "@/components/info-page-navigation";
 import { SITE_EMAIL } from "@/lib/seo";
 
@@ -38,7 +38,7 @@ const pageLinks = [
 export default function InfoPage() {
   return (
     <main aria-label="Info" className="min-h-[100dvh] bg-white text-[#262626]">
-      <HomepageHeader page="info" showArchiveContent={false} />
+      <SiteNavbar page="info" />
 
       <div className="mx-auto w-full max-w-[1705px] px-4 pb-20 pt-16 sm:px-5 sm:pb-28 sm:pt-20 xl:px-6 xl:pb-36 xl:pt-24 min-[1700px]:px-11">
         <section aria-labelledby="info-title" className="max-w-[980px]">

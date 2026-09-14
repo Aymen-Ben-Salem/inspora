@@ -8,6 +8,20 @@ import { IntentPrefetchLink } from "./intent-prefetch-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 import { CreatorAvatar } from "./creator-avatar";
 
+function FeedBookmarkIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-full">
+      <path
+        d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7a1.75 1.75 0 0 1 1.75 1.75V21L12 17.5 6.75 21V4.75Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function PostCard({
   post,
   priority = false,
@@ -82,15 +96,21 @@ export function PostCard({
             className="object-cover"
           />
         )}
-        <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
+        <span className="absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-10 flex items-end">
           <CreatorAvatar
             creator={post.creator}
             role="feed"
             width={35}
             height={35}
             sizes="35px"
-            className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
+            className="size-[var(--archive-card-overlay-size)] shrink-0 rounded-full border border-[#e6e6e6] object-cover"
           />
+        </span>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-[var(--archive-card-overlay-inset)] right-[var(--archive-card-overlay-inset)] z-10 flex size-[var(--archive-card-overlay-size)] items-center justify-center rounded-full bg-[#767676] p-[var(--archive-card-save-padding)] text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
+        >
+          <FeedBookmarkIcon />
         </span>
         {post.mediaCount > 1 ? (
           <span className="absolute right-[10px] top-[10px] z-10 flex h-6 min-w-6 items-center justify-center border border-black/10 bg-white/90 px-1.5 text-[10px] text-[#262626] backdrop-blur-md xl:h-[26px] xl:min-w-[26px] xl:text-[11px] min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:h-7 min-[1800px]:min-w-7 min-[1800px]:text-xs">

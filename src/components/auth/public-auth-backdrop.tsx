@@ -1,13 +1,13 @@
 import "server-only";
 
-import { HomepageHeader } from "../homepage-header";
+import { DesignHeader } from "../design-header";
 
 const backdropCards = Array.from({ length: 16 }, (_, index) => index);
 
 export function PublicAuthBackdrop() {
   return (
     <div className="min-h-[calc(100dvh+16px)] bg-white">
-      <HomepageHeader view="latest" />
+      <DesignHeader view="latest" />
       <section
         aria-hidden="true"
         className="archive-frame pt-[var(--archive-feed-gap)] pb-16"

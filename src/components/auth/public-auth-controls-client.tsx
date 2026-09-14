@@ -2,7 +2,6 @@
 
 import {
   SignInButton,
-  SignUpButton,
   useAuth,
   UserButton,
 } from "@clerk/nextjs";
@@ -15,42 +14,38 @@ export function PublicAuthControlsClient({
   const { isLoaded, isSignedIn } = useAuth();
 
   const content = !isLoaded ? (
-    <span aria-hidden="true" className="inline-block size-8" />
-  ) : isSignedIn ? (
-    <UserButton />
-  ) : (
-    <div
+    <span
+      aria-hidden="true"
       className={
         variant === "desktop"
-          ? "flex items-center gap-3"
-          : "flex flex-col items-start gap-1"
+          ? "inline-block size-[var(--archive-user-avatar-size)]"
+          : "inline-block size-[35px]"
       }
-    >
-      <SignInButton mode="redirect">
-        <button
-          type="button"
-          className={
+    />
+  ) : isSignedIn ? (
+    <UserButton
+      appearance={{
+        elements: {
+          avatarBox:
             variant === "desktop"
-              ? "focus-ring cursor-pointer px-1 py-2 text-[rgba(38,38,38,0.6)] transition-colors hover:text-[#262626]"
-              : "focus-ring cursor-pointer py-0.5 text-[17px] leading-[1.45] tracking-[-0.012em] text-[#666] transition-colors hover:text-[#262626]"
-          }
-        >
-          Sign in
-        </button>
-      </SignInButton>
-      <SignUpButton mode="redirect">
-        <button
-          type="button"
-          className={
-            variant === "desktop"
-              ? "focus-ring inline-flex h-[var(--archive-control-height)] cursor-pointer items-center justify-center border border-[#888] px-4 text-[#262626] transition-colors hover:border-[#262626]"
-              : "focus-ring mt-1 inline-flex min-h-10 cursor-pointer items-center justify-center border border-[#888] px-4 text-[15px] text-[#262626] transition-colors hover:border-[#262626]"
-          }
-        >
-          Sign up
-        </button>
-      </SignUpButton>
-    </div>
+              ? "size-[var(--archive-user-avatar-size)] border border-[#e6e6e6]"
+              : "size-[35px] border border-[#e6e6e6]",
+        },
+      }}
+    />
+  ) : (
+    <SignInButton mode="redirect">
+      <button
+        type="button"
+        className={
+          variant === "desktop"
+            ? "focus-ring inline-flex h-[var(--archive-sign-in-height)] w-[var(--archive-sign-in-width)] cursor-pointer items-center justify-center bg-[#262626] px-[var(--archive-sign-in-pad-x)] py-[var(--archive-sign-in-pad-y)] text-[var(--archive-copy-size)] font-medium tracking-[0.2px] text-white shadow-[0_1px_1px_#e6e6e6] transition-colors hover:bg-black"
+            : "focus-ring inline-flex min-h-10 cursor-pointer items-center justify-center bg-[#262626] px-4 text-[15px] text-white transition-colors hover:bg-black"
+        }
+      >
+        Sign in
+      </button>
+    </SignInButton>
   );
 
   return variant === "mobile" ? (

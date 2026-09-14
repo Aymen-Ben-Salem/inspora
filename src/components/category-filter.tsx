@@ -33,7 +33,7 @@ export function CategoryFilter({
       aria-label="Filter posts by category"
       className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <div className="archive-control-surface flex w-max items-center gap-[var(--archive-control-gap)]">
+      <div className="flex w-max items-center gap-[var(--archive-control-gap)] py-[var(--archive-filter-pad-y)] pr-[var(--archive-filter-pad-y)]">
         {categories.map((category) => {
           const active = category === "All" ? !current : current === category;
           const href = archiveHref({
@@ -46,10 +46,10 @@ export function CategoryFilter({
               key={category}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`focus-ring inline-flex h-[var(--archive-control-height)] shrink-0 items-center justify-center px-[var(--archive-control-x)] text-[var(--archive-control-size)] leading-none tracking-[0.2px] transition-colors duration-150 ${
+              className={`focus-ring inline-flex h-[var(--archive-control-height)] shrink-0 items-center justify-center px-[var(--archive-control-x)] text-[var(--archive-control-size)] leading-none tracking-[0.2px] transition-colors duration-150 ${category === "Illustration" ? "" : "w-[var(--archive-category-width)]"} ${
                 active
-                  ? "bg-white text-[#262626] shadow-[0_1px_1px_#e6e6e6]"
-                  : "bg-white/0 text-[#585858]/80 hover:bg-white/60 hover:text-[#262626] focus-visible:bg-white/60 focus-visible:text-[#262626]"
+                  ? "bg-[#262626] text-white shadow-[0_1px_1px_#e6e6e6]"
+                  : "bg-[#fafafa] text-[#767676] hover:bg-[#f0f0f0] hover:text-[#262626] focus-visible:bg-[#f0f0f0] focus-visible:text-[#262626]"
               }`}
             >
               {category}

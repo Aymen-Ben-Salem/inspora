@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/components/homepage-header", () => ({ HomepageHeader: () => null }));
+vi.mock("@/components/site-navbar", () => ({ SiteNavbar: () => null }));
 vi.mock("@/components/logos/logo-archive", () => ({ LogoArchive: () => null }));
 vi.mock("@/data/logos-repository", () => ({ getPublishedLogos: vi.fn() }));
 vi.mock("@/lib/seo", () => ({

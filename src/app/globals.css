@@ -2,10 +2,10 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #111111;
-  --muted: #777777;
-  --line: rgba(0, 0, 0, 0.09);
-  --surface: #f3f3f3;
+  --ink: #262626;
+  --muted: #767676;
+  --line: #f0f0f0;
+  --surface: #fafafa;
   --paper: #ffffff;
 }
 
@@ -175,7 +175,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 .feed-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  column-gap: 12px;
+  column-gap: var(--archive-card-gap);
   row-gap: 0;
   align-items: start;
 }
@@ -187,7 +187,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 }
 
 .feed-grid > [data-feed-card] {
-  padding-bottom: 12px;
+  padding-bottom: var(--archive-card-gap);
 }
 
 .feed-grid[data-masonry-ready] {
@@ -217,32 +217,58 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   outline-offset: 3px;
 }
 
-/* Scale from the 1705px archive frame, following the detail sidebar pattern. */
+/* Each value scales from its own 1440x1024 Figma measurement. The minimum of
+   the width and height ratios preserves the frame's proportions, matching the
+   detail sidebar's fit strategy without borrowing any of its element sizes. */
 .archive-frame {
-  --archive-copy-size: clamp(14px, 0.938vw, 18px);
-  --archive-nav-size: clamp(15px, 1.173vw, 20px);
-  --archive-heading-size: clamp(16px, 1.173vw, 20px);
-  --archive-control-size: clamp(13px, 0.938vw, 17px);
-  --archive-header-pad-y: clamp(16px, 1.173vw, 24px);
-  --archive-header-gap: clamp(10px, 0.704vw, 14px);
-  --archive-description-gap: clamp(14px, 0.938vw, 18px);
-  --archive-feed-gap: clamp(28px, 1.877vw, 36px);
-  --archive-brand-gap: clamp(24px, 2.346vw, 44px);
-  --archive-control-gap: clamp(6px, 0.469vw, 10px);
-  --archive-control-pad: clamp(6px, 0.469vw, 9px);
-  --archive-control-height: clamp(39px, 2.522vw, 46px);
-  --archive-control-x: clamp(14px, 1.056vw, 20px);
+  --archive-copy-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-nav-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-heading-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-control-size: clamp(13px, min(0.972222vw, 1.367188dvh), 14px);
+  --archive-header-pad-y: clamp(14px, min(1.388889vw, 1.953125dvh), 20px);
+  --archive-header-gap: clamp(24px, min(2.222222vw, 3.125dvh), 32px);
+  --archive-description-gap: clamp(14px, min(1.25vw, 1.757813dvh), 18px);
+  --archive-feed-gap: clamp(14px, min(1.25vw, 1.757813dvh), 18px);
+  --archive-nav-height: clamp(32px, min(2.361111vw, 3.320313dvh), 34px);
+  --archive-nav-pad-x: clamp(10px, min(0.833333vw, 1.171875dvh), 12px);
+  --archive-overflow-width: clamp(44px, min(3.333333vw, 4.6875dvh), 48px);
+  --archive-overflow-icon: clamp(28px, min(2.222222vw, 3.125dvh), 32px);
+  --archive-menu-width: clamp(112px, min(8.333333vw, 11.71875dvh), 120px);
+  --archive-menu-offset: clamp(6px, min(0.555556vw, 0.78125dvh), 8px);
+  --archive-menu-padding: 4px;
+  --archive-menu-size: clamp(13px, min(0.972222vw, 1.367188dvh), 14px);
+  --archive-menu-item-x: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-menu-item-y: clamp(10px, min(0.833333vw, 1.171875dvh), 12px);
+  --archive-menu-radius: 3px;
+  --archive-header-action-gap: clamp(12px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-header-icon: clamp(20px, min(1.666667vw, 2.34375dvh), 24px);
+  --archive-user-avatar-size: clamp(30px, min(2.430556vw, 3.417969dvh), 35px);
+  --archive-sign-in-width: clamp(88px, min(7.222222vw, 10.15625dvh), 104px);
+  --archive-sign-in-height: clamp(40px, min(2.986111vw, 4.199219dvh), 43px);
+  --archive-sign-in-pad-x: clamp(15px, min(1.25vw, 1.757813dvh), 18px);
+  --archive-sign-in-pad-y: clamp(10px, min(0.833333vw, 1.171875dvh), 12px);
+  --archive-control-gap: clamp(6px, min(0.555556vw, 0.78125dvh), 8px);
+  --archive-control-pad: clamp(4px, min(0.277778vw, 0.390625dvh), 4px);
+  --archive-control-height: clamp(39px, min(2.847222vw, 4.003906dvh), 41px);
+  --archive-control-x: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-filter-pad-y: clamp(7px, min(0.555556vw, 0.78125dvh), 8px);
+  --archive-sort-pad-x: clamp(16px, min(1.25vw, 1.757813dvh), 18px);
+  --archive-category-width: clamp(96px, min(7.222222vw, 10.15625dvh), 104px);
+  --archive-card-gap: clamp(12px, min(1.041667vw, 1.464844dvh), 15px);
+  --archive-card-overlay-size: clamp(28px, min(2.430556vw, 3.417969dvh), 35px);
+  --archive-card-overlay-inset: clamp(7px, min(0.555556vw, 0.78125dvh), 8px);
+  --archive-card-save-padding: clamp(7px, min(0.555556vw, 0.78125dvh), 8px);
   --archive-search-gap: clamp(14px, 1.408vw, 26px);
   --archive-search-width: clamp(280px, 21.114vw, 380px);
-  width: 100%;
+  width: 100dvw;
   max-width: 1705px;
   margin-inline: auto;
-  padding-inline: clamp(16px, 2.64vw, 45px);
+  padding-inline: clamp(16px, min(3.125vw, 4.394531dvh), 45px);
 }
 
 .archive-control-surface {
   padding: var(--archive-control-pad);
-  background: #f4f4f4;
+  background: #fafafa;
 }
 
 .archive-search-input {

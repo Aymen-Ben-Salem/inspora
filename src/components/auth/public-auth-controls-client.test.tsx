@@ -9,7 +9,6 @@ const { authState } = vi.hoisted(() => ({
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => authState(),
   SignInButton: ({ children }: PropsWithChildren) => <>{children}</>,
-  SignUpButton: ({ children }: PropsWithChildren) => <>{children}</>,
   UserButton: () => <button type="button">Account menu</button>,
 }));
 
@@ -35,14 +34,14 @@ describe("PublicAuthControlsClient", () => {
   );
 
   it.each(["desktop" as const, "mobile" as const])(
-    "shows sign-in and sign-up actions when %s is signed out",
+    "shows only the sign-in action when %s is signed out",
     (variant) => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: false });
 
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
       expect(html).toContain("Sign in");
-      expect(html).toContain("Sign up");
+      expect(html).not.toContain("Sign up");
       expect(html).not.toContain("Account menu");
     },
   );
@@ -59,7 +58,7 @@ describe("PublicAuthControlsClient", () => {
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
       expect(html).toContain("Sign in");
-      expect(html).toContain("Sign up");
+      expect(html).not.toContain("Sign up");
       expect(html).not.toContain("Account menu");
     },
   );

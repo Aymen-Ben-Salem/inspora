@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { HomepageHeader } from "@/components/homepage-header";
+import { SiteNavbar } from "@/components/site-navbar";
 import { LogoArchive } from "@/components/logos/logo-archive";
 import { getPublishedLogos } from "@/data/logos-repository";
 import {
@@ -37,7 +37,7 @@ export default async function LogosPage({ searchParams }: LogosPageProps) {
 
   return (
     <div className="min-h-[100dvh] bg-white">
-      <HomepageHeader page="logos" />
+      <SiteNavbar page="logos" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

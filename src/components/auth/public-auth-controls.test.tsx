@@ -24,7 +24,7 @@ describe("PublicAuthControls", () => {
   });
 
   it.each(["desktop" as const, "mobile" as const])(
-    "renders nothing for unconfigured %s controls",
+    "renders a Sign in fallback for unconfigured %s controls",
     (variant) => {
       isConfigured.mockReturnValue(false);
       renderClientControls.mockImplementation(() => {
@@ -33,7 +33,8 @@ describe("PublicAuthControls", () => {
 
       const html = renderToStaticMarkup(<PublicAuthControls variant={variant} />);
 
-      expect(html).toBe("");
+      expect(html).toContain('href="/sign-in"');
+      expect(html).toContain("Sign in");
       expect(html).not.toContain("Account");
     },
   );

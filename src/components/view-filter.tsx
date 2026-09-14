@@ -78,7 +78,7 @@ export function ViewFilter({
   }
 
   return (
-    <div ref={containerRef} className="archive-control-surface relative shrink-0">
+    <div ref={containerRef} className="relative shrink-0 py-[var(--archive-filter-pad-y)]">
       <button
         ref={triggerRef}
         type="button"
@@ -95,7 +95,7 @@ export function ViewFilter({
             if (!open) toggleMenu();
           }
         }}
-        className={`focus-ring group inline-flex h-[var(--archive-control-height)] min-w-[96px] items-center justify-center gap-2.5 border px-[var(--archive-control-x)] text-[var(--archive-control-size)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] min-[1200px]:min-w-[111px] ${
+        className={`focus-ring group inline-flex h-[var(--archive-control-height)] items-center justify-center gap-2.5 border px-[var(--archive-sort-pad-x)] text-[var(--archive-control-size)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] ${
           open
             ? "border-black/20 bg-white"
             : "border-transparent bg-white"

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { HomepageHeader } from "@/components/homepage-header";
+import { SiteNavbar } from "@/components/site-navbar";
 import { WebsiteArchive } from "@/components/websites/website-archive";
 import { getPublishedWebsites } from "@/data/websites-repository";
 import { isPostView } from "@/domain/post";
@@ -36,7 +36,7 @@ export default async function WebsitesPage({ searchParams }: WebsitesPageProps) 
 
   return (
     <div className="min-h-[100dvh] bg-white">
-      <HomepageHeader page="websites" />
+      <SiteNavbar page="websites" />
       <WebsiteArchive websites={websites} initialSlug={initialSlug} view={view} />
     </div>
   );

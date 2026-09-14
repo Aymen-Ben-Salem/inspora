@@ -48,15 +48,9 @@ describe("Clerk auth card presentation", () => {
     const verificationCard = publicAuthAppearance.elements.card[
       "&:has(.cl-otpCodeField)"
     ];
-    const verificationCardBox = (
-      publicAuthAppearance.elements.cardBox as Record<string, unknown>
-    )["&:has(.cl-otpCodeField)"];
 
-    expect(verificationCardBox).toMatchObject({
-      height: "489px",
-    });
-    expect(verificationCard).not.toHaveProperty("height");
     expect(verificationCard).toMatchObject({
+      height: "auto",
       minHeight: "489px",
       backgroundImage: "url('/brand/inspora-auth-mark.svg')",
       backgroundPosition: "center 80px",

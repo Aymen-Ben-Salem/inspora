@@ -225,6 +225,8 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   --archive-nav-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
   --archive-heading-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
   --archive-control-size: clamp(13px, min(0.972222vw, 1.367188dvh), 14px);
+  --archive-search-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-switch-size: clamp(14px, min(1.111111vw, 1.5625dvh), 16px);
   --archive-header-pad-y: clamp(14px, min(1.388889vw, 1.953125dvh), 20px);
   --archive-header-gap: clamp(24px, min(2.222222vw, 3.125dvh), 32px);
   --archive-description-gap: clamp(14px, min(1.25vw, 1.757813dvh), 18px);
@@ -258,8 +260,10 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   --archive-card-overlay-size: clamp(28px, min(2.430556vw, 3.417969dvh), 35px);
   --archive-card-overlay-inset: clamp(7px, min(0.555556vw, 0.78125dvh), 8px);
   --archive-card-save-padding: clamp(7px, min(0.555556vw, 0.78125dvh), 8px);
-  --archive-search-gap: clamp(14px, 1.408vw, 26px);
-  --archive-search-width: clamp(280px, 21.114vw, 380px);
+  --archive-search-gap: clamp(12px, min(1.111111vw, 1.5625dvh), 16px);
+  --archive-search-width: clamp(280px, min(27.569444vw, 38.769531dvh), 397px);
+  --archive-filter-width: clamp(96px, min(8.333333vw, 11.71875dvh), 120px);
+  --archive-switch-width: clamp(64px, min(5vw, 7.03125dvh), 72px);
   width: 100dvw;
   max-width: 1705px;
   margin-inline: auto;

@@ -101,14 +101,20 @@ export function WebsiteArchive({
 
   return (
     <>
-      <main className="archive-frame pb-16 pt-[var(--archive-description-gap)]">
+      <main className="archive-frame pb-16 pt-[var(--archive-header-gap)]">
         <section aria-label="Browse websites">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="archive-control-surface flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-[var(--archive-search-gap)]">
+          <h1 className="text-[length:var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em] text-[#767676] md:whitespace-nowrap">
+            A <span className="text-[#262626]">curated</span> archive of recent{" "}
+            <span className="text-[#262626]">visual design</span> inspiration and{" "}
+            <span className="text-[#262626]">creative work</span>.
+          </h1>
+
+          <div className="mt-[var(--archive-description-gap)] flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-[var(--archive-search-gap)]">
               <label className="relative block w-full shrink-0 lg:w-[var(--archive-search-width)]">
                 <span className="sr-only">Search websites</span>
                 <span className="pointer-events-none absolute left-[11px] top-1/2 size-5 -translate-y-1/2 text-[#777]"><ArchiveSearchIcon /></span>
-                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search websites, styles, industries..." className="archive-search-input ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-white py-2.5 pl-[41px] pr-3 text-[var(--archive-control-size)] text-[#505050] outline-none placeholder:text-[#8a8a8a]" />
+                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search websites, styles, industries..." className="archive-search-input ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[var(--archive-search-size)] text-[#262626] outline-none placeholder:text-[#767676]" />
               </label>
               <div className="flex min-w-0 flex-wrap gap-2 overflow-visible">
                 <ArchiveFilterMenu label="Category" options={options.categories} selected={selections.categories} onToggle={(value) => toggleFilter("categories", value)} />
@@ -116,7 +122,7 @@ export function WebsiteArchive({
                 <ArchiveFilterMenu align="right" label="Color" options={options.colors} selected={selections.colors} onToggle={(value) => toggleFilter("colors", value)} />
               </div>
             </div>
-            <div className="self-end xl:self-auto">
+            <div className="self-end lg:self-auto">
               <ViewFilter basePath="/websites" view={view} />
             </div>
           </div>

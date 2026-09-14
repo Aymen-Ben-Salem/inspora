@@ -1,6 +1,7 @@
 import type { Logo } from "@/domain/logo";
 
 import { CreatorAvatar } from "../creator-avatar";
+import { FeedSaveOverlay } from "../feed-save-overlay";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 
 export function LogoCard({
@@ -45,6 +46,7 @@ export function LogoCard({
             />
           </span>
         ) : null}
+        <FeedSaveOverlay />
         {logo.kind === "logo" ? (
           <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
         ) : null}

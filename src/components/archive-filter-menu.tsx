@@ -40,8 +40,7 @@ export function ArchiveFilterMenu({
   return (
     <details name="archive-filter-menu" className="group relative shrink-0 open:z-40">
       <summary
-        style={{ color: "#8a8a8a" }}
-        className={`focus-ring flex h-[var(--archive-control-height)] min-w-[96px] cursor-pointer list-none items-center justify-center gap-2.5 border bg-white px-[var(--archive-control-x)] text-[var(--archive-control-size)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#e6e6e6]" : "border-transparent"}`}
+        className={`focus-ring flex h-[var(--archive-control-height)] min-w-[var(--archive-filter-width)] cursor-pointer list-none items-center justify-center gap-2.5 border bg-[#fafafa] px-[var(--archive-control-x)] text-[var(--archive-control-size)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#767676] text-[#262626]" : "border-[#e6e6e6] text-[#767676]"}`}
       >
         {label}
         <Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden="true" width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0 transition-transform group-open:rotate-180" />

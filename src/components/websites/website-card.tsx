@@ -1,5 +1,6 @@
 import type { Website } from "@/domain/website";
 
+import { FeedSaveOverlay } from "../feed-save-overlay";
 import { LoopingVideo } from "../looping-video";
 
 export function WebsiteCard({
@@ -23,7 +24,7 @@ export function WebsiteCard({
       >
         <div
           data-feed-transition-target
-          className="aspect-video w-full overflow-hidden bg-[#ececea]"
+          className="relative aspect-video w-full overflow-hidden bg-[#ececea]"
         >
           <LoopingVideo
             src={website.recording.videoPreview.url}
@@ -32,6 +33,7 @@ export function WebsiteCard({
             suspendWithFeed
             className="size-full object-contain"
           />
+          <FeedSaveOverlay />
         </div>
         <div className="mt-5 flex items-start gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}

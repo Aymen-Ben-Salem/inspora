@@ -65,7 +65,11 @@ export function SiteNavbarClient({
   const [contactOpen, setContactOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [overflowPreview, setOverflowPreview] = useState<
+    "contact" | "about" | null
+  >(null);
   const overflowRef = useRef<HTMLDivElement>(null);
+  const highlightedOverflowItem = overflowPreview ?? "contact";
 
   const closeContact = useCallback(() => setContactOpen(false), []);
   const closeSubscribe = useCallback(() => setSubscribeOpen(false), []);
@@ -94,11 +98,15 @@ export function SiteNavbarClient({
     function closeOnOutsidePress(event: PointerEvent) {
       if (!overflowRef.current?.contains(event.target as Node)) {
         setOverflowOpen(false);
+        setOverflowPreview(null);
       }
     }
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOverflowOpen(false);
+      if (event.key === "Escape") {
+        setOverflowOpen(false);
+        setOverflowPreview(null);
+      }
     }
 
     document.addEventListener("pointerdown", closeOnOutsidePress);
@@ -157,7 +165,10 @@ export function SiteNavbarClient({
                   aria-label="More navigation"
                   aria-haspopup="menu"
                   aria-expanded={overflowOpen}
-                  onClick={() => setOverflowOpen((open) => !open)}
+                  onClick={() => {
+                    if (overflowOpen) setOverflowPreview(null);
+                    setOverflowOpen((open) => !open);
+                  }}
                   className={
                     "focus-ring flex h-[var(--archive-nav-height)] w-[var(--archive-overflow-width)] cursor-pointer items-center justify-center rounded-full text-[#767676] transition-colors hover:bg-[#fafafa] hover:text-[#262626] " +
                     (overflowOpen || page === "info"
@@ -173,6 +184,7 @@ export function SiteNavbarClient({
                 <div
                   role="menu"
                   aria-hidden={!overflowOpen}
+                  onMouseLeave={() => setOverflowPreview(null)}
                   className={
                     "absolute left-1/2 top-[calc(100%+var(--archive-menu-offset))] z-50 w-[var(--archive-menu-width)] -translate-x-1/2 overflow-hidden rounded-[var(--archive-menu-radius)] bg-[#fafafa] p-[var(--archive-menu-padding)] text-[var(--archive-menu-size)] tracking-[0.2px] transition-[opacity,transform,visibility] duration-150 " +
                     (overflowOpen
@@ -180,15 +192,32 @@ export function SiteNavbarClient({
                       : "invisible pointer-events-none -translate-y-1 opacity-0")
                   }
                 >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      "pointer-events-none absolute inset-x-[var(--archive-menu-padding)] top-[var(--archive-menu-padding)] h-[var(--archive-menu-item-height)] rounded-[var(--archive-menu-radius)] bg-[#f0f0f0] transition-transform duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none " +
+                      (highlightedOverflowItem === "about"
+                        ? "translate-y-[var(--archive-menu-item-height)]"
+                        : "translate-y-0")
+                    }
+                  />
                   <button
                     type="button"
                     role="menuitem"
                     tabIndex={overflowOpen ? 0 : -1}
+                    onFocus={() => setOverflowPreview("contact")}
+                    onMouseEnter={() => setOverflowPreview("contact")}
                     onClick={() => {
                       setOverflowOpen(false);
+                      setOverflowPreview(null);
                       setContactOpen(true);
                     }}
-                    className="focus-ring flex w-full cursor-pointer items-center rounded-[var(--archive-menu-radius)] bg-[#f0f0f0] px-[var(--archive-menu-item-x)] py-[var(--archive-menu-item-y)] text-left text-[#262626] transition-colors"
+                    className={
+                      "focus-ring relative z-10 flex h-[var(--archive-menu-item-height)] w-full cursor-pointer items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] text-left transition-colors " +
+                      (highlightedOverflowItem === "contact"
+                        ? "text-[#262626]"
+                        : "text-[rgba(38,38,38,0.8)]")
+                    }
                   >
                     Contact
                   </button>
@@ -196,8 +225,18 @@ export function SiteNavbarClient({
                     href="/info"
                     role="menuitem"
                     tabIndex={overflowOpen ? 0 : -1}
-                    onClick={() => setOverflowOpen(false)}
-                    className="focus-ring flex w-full items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] py-[var(--archive-menu-item-y)] text-[rgba(38,38,38,0.8)] transition-colors hover:bg-[#f0f0f0] hover:text-[#262626] focus-visible:bg-[#f0f0f0]"
+                    onFocus={() => setOverflowPreview("about")}
+                    onMouseEnter={() => setOverflowPreview("about")}
+                    onClick={() => {
+                      setOverflowOpen(false);
+                      setOverflowPreview(null);
+                    }}
+                    className={
+                      "focus-ring relative z-10 flex h-[var(--archive-menu-item-height)] w-full items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] transition-colors " +
+                      (highlightedOverflowItem === "about"
+                        ? "text-[#262626]"
+                        : "text-[rgba(38,38,38,0.8)]")
+                    }
                   >
                     About Us
                   </Link>
@@ -297,4 +336,3 @@ export function SiteNavbarClient({
     </>
   );
 }
-

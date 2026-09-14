@@ -95,7 +95,7 @@ export function ViewFilter({
             if (!open) toggleMenu();
           }
         }}
-        className={`focus-ring group inline-flex h-[var(--archive-control-height)] items-center justify-center gap-2.5 border px-[var(--archive-sort-pad-x)] text-[var(--archive-control-size)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] ${
+        className={`archive-control-type focus-ring group inline-flex h-[var(--archive-control-height)] items-center justify-center gap-2.5 border px-[var(--archive-sort-pad-x)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] ${
           open
             ? "border-black/20 bg-white"
             : "border-transparent bg-white"

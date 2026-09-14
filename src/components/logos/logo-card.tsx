@@ -35,14 +35,14 @@ export function LogoCard({
           className="absolute inset-0 size-full object-contain"
         />
         {logo.kind === "logo" ? (
-          <span className="absolute bottom-[10px] left-[10px] z-10 flex items-end min-[1800px]:bottom-3 min-[1800px]:left-3">
+          <span className="absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-10 flex items-end">
             <CreatorAvatar
               creator={logo.creator}
               role="feed"
               width={35}
               height={35}
               sizes="35px"
-              className="size-7 shrink-0 rounded-full border border-[#e6e6e6] object-cover xl:size-[30px] min-[1800px]:size-[35px]"
+              className="size-[var(--archive-card-overlay-size)] shrink-0 rounded-full border border-[#e6e6e6] object-cover"
             />
           </span>
         ) : null}

@@ -270,6 +270,26 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   padding-inline: clamp(16px, min(3.125vw, 4.394531dvh), 45px);
 }
 
+.archive-copy-type {
+  font-size: var(--archive-copy-size);
+}
+
+.archive-control-type {
+  font-size: var(--archive-control-size);
+}
+
+.archive-menu-type {
+  font-size: var(--archive-menu-size);
+}
+
+.archive-search-type {
+  font-size: var(--archive-search-size);
+}
+
+.archive-switch-type {
+  font-size: var(--archive-switch-size);
+}
+
 .archive-control-surface {
   padding: var(--archive-control-pad);
   background: #fafafa;

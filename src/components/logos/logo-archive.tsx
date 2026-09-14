@@ -149,7 +149,7 @@ export function LogoArchive({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search logos, colors, styles..."
-                  className="archive-search-input ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[var(--archive-search-size)] text-[#767676] outline-none placeholder:text-[#767676]"
+                  className="archive-search-input archive-search-type ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[#767676] outline-none placeholder:text-[#767676]"
                 />
               </label>
 
@@ -192,7 +192,7 @@ export function LogoArchive({
                     type="button"
                     aria-pressed={active}
                     onClick={() => setKind(option)}
-                    className={`focus-ring h-[var(--archive-control-height)] w-[var(--archive-switch-width)] border px-[var(--archive-control-x)] text-[var(--archive-switch-size)] ${
+                    className={`archive-switch-type focus-ring h-[var(--archive-control-height)] w-[var(--archive-switch-width)] border px-[var(--archive-control-x)] ${
                       active
                         ? "border-[#262626] bg-[#262626] text-white"
                         : "border-[#e6e6e6] bg-[#fafafa] text-[#262626] hover:bg-[#f0f0f0]"

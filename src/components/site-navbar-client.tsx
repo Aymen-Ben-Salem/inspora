@@ -186,7 +186,7 @@ export function SiteNavbarClient({
                   aria-hidden={!overflowOpen}
                   onMouseLeave={() => setOverflowPreview(null)}
                   className={
-                    "absolute left-1/2 top-[calc(100%+var(--archive-menu-offset))] z-50 w-[var(--archive-menu-width)] -translate-x-1/2 overflow-hidden rounded-[var(--archive-menu-radius)] bg-[#fafafa] p-[var(--archive-menu-padding)] text-[var(--archive-menu-size)] tracking-[0.2px] transition-[opacity,transform,visibility] duration-150 " +
+                    "archive-menu-type absolute left-1/2 top-[calc(100%+var(--archive-menu-offset))] z-50 w-[var(--archive-menu-width)] -translate-x-1/2 overflow-hidden rounded-[var(--archive-menu-radius)] bg-[#fafafa] p-[var(--archive-menu-padding)] tracking-[0.2px] transition-[opacity,transform,visibility] duration-150 " +
                     (overflowOpen
                       ? "visible translate-y-0 opacity-100"
                       : "invisible pointer-events-none -translate-y-1 opacity-0")
@@ -244,7 +244,7 @@ export function SiteNavbarClient({
               </div>
             </nav>
 
-            <div className="hidden min-w-0 items-center justify-end gap-[var(--archive-header-action-gap)] text-[var(--archive-copy-size)] font-medium leading-normal lg:flex">
+            <div className="archive-copy-type hidden min-w-0 items-center justify-end gap-[var(--archive-header-action-gap)] font-medium leading-normal lg:flex">
               <button
                 type="button"
                 onClick={() => setSubscribeOpen(true)}

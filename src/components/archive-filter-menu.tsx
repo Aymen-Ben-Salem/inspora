@@ -41,7 +41,7 @@ export function ArchiveFilterMenu({
     <details name="archive-filter-menu" className="group relative shrink-0 open:z-40">
       <summary
         style={{ color: selected.length > 0 ? "#262626" : "#767676" }}
-        className={`focus-ring flex h-[var(--archive-control-height)] min-w-[var(--archive-filter-width)] cursor-pointer list-none items-center justify-center gap-2.5 border bg-[#fafafa] px-[var(--archive-control-x)] text-[var(--archive-control-size)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#767676]" : "border-[#e6e6e6]"}`}
+        className={`archive-control-type focus-ring flex h-[var(--archive-control-height)] min-w-[var(--archive-filter-width)] cursor-pointer list-none items-center justify-center gap-2.5 border bg-[#fafafa] px-[var(--archive-control-x)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "border-[#767676]" : "border-[#e6e6e6]"}`}
       >
         {label}
         <Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden="true" width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0 transition-transform group-open:rotate-180" />

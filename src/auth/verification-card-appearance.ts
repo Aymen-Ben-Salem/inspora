@@ -13,7 +13,6 @@ export const verificationCardAppearance = {
     padding: "80px 40px",
     boxShadow: "none",
     [verificationSelector]: {
-      height: "489px",
       minHeight: "489px",
       backgroundImage: "url('/brand/inspora-auth-mark.svg')",
       backgroundPosition: "center 80px",

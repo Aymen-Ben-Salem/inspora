@@ -62,7 +62,16 @@ export const publicAuthAppearance = {
   },
   elements: {
     rootBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px" },
-    cardBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px", border: 0, borderRadius: 0, boxShadow: "0 4px 18px rgba(38, 38, 38, 0.06), 0 1px 3px rgba(38, 38, 38, 0.05)" },
+    cardBox: {
+      boxSizing: "border-box",
+      width: "100%",
+      minWidth: 0,
+      maxWidth: "429px",
+      border: 0,
+      borderRadius: 0,
+      boxShadow: "0 4px 18px rgba(38, 38, 38, 0.06), 0 1px 3px rgba(38, 38, 38, 0.05)",
+      "&:has(.cl-otpCodeField)": { height: "489px" },
+    },
     card: verificationCardAppearance.card,
     logoBox: { height: "50px", marginBottom: 0 },
     logoImage: { width: "56px", height: "50px", objectFit: "contain" },

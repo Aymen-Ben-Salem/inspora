@@ -6,10 +6,12 @@ import type { MouseEvent, ReactNode } from "react";
 export function AuthModalShell({
   label,
   backdrop,
+  overlay = false,
   children,
 }: {
   label: string;
-  backdrop: ReactNode;
+  backdrop?: ReactNode;
+  overlay?: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -26,15 +28,30 @@ export function AuthModalShell({
   }
 
   return (
-    <div className="relative isolate min-h-[100dvh] overflow-hidden bg-white text-[#262626]">
-      <div
-        aria-hidden="true"
-        inert
-        data-auth-backdrop
-        className="pointer-events-none absolute inset-[-8px] select-none overflow-hidden blur-[5px]"
-      >
-        {backdrop}
-      </div>
+    <div
+      data-auth-overlay={overlay || undefined}
+      className={
+        overlay
+          ? "fixed inset-0 z-[110] isolate overflow-y-auto text-[#262626]"
+          : "relative isolate min-h-[100dvh] overflow-hidden bg-white text-[#262626]"
+      }
+    >
+      {overlay ? (
+        <div
+          aria-hidden="true"
+          data-auth-backdrop
+          className="pointer-events-none absolute inset-0 backdrop-blur-[5px]"
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          inert
+          data-auth-backdrop
+          className="pointer-events-none absolute inset-[-8px] select-none overflow-hidden blur-[5px]"
+        >
+          {backdrop}
+        </div>
+      )}
 
       <div
         data-auth-dismiss

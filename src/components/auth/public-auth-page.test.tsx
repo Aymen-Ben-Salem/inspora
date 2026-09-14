@@ -82,4 +82,21 @@ describe("PublicAuthPage", () => {
       expect(html).not.toContain("data-clerk-flow");
     },
   );
+
+  it("uses a transparent backdrop blur without rendering substitute page content when intercepted", () => {
+    isConfigured.mockReturnValue(true);
+    renderSignIn.mockReturnValue(<div data-clerk-flow="sign-in" />);
+
+    const html = renderToStaticMarkup(
+      <PublicAuthPage
+        flow="sign-in"
+        overlay
+        backdrop={<div data-testid="substitute-backdrop" />}
+      />,
+    );
+
+    expect(html).toContain('data-auth-overlay="true"');
+    expect(html).toContain("backdrop-blur-[5px]");
+    expect(html).not.toContain("substitute-backdrop");
+  });
 });

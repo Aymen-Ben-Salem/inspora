@@ -1,4 +1,3 @@
-import type { PropsWithChildren } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -8,7 +7,6 @@ const { authState } = vi.hoisted(() => ({
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => authState(),
-  SignInButton: ({ children }: PropsWithChildren) => <>{children}</>,
   UserButton: () => <button type="button">Account menu</button>,
 }));
 
@@ -41,6 +39,7 @@ describe("PublicAuthControlsClient", () => {
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
       expect(html).toContain("Sign in");
+      expect(html).toContain('href="/sign-in"');
       expect(html).not.toContain("Sign up");
       expect(html).not.toContain("Account menu");
     },

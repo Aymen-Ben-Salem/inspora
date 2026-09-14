@@ -34,15 +34,18 @@ function UnconfiguredAuthCard() {
 export function PublicAuthPage({
   flow,
   backdrop,
+  overlay = false,
 }: {
   flow: AuthFlow;
   backdrop?: ReactNode;
+  overlay?: boolean;
 }) {
   const label = flowLabels[flow];
 
   return (
     <AuthModalShell
       label={label}
+      overlay={overlay}
       backdrop={
         backdrop ?? <div className="min-h-[calc(100dvh+16px)] bg-[#fafafa]" />
       }

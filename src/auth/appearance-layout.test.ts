@@ -56,8 +56,24 @@ describe("Clerk auth card presentation", () => {
       backgroundSize: "56px 50px",
       paddingTop: "135px",
     });
+    expect(publicAuthAppearance.elements.otpCodeFieldInputs).toMatchObject({
+      display: "grid",
+      width: "100%",
+      gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+      gap: "8px",
+    });
+    expect(
+      publicAuthAppearance.elements.otpCodeFieldInputContainer,
+    ).toMatchObject({
+      width: "100%",
+      minWidth: 0,
+      aspectRatio: "1 / 1",
+    });
     expect(publicAuthAppearance.elements.otpCodeFieldInput).toMatchObject({
-      height: "43px",
+      width: "100%",
+      height: "100%",
+      minWidth: 0,
+      aspectRatio: "1 / 1",
       borderRadius: "8px",
     });
   });

@@ -1,7 +1,7 @@
 import type { ClerkProvider } from "@clerk/nextjs";
 import type { ComponentProps } from "react";
 
-import { verificationAppearanceElements } from "./verification-appearance";
+import { verificationCardAppearance } from "./verification-card-appearance";
 
 type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
 
@@ -35,6 +35,7 @@ export const clerkLocalization = {
   backButton: "Back",
   dividerText: "",
   formButtonPrimary: "Continue with email",
+  socialButtonsBlockButton: "Continue with {{provider|titleize}}",
   formButtonPrimary__verify: "Sign In",
   formFieldInputPlaceholder__emailAddress: "Enter your email address",
   identityPreviewEditButton__emailAddress: "Back",
@@ -61,14 +62,14 @@ export const publicAuthAppearance = {
   },
   elements: {
     rootBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px" },
-    cardBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px", border: 0, borderRadius: 0, boxShadow: "none" },
-    card: verificationAppearanceElements.card,
+    cardBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px", border: 0, borderRadius: 0, boxShadow: "0 4px 18px rgba(38, 38, 38, 0.06), 0 1px 3px rgba(38, 38, 38, 0.05)" },
+    card: verificationCardAppearance.card,
     logoBox: { height: "50px", marginBottom: 0 },
     logoImage: { width: "56px", height: "50px", objectFit: "contain" },
-    header: { gap: "16px", marginBottom: "12px", padding: 0, textAlign: "center" },
+    header: { gap: "16px", marginBottom: 0, padding: 0, textAlign: "center" },
     headerTitle: { color: "#444444", fontSize: "24px", fontWeight: 500, lineHeight: "normal", letterSpacing: "-0.48px", textAlign: "center" },
     headerSubtitle: { color: "#aaa8ad", fontSize: "16px", fontWeight: 500, lineHeight: 1.2, letterSpacing: "-0.5px", textAlign: "center" },
-    main: verificationAppearanceElements.main,
+    main: verificationCardAppearance.main,
     form: { gap: "16px" },
     formFieldRow: { gap: "8px" },
     formFieldLabel: "sr-only",
@@ -84,22 +85,24 @@ export const publicAuthAppearance = {
       "& svg": { display: "none" },
     },
     socialButtonsRoot: { gap: "16px" },
-    socialButtons: { gap: "16px" },
+    socialButtons: { display: "flex", flexDirection: "column", gap: "16px" },
     socialButtonsBlockButton: {
       boxSizing: "border-box", minHeight: "44px", border: "1px solid #e6e6e6", borderRadius: 0, background: "#ffffff", padding: "12px 16px", color: "#000000", boxShadow: "0 1px 0 #cfcfcf",
       "&:hover, &:focus, &:active": { borderColor: "#e6e6e6", background: "#ffffff" },
     },
     socialButtonsBlockButtonText: { color: "#000000", fontSize: "14px", fontWeight: 500, lineHeight: 1.4, letterSpacing: "-0.5px" },
+    socialButtonsBlockButtonText__x: { fontSize: 0, "&::after": { content: "\"Continue with X\"", fontSize: "14px" } },
     socialButtonsProviderIcon: { width: "20px", height: "20px" },
+    lastAuthenticationStrategyBadge: { display: "none" },
     dividerRow: { gap: 0, margin: 0 },
     dividerLine: { background: "#e6e6e6" },
     dividerText: { display: "none" },
     footer: { display: "none" },
     backRow: { marginBottom: "16px" },
     backLink: { minHeight: "41px", border: "1px solid #e6e6e6", borderRadius: "8px", background: "#ffffff", padding: "12px 18px", color: "#262626", fontSize: "14px", fontWeight: 400, letterSpacing: "0.2px", boxShadow: "0 1px 1px #e6e6e6" },
-    identityPreview: { border: 0, background: "transparent", padding: 0, color: "#aaa8ad", boxShadow: "none" },
+    identityPreview: { position: "static", border: 0, background: "transparent", padding: 0, color: "#aaa8ad", boxShadow: "none" },
     identityPreviewText: { color: "#aaa8ad", fontSize: "16px", fontWeight: 700, lineHeight: 1.2 },
-    identityPreviewEditButton: { color: "#262626" },
+    identityPreviewEditButton: verificationCardAppearance.identityPreviewEditButton,
     otpCodeField: { gap: "16px" },
     otpCodeFieldInputs: { gap: "8px" },
     otpCodeFieldInputContainer: { flex: "1 1 0", minWidth: 0 },
@@ -107,7 +110,7 @@ export const publicAuthAppearance = {
       width: "100%", height: "43px", border: "1px solid transparent", borderRadius: "8px", background: "#fafafa", color: "#262626", fontSize: "18px", boxShadow: "none",
       "&:focus": { borderColor: "#767676", background: "#f0f0f0", boxShadow: "none" },
     },
-    formResendCodeLink: verificationAppearanceElements.formResendCodeLink,
+    formResendCodeLink: verificationCardAppearance.formResendCodeLink,
     alert: { border: "1px solid #e6e6e6", borderRadius: 0, background: "#fafafa", padding: "12px 16px", boxShadow: "none" },
     alertText: { fontSize: "13px", lineHeight: 1.4 },
   },

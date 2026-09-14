@@ -1,6 +1,8 @@
 import type { ClerkProvider } from "@clerk/nextjs";
 import type { ComponentProps } from "react";
 
+import { verificationAppearanceElements } from "./verification-appearance";
+
 type ClerkProviderProps = ComponentProps<typeof ClerkProvider>;
 
 export const clerkAppearance = {
@@ -35,13 +37,16 @@ export const clerkLocalization = {
   formButtonPrimary: "Continue with email",
   formButtonPrimary__verify: "Sign In",
   formFieldInputPlaceholder__emailAddress: "Enter your email address",
+  identityPreviewEditButton__emailAddress: "Back",
+  identityPreviewEditButton__identifier: "Back",
+  identityPreviewEditButton__phoneNumber: "Back",
   signIn: {
     start: { title: "Join Inspora", titleCombined: "Join Inspora", subtitle: "", subtitleCombined: "" },
-    emailCode: { title: "Enter your code", subtitle: "We sent a 6-digit code to {{identifier}}", formTitle: "", resendButton: "Send again" },
+    emailCode: { title: "Enter your code", subtitle: "We sent a 6-digit code to", formTitle: "", resendButton: "Send again" },
   },
   signUp: {
     start: { title: "Join Inspora", titleCombined: "Join Inspora", subtitle: "", subtitleCombined: "" },
-    emailCode: { title: "Enter your code", subtitle: "We sent a 6-digit code to {{identifier}}", formTitle: "", formSubtitle: "", resendButton: "Send again" },
+    emailCode: { title: "Enter your code", subtitle: "We sent a 6-digit code to", formTitle: "", formSubtitle: "", resendButton: "Send again" },
   },
 } satisfies NonNullable<ClerkProviderProps["localization"]>;
 
@@ -57,13 +62,13 @@ export const publicAuthAppearance = {
   elements: {
     rootBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px" },
     cardBox: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px", border: 0, borderRadius: 0, boxShadow: "none" },
-    card: { boxSizing: "border-box", width: "100%", minWidth: 0, maxWidth: "429px", border: 0, borderRadius: 0, background: "#ffffff", padding: "80px 40px", boxShadow: "none" },
+    card: verificationAppearanceElements.card,
     logoBox: { height: "50px", marginBottom: 0 },
     logoImage: { width: "56px", height: "50px", objectFit: "contain" },
     header: { gap: "16px", marginBottom: "12px", padding: 0, textAlign: "center" },
     headerTitle: { color: "#444444", fontSize: "24px", fontWeight: 500, lineHeight: "normal", letterSpacing: "-0.48px", textAlign: "center" },
     headerSubtitle: { color: "#aaa8ad", fontSize: "16px", fontWeight: 500, lineHeight: 1.2, letterSpacing: "-0.5px", textAlign: "center" },
-    main: { gap: "24px" },
+    main: verificationAppearanceElements.main,
     form: { gap: "16px" },
     formFieldRow: { gap: "8px" },
     formFieldLabel: "sr-only",
@@ -102,7 +107,7 @@ export const publicAuthAppearance = {
       width: "100%", height: "43px", border: "1px solid transparent", borderRadius: "8px", background: "#fafafa", color: "#262626", fontSize: "18px", boxShadow: "none",
       "&:focus": { borderColor: "#767676", background: "#f0f0f0", boxShadow: "none" },
     },
-    formResendCodeLink: { color: "#262626", fontSize: "14px", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: "2px" },
+    formResendCodeLink: verificationAppearanceElements.formResendCodeLink,
     alert: { border: "1px solid #e6e6e6", borderRadius: 0, background: "#fafafa", padding: "12px 16px", boxShadow: "none" },
     alertText: { fontSize: "13px", lineHeight: 1.4 },
   },

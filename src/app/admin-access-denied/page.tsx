@@ -17,7 +17,7 @@ async function AdminAccessDeniedContent() {
 
   const { userId } = await auth();
 
-  if (!userId) redirect("/sign-in?redirect_url=/admin" as Route);
+  if (!userId) redirect("/admin" as Route);
   if (getConfiguredAdminUserIds().has(userId)) redirect("/admin" as Route);
 
   return (

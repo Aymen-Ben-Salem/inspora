@@ -60,9 +60,15 @@ export function PublicAuthPage({
           }
         >
           {flow === "sign-in" ? (
-            <SignIn appearance={publicAuthAppearance} />
+            <SignIn
+              appearance={publicAuthAppearance}
+              forceRedirectUrl="/"
+            />
           ) : (
-            <SignUp appearance={publicAuthAppearance} />
+            <SignUp
+              appearance={publicAuthAppearance}
+              forceRedirectUrl="/"
+            />
           )}
         </Suspense>
       ) : (

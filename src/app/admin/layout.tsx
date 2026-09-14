@@ -3,11 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { getConfiguredAdminUserIds, isClerkConfigured } from "@/auth/config";
 import { requireAdmin } from "@/auth/require-admin";
+import { AdminAuthEntry } from "@/components/auth/admin-auth-entry";
 import { BrandMark } from "@/components/brand-mark";
 
 export const metadata: Metadata = {
@@ -55,13 +55,12 @@ function AdminSetup({ userId }: { userId?: string }) {
 async function AdminContent({ children }: { children: ReactNode }) {
   if (!isClerkConfigured()) return <AdminSetup />;
 
-  if (getConfiguredAdminUserIds().size === 0) {
-    const { userId } = await auth();
+  const { userId } = await auth();
 
-    if (!userId) redirect("/sign-in?redirect_url=/admin" as Route);
+  if (!userId) return <AdminAuthEntry />;
 
+  if (getConfiguredAdminUserIds().size === 0)
     return <AdminSetup userId={userId} />;
-  }
 
   await requireAdmin();
 

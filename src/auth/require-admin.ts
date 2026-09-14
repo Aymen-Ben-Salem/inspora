@@ -22,7 +22,7 @@ export async function requireAdmin() {
 
   const { userId } = await auth();
 
-  if (!userId) redirect("/sign-in?redirect_url=/admin" as Route);
+  if (!userId) redirect("/admin" as Route);
   if (!adminUserIds.has(userId)) redirect("/admin-access-denied" as Route);
 
   return { userId };

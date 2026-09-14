@@ -12,5 +12,8 @@ describe("FeedSaveOverlay", () => {
     expect(markup).toContain("opacity-0");
     expect(markup).toContain("var(--archive-card-overlay-size)");
     expect(markup).toContain("var(--archive-card-overlay-inset)");
+    expect(markup).toContain('viewBox="0 0 35 35"');
+    expect(markup).toContain('stroke-width="1.55558"');
+    expect(markup).not.toContain("archive-card-save-padding");
   });
 });

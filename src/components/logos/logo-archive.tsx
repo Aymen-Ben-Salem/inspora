@@ -148,8 +148,8 @@ export function LogoArchive({
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search logos, colors, styles..."
-                  className="archive-search-input archive-search-type ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-3 text-[#767676] outline-none placeholder:text-[#767676]"
+                  placeholder="Search logos, colors, styles....."
+                  className="archive-search-input archive-search-type ios-no-focus-zoom focus-ring h-[var(--archive-control-height)] w-full border border-[#e6e6e6] bg-[#fafafa] py-2.5 pl-[41px] pr-[11px] text-[#767676] outline-none placeholder:text-[#767676]"
                 />
               </label>
 

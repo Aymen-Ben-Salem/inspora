@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 
@@ -78,7 +79,10 @@ export function ViewFilter({
   }
 
   return (
-    <div ref={containerRef} className="relative shrink-0 py-[var(--archive-filter-pad-y)]">
+    <div
+      ref={containerRef}
+      className={`relative shrink-0 ${basePath === "/" ? "py-[var(--archive-filter-pad-y)]" : ""}`}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -95,29 +99,19 @@ export function ViewFilter({
             if (!open) toggleMenu();
           }
         }}
-        className={`archive-control-type focus-ring group inline-flex h-[var(--archive-control-height)] items-center justify-center gap-2.5 border px-[var(--archive-sort-pad-x)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-[background,border-color,opacity] ${
-          open
-            ? "border-black/20 bg-white"
-            : "border-transparent bg-white"
-        } ${isPending ? "cursor-wait opacity-55" : ""}`}
+        className={`archive-control-type focus-ring group inline-flex h-[var(--archive-control-height)] items-center justify-center gap-[var(--archive-filter-gap)] border border-[#e6e6e6] bg-white px-[var(--archive-sort-pad-x)] font-normal leading-none tracking-[0.2px] shadow-[0_1px_1px_#e6e6e6] transition-opacity ${isPending ? "cursor-wait opacity-55" : ""}`}
       >
         <span>{currentLabel}</span>
-        <svg
+        <Image
+          src="/icons/logos-filter-chevron.svg"
+          alt=""
           aria-hidden="true"
-          viewBox="0 0 16 16"
-          className={`size-[11px] text-[#777] transition-transform duration-150 ease-out motion-reduce:transition-none ${
+          width={9.2}
+          height={5.2}
+          className={`h-[5.2px] w-[9.2px] shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none ${
             open ? "rotate-180" : ""
           }`}
-          fill="none"
-        >
-          <path
-            d="m4 6 4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        />
       </button>
 
       <div

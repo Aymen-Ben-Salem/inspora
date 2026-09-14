@@ -17,6 +17,8 @@ describe("ArchiveFilterMenu", () => {
     );
 
     expect(markup).toContain('style="color:#767676"');
+    expect(markup).toContain("w-[var(--archive-filter-width)]");
+    expect(markup).toContain("gap-[var(--archive-filter-gap)]");
   });
 
   it("uses archive black when a filter is selected", () => {
@@ -30,5 +32,6 @@ describe("ArchiveFilterMenu", () => {
     );
 
     expect(markup).toContain('style="color:#262626"');
+    expect(markup).toContain("w-[var(--archive-filter-selected-width)]");
   });
 });

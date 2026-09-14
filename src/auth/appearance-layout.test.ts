@@ -50,8 +50,9 @@ describe("Clerk auth card presentation", () => {
     ];
 
     expect(verificationCard).toMatchObject({
-      height: "auto",
-      minHeight: "489px",
+      height: "var(--auth-card-height, 493px)",
+      minHeight: 0,
+      overflowY: "auto",
       backgroundImage: "url('/brand/inspora-auth-mark.svg')",
       backgroundPosition: "center 80px",
       backgroundSize: "56px 50px",
@@ -72,7 +73,7 @@ describe("Clerk auth card presentation", () => {
     });
     expect(publicAuthAppearance.elements.otpCodeFieldInput).toMatchObject({
       width: "100%",
-      height: "100%",
+      height: "auto",
       minWidth: 0,
       aspectRatio: "1 / 1",
       borderRadius: "8px",

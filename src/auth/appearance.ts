@@ -126,7 +126,7 @@ export const publicAuthAppearance = {
     otpCodeFieldInput: {
       boxSizing: "border-box",
       width: "100%",
-      height: "100%",
+      height: "auto",
       minWidth: 0,
       aspectRatio: "1 / 1",
       border: "1px solid transparent",

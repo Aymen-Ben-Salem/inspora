@@ -61,11 +61,13 @@ export function PublicAuthPage({
         >
           {flow === "sign-in" ? (
             <SignIn
+              routing="hash"
               appearance={publicAuthAppearance}
               forceRedirectUrl="/"
             />
           ) : (
             <SignUp
+              routing="hash"
               appearance={publicAuthAppearance}
               forceRedirectUrl="/"
             />

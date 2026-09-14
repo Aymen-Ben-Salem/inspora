@@ -59,7 +59,7 @@ describe("PublicAuthPage", () => {
       );
       const activeRenderer = flow === "sign-in" ? renderSignIn : renderSignUp;
       expect(activeRenderer).toHaveBeenCalledWith(
-        expect.objectContaining({ appearance: expect.any(Object) }),
+        expect.objectContaining({ appearance: expect.any(Object), routing: "hash" }),
       );
     },
   );

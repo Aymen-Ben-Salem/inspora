@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { MouseEvent, ReactNode } from "react";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+
+import { observeAuthCardHeight } from "./auth-card-height";
 
 export function AuthModalShell({
   label,
@@ -15,16 +17,17 @@ export function AuthModalShell({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const dialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (dialogRef.current) return observeAuthCardHeight(dialogRef.current);
+  }, []);
 
   function dismissAuth(event: MouseEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-
-    router.replace("/");
+    // Clerk steps can add history entries; dismiss the entire auth route.
+    router.replace("/", { scroll: false });
   }
 
   return (
@@ -59,6 +62,7 @@ export function AuthModalShell({
         onClick={dismissAuth}
       >
         <section
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label={label}

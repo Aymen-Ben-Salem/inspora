@@ -50,6 +50,7 @@ describe("Clerk auth card presentation", () => {
     ];
 
     expect(verificationCard).toMatchObject({
+      height: "489px",
       minHeight: "489px",
       backgroundImage: "url('/brand/inspora-auth-mark.svg')",
       backgroundPosition: "center 80px",

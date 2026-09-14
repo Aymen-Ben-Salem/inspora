@@ -1,5 +1,6 @@
 @layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
+@import "../auth/verification-card.css";
 
 :root {
   --ink: #262626;

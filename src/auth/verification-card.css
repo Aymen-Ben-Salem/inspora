@@ -1,0 +1,115 @@
+/* Clerk keeps the identity/back control in the header, and resend inside the
+   OTP wrapper. Flatten only those presentational divs into one grid; native
+   inputs, feedback, and Clerk's event handlers remain intact. */
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+  align-content: start;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 80px 40px;
+  margin: 0;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField)::before {
+  content: "";
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: center;
+  width: 56px;
+  height: 50px;
+  margin-bottom: 16px;
+  background: url("/brand/inspora-auth-mark.svg") center / contain no-repeat;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) :is(
+  .cl-header,
+  .cl-header > div:has(> .cl-headerTitle),
+  .cl-identityPreview,
+  .cl-main,
+  .cl-main > div.cl-form,
+  .cl-main > div:has(> .cl-formButtonPrimary)
+) {
+  display: contents;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-logoBox {
+  display: none;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-headerTitle {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0 0 16px;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-headerSubtitle {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin: 0;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-identityPreviewText {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin: 0 0 40px;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-alert {
+  grid-column: 1 / -1;
+  grid-row: 5;
+  margin-bottom: 16px;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-otpCodeField {
+  grid-column: 1 / -1;
+  grid-row: 6;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-identityPreviewEditButton {
+  grid-column: 1;
+  grid-row: 7;
+  justify-self: start;
+  position: static;
+  margin: 0;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-formButtonPrimary {
+  grid-column: 2;
+  grid-row: 7;
+  justify-self: end;
+  position: static;
+  width: 87px;
+  min-height: 41px;
+  margin: 0;
+  border-radius: 8px;
+  font-size: 0;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-formButtonPrimary::after {
+  content: "Sign In";
+  font-size: 14px;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-formResendCodeLink {
+  grid-column: 1 / -1;
+  grid-row: 8;
+  justify-self: center;
+  position: static;
+  margin: 16px 0 0;
+  max-width: 100%;
+  white-space: normal;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-otpCodeField) :is(.cl-footerAction, .cl-formButtonReset) {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+}

@@ -1,5 +1,3 @@
-const verificationSelector = "&:has(.cl-otpCodeField)";
-
 export const verificationCardAppearance = {
   card: {
     boxSizing: "border-box",
@@ -11,59 +9,11 @@ export const verificationCardAppearance = {
     borderRadius: 0,
     background: "#ffffff",
     padding: "80px 40px",
+    margin: 0,
     boxShadow: "none",
-    [verificationSelector]: {
-      height: "var(--auth-card-height, 493px)",
-      minHeight: 0,
-      flex: "none",
-      overflowY: "auto",
-      backgroundImage: "url('/brand/inspora-auth-mark.svg')",
-      backgroundPosition: "center 80px",
-      backgroundRepeat: "no-repeat",
-      backgroundSize: "56px 50px",
-      paddingTop: "135px",
-    },
-    [`${verificationSelector} .cl-logoBox`]: { display: "none" },
   },
-  main: {
-    gap: "24px",
-    [verificationSelector]: { gap: 0, position: "static" },
-    [`${verificationSelector} .cl-form`]: {
-      position: "static",
-      gap: "16px",
-    },
-    [`${verificationSelector} .cl-formButtonPrimary`]: {
-      position: "absolute",
-      top: "338px",
-      right: "40px",
-      boxSizing: "border-box",
-      width: "87px",
-      minHeight: "41px",
-      borderRadius: "8px",
-      color: "transparent",
-      fontSize: 0,
-    },
-    [`${verificationSelector} .cl-formButtonPrimary > *`]: {
-      display: "none",
-    },
-    [`${verificationSelector} .cl-formButtonPrimary::after`]: {
-      content: '"Sign In"',
-      color: "#ffffff",
-      fontSize: "14px",
-    },
-    [`${verificationSelector} .cl-formResendCodeLink`]: {
-      position: "absolute",
-      top: "397px",
-      left: "50%",
-      width: "max-content",
-      transform: "translateX(-50%)",
-    },
-  },
+  main: { gap: "24px" },
   identityPreviewEditButton: {
-    position: "absolute",
-    top: "338px",
-    left: "40px",
-    zIndex: 1,
     boxSizing: "border-box",
     width: "70px",
     minHeight: "41px",
@@ -87,8 +37,9 @@ export const verificationCardAppearance = {
     textDecoration: "underline",
     textUnderlineOffset: "2px",
     "&::before": {
-      content: '"Nothing arrived? "',
+      content: '"Nothing arrived? \"',
       display: "inline-block",
+      marginRight: "4px",
       color: "#787878",
       fontWeight: 500,
       textDecoration: "none",

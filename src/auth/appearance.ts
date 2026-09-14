@@ -118,11 +118,8 @@ export const publicAuthAppearance = {
       gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
       gap: "8px",
     },
-    otpCodeFieldInputContainer: {
-      width: "100%",
-      minWidth: 0,
-      aspectRatio: "1 / 1",
-    },
+    // This container wraps the entire six-slot row, not an individual digit.
+    otpCodeFieldInputContainer: { width: "100%", minWidth: 0 },
     otpCodeFieldInput: {
       boxSizing: "border-box",
       width: "100%",

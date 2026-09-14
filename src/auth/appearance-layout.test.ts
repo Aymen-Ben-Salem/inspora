@@ -13,68 +13,17 @@ describe("Clerk auth card presentation", () => {
     expect(JSON.stringify(clerkLocalization)).not.toContain("{{identifier}}");
   });
 
-  it("keeps Clerk's form box intact and positions verification actions safely", () => {
+  it("makes individual OTP slots square without making the whole row square", () => {
     const elements = publicAuthAppearance.elements;
-    const verificationMain = elements.main[
-      "&:has(.cl-otpCodeField)"
-    ] as Record<string, string | number>;
-
-    expect(verificationMain).toMatchObject({ gap: 0, position: "static" });
-    expect(elements.main["&:has(.cl-otpCodeField) .cl-form"]).toMatchObject({
-      position: "static",
-      gap: "16px",
-    });
-    expect(
-      elements.main["&:has(.cl-otpCodeField) .cl-formButtonPrimary"],
-    ).toMatchObject({
-      position: "absolute",
-      top: "338px",
-      right: "40px",
-      width: "87px",
-    });
-    expect(
-      elements.main["&:has(.cl-otpCodeField) .cl-formResendCodeLink"],
-    ).toMatchObject({ position: "absolute", top: "397px" });
-    expect(elements.identityPreviewEditButton).toMatchObject({
-      position: "absolute",
-      top: "338px",
-      left: "40px",
-      width: "70px",
-    });
-    expect(JSON.stringify(elements.main)).not.toContain('"display":"contents"');
-  });
-
-  it("matches the Figma verification card dimensions", () => {
-    const verificationCard = publicAuthAppearance.elements.card[
-      "&:has(.cl-otpCodeField)"
-    ];
-
-    expect(verificationCard).toMatchObject({
-      height: "var(--auth-card-height, 493px)",
-      minHeight: 0,
-      overflowY: "auto",
-      backgroundImage: "url('/brand/inspora-auth-mark.svg')",
-      backgroundPosition: "center 80px",
-      backgroundSize: "56px 50px",
-      paddingTop: "135px",
-    });
-    expect(publicAuthAppearance.elements.otpCodeFieldInputs).toMatchObject({
+    expect(elements.otpCodeFieldInputContainer).toEqual({ width: "100%", minWidth: 0 });
+    expect(elements.otpCodeFieldInputs).toMatchObject({
       display: "grid",
-      width: "100%",
       gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
       gap: "8px",
     });
-    expect(
-      publicAuthAppearance.elements.otpCodeFieldInputContainer,
-    ).toMatchObject({
-      width: "100%",
-      minWidth: 0,
-      aspectRatio: "1 / 1",
-    });
-    expect(publicAuthAppearance.elements.otpCodeFieldInput).toMatchObject({
+    expect(elements.otpCodeFieldInput).toMatchObject({
       width: "100%",
       height: "auto",
-      minWidth: 0,
       aspectRatio: "1 / 1",
       borderRadius: "8px",
     });

@@ -3,11 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { replace, back } = vi.hoisted(() => ({ replace: vi.fn(), back: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, back }) }));
-vi.mock("react", async (importOriginal) => ({
-  ...await importOriginal<typeof import("react")>(),
-  useRef: () => ({ current: null }),
-  useEffect: vi.fn(),
-}));
 import { AuthModalShell } from "./auth-modal-shell";
 
 describe("auth modal dismissal", () => {

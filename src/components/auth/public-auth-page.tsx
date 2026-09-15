@@ -1,12 +1,13 @@
 import "server-only";
 
-import { SignIn, SignUp } from "@clerk/nextjs";
+import { SignUp } from "@clerk/nextjs";
 import { Suspense, type ReactNode } from "react";
 
 import { publicAuthAppearance } from "../../auth/appearance";
 import { isClerkConfigured } from "../../auth/config";
 import { AuthModalShell } from "./auth-modal-shell";
 import { BrandMark } from "../brand-mark";
+import { PublicSignIn } from "./public-sign-in";
 
 type AuthFlow = "sign-in" | "sign-up";
 
@@ -60,14 +61,11 @@ export function PublicAuthPage({
           }
         >
           {flow === "sign-in" ? (
-            <SignIn
-              routing="hash"
-              appearance={publicAuthAppearance}
-              forceRedirectUrl="/"
-            />
+            <PublicSignIn />
           ) : (
             <SignUp
-              routing="hash"
+              routing="path"
+              path="/sign-up"
               appearance={publicAuthAppearance}
               forceRedirectUrl="/"
             />

@@ -10,10 +10,12 @@ const { renderSignIn, renderSignUp } = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("../../auth/config", () => ({ isClerkConfigured: () => true }));
 vi.mock("@clerk/nextjs", () => ({
+  useClerk: () => ({ client: undefined }),
   SignIn: (props: ComponentProps<"div">) => renderSignIn(props),
   SignUp: (props: ComponentProps<"div">) => renderSignUp(props),
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/sign-in",
   useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
 }));
 

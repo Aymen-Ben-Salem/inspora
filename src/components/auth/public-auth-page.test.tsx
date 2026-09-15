@@ -13,10 +13,12 @@ vi.mock("../../auth/config", () => ({
   isClerkConfigured: () => isConfigured(),
 }));
 vi.mock("@clerk/nextjs", () => ({
+  useClerk: () => ({ client: undefined }),
   SignIn: (props: ComponentProps<"div">) => renderSignIn(props),
   SignUp: (props: ComponentProps<"div">) => renderSignUp(props),
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/sign-in",
   useRouter: () => ({
     back: vi.fn(),
     replace: vi.fn(),
@@ -59,7 +61,7 @@ describe("PublicAuthPage", () => {
       );
       const activeRenderer = flow === "sign-in" ? renderSignIn : renderSignUp;
       expect(activeRenderer).toHaveBeenCalledWith(
-        expect.objectContaining({ appearance: expect.any(Object), routing: "hash" }),
+        expect.objectContaining({ appearance: expect.any(Object), routing: "path", path: "/" + flow }),
       );
     },
   );

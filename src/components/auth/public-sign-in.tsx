@@ -1,14 +1,16 @@
 "use client";
 
 import { SignIn, useClerk } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs/legacy";
 import type { SignUpResource } from "@clerk/shared/types";
 import type { Route } from "next";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { publicAuthAppearance } from "../../auth/appearance";
 import { BrandMark } from "../brand-mark";
 import { continueEmailSignUp, type EmailSignUpContinuation } from "./continue-email-sign-up";
+import { useAuthPathname } from "./use-auth-pathname";
 
 function ClerkPublicSignIn() {
   return (
@@ -29,13 +31,12 @@ function ContinueEmailSignUp({ signUp, emailAddress }: {
 }) {
   const clerk = useClerk();
   const router = useRouter();
-  const [submission] = useState(() => ({ signUp, emailAddress, shouldContinue: !signUp.id }));
+  const [submission] = useState(() => ({ signUp, emailAddress }));
   const request = useRef<Promise<EmailSignUpContinuation> | null>(null);
   const [state, setState] = useState<"pending" | "error" | "required-fields">("pending");
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    if (!submission.shouldContinue) return;
     let active = true;
     // Reuse the submission across Strict Mode effect replays and SDK updates.
     request.current ??= continueEmailSignUp(submission.signUp, submission.emailAddress);
@@ -61,7 +62,7 @@ function ContinueEmailSignUp({ signUp, emailAddress }: {
     return () => { active = false; };
   }, [clerk, retry, router, submission]);
 
-  if (!submission.shouldContinue || state === "required-fields") return <ClerkPublicSignIn />;
+  if (state === "required-fields") return <ClerkPublicSignIn />;
 
   return (
     <div className="flex min-h-[493px] flex-col items-center justify-center gap-6 bg-white px-10 py-20 text-center">
@@ -82,13 +83,20 @@ function ContinueEmailSignUp({ signUp, emailAddress }: {
 }
 
 export function PublicSignIn() {
-  const pathname = usePathname();
-  const clerk = useClerk();
-  const signUp = clerk.client?.signUp;
+  const pathname = useAuthPathname();
+  const { signUp } = useSignUp();
+  const [entry, setEntry] = useState({ path: pathname, fromEmailForm: false });
+  if (entry.path !== pathname) {
+    setEntry({
+      path: pathname,
+      fromEmailForm: entry.path === "/sign-in" && pathname === "/sign-in/create",
+    });
+  }
 
   // Only the combined flow's initial email transfer needs this handoff.
-  // Existing-user sign-in, OAuth callbacks and verification stay with Clerk.
-  if (pathname === "/sign-in/create" && signUp?.emailAddress) {
+  // A fresh email submission may replace a stale unfinished sign-up attempt.
+  // Direct resumes, OAuth callbacks and verification stay with Clerk.
+  if (pathname === "/sign-in/create" && signUp?.emailAddress && (!signUp.id || entry.fromEmailForm)) {
     return <ContinueEmailSignUp key={signUp.emailAddress} signUp={signUp} emailAddress={signUp.emailAddress} />;
   }
   return <ClerkPublicSignIn />;

@@ -7,6 +7,7 @@ const { clerk, pathname, renderSignIn } = vi.hoisted(() => ({
   renderSignIn: vi.fn(() => <div data-clerk-sign-in />),
 }));
 vi.mock("@clerk/nextjs", () => ({ useClerk: () => clerk, SignIn: renderSignIn }));
+vi.mock("@clerk/nextjs/legacy", () => ({ useSignUp: () => ({ signUp: clerk.client.signUp }) }));
 vi.mock("next/navigation", () => ({ usePathname: pathname, useRouter: () => ({ replace: vi.fn() }) }));
 import { PublicSignIn } from "./public-sign-in";
 

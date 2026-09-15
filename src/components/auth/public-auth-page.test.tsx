@@ -17,6 +17,7 @@ vi.mock("@clerk/nextjs", () => ({
   SignIn: (props: ComponentProps<"div">) => renderSignIn(props),
   SignUp: (props: ComponentProps<"div">) => renderSignUp(props),
 }));
+vi.mock("@clerk/nextjs/legacy", () => ({ useSignUp: () => ({ signUp: undefined }) }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/sign-in",
   useRouter: () => ({

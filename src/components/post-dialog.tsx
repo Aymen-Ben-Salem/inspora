@@ -11,6 +11,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
 } from "react";
 
@@ -333,11 +334,10 @@ export function PostDialog({
     );
   }, [finishClose]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousOverflow = document.documentElement.style.overflow;
-    const previousScrollbarGutter = document.documentElement.style.scrollbarGutter;
     document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.scrollbarGutter = "auto";
+    // Preserve the stable gutter so opening and closing cannot resize the feed.
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") requestClose();
@@ -347,7 +347,6 @@ export function PostDialog({
 
     return () => {
       document.documentElement.style.overflow = previousOverflow;
-      document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
       window.removeEventListener("keydown", handleKeyDown);
       removeMediaProxy(entranceProxy.current);
       entranceProxy.current = null;
@@ -528,17 +527,21 @@ export function PostDialog({
           isVisible(sourceRect) &&
           targetRect.width > 0
         ) {
-          proxy = createMediaProxy({
-            fallback: source,
-            media: hero,
-            rect: targetRect,
-            root,
-            mediaSourcePreference: hero.hasAttribute(
-              "data-post-dialog-animated-media",
-            )
-              ? "fallback"
-              : "media",
-          });
+          // Animate mounted archive media directly, avoiding a clone-to-original
+          // handoff that can reload images or jump between video frames.
+          if (closeMode !== "custom") {
+            proxy = createMediaProxy({
+              fallback: source,
+              media: hero,
+              rect: targetRect,
+              root,
+              mediaSourcePreference: hero.hasAttribute(
+                "data-post-dialog-animated-media",
+              )
+                ? "fallback"
+                : "media",
+            });
+          }
 
           if (proxy) {
             const scaleX = sourceRect.width / targetRect.width;

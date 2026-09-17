@@ -15,9 +15,11 @@ import type {
   SavedPostPage,
 } from "@/data/saved-posts-repository";
 import { SAVED_CATEGORIES, type SavedCategory } from "@/domain/saved-post";
-import { useRouter } from "next/navigation";
+import { detailPageHref, replaceDetailQueryParam } from "@/lib/detail-query";
 import { LogoCard } from "./logos/logo-card";
+import { LogoDetailDialog } from "./logos/logo-detail-dialog";
 import { WebsiteCard } from "./websites/website-card";
+import { WebsiteDetailDialog } from "./websites/website-detail-dialog";
 
 import { FeedMotion } from "./feed-motion";
 import { PostCard } from "./post-card";
@@ -40,6 +42,25 @@ function savedHref(category?: SavedCategory) {
     : "/saved") as Route;
 }
 
+export function savedItemOpenHref(
+  post: SavedPostCardData,
+  currentSearch = "",
+) {
+  if (post.kind === "logo") {
+    return detailPageHref("/saved", currentSearch, {
+      key: "logo",
+      value: post.logo.slug,
+    });
+  }
+  if (post.kind === "website") {
+    return detailPageHref("/saved", currentSearch, {
+      key: "website",
+      value: post.website.slug,
+    });
+  }
+  return `/posts/${post.slug}`;
+}
+
 export function InfiniteSavedPostFeed({
   initialPage,
   initialTotal,
@@ -56,6 +77,7 @@ export function InfiniteSavedPostFeed({
   const [total, setTotal] = useState(initialTotal);
   const [counts, setCounts] = useState(initialCounts);
   const [status, setStatus] = useState<LoadingStatus>("idle");
+  const [selectedId, setSelectedId] = useState<string>();
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const requestRef = useRef<AbortController>(null);
@@ -141,8 +163,40 @@ export function InfiniteSavedPostFeed({
   const visibleCategories = SAVED_CATEGORIES.filter(
     (postCategory) => (counts[postCategory] ?? 0) > 0,
   );
+  const selectedItem = posts.find((post) => post.id === selectedId);
+
+  const selectSavedItem = useCallback((post: SavedPostCardData) => {
+    if (post.kind !== "logo" && post.kind !== "website") return;
+    setSelectedId(post.id);
+    replaceDetailQueryParam({
+      key: post.kind,
+      value: post.kind === "logo" ? post.logo.slug : post.website.slug,
+    });
+  }, []);
+
+  const closeSavedItem = useCallback(() => {
+    setSelectedId(undefined);
+    replaceDetailQueryParam();
+  }, []);
+
+  const navigateSavedItem = useCallback(
+    (direction: -1 | 1) => {
+      if (!selectedItem || selectedItem.kind === undefined) return;
+      const siblings = posts.filter(
+        (post) => post.kind === selectedItem.kind,
+      );
+      const currentIndex = siblings.findIndex(
+        (post) => post.id === selectedItem.id,
+      );
+      const next =
+        siblings[(currentIndex + direction + siblings.length) % siblings.length];
+      if (next) selectSavedItem(next);
+    },
+    [posts, selectSavedItem, selectedItem],
+  );
 
   return (
+    <>
     <div className="archive-frame pb-16">
       <p className="mt-[var(--archive-header-gap)] text-[length:var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em] text-[#767676]">
         <span className="text-[#262626]">{total}</span>{" "}
@@ -207,6 +261,7 @@ export function InfiniteSavedPostFeed({
                   key={post.id}
                   post={post}
                   priority={index === 0}
+                  onSelect={selectSavedItem}
                   onSavedChange={(saved) => updateSavedState(post, saved)}
                 />
               ))}
@@ -235,21 +290,37 @@ export function InfiniteSavedPostFeed({
         </div>
       </section>
     </div>
+    {selectedItem?.kind === "logo" ? (
+      <LogoDetailDialog
+        logo={selectedItem.logo}
+        onClose={closeSavedItem}
+        onPrevious={() => navigateSavedItem(-1)}
+        onNext={() => navigateSavedItem(1)}
+      />
+    ) : selectedItem?.kind === "website" ? (
+      <WebsiteDetailDialog
+        website={selectedItem.website}
+        onClose={closeSavedItem}
+        onPrevious={() => navigateSavedItem(-1)}
+        onNext={() => navigateSavedItem(1)}
+      />
+    ) : null}
+    </>
   );
 }
 
-function SavedItemCard({ post, priority, onSavedChange }: {
+function SavedItemCard({ post, priority, onSavedChange, onSelect }: {
   post: SavedPostCardData;
   priority: boolean;
   onSavedChange: (saved: boolean) => void;
+  onSelect: (post: SavedPostCardData) => void;
 }) {
-  const router = useRouter();
   const saveProps = { initiallySaved: true, onSavedChange };
   if (post.kind === "logo") {
-    return <LogoCard logo={post.logo} {...saveProps} onSelect={(logo) => router.push(`/logos?logo=${encodeURIComponent(logo.slug)}` as Route)} />;
+    return <LogoCard logo={post.logo} {...saveProps} onSelect={() => onSelect(post)} />;
   }
   if (post.kind === "website") {
-    return <WebsiteCard website={post.website} {...saveProps} onSelect={(website) => router.push(`/websites?website=${encodeURIComponent(website.slug)}` as Route)} />;
+    return <WebsiteCard website={post.website} {...saveProps} onSelect={() => onSelect(post)} />;
   }
   return <PostCard post={post} priority={priority} {...saveProps} />;
 }

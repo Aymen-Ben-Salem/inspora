@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { Logo, LogoKind } from "@/domain/logo";
 import { matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
+import { replaceDetailQueryParam } from "@/lib/detail-query";
 import {
   ArchiveFilterMenu,
   ArchiveSearchIcon,
@@ -17,13 +18,6 @@ import { LogoCard } from "./logo-card";
 import { LogoDetailDialog } from "./logo-detail-dialog";
 
 type FilterKey = "colors" | "industries" | "styles" | "shapes";
-
-function updateLogoQueryParam(logo?: Logo) {
-  const url = new URL(window.location.href);
-  if (logo) url.searchParams.set("logo", logo.slug);
-  else url.searchParams.delete("logo");
-  window.history.replaceState(null, "", url);
-}
 
 export function LogoArchive({
   logos,
@@ -93,12 +87,12 @@ export function LogoArchive({
 
   const selectLogo = useCallback((logo: Logo) => {
     setSelectedId(logo.id);
-    updateLogoQueryParam(logo);
+    replaceDetailQueryParam({ key: "logo", value: logo.slug });
   }, []);
 
   const closeLogo = useCallback(() => {
     setSelectedId(undefined);
-    updateLogoQueryParam();
+    replaceDetailQueryParam();
   }, []);
 
   const navigateLogo = useCallback(

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { Website } from "@/domain/website";
 import type { PostView } from "@/domain/post";
+import { replaceDetailQueryParam } from "@/lib/detail-query";
 
 import {
   ArchiveFilterMenu,
@@ -17,13 +18,6 @@ import { WebsiteCard } from "./website-card";
 import { WebsiteDetailDialog } from "./website-detail-dialog";
 
 type FilterKey = "categories" | "themes" | "colors";
-
-function updateWebsiteQueryParam(website?: Website) {
-  const url = new URL(window.location.href);
-  if (website) url.searchParams.set("website", website.slug);
-  else url.searchParams.delete("website");
-  window.history.replaceState(null, "", url);
-}
 
 export function WebsiteArchive({
   websites,
@@ -75,11 +69,11 @@ export function WebsiteArchive({
 
   const selectWebsite = useCallback((website: Website) => {
     setSelectedId(website.id);
-    updateWebsiteQueryParam(website);
+    replaceDetailQueryParam({ key: "website", value: website.slug });
   }, []);
   const closeWebsite = useCallback(() => {
     setSelectedId(undefined);
-    updateWebsiteQueryParam();
+    replaceDetailQueryParam();
   }, []);
   const navigateWebsite = useCallback((direction: -1 | 1) => {
     if (!selectedId) return;

@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import {
   useCallback,
@@ -15,7 +16,7 @@ import { SaveIcon } from "./feed-save-overlay";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SubscribeSheet } from "./subscribe-sheet";
 
-export type NavbarPage = "design" | "info" | "logos" | "websites";
+export type NavbarPage = "design" | "info" | "logos" | "saved" | "websites";
 
 const archiveInk = "#262626";
 const archiveMuted = "#767676";
@@ -242,13 +243,14 @@ export function SiteNavbarClient({
               >
                 <PlusIcon />
               </button>
-              <span
+              <Link
+                href={"/saved" as Route}
                 aria-label="Saved posts"
-                role="img"
-                className="size-[var(--archive-card-overlay-size)]"
+                aria-current={page === "saved" ? "page" : undefined}
+                className="focus-ring size-[var(--archive-card-overlay-size)] rounded-full"
               >
-                <SaveIcon />
-              </span>
+                <SaveIcon saved={page === "saved"} />
+              </Link>
               {desktopAuth}
             </div>
 
@@ -312,6 +314,8 @@ export function SiteNavbarClient({
               ? "/logos"
               : page === "websites"
                 ? "/websites"
+                : page === "saved"
+                  ? "/saved"
                 : page === "info"
                   ? "/info"
                   : "/"

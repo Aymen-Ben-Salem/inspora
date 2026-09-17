@@ -8,6 +8,7 @@ import {
   logos,
   postMedia,
   posts,
+  savedPosts,
   sponsors,
   subscribers,
   websiteMedia,
@@ -20,6 +21,7 @@ describe("database schema", () => {
     const creatorsConfig = getTableConfig(creators);
     const postsConfig = getTableConfig(posts);
     const mediaConfig = getTableConfig(postMedia);
+    const savedPostsConfig = getTableConfig(savedPosts);
     const sponsorsConfig = getTableConfig(sponsors);
     const logosConfig = getTableConfig(logos);
     const logoMediaConfig = getTableConfig(logoMedia);
@@ -38,6 +40,10 @@ describe("database schema", () => {
     expect(mediaConfig.indexes).toHaveLength(1);
     expect(mediaConfig.checks).toHaveLength(6);
     expect(mediaConfig.columns.map((column) => column.name)).toContain("video_preview");
+    expect(savedPostsConfig.name).toBe("saved_posts");
+    expect(savedPostsConfig.foreignKeys).toHaveLength(3);
+    expect(savedPostsConfig.indexes).toHaveLength(4);
+    expect(savedPostsConfig.checks).toHaveLength(2);
     expect(sponsorsConfig.name).toBe("sponsors");
     expect(sponsorsConfig.checks).toHaveLength(6);
     expect(sponsorsConfig.columns.map((column) => column.name)).toContain(

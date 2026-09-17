@@ -34,6 +34,11 @@ describe("Clerk proxy routing", () => {
     "/sign-up/sso-callback",
     "/sign-up/tasks/choose-organization",
     "/__clerk/v1/client",
+    "/saved",
+    "/saved?category=Web",
+    "/api/saved-posts",
+    "/api/saved-posts/11111111-1111-4111-8111-111111111111",
+    "/api/saved-posts/feed",
   ])("runs Clerk for %s", (pathname) => {
     expect(matches(pathname)).toBe(true);
   });

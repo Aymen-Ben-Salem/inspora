@@ -135,6 +135,7 @@ export function LogoDetailDialog({
           }
         >
           <DetailIntro
+            postId={logo.id}
             title={logo.title}
             titleId="logo-dialog-title"
             headingAs="h2"

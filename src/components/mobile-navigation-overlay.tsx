@@ -28,7 +28,7 @@ export function MobileNavigationOverlay({
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
-  activeHref: "/" | "/websites" | "/logos" | "/info";
+  activeHref: "/" | "/websites" | "/logos" | "/saved" | "/info";
   auth: ReactNode;
 }) {
   return (

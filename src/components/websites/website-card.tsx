@@ -1,17 +1,22 @@
 import type { Website } from "@/domain/website";
 
-import { FeedSaveOverlay } from "../feed-save-overlay";
+import { FeedSaveButton } from "../feed-save-overlay";
 import { LoopingVideo } from "../looping-video";
 
 export function WebsiteCard({
   website,
   onSelect,
+  initiallySaved = false,
+  onSavedChange,
 }: {
   website: Website;
   onSelect: (website: Website) => void;
+  initiallySaved?: boolean;
+  onSavedChange?: (saved: boolean) => void;
 }) {
   return (
     <article data-feed-card>
+      <div className="group relative">
       <button
         type="button"
         data-feed-post-id={website.id}
@@ -33,8 +38,11 @@ export function WebsiteCard({
             suspendWithFeed
             className="size-full object-contain"
           />
-          <FeedSaveOverlay />
         </div>
+      </button>
+      <FeedSaveButton postId={website.id} initiallySaved={initiallySaved} onSavedChange={onSavedChange} />
+      </div>
+      <button type="button" onClick={() => onSelect(website)} className="focus-ring block w-full text-left" aria-label={`View ${website.title} website details`}>
         <div className="mt-5 flex items-start gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={website.favicon.url} alt="" aria-hidden="true" width={39} height={39} className="size-[39px] shrink-0 object-contain" />

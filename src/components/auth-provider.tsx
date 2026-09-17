@@ -5,6 +5,7 @@ import { Suspense, type PropsWithChildren } from "react";
 
 import { clerkAppearance, clerkLocalization } from "../auth/appearance";
 import { isClerkConfigured } from "../auth/config";
+import { SavedPostsProvider } from "./saved-posts-provider";
 
 export function AuthProvider({ children }: PropsWithChildren) {
   if (!isClerkConfigured()) return children;
@@ -22,7 +23,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         appearance={clerkAppearance}
         localization={clerkLocalization}
       >
-        {children}
+        <SavedPostsProvider>{children}</SavedPostsProvider>
       </ClerkProvider>
     </Suspense>
   );

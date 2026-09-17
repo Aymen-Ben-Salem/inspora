@@ -8,6 +8,7 @@ describe("site navigation", () => {
       { kind: "link", label: "Design", href: "/" },
       { kind: "link", label: "Websites", href: "/websites" },
       { kind: "link", label: "Logos", href: "/logos" },
+      { kind: "link", label: "Saved", href: "/saved" },
       { kind: "action", label: "Contact", action: "contact" },
       { kind: "link", label: "Info", href: "/info" },
     ]);

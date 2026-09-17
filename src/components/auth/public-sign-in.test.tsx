@@ -27,6 +27,14 @@ describe("public sign-in handoff", () => {
     }), undefined);
   });
 
+  it("preserves a safe return destination for saved posts", () => {
+    renderToStaticMarkup(<PublicSignIn redirectUrl="/saved?category=Web" />);
+    expect(renderSignIn).toHaveBeenCalledWith(expect.objectContaining({
+      forceRedirectUrl: "/saved?category=Web",
+      signUpForceRedirectUrl: "/saved?category=Web",
+    }), undefined);
+  });
+
   it("continues a transferred new email instead of displaying the email form again", () => {
     pathname.mockReturnValue("/sign-in/create");
     clerk.client.signUp.emailAddress = "new@example.com";

@@ -144,6 +144,33 @@ export const postMedia = pgTable(
   ],
 );
 
+export const savedPosts = pgTable(
+  "saved_posts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").notNull(),
+    postId: uuid("post_id")
+      .references(() => posts.id, { onDelete: "cascade" }),
+    logoId: uuid("logo_id").references(() => logos.id, { onDelete: "cascade" }),
+    websiteId: uuid("website_id").references(() => websites.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("saved_posts_user_post_unique").on(table.userId, table.postId),
+    uniqueIndex("saved_posts_user_logo_unique").on(table.userId, table.logoId),
+    uniqueIndex("saved_posts_user_website_unique").on(table.userId, table.websiteId),
+    check("saved_posts_exactly_one_target", sql`num_nonnulls(${table.postId}, ${table.logoId}, ${table.websiteId}) = 1`),
+    index("saved_posts_user_created_at_idx").on(
+      table.userId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    check("saved_posts_user_not_blank", sql`length(trim(${table.userId})) > 0`),
+  ],
+);
+
 export const logos = pgTable(
   "logos",
   {
@@ -513,11 +540,19 @@ export const postsRelations = relations(posts, ({ many, one }) => ({
     references: [creators.id],
   }),
   media: many(postMedia),
+  saves: many(savedPosts),
 }));
 
 export const postMediaRelations = relations(postMedia, ({ one }) => ({
   post: one(posts, {
     fields: [postMedia.postId],
+    references: [posts.id],
+  }),
+}));
+
+export const savedPostsRelations = relations(savedPosts, ({ one }) => ({
+  post: one(posts, {
+    fields: [savedPosts.postId],
     references: [posts.id],
   }),
 }));

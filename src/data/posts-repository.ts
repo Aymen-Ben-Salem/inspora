@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, lte, ne, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { getDatabase } from "@/db/client";
@@ -264,6 +264,69 @@ function mapPostCard(row: PostCardRecord): PostCardData {
     })),
     mediaCount: row.mediaCount,
   };
+}
+
+export async function getPostCardsByIds(ids: string[]): Promise<PostCardData[]> {
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) return [];
+
+  const database = getDatabase();
+  if (!database) {
+    const requestedIds = new Set(uniqueIds);
+    return seedPosts
+      .filter((post) => requestedIds.has(post.id))
+      .map((post) => ({
+        id: post.id,
+        slug: post.slug,
+        title: post.title,
+        creator: {
+          name: post.creator.name,
+          avatarUrl: post.creator.avatarUrl,
+          avatarStorageProvider: post.creator.avatarStorageProvider,
+        },
+        createdAt: post.createdAt,
+        media: post.media.slice(0, 1).map((media) => ({
+          id: media.id,
+          type: media.type,
+          url: media.url,
+          posterUrl: media.posterUrl,
+          storageProvider: media.storageProvider,
+          variants: media.variants,
+          videoPreview: media.videoPreview,
+          alt: media.alt,
+          width: media.width,
+          height: media.height,
+        })),
+        mediaCount: post.media.length,
+      }));
+  }
+
+  const rows = await database.query.posts.findMany({
+    columns: {
+      id: true,
+      slug: true,
+      title: true,
+      createdAt: true,
+    },
+    extras: {
+      mediaCount: sql<number>`(
+        select count(*)::int
+        from "post_media" as "media_count_rows"
+        where "media_count_rows"."post_id" = ${posts.id}
+      )`.as("media_count"),
+    },
+    where: and(publishedWhere(new Date()), inArray(posts.id, uniqueIds)),
+    with: {
+      creator: { columns: POST_CARD_CREATOR_COLUMNS },
+      media: {
+        columns: POST_CARD_MEDIA_COLUMNS,
+        orderBy: [asc(postMedia.position)],
+        limit: 1,
+      },
+    },
+  });
+
+  return rows.map(mapPostCard);
 }
 
 function publishedWhere(now: Date) {

@@ -104,6 +104,7 @@ export function PostMetadata({
       }
     >
       <DetailIntro
+        postId={post.id}
         title={post.title}
         creator={post.creator}
         description={post.description}

@@ -127,6 +127,20 @@
       "when": 1789048004138,
       "tag": "0017_purple_stepford_cuckoos",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789598502624,
+      "tag": "0018_secret_frog_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789600792122,
+      "tag": "0019_useful_changeling",
+      "breakpoints": true
     }
   ]
 }

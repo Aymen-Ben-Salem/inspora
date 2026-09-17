@@ -1,18 +1,23 @@
 import type { Logo } from "@/domain/logo";
 
 import { CreatorAvatar } from "../creator-avatar";
-import { FeedSaveOverlay } from "../feed-save-overlay";
+import { FeedSaveButton } from "../feed-save-overlay";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 
 export function LogoCard({
   logo,
   onSelect,
+  initiallySaved = false,
+  onSavedChange,
 }: {
   logo: Logo;
   onSelect: (logo: Logo) => void;
+  initiallySaved?: boolean;
+  onSavedChange?: (saved: boolean) => void;
 }) {
   return (
     <article data-feed-card>
+      <div className="group relative">
       <button
         type="button"
         data-feed-post-id={logo.id}
@@ -46,11 +51,12 @@ export function LogoCard({
             />
           </span>
         ) : null}
-        <FeedSaveOverlay />
         {logo.kind === "logo" ? (
           <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
         ) : null}
       </button>
+      <FeedSaveButton postId={logo.id} initiallySaved={initiallySaved} onSavedChange={onSavedChange} />
+      </div>
     </article>
   );
 }

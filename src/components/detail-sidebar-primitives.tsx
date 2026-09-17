@@ -4,6 +4,7 @@ import { Fragment, type ElementType, type ReactNode } from "react";
 import type { MediaStorageProvider } from "@/storage/types";
 
 import { CreatorAvatar } from "./creator-avatar";
+import { FeedSaveButton } from "./feed-save-overlay";
 import { NewsletterForm } from "./newsletter-form";
 import { RelativeAddedTime } from "./relative-added-time";
 
@@ -152,19 +153,6 @@ export function DetailArrowIcon({ direction }: { direction: "left" | "right" }) 
   );
 }
 
-export function DetailBookmarkIcon() {
-  return (
-    <Image
-      src="/icons/detail/bookmark.svg"
-      alt=""
-      aria-hidden="true"
-      className="detail-bookmark-icon h-5 w-4 shrink-0"
-      width={16}
-      height={21}
-    />
-  );
-}
-
 export function DetailGlobeIcon() {
   return (
     <Image
@@ -179,6 +167,7 @@ export function DetailGlobeIcon() {
 }
 
 export function DetailIntro({
+  postId,
   creator,
   description,
   headingAs = "h1",
@@ -186,6 +175,7 @@ export function DetailIntro({
   title,
   titleId,
 }: {
+  postId: string;
   creator: DetailCreatorData;
   description: string;
   headingAs?: ElementType;
@@ -218,7 +208,7 @@ export function DetailIntro({
             <span>{creator.name}</span>
           </div>
         </div>
-        <DetailBookmarkIcon />
+        <FeedSaveButton postId={postId} variant="detail" />
       </div>
 
       <p className="detail-intro-description max-w-[429px] text-[14px] leading-[1.3] tracking-[0.028px] text-[#262626]">

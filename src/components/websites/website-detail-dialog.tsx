@@ -257,6 +257,7 @@ export function WebsiteDetailDialog({
           }
         >
           <DetailIntro
+            postId={website.id}
             title={website.title}
             titleId="website-dialog-title"
             headingAs="h2"

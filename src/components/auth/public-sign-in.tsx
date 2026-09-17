@@ -12,22 +12,23 @@ import { BrandMark } from "../brand-mark";
 import { continueEmailSignUp, type EmailSignUpContinuation } from "./continue-email-sign-up";
 import { useAuthPathname } from "./use-auth-pathname";
 
-function ClerkPublicSignIn() {
+function ClerkPublicSignIn({ redirectUrl }: { redirectUrl: string }) {
   return (
     <SignIn
       routing="path"
       path="/sign-in"
       withSignUp
       appearance={publicAuthAppearance}
-      forceRedirectUrl="/"
-      signUpForceRedirectUrl="/"
+      forceRedirectUrl={redirectUrl}
+      signUpForceRedirectUrl={redirectUrl}
     />
   );
 }
 
-function ContinueEmailSignUp({ signUp, emailAddress }: {
+function ContinueEmailSignUp({ signUp, emailAddress, redirectUrl }: {
   signUp: SignUpResource;
   emailAddress: string;
+  redirectUrl: string;
 }) {
   const clerk = useClerk();
   const router = useRouter();
@@ -51,7 +52,9 @@ function ContinueEmailSignUp({ signUp, emailAddress }: {
           session: result.sessionId,
           navigate: async ({ session, decorateUrl }) => {
             if (!active) return;
-            const destination = session?.currentTask ? "/sign-in/create/tasks" : "/";
+            const destination = session?.currentTask
+              ? "/sign-in/create/tasks"
+              : redirectUrl;
             router.replace(decorateUrl(destination) as Route, { scroll: false });
           },
         });
@@ -60,9 +63,11 @@ function ContinueEmailSignUp({ signUp, emailAddress }: {
       if (active) setState("error");
     });
     return () => { active = false; };
-  }, [clerk, retry, router, submission]);
+  }, [clerk, redirectUrl, retry, router, submission]);
 
-  if (state === "required-fields") return <ClerkPublicSignIn />;
+  if (state === "required-fields") {
+    return <ClerkPublicSignIn redirectUrl={redirectUrl} />;
+  }
 
   return (
     <div className="flex min-h-[493px] flex-col items-center justify-center gap-6 bg-white px-10 py-20 text-center">
@@ -82,7 +87,7 @@ function ContinueEmailSignUp({ signUp, emailAddress }: {
   );
 }
 
-export function PublicSignIn() {
+export function PublicSignIn({ redirectUrl = "/" }: { redirectUrl?: string }) {
   const pathname = useAuthPathname();
   const { signUp } = useSignUp();
   const [entry, setEntry] = useState({ path: pathname, fromEmailForm: false });
@@ -97,7 +102,14 @@ export function PublicSignIn() {
   // A fresh email submission may replace a stale unfinished sign-up attempt.
   // Direct resumes, OAuth callbacks and verification stay with Clerk.
   if (pathname === "/sign-in/create" && signUp?.emailAddress && (!signUp.id || entry.fromEmailForm)) {
-    return <ContinueEmailSignUp key={signUp.emailAddress} signUp={signUp} emailAddress={signUp.emailAddress} />;
+    return (
+      <ContinueEmailSignUp
+        key={signUp.emailAddress}
+        signUp={signUp}
+        emailAddress={signUp.emailAddress}
+        redirectUrl={redirectUrl}
+      />
+    );
   }
-  return <ClerkPublicSignIn />;
+  return <ClerkPublicSignIn redirectUrl={redirectUrl} />;
 }

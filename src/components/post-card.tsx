@@ -7,14 +7,18 @@ import { LoopingVideo } from "./looping-video";
 import { IntentPrefetchLink } from "./intent-prefetch-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 import { CreatorAvatar } from "./creator-avatar";
-import { FeedSaveOverlay } from "./feed-save-overlay";
+import { FeedSaveButton } from "./feed-save-overlay";
 
 export function PostCard({
   post,
   priority = false,
+  initiallySaved = false,
+  onSavedChange,
 }: {
   post: PostCardData;
   priority?: boolean;
+  initiallySaved?: boolean;
+  onSavedChange?: (saved: boolean) => void;
 }) {
   const cover = post.media[0];
 
@@ -27,6 +31,7 @@ export function PostCard({
 
   return (
     <article data-feed-card>
+      <div className="group relative">
       <IntentPrefetchLink
         data-feed-post-id={post.id}
         data-feed-post-pathname={`/posts/${post.slug}`}
@@ -34,7 +39,7 @@ export function PostCard({
         data-feed-creator-name={post.creator.name}
         href={`/posts/${post.slug}` as Route}
         aria-label={`View post: ${post.title}`}
-        className="focus-ring group relative block overflow-hidden bg-[#f3f3f3]"
+        className="focus-ring relative block overflow-hidden bg-[#f3f3f3]"
         style={{ aspectRatio: `${cover.width}/${cover.height}` }}
       >
         {cover.type === "video" ? (
@@ -93,7 +98,6 @@ export function PostCard({
             className="size-[var(--archive-card-overlay-size)] shrink-0 rounded-full border border-[#e6e6e6] object-cover"
           />
         </span>
-        <FeedSaveOverlay />
         {post.mediaCount > 1 ? (
           <span className="absolute right-[10px] top-[10px] z-10 flex h-6 min-w-6 items-center justify-center border border-black/10 bg-white/90 px-1.5 text-[10px] text-[#262626] backdrop-blur-md xl:h-[26px] xl:min-w-[26px] xl:text-[11px] min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:h-7 min-[1800px]:min-w-7 min-[1800px]:text-xs">
             <span className="sr-only">{post.mediaCount} slides</span>
@@ -102,6 +106,12 @@ export function PostCard({
         ) : null}
         <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
       </IntentPrefetchLink>
+      <FeedSaveButton
+        postId={post.id}
+        initiallySaved={initiallySaved}
+        onSavedChange={onSavedChange}
+      />
+      </div>
     </article>
   );
 }

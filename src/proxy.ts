@@ -23,6 +23,8 @@ export const config = {
     "/admin-access-denied",
     "/sign-in/:path*",
     "/sign-up/:path*",
+    "/saved/:path*",
+    "/api/saved-posts/:path*",
     // Preserve Clerk's frontend API and session-handshake route.
     "/__clerk/:path*",
   ],

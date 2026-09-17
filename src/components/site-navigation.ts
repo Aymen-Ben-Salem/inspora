@@ -1,4 +1,4 @@
-export type SiteNavigationHref = "/" | "/websites" | "/logos" | "/info";
+export type SiteNavigationHref = "/" | "/websites" | "/logos" | "/saved" | "/info";
 
 type SiteNavigationLink = {
   kind: "link";
@@ -18,6 +18,7 @@ export const SITE_NAV_ITEMS = [
   { kind: "link", label: "Design", href: "/" },
   { kind: "link", label: "Websites", href: "/websites" },
   { kind: "link", label: "Logos", href: "/logos" },
+  { kind: "link", label: "Saved", href: "/saved" },
   { kind: "action", label: "Contact", action: "contact" },
   { kind: "link", label: "Info", href: "/info" },
 ] as const satisfies ReadonlyArray<SiteNavigationItem>;

@@ -36,10 +36,12 @@ export function PublicAuthPage({
   flow,
   backdrop,
   overlay = false,
+  redirectUrl = "/",
 }: {
   flow: AuthFlow;
   backdrop?: ReactNode;
   overlay?: boolean;
+  redirectUrl?: string;
 }) {
   const label = flowLabels[flow];
 
@@ -61,13 +63,13 @@ export function PublicAuthPage({
           }
         >
           {flow === "sign-in" ? (
-            <PublicSignIn />
+            <PublicSignIn redirectUrl={redirectUrl} />
           ) : (
             <SignUp
               routing="path"
               path="/sign-up"
               appearance={publicAuthAppearance}
-              forceRedirectUrl="/"
+              forceRedirectUrl={redirectUrl}
             />
           )}
         </Suspense>

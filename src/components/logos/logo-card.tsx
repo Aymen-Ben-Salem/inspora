@@ -26,7 +26,7 @@ export function LogoCard({
         data-feed-creator-name={logo.creator.name}
         aria-label={`View ${logo.title} ${logo.kind}`}
         onClick={() => onSelect(logo)}
-        className="focus-ring group relative block w-full overflow-hidden bg-transparent text-left"
+        className="focus-ring group relative block w-full cursor-pointer overflow-hidden bg-transparent text-left"
         style={{ aspectRatio: `${logo.media.width}/${logo.media.height}` }}
       >
         <ResponsiveR2Image

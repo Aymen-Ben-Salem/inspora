@@ -25,7 +25,7 @@ export function WebsiteCard({
         data-feed-creator-name={website.creator.name}
         aria-label={`View ${website.title} website`}
         onClick={() => onSelect(website)}
-        className="focus-ring group block w-full text-left"
+        className="focus-ring group block w-full cursor-pointer text-left"
       >
         <div
           data-feed-transition-target
@@ -42,7 +42,7 @@ export function WebsiteCard({
       </button>
       <FeedSaveButton postId={website.id} initiallySaved={initiallySaved} onSavedChange={onSavedChange} />
       </div>
-      <button type="button" onClick={() => onSelect(website)} className="focus-ring block w-full text-left" aria-label={`View ${website.title} website details`}>
+      <button type="button" onClick={() => onSelect(website)} className="focus-ring block w-full cursor-pointer text-left" aria-label={`View ${website.title} website details`}>
         <div className="mt-5 flex items-start gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={website.favicon.url} alt="" aria-hidden="true" width={39} height={39} className="size-[39px] shrink-0 object-contain" />

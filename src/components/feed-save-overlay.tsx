@@ -53,8 +53,8 @@ export function FeedSaveButton({
         const finalState = await toggle(postId, saved);
         if (finalState !== optimistic) onSavedChange?.(finalState);
       }}
-      className={variant === "detail" ? "focus-ring inline-flex size-9 shrink-0 cursor-pointer items-center justify-center disabled:cursor-wait" :
-        "focus-ring absolute bottom-[var(--archive-card-overlay-inset)] right-[var(--archive-card-overlay-inset)] z-20 size-[var(--archive-card-overlay-size)] cursor-pointer transition-[opacity,transform] duration-150 motion-reduce:transition-none disabled:cursor-wait " +
+      className={variant === "detail" ? "focus-ring inline-flex size-9 shrink-0 cursor-pointer items-center justify-center" :
+        "focus-ring absolute bottom-[var(--archive-card-overlay-inset)] right-[var(--archive-card-overlay-inset)] z-20 size-[var(--archive-card-overlay-size)] cursor-pointer transition-[opacity,transform] duration-150 motion-reduce:transition-none " +
         (saved
           ? "opacity-100"
           : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100") +

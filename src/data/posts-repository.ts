@@ -41,6 +41,7 @@ type MediaRow = typeof postMedia.$inferSelect;
 type PublicCreatorRow = Pick<
   CreatorRow,
   "id" | "name" | "handle" | "url" | "avatarUrl" | "avatarStorageProvider"
+  | "username"
 >;
 type PublicMediaRow = Pick<
   MediaRow,
@@ -61,7 +62,7 @@ type PublicMediaRow = Pick<
 >;
 type PostCardCreatorRow = Pick<
   CreatorRow,
-  "name" | "avatarUrl" | "avatarStorageProvider"
+  "name" | "username" | "avatarUrl" | "avatarStorageProvider"
 >;
 type PostCardMediaRow = Pick<
   MediaRow,
@@ -103,6 +104,7 @@ const PUBLIC_CREATOR_COLUMNS = {
   id: true,
   name: true,
   handle: true,
+  username: true,
   url: true,
   avatarUrl: true,
   avatarStorageProvider: true,
@@ -127,6 +129,7 @@ const PUBLIC_MEDIA_COLUMNS = {
 
 const POST_CARD_CREATOR_COLUMNS = {
   name: true,
+  username: true,
   avatarUrl: true,
   avatarStorageProvider: true,
 } as const;
@@ -168,6 +171,7 @@ function mapCreator(row: PublicCreatorRow): Post["creator"] {
   return {
     id: row.id,
     name: row.name,
+    username: row.username ?? undefined,
     handle: row.handle ?? undefined,
     url: row.url ?? undefined,
     avatarUrl: row.avatarUrl,
@@ -234,6 +238,7 @@ function mapPostCard(row: PostCardRecord): PostCardData {
     title: row.title,
     creator: {
       name: row.creator.name,
+      username: row.creator.username ?? undefined,
       avatarUrl: row.creator.avatarUrl,
       avatarStorageProvider: MEDIA_STORAGE_PROVIDERS.some(
         (provider) => provider === row.creator.avatarStorageProvider,
@@ -281,6 +286,7 @@ export async function getPostCardsByIds(ids: string[]): Promise<PostCardData[]> 
         title: post.title,
         creator: {
           name: post.creator.name,
+          username: post.creator.username,
           avatarUrl: post.creator.avatarUrl,
           avatarStorageProvider: post.creator.avatarStorageProvider,
         },

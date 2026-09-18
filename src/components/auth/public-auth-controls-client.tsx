@@ -1,6 +1,7 @@
 "use client";
 
-import { useAuth, UserButton } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
+import Image from "next/image";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -10,6 +11,7 @@ export function PublicAuthControlsClient({
   variant: "desktop" | "mobile";
 }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
 
   const content = !isLoaded ? (
     <span
@@ -20,17 +22,24 @@ export function PublicAuthControlsClient({
           : "inline-block size-[35px]"
       }
     />
-  ) : isSignedIn ? (
-    <UserButton
-      appearance={{
-        elements: {
-          avatarBox:
-            variant === "desktop"
-              ? "size-[var(--archive-user-avatar-size)] border border-[#e6e6e6]"
-              : "size-[35px] border border-[#e6e6e6]",
-        },
-      }}
-    />
+  ) : isSignedIn && user ? (
+    <Link
+      href={"/profile" as Route}
+      aria-label="Open your profile"
+      className={`focus-ring relative block shrink-0 overflow-hidden rounded-full border border-[#e6e6e6] ${
+        variant === "desktop"
+          ? "size-[var(--archive-user-avatar-size)]"
+          : "size-[35px]"
+      }`}
+    >
+      <Image
+        src={user.imageUrl}
+        alt={user.fullName ? `${user.fullName}'s profile` : "Your profile"}
+        fill
+        sizes={variant === "desktop" ? "35px" : "35px"}
+        className="object-cover"
+      />
+    </Link>
   ) : (
     <Link
       href={"/sign-in" as Route}

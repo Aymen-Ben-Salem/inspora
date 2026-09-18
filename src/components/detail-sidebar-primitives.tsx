@@ -1,9 +1,11 @@
 import Image from "next/image";
+import type { Route } from "next";
+import Link from "next/link";
 import { Fragment, type ElementType, type ReactNode } from "react";
 
 import type { MediaStorageProvider } from "@/storage/types";
 
-import { CreatorAvatar } from "./creator-avatar";
+import { CreatorAvatar, creatorProfileHref } from "./creator-avatar";
 import { FeedSaveButton } from "./feed-save-overlay";
 import { NewsletterForm } from "./newsletter-form";
 import { RelativeAddedTime } from "./relative-added-time";
@@ -12,6 +14,7 @@ type DetailCreatorData = {
   avatarStorageProvider?: MediaStorageProvider;
   avatarUrl: string;
   name: string;
+  username?: string;
 };
 
 export const detailOriginalLinkClassName =
@@ -196,7 +199,7 @@ export function DetailIntro({
             {title}
           </Heading>
 
-          <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]">
+          {creatorProfileHref(creator) ? <Link href={creatorProfileHref(creator)! as Route} className="detail-intro-creator focus-ring flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676] transition-colors hover:text-[#262626]">
             <CreatorAvatar
               creator={creator}
               role="dialog"
@@ -206,7 +209,7 @@ export function DetailIntro({
               className="detail-intro-avatar size-5 rounded-full object-cover"
             />
             <span>{creator.name}</span>
-          </div>
+          </Link> : <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]"><CreatorAvatar creator={creator} role="dialog" width={22} height={22} sizes="22px" className="detail-intro-avatar size-5 rounded-full object-cover" /><span>{creator.name}</span></div>}
         </div>
         <FeedSaveButton postId={postId} variant="detail" />
       </div>

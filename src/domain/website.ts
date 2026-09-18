@@ -13,6 +13,7 @@ export type WebsiteMediaRole = (typeof WEBSITE_MEDIA_ROLES)[number];
 export type WebsiteCreator = {
   id: string;
   name: string;
+  username?: string;
   handle?: string;
   url?: string;
   avatarUrl: string;

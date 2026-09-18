@@ -60,6 +60,9 @@ function mapCreatorProfile(row: CreatorRow): CreatorProfile {
     username:
       row.username ?? creatorUsernameCandidates(row.handle ?? row.name)[0] ?? "creator",
     avatarUrl: row.avatarUrl,
+    avatarStorageProvider: isStorageProvider(row.avatarStorageProvider)
+      ? (row.avatarStorageProvider as NonNullable<CreatorProfile["avatarStorageProvider"]>)
+      : undefined,
     websiteUrl: row.url,
     xProfileUrl: row.xProfileUrl,
   };

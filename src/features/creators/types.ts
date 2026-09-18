@@ -18,6 +18,7 @@ export type CreatorProfile = {
   name: string;
   username: string;
   avatarUrl: string;
+  avatarStorageProvider?: MediaStorageProvider;
   websiteUrl: string | null;
   xProfileUrl: string | null;
 };

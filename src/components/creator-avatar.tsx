@@ -9,6 +9,10 @@ type CreatorAvatarData = {
   avatarUrl: string;
 };
 
+export function creatorProfileHref(creator: { username?: string }) {
+  return creator.username ? `/creators/${creator.username}` : undefined;
+}
+
 export function CreatorAvatar({
   className,
   creator,

@@ -9,6 +9,7 @@ export type LogoStatus = (typeof LOGO_STATUSES)[number];
 export type LogoCreator = {
   id: string;
   name: string;
+  username?: string;
   handle?: string;
   url?: string;
   avatarUrl: string;

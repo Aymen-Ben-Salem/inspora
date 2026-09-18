@@ -16,7 +16,7 @@ import { SaveIcon } from "./feed-save-overlay";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SubscribeSheet } from "./subscribe-sheet";
 
-export type NavbarPage = "design" | "info" | "logos" | "saved" | "websites";
+export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "websites";
 
 const archiveInk = "#262626";
 const archiveMuted = "#767676";

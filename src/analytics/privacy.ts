@@ -2,6 +2,7 @@ export const PRIVATE_ANALYTICS_PATH_PREFIXES = [
   "/admin",
   "/sign-in",
   "/admin-access-denied",
+  "/profile",
 ] as const;
 
 export function isPrivateAnalyticsPath(pathname: string) {

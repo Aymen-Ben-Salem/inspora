@@ -46,6 +46,7 @@ export function mapPublishedLogo(row: PublicLogoRecord): Logo {
     creator: {
       id: row.creator.id,
       name: row.creator.name,
+      username: row.creator.username ?? undefined,
       handle: row.creator.handle ?? undefined,
       url: row.creator.url ?? undefined,
       avatarUrl: row.creator.avatarUrl,

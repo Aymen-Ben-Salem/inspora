@@ -39,6 +39,9 @@ describe("Clerk proxy routing", () => {
     "/api/saved-posts",
     "/api/saved-posts/11111111-1111-4111-8111-111111111111",
     "/api/saved-posts/feed",
+    "/profile",
+    "/profile?modal=edit",
+    "/api/profile",
   ])("runs Clerk for %s", (pathname) => {
     expect(matches(pathname)).toBe(true);
   });

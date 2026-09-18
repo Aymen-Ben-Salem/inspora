@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import { and, asc, desc, eq, lte, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { getDatabase } from "@/db/client";
@@ -59,7 +59,8 @@ function mapMedia(media: MediaRow): WebsiteMedia {
 }
 
 export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
-  const media = row.media.map(mapMedia);
+  // Legacy screenshots remain stored, but the public UI uses recording media.
+  const media = row.media.filter((item) => item.role !== "full_page").map(mapMedia);
   const recording = media.find((item) => item.role === "recording");
   const favicon = media.find((item) => item.role === "favicon");
   if (!recording?.posterUrl || !recording.videoPreview || !favicon) {
@@ -97,6 +98,7 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
     creator: {
       id: row.creator.id,
       name: row.creator.name,
+      username: row.creator.username ?? undefined,
       handle: row.creator.handle ?? undefined,
       url: row.creator.url ?? undefined,
       avatarUrl: row.creator.avatarUrl,
@@ -118,7 +120,7 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
   };
 }
 
-function hasCompleteRecording(row: PublicWebsiteRecord) {
+export function hasCompleteRecording(row: PublicWebsiteRecord) {
   const recording = row.media.find((media) => media.role === "recording");
   return Boolean(
     recording?.posterUrl &&
@@ -129,6 +131,30 @@ function hasCompleteRecording(row: PublicWebsiteRecord) {
         (section) => section.imageUrl && section.imageWidth && section.imageHeight,
       ),
   );
+}
+
+// SQL equivalent of hasCompleteRecording, applied before mixed-feed limits and
+// counts so legacy screenshot-only entries cannot create empty pages or totals.
+export function completeWebsiteRecordingPredicate() {
+  return sql`exists (
+    select 1 from website_media recording
+    where recording.website_id = ${websites.id} and recording.role = 'recording'
+      and coalesce(recording.poster_url, '') <> ''
+      and recording.video_preview is not null
+      and recording.video_preview <> 'null'::jsonb
+  ) and exists (
+    select 1 from website_media favicon
+    where favicon.website_id = ${websites.id} and favicon.role = 'favicon'
+  ) and exists (
+    select 1 from website_sections section
+    where section.website_id = ${websites.id}
+  ) and not exists (
+    select 1 from website_sections section
+    where section.website_id = ${websites.id}
+      and (coalesce(section.image_url, '') = ''
+        or coalesce(section.image_width, 0) = 0
+        or coalesce(section.image_height, 0) = 0)
+  )`;
 }
 
 export async function getPublishedWebsites({
@@ -146,6 +172,7 @@ export async function getPublishedWebsites({
     where: and(
       eq(websites.status, "published"),
       lte(websites.publishedAt, new Date()),
+      completeWebsiteRecordingPredicate(),
       view === "featured" ? eq(websites.isFeatured, true) : undefined,
     ),
     orderBy: [desc(websites.publishedAt), desc(websites.id)],

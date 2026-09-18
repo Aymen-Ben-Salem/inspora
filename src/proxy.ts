@@ -25,6 +25,8 @@ export const config = {
     "/sign-up/:path*",
     "/saved/:path*",
     "/api/saved-posts/:path*",
+    "/profile/:path*",
+    "/api/profile/:path*",
     // Preserve Clerk's frontend API and session-handshake route.
     "/__clerk/:path*",
   ],

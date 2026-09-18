@@ -17,7 +17,7 @@ import { mapPublishedWebsite } from "./websites-repository";
 describe("published websites repository", () => {
   it("maps recording and section assets", () => {
     const date = new Date("2026-09-01T00:00:00.000Z");
-    const website = mapPublishedWebsite({
+    const row: Parameters<typeof mapPublishedWebsite>[0] = {
       id: "website",
       slug: "paper",
       title: "Paper",
@@ -122,7 +122,10 @@ describe("published websites repository", () => {
           updatedAt: date,
         },
       ],
-    });
+    };
+    // Retained legacy media must not break an otherwise complete recording.
+    row.media.push({ ...row.media[1], id: "legacy", role: "full_page" });
+    const website = mapPublishedWebsite(row);
 
     expect(website).toMatchObject({
       slug: "paper",

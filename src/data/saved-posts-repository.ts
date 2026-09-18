@@ -4,10 +4,8 @@ import { and, desc, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
 
 import { getDatabase, requireDatabase } from "@/db/client";
 import { posts, savedPosts, logos, websites } from "@/db/schema";
-import type { PostCardData } from "@/domain/post";
 import type { SavedCategory } from "@/domain/saved-post";
-import type { Logo } from "@/domain/logo";
-import type { Website } from "@/domain/website";
+import type { WorkCardData } from "@/domain/work-card";
 import { mapPublishedLogo } from "./logos-repository";
 import { mapPublishedWebsite } from "./websites-repository";
 
@@ -27,10 +25,7 @@ export type SavedPostPage = {
 };
 
 export type SavedPostCounts = Partial<Record<SavedCategory, number>>;
-export type SavedPostCardData =
-  | (PostCardData & { category: SavedCategory; kind?: "post" })
-  | { id: string; category: "Logos"; kind: "logo"; logo: Logo }
-  | { id: string; category: "Websites"; kind: "website"; website: Website };
+export type SavedPostCardData = WorkCardData;
 
 const savedTargetId = sql<string>`coalesce(${savedPosts.postId}, ${savedPosts.logoId}, ${savedPosts.websiteId})`;
 const savedCategory = sql<SavedCategory>`case when ${savedPosts.logoId} is not null then 'Logos' when ${savedPosts.websiteId} is not null then 'Websites' else ${posts.category} end`;

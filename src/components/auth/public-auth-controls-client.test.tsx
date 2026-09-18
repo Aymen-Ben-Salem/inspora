@@ -1,13 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { authState } = vi.hoisted(() => ({
+const { authState, userState } = vi.hoisted(() => ({
   authState: vi.fn(),
+  userState: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => authState(),
-  UserButton: () => <button type="button">Account menu</button>,
+  useUser: () => userState(),
 }));
 
 import { PublicAuthControlsClient } from "./public-auth-controls-client";
@@ -15,12 +16,14 @@ import { PublicAuthControlsClient } from "./public-auth-controls-client";
 describe("PublicAuthControlsClient", () => {
   afterEach(() => {
     authState.mockReset();
+    userState.mockReset();
   });
 
   it.each(["desktop" as const, "mobile" as const])(
     "reserves a non-interactive loading placeholder for %s",
     (variant) => {
       authState.mockReturnValue({ isLoaded: false, isSignedIn: undefined });
+      userState.mockReturnValue({ user: null });
 
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
@@ -35,6 +38,7 @@ describe("PublicAuthControlsClient", () => {
     "shows only the sign-in action when %s is signed out",
     (variant) => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: false });
+      userState.mockReturnValue({ user: null });
 
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
@@ -53,6 +57,7 @@ describe("PublicAuthControlsClient", () => {
         isSignedIn: false,
         sessionId: "sess_pending",
       });
+      userState.mockReturnValue({ user: null });
 
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
@@ -63,13 +68,18 @@ describe("PublicAuthControlsClient", () => {
   );
 
   it.each(["desktop" as const, "mobile" as const])(
-    "shows only the account menu when %s is signed in",
+    "links the signed-in viewer avatar to their own profile on %s",
     (variant) => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: true });
+      userState.mockReturnValue({
+        user: { fullName: "Ada Lovelace", imageUrl: "https://img.example/ada.jpg" },
+      });
 
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
-      expect(html).toContain("Account menu");
+      expect(html).toContain('href="/profile"');
+      expect(html).toContain('aria-label="Open your profile"');
+      expect(html).toContain("Ada Lovelace&#x27;s profile");
       expect(html).not.toContain("Sign in");
       expect(html).not.toContain("Sign up");
     },

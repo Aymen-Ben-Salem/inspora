@@ -35,6 +35,7 @@ export type PostMedia = {
 export type Creator = {
   id: string;
   name: string;
+  username?: string;
   handle?: string;
   url?: string;
   avatarUrl: string;
@@ -73,7 +74,8 @@ export type PostCardMedia = Pick<
 >;
 
 export type PostCardData = Pick<Post, "id" | "slug" | "title" | "createdAt"> & {
-  creator: Pick<Creator, "name" | "avatarUrl" | "avatarStorageProvider">;
+  creator: Pick<Creator, "name" | "avatarUrl" | "avatarStorageProvider"> &
+    Pick<Creator, "username">;
   media: PostCardMedia[];
   mediaCount: number;
 };

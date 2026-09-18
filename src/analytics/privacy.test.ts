@@ -12,11 +12,13 @@ describe("analytics privacy paths", () => {
     expect(isPrivateAnalyticsPath("/admin/analytics")).toBe(true);
     expect(isPrivateAnalyticsPath("/sign-in/callback")).toBe(true);
     expect(isPrivateAnalyticsPath("/admin-access-denied")).toBe(true);
+    expect(isPrivateAnalyticsPath("/profile")).toBe(true);
   });
 
   it("does not exclude similarly named public routes", () => {
     expect(isPrivateAnalyticsPath("/administrator-design")).toBe(false);
     expect(isPrivateAnalyticsPath("/posts/example")).toBe(false);
+    expect(isPrivateAnalyticsPath("/creators/ada_lovelace")).toBe(false);
   });
 });
 

@@ -2,6 +2,10 @@ import type { MediaType, PostCategory } from "@/domain/post";
 import type { LogoKind, LogoStatus } from "@/domain/logo";
 import type { WebsiteMediaRole, WebsiteStatus } from "@/domain/website";
 import type {
+  AdminCreatorInput,
+  AdminCreatorRecord,
+} from "@/features/creators/types";
+import type {
   ImageVariant,
   ManagedMediaAsset,
   MediaStorageProvider,
@@ -17,21 +21,7 @@ export type {
 
 export type AdminPostStatus = "draft" | "published" | "archived";
 
-export type AdminCreatorInput = {
-  id?: string;
-  name: string;
-  handle?: string;
-  url?: string;
-  avatarUrl: string;
-  avatarStorageProvider?: MediaStorageProvider;
-  avatarStorageKey?: string;
-};
-
-export type AdminCreatorRecord = AdminCreatorInput & {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-};
+export type { AdminCreatorInput, AdminCreatorRecord };
 
 export type AdminMediaInput = {
   type: MediaType;

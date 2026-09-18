@@ -26,7 +26,9 @@ export function blankAdminCreator(): AdminCreatorInput {
   return {
     name: "",
     handle: "",
+    username: "",
     url: "",
+    xProfileUrl: "",
     avatarUrl: "/brand/default-avatar.svg",
   };
 }
@@ -36,10 +38,13 @@ export function toAdminCreatorDraft(creator: AdminCreatorRecord): AdminCreatorIn
     id: creator.id,
     name: creator.name,
     handle: creator.handle ?? "",
+    username: creator.username ?? "",
     url: creator.url ?? "",
+    xProfileUrl: creator.xProfileUrl ?? "",
     avatarUrl: creator.avatarUrl,
     avatarStorageProvider: creator.avatarStorageProvider,
     avatarStorageKey: creator.avatarStorageKey,
+    recordOrigin: creator.recordOrigin,
   };
 }
 
@@ -54,7 +59,10 @@ export function AdminCreatorEditor({
   onChange: (creator: AdminCreatorInput) => void;
   lockExistingCreators?: boolean;
 }) {
-  const isExistingLocked = lockExistingCreators && Boolean(creator.id);
+  const isExistingLocked =
+    lockExistingCreators &&
+    Boolean(creator.id) &&
+    creator.recordOrigin !== "preview";
 
   function selectCreator(id: string) {
     if (id === "new") {
@@ -89,6 +97,11 @@ export function AdminCreatorEditor({
   return (
     <>
       <input type="hidden" name="creatorId" value={creator.id ?? ""} />
+      <input
+        type="hidden"
+        name="creatorRecordOrigin"
+        value={creator.recordOrigin ?? ""}
+      />
       <input
         type="hidden"
         name="creatorAvatarStorageProvider"
@@ -171,8 +184,20 @@ export function AdminCreatorEditor({
                 onChange={(event) => updateCreator("handle", event.target.value)}
               />
             </label>
+            <label className={labelClass}>
+              Profile username
+              <input
+                className={inputClass}
+                name="creatorUsername"
+                placeholder="studio_name"
+                pattern="[a-z0-9_]{3,30}"
+                readOnly={isExistingLocked}
+                value={creator.username ?? ""}
+                onChange={(event) => updateCreator("username", event.target.value)}
+              />
+            </label>
             <label className={`${labelClass} sm:col-span-2`}>
-              Creator URL
+              Website
               <input
                 className={inputClass}
                 name="creatorUrl"
@@ -180,6 +205,18 @@ export function AdminCreatorEditor({
                 readOnly={isExistingLocked}
                 value={creator.url ?? ""}
                 onChange={(event) => updateCreator("url", event.target.value)}
+              />
+            </label>
+            <label className={`${labelClass} sm:col-span-2`}>
+              X profile URL
+              <input
+                className={inputClass}
+                name="creatorXProfileUrl"
+                type="url"
+                placeholder="https://x.com/studio"
+                readOnly={isExistingLocked}
+                value={creator.xProfileUrl ?? ""}
+                onChange={(event) => updateCreator("xProfileUrl", event.target.value)}
               />
             </label>
             <label className={`${labelClass} sm:col-span-2`}>

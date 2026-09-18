@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   adminAuditLogs,
+  creatorClaims,
+  creatorUsernameAliases,
   creators,
   logoMedia,
   logos,
   postMedia,
   posts,
+  profileAccounts,
   savedPosts,
   sponsors,
   subscribers,
@@ -19,6 +22,9 @@ import {
 describe("database schema", () => {
   it("keeps the content tables normalized and constrained", () => {
     const creatorsConfig = getTableConfig(creators);
+    const accountsConfig = getTableConfig(profileAccounts);
+    const aliasesConfig = getTableConfig(creatorUsernameAliases);
+    const claimsConfig = getTableConfig(creatorClaims);
     const postsConfig = getTableConfig(posts);
     const mediaConfig = getTableConfig(postMedia);
     const savedPostsConfig = getTableConfig(savedPosts);
@@ -30,8 +36,28 @@ describe("database schema", () => {
     const websiteSectionsConfig = getTableConfig(websiteSections);
 
     expect(creatorsConfig.name).toBe("creators");
-    expect(creatorsConfig.indexes).toHaveLength(1);
-    expect(creatorsConfig.checks).toHaveLength(2);
+    expect(creatorsConfig.indexes).toHaveLength(5);
+    expect(creatorsConfig.checks).toHaveLength(5);
+    expect(creatorsConfig.columns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        "owner_user_id",
+        "username",
+        "x_profile_url",
+        "x_provider_id",
+        "edited_fields",
+        "record_origin",
+      ]),
+    );
+    expect(accountsConfig.name).toBe("profile_accounts");
+    expect(accountsConfig.checks).toHaveLength(2);
+    expect(aliasesConfig.name).toBe("creator_username_aliases");
+    expect(aliasesConfig.foreignKeys).toHaveLength(1);
+    expect(aliasesConfig.indexes).toHaveLength(3);
+    expect(aliasesConfig.checks).toHaveLength(1);
+    expect(claimsConfig.name).toBe("creator_claims");
+    expect(claimsConfig.foreignKeys).toHaveLength(2);
+    expect(claimsConfig.indexes).toHaveLength(4);
+    expect(claimsConfig.checks).toHaveLength(4);
     expect(postsConfig.name).toBe("posts");
     expect(postsConfig.indexes).toHaveLength(4);
     expect(postsConfig.checks).toHaveLength(6);

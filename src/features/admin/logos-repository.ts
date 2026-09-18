@@ -8,7 +8,7 @@ import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, logoMedia, logos } from "@/db/schema";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
-import { mapAdminCreator, resolveCreatorMutation } from "./posts-repository";
+import { mapAdminCreator, resolveCreatorMutation } from "@/features/creators/repository";
 import type {
   AdminLogoInput,
   AdminLogoRecord,
@@ -144,7 +144,7 @@ export async function createAdminLogo(input: AdminLogoInput, actorId: string) {
   const creator = await resolveCreatorMutation(database, input.creator);
 
   await database.batch([
-    creator.mutation,
+    ...creator.mutations,
     database.insert(logos).values({
       id,
       ...logoValues(input, creator.id),
@@ -187,7 +187,7 @@ export async function updateAdminLogo(
   );
 
   await database.batch([
-    creator.mutation,
+    ...creator.mutations,
     database
       .update(logos)
       .set({

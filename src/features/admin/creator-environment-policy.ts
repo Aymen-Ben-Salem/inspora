@@ -19,10 +19,16 @@ export function isCreatorVisibleInEnvironment(
 }
 
 export function shouldLockExistingCreator(
-  creatorId: string | undefined,
+  creator:
+    | { id: string | undefined; recordOrigin?: string | null }
+    | undefined,
   dataEnvironment: string | undefined,
 ) {
-  return dataEnvironment === "preview" && Boolean(creatorId);
+  return (
+    dataEnvironment === "preview" &&
+    Boolean(creator?.id) &&
+    creator?.recordOrigin !== "preview"
+  );
 }
 
 export function normalizeCreatorValidationInput(
@@ -34,12 +40,22 @@ export function normalizeCreatorValidationInput(
   }
 
   const id = typeof input.id === "string" ? input.id : undefined;
-  if (!shouldLockExistingCreator(id, dataEnvironment)) return input;
+  const recordOrigin =
+    "recordOrigin" in input && typeof input.recordOrigin === "string"
+      ? input.recordOrigin
+      : undefined;
+  if (!shouldLockExistingCreator({ id, recordOrigin }, dataEnvironment)) {
+    return input;
+  }
 
   return {
     id,
     name: "Existing creator",
+    handle: "",
+    username: "",
     url: "",
+    xProfileUrl: "",
     avatarUrl: "/brand/default-avatar.svg",
+    recordOrigin,
   };
 }

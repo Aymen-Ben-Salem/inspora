@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { LogoEditor } from "@/components/admin/logo-editor";
 import { updateLogoAction } from "@/features/admin/actions";
 import { getAdminLogoById } from "@/features/admin/logos-repository";
-import { getAdminCreators } from "@/features/admin/posts-repository";
+import { getAdminCreators } from "@/features/creators/repository";
 
 type EditLogoPageProps = {
   params: Promise<{ id: string }>;

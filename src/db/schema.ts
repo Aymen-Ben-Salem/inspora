@@ -30,7 +30,13 @@ export const creators = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name").notNull(),
     handle: text("handle"),
+    username: text("username"),
     url: text("url"),
+    xProfileUrl: text("x_profile_url"),
+    xProviderId: text("x_provider_id"),
+    ownerUserId: text("owner_user_id"),
+    editedFields: text("edited_fields").array().default(sql`'{}'::text[]`).notNull(),
+    recordOrigin: text("record_origin").default("mirrored").notNull(),
     avatarUrl: text("avatar_url").notNull(),
     avatarStorageProvider: text("avatar_storage_provider"),
     avatarStorageKey: text("avatar_storage_key"),
@@ -38,7 +44,29 @@ export const creators = pgTable(
   },
   (table) => [
     index("creators_name_idx").on(table.name),
+    uniqueIndex("creators_owner_user_unique")
+      .on(table.ownerUserId)
+      .where(sql`${table.ownerUserId} is not null`),
+    uniqueIndex("creators_username_lower_unique")
+      .on(sql`lower(${table.username})`)
+      .where(sql`${table.username} is not null`),
+    uniqueIndex("creators_x_provider_unique")
+      .on(table.xProviderId)
+      .where(sql`${table.xProviderId} is not null`),
+    index("creators_x_profile_lower_idx").on(sql`lower(${table.xProfileUrl})`),
     check("creators_name_not_blank", sql`length(trim(${table.name})) > 0`),
+    check(
+      "creators_username_valid",
+      sql`${table.username} is null or ${table.username} ~ '^[a-z0-9_]{3,30}$'`,
+    ),
+    check(
+      "creators_edited_fields_valid",
+      sql`${table.editedFields} <@ array['name', 'username', 'avatarUrl', 'websiteUrl']::text[]`,
+    ),
+    check(
+      "creators_record_origin_valid",
+      sql`${table.recordOrigin} in ('mirrored', 'preview', 'development', 'editorial', 'user')`,
+    ),
     check(
       "creators_avatar_storage_consistent",
       sql`(${table.avatarStorageProvider} is null and ${table.avatarStorageKey} is null) or (${table.avatarStorageProvider} = 'r2' and length(trim(${table.avatarStorageKey})) > 0)`,
@@ -168,6 +196,99 @@ export const savedPosts = pgTable(
       table.id.desc(),
     ),
     check("saved_posts_user_not_blank", sql`length(trim(${table.userId})) > 0`),
+  ],
+);
+
+export const profileAccounts = pgTable(
+  "profile_accounts",
+  {
+    userId: text("user_id").primaryKey(),
+    status: text("status").default("active").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    check("profile_accounts_user_not_blank", sql`length(trim(${table.userId})) > 0`),
+    check(
+      "profile_accounts_status_valid",
+      sql`${table.status} in ('active', 'deleting')`,
+    ),
+  ],
+);
+
+export const creatorUsernameAliases = pgTable(
+  "creator_username_aliases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    creatorId: uuid("creator_id")
+      .notNull()
+      .references(() => creators.id, { onDelete: "cascade" }),
+    username: text("username").notNull(),
+    isCurrent: boolean("is_current").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("creator_username_aliases_lower_unique").on(
+      sql`lower(${table.username})`,
+    ),
+    uniqueIndex("creator_username_aliases_current_creator_unique")
+      .on(table.creatorId)
+      .where(sql`${table.isCurrent} = true`),
+    index("creator_username_aliases_creator_idx").on(table.creatorId),
+    check(
+      "creator_username_aliases_username_valid",
+      sql`${table.username} ~ '^[a-z0-9_]{3,30}$'`,
+    ),
+  ],
+);
+
+export const creatorClaims = pgTable(
+  "creator_claims",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    requesterUserId: text("requester_user_id")
+      .notNull()
+      .references(() => profileAccounts.userId, { onDelete: "cascade" }),
+    targetCreatorId: uuid("target_creator_id")
+      .notNull()
+      .references(() => creators.id, { onDelete: "restrict" }),
+    verifiedXProviderId: text("verified_x_provider_id").notNull(),
+    verifiedXUsername: text("verified_x_username").notNull(),
+    status: text("status").default("pending").notNull(),
+    reviewedBy: text("reviewed_by"),
+    reviewReason: text("review_reason"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: "date" }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("creator_claims_request_unique").on(
+      table.requesterUserId,
+      table.targetCreatorId,
+      table.verifiedXProviderId,
+    ),
+    index("creator_claims_status_created_idx").on(
+      table.status,
+      table.createdAt.desc(),
+    ),
+    index("creator_claims_target_status_idx").on(table.targetCreatorId, table.status),
+    index("creator_claims_provider_idx").on(table.verifiedXProviderId),
+    check(
+      "creator_claims_provider_not_blank",
+      sql`length(trim(${table.verifiedXProviderId})) > 0`,
+    ),
+    check(
+      "creator_claims_username_valid",
+      sql`${table.verifiedXUsername} ~ '^[a-z0-9_]{1,15}$'`,
+    ),
+    check(
+      "creator_claims_status_valid",
+      sql`${table.status} in ('pending', 'approved', 'rejected')`,
+    ),
+    check(
+      "creator_claims_review_consistent",
+      sql`(${table.status} = 'pending' and ${table.reviewedAt} is null and ${table.reviewedBy} is null) or (${table.status} <> 'pending' and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null)`,
+    ),
   ],
 );
 
@@ -480,7 +601,7 @@ export const adminAuditLogs = pgTable(
     check("admin_audit_logs_action_not_blank", sql`length(trim(${table.action})) > 0`),
     check(
       "admin_audit_logs_resource_type_valid",
-      sql`${table.resourceType} in ('post', 'logo', 'website', 'subscriber', 'sponsor')`,
+      sql`${table.resourceType} in ('post', 'logo', 'website', 'subscriber', 'sponsor', 'creator', 'creator_claim')`,
     ),
   ],
 );
@@ -532,6 +653,29 @@ export const creatorsRelations = relations(creators, ({ many }) => ({
   posts: many(posts),
   logos: many(logos),
   websites: many(websites),
+  aliases: many(creatorUsernameAliases),
+  claims: many(creatorClaims),
+}));
+
+export const creatorUsernameAliasesRelations = relations(
+  creatorUsernameAliases,
+  ({ one }) => ({
+    creator: one(creators, {
+      fields: [creatorUsernameAliases.creatorId],
+      references: [creators.id],
+    }),
+  }),
+);
+
+export const creatorClaimsRelations = relations(creatorClaims, ({ one }) => ({
+  requester: one(profileAccounts, {
+    fields: [creatorClaims.requesterUserId],
+    references: [profileAccounts.userId],
+  }),
+  targetCreator: one(creators, {
+    fields: [creatorClaims.targetCreatorId],
+    references: [creators.id],
+  }),
 }));
 
 export const postsRelations = relations(posts, ({ many, one }) => ({

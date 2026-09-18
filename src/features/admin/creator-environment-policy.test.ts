@@ -22,9 +22,30 @@ describe("creator environment policy", () => {
   });
 
   it("locks only existing Preview creators", () => {
-    expect(shouldLockExistingCreator("creator-id", "preview")).toBe(true);
+    expect(
+      shouldLockExistingCreator(
+        { id: "creator-id", recordOrigin: "mirrored" },
+        "preview",
+      ),
+    ).toBe(true);
+    expect(
+      shouldLockExistingCreator(
+        { id: "creator-id", recordOrigin: "preview" },
+        "preview",
+      ),
+    ).toBe(false);
     expect(shouldLockExistingCreator(undefined, "preview")).toBe(false);
-    expect(shouldLockExistingCreator("creator-id", "development")).toBe(false);
-    expect(shouldLockExistingCreator("creator-id", "production")).toBe(false);
+    expect(
+      shouldLockExistingCreator(
+        { id: "creator-id", recordOrigin: "mirrored" },
+        "development",
+      ),
+    ).toBe(false);
+    expect(
+      shouldLockExistingCreator(
+        { id: "creator-id", recordOrigin: "mirrored" },
+        "production",
+      ),
+    ).toBe(false);
   });
 });

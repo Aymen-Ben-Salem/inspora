@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import { PostEditor } from "@/components/admin/post-editor";
 import { updatePostAction } from "@/features/admin/actions";
 import {
-  getAdminCreators,
   getAdminPostById,
 } from "@/features/admin/posts-repository";
+import { getAdminCreators } from "@/features/creators/repository";
 
 type EditPostPageProps = {
   params: Promise<{ id: string }>;

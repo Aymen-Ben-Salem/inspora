@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { WebsiteEditor } from "@/components/admin/website-editor";
 import { updateWebsiteAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/admin/posts-repository";
+import { getAdminCreators } from "@/features/creators/repository";
 import { getAdminWebsiteById } from "@/features/admin/websites-repository";
 
 type EditWebsitePageProps = {

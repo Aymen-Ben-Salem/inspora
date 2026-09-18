@@ -13,7 +13,7 @@ import {
 import { isWebsiteMediaRole } from "@/domain/website";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
-import { mapAdminCreator, resolveCreatorMutation } from "./posts-repository";
+import { mapAdminCreator, resolveCreatorMutation } from "@/features/creators/repository";
 import {
   collectWebsiteManagedAssets,
   getRetainedWebsiteStorageKeys,
@@ -196,7 +196,7 @@ export async function createAdminWebsite(input: AdminWebsiteInput, actorId: stri
   const creator = await resolveCreatorMutation(database, input.creator);
 
   await database.batch([
-    creator.mutation,
+    ...creator.mutations,
     database.insert(websites).values({
       id,
       ...websiteValues(input, creator.id),
@@ -240,7 +240,7 @@ export async function updateAdminWebsite(
   );
 
   await database.batch([
-    creator.mutation,
+    ...creator.mutations,
     database.update(websites).set({
       ...websiteValues(input, creator.id),
       publishedAt,

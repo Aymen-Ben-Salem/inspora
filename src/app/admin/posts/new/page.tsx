@@ -1,6 +1,6 @@
 import { PostEditor } from "@/components/admin/post-editor";
 import { createPostAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/admin/posts-repository";
+import { getAdminCreators } from "@/features/creators/repository";
 
 export default async function NewPostPage() {
   const creators = await getAdminCreators();

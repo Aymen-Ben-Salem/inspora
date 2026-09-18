@@ -5,47 +5,28 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { requireDatabase } from "@/db/client";
-import { adminAuditLogs, creators, postMedia, posts } from "@/db/schema";
+import { adminAuditLogs, postMedia, posts } from "@/db/schema";
+import {
+  mapAdminCreator,
+  resolveCreatorMutation,
+} from "@/features/creators/repository";
 import type { MediaType } from "@/domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
-import {
-  isCreatorVisibleInEnvironment,
-  shouldLockExistingCreator,
-} from "./creator-environment-policy";
 import type {
   AdminPostInput,
   AdminPostRecord,
   AdminPostStatus,
-  AdminCreatorInput,
-  AdminCreatorRecord,
   ManagedMediaAsset,
 } from "./types";
 
 type Database = ReturnType<typeof requireDatabase>;
 type PostRow = typeof posts.$inferSelect;
-type CreatorRow = typeof creators.$inferSelect;
+type CreatorRow = Parameters<typeof mapAdminCreator>[0];
 type MediaRow = typeof postMedia.$inferSelect;
 
 function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
-}
-
-export function mapAdminCreator(row: CreatorRow): AdminCreatorRecord {
-  return {
-    id: row.id,
-    name: row.name,
-    handle: row.handle ?? undefined,
-    url: row.url ?? undefined,
-    avatarUrl: row.avatarUrl,
-    avatarStorageProvider:
-      isStorageProvider(row.avatarStorageProvider)
-        ? (row.avatarStorageProvider as AdminCreatorRecord["avatarStorageProvider"])
-        : undefined,
-    avatarStorageKey: row.avatarStorageKey ?? undefined,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
 }
 
 function mapAdminPost(
@@ -127,87 +108,6 @@ function managedAssets(media: MediaRow[]): ManagedMediaAsset[] {
   );
 }
 
-function managedCreatorAvatar(creator: CreatorRow): ManagedMediaAsset[] {
-  return isStorageProvider(creator.avatarStorageProvider) && creator.avatarStorageKey
-    ? [
-        {
-          storageProvider:
-            creator.avatarStorageProvider as ManagedMediaAsset["storageProvider"],
-          storageKey: creator.avatarStorageKey,
-          type: "image",
-        },
-      ]
-    : [];
-}
-
-function creatorValues(input: AdminCreatorInput) {
-  return {
-    name: input.name,
-    handle: input.handle,
-    url: input.url,
-    avatarUrl: input.avatarUrl,
-    avatarStorageProvider: input.avatarStorageProvider,
-    avatarStorageKey: input.avatarStorageKey,
-  };
-}
-
-export async function resolveCreatorMutation(
-  database: Database,
-  input: AdminCreatorInput,
-) {
-  const dataEnvironment = process.env.DATA_ENVIRONMENT;
-
-  if (!input.id) {
-    const id = randomUUID();
-    if (!isCreatorVisibleInEnvironment(input.handle, dataEnvironment)) {
-      throw new Error("Development fixture creators can only be used in Development.");
-    }
-    return {
-      id,
-      mutation: database.insert(creators).values({ id, ...creatorValues(input) }),
-      removedManagedMedia: [] as ManagedMediaAsset[],
-    };
-  }
-
-  const existing = await database.query.creators.findFirst({
-    where: eq(creators.id, input.id),
-  });
-  if (!existing) throw new Error("Creator not found.");
-  if (!isCreatorVisibleInEnvironment(existing.handle, dataEnvironment)) {
-    throw new Error("Creator not found.");
-  }
-
-  const locked = shouldLockExistingCreator(existing.id, dataEnvironment);
-  const creatorInput = locked
-    ? {
-        id: existing.id,
-        name: existing.name,
-        handle: existing.handle ?? undefined,
-        url: existing.url ?? undefined,
-        avatarUrl: existing.avatarUrl,
-        avatarStorageProvider: isStorageProvider(existing.avatarStorageProvider)
-          ? (existing.avatarStorageProvider as AdminCreatorInput["avatarStorageProvider"])
-          : undefined,
-        avatarStorageKey: existing.avatarStorageKey ?? undefined,
-      }
-    : input;
-
-  const removedManagedMedia = locked
-    ? []
-    : managedCreatorAvatar(existing).filter(
-        (asset) => asset.storageKey !== creatorInput.avatarStorageKey,
-      );
-
-  return {
-    id: existing.id,
-    mutation: database
-      .update(creators)
-      .set({ ...creatorValues(creatorInput), updatedAt: new Date() })
-      .where(eq(creators.id, existing.id)),
-    removedManagedMedia,
-  };
-}
-
 function postValues(input: AdminPostInput, creatorId: string) {
   return {
     slug: input.slug,
@@ -250,19 +150,6 @@ export async function getAdminPostById(id: string) {
   return row ? mapAdminPost(row) : null;
 }
 
-export async function getAdminCreators() {
-  const database = requireDatabase();
-  const rows = await database.query.creators.findMany({
-    orderBy: [asc(creators.name)],
-  });
-
-  return rows
-    .filter((row) =>
-      isCreatorVisibleInEnvironment(row.handle, process.env.DATA_ENVIRONMENT),
-    )
-    .map(mapAdminCreator);
-}
-
 export async function createAdminPost(input: AdminPostInput, actorId: string) {
   const database = requireDatabase();
   const now = new Date();
@@ -270,7 +157,7 @@ export async function createAdminPost(input: AdminPostInput, actorId: string) {
   const creator = await resolveCreatorMutation(database, input.creator);
 
   await database.batch([
-    creator.mutation,
+    ...creator.mutations,
     database.insert(posts).values({
       id,
       ...postValues(input, creator.id),
@@ -321,7 +208,7 @@ export async function updateAdminPost(
   const creator = await resolveCreatorMutation(database, input.creator);
 
   await database.batch([
-    creator.mutation,
+    ...creator.mutations,
     database
       .update(posts)
       .set({

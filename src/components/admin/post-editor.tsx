@@ -1,11 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import type { Route } from "next";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { AdminMediaPreview } from "@/components/admin/media-preview";
+import {
+  AdminCreatorEditor,
+  blankAdminCreator,
+  toAdminCreatorDraft,
+} from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { POST_CATEGORIES } from "@/domain/post";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
@@ -38,37 +42,6 @@ function blankMedia(): MediaDraft {
   };
 }
 
-function blankCreator(): AdminCreatorInput {
-  return {
-    name: "",
-    handle: "",
-    url: "",
-    avatarUrl: "/brand/default-avatar.svg",
-  };
-}
-
-function creatorDraft(creator: AdminCreatorRecord): AdminCreatorInput {
-  return {
-    id: creator.id,
-    name: creator.name,
-    handle: creator.handle ?? "",
-    url: creator.url ?? "",
-    avatarUrl: creator.avatarUrl,
-    avatarStorageProvider: creator.avatarStorageProvider,
-    avatarStorageKey: creator.avatarStorageKey,
-  };
-}
-
-function canPreviewAvatar(value: string) {
-  if (value.startsWith("/")) return true;
-
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 export function PostEditor({
   action,
   creators,
@@ -85,43 +58,8 @@ export function PostEditor({
     post?.media.length ? post.media : [blankMedia()],
   );
   const [creator, setCreator] = useState<AdminCreatorInput>(
-    post?.creator ? creatorDraft(post.creator) : blankCreator(),
+    post?.creator ? toAdminCreatorDraft(post.creator) : blankAdminCreator(),
   );
-  const isExistingLocked = lockExistingCreators && Boolean(creator.id);
-
-  function selectCreator(id: string) {
-    if (id === "new") {
-      setCreator(blankCreator());
-      return;
-    }
-
-    const selected = creators.find((item) => item.id === id);
-    if (selected) setCreator(creatorDraft(selected));
-  }
-
-  function updateCreator(field: keyof AdminCreatorInput, value: string) {
-    setCreator((current) => {
-      const avatarChanged = field === "avatarUrl" && value !== current.avatarUrl;
-      return {
-        ...current,
-        [field]: value,
-        ...(avatarChanged
-          ? { avatarStorageProvider: undefined, avatarStorageKey: undefined }
-          : {}),
-      };
-    });
-  }
-
-  function applyUploadedCreatorAvatar(uploaded: UploadedAdminMedia) {
-    if (uploaded.type !== "image") return;
-
-    setCreator((current) => ({
-      ...current,
-      avatarUrl: uploaded.url,
-      avatarStorageProvider: uploaded.storageProvider,
-      avatarStorageKey: uploaded.storageKey,
-    }));
-  }
 
   function updateMedia(index: number, field: keyof MediaDraft, value: string) {
     setMedia((current) =>
@@ -160,18 +98,6 @@ export function PostEditor({
   return (
     <form action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <input type="hidden" name="media" value={JSON.stringify(media)} />
-      <input type="hidden" name="creatorId" value={creator.id ?? ""} />
-      <input
-        type="hidden"
-        name="creatorAvatarStorageProvider"
-        value={creator.avatarStorageProvider ?? ""}
-      />
-      <input
-        type="hidden"
-        name="creatorAvatarStorageKey"
-        value={creator.avatarStorageKey ?? ""}
-      />
-
       <div className="grid gap-6">
         {state.status === "error" ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -232,117 +158,12 @@ export function PostEditor({
           </div>
         </section>
 
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
-                Attribution
-              </p>
-              <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
-                Creator profile
-              </h2>
-            </div>
-            <p className="max-w-sm text-xs leading-relaxed text-[#777] sm:text-right">
-              {isExistingLocked
-                ? "Existing creator profiles are read-only in Preview."
-                : "Changes to an existing creator update every post connected to them."}
-            </p>
-          </div>
-
-          <label className={labelClass}>
-            Select creator
-            <select
-              className={inputClass}
-              value={creator.id ?? "new"}
-              onChange={(event) => selectCreator(event.target.value)}
-            >
-              <option value="new">Create a new creator</option>
-              {creators.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}{item.handle ? ` (${item.handle})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="grid gap-5 rounded-2xl bg-[#f7f7f4] p-4 sm:grid-cols-[88px_minmax(0,1fr)] sm:p-5">
-            <div className="flex items-start">
-              <div className="relative size-[72px] overflow-hidden rounded-full border border-black/10 bg-white">
-                {canPreviewAvatar(creator.avatarUrl) ? (
-                  <Image
-                    src={creator.avatarUrl}
-                    alt=""
-                    fill
-                    sizes="72px"
-                    className="object-cover"
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className={labelClass}>
-                Creator name
-                <input
-                  className={inputClass}
-                  name="creatorName"
-                  required
-                  readOnly={isExistingLocked}
-                  value={creator.name}
-                  onChange={(event) => updateCreator("name", event.target.value)}
-                />
-              </label>
-              <label className={labelClass}>
-                Handle
-                <input
-                  className={inputClass}
-                  name="creatorHandle"
-                  placeholder="@studio"
-                  readOnly={isExistingLocked}
-                  value={creator.handle ?? ""}
-                  onChange={(event) => updateCreator("handle", event.target.value)}
-                />
-              </label>
-              <label className={`${labelClass} sm:col-span-2`}>
-                Creator URL
-                <input
-                  className={inputClass}
-                  name="creatorUrl"
-                  type="url"
-                  readOnly={isExistingLocked}
-                  value={creator.url ?? ""}
-                  onChange={(event) => updateCreator("url", event.target.value)}
-                />
-              </label>
-              <label className={`${labelClass} sm:col-span-2`}>
-                Avatar URL or local path
-                <input
-                  className={inputClass}
-                  name="creatorAvatarUrl"
-                  required
-                  readOnly={isExistingLocked}
-                  placeholder="/brand/default-avatar.svg"
-                  value={creator.avatarUrl}
-                  onChange={(event) => updateCreator("avatarUrl", event.target.value)}
-                />
-              </label>
-              {isExistingLocked ? (
-                <p className="text-xs leading-relaxed text-[#777] sm:col-span-2">
-                  Choose &quot;Create a new creator&quot; to enter a different profile or upload a new avatar.
-                </p>
-              ) : (
-                <div className="grid gap-2 sm:col-span-2">
-                  <span className="text-sm font-medium text-[#333]">Or upload an avatar</span>
-                  <MediaUploadButton
-                    kind="creator-avatar"
-                    label="Upload avatar"
-                    onUploaded={applyUploadedCreatorAvatar}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        <AdminCreatorEditor
+          creator={creator}
+          creators={creators}
+          onChange={setCreator}
+          lockExistingCreators={lockExistingCreators}
+        />
 
         <section className="grid gap-6 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div className="flex items-end justify-between gap-4">

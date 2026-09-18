@@ -226,11 +226,7 @@ export function InfiniteSavedPostFeed({
                 key={postCategory}
                 href={savedHref(postCategory)}
                 aria-current={active ? "page" : undefined}
-                className={`archive-control-type focus-ring inline-flex h-[var(--archive-control-height)] shrink-0 items-center justify-center px-[var(--archive-control-x)] leading-none tracking-[0.2px] transition-colors duration-150 ${
-                  postCategory === "Illustration"
-                    ? ""
-                    : "w-[var(--archive-category-width)]"
-                } ${
+                className={`archive-control-type focus-ring inline-flex h-[var(--archive-control-height)] min-w-[var(--archive-category-width)] shrink-0 items-center justify-center whitespace-nowrap px-[var(--archive-control-x)] leading-none tracking-[0.2px] transition-colors duration-150 ${
                   active
                     ? "bg-[#262626] text-white shadow-[0_1px_1px_#e6e6e6]"
                     : "bg-[#fafafa] text-[#767676] hover:bg-[#f0f0f0] hover:text-[#262626]"

@@ -18,6 +18,7 @@ export type PreviewEnvironment = {
   r2SecretAccessKey: string;
   r2BucketName: string;
   r2PublicBaseUrl: string;
+  r2SubmissionsBucketName: string;
 };
 
 const ENV_PATH = resolve(process.cwd(), ".env.preview.local");
@@ -45,6 +46,7 @@ export function previewEnvironmentFromValues(
     r2SecretAccessKey: required(values, "R2_SECRET_ACCESS_KEY"),
     r2BucketName: required(values, "R2_BUCKET_NAME"),
     r2PublicBaseUrl: required(values, "R2_PUBLIC_BASE_URL").replace(/\/+$/, ""),
+    r2SubmissionsBucketName: required(values, "R2_SUBMISSIONS_BUCKET_NAME"),
   } satisfies PreviewEnvironment;
 
   try {

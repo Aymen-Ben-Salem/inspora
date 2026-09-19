@@ -215,6 +215,115 @@ export const profileAccounts = pgTable(
   ],
 );
 
+export const submissionUploads = pgTable(
+  "submission_uploads",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => profileAccounts.userId, { onDelete: "cascade" }),
+    requestId: uuid("request_id").notNull(),
+    kind: text("kind").notNull(),
+    state: text("state").default("pending").notNull(),
+    stagingKey: text("staging_key").notNull(),
+    objectKey: text("object_key"),
+    derivativeKeys: text("derivative_keys").array().default(sql`'{}'::text[]`).notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    verifiedContentType: text("verified_content_type"),
+    verifiedSizeBytes: integer("verified_size_bytes"),
+    digest: text("digest"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+    attachedSubmissionId: uuid("attached_submission_id"),
+    attachedAt: timestamp("attached_at", { withTimezone: true, mode: "date" }),
+    discardedAt: timestamp("discarded_at", { withTimezone: true, mode: "date" }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("submission_uploads_owner_request_unique").on(table.ownerUserId, table.requestId),
+    index("submission_uploads_owner_active_idx").on(table.ownerUserId, table.state, table.expiresAt),
+    uniqueIndex("submission_uploads_object_key_unique").on(table.objectKey).where(sql`${table.objectKey} is not null`),
+    uniqueIndex("submission_uploads_attached_submission_unique").on(table.attachedSubmissionId).where(sql`${table.attachedSubmissionId} is not null`),
+    check("submission_uploads_kind_valid", sql`${table.kind} in ('design', 'logo')`),
+    check("submission_uploads_state_valid", sql`${table.state} in ('pending', 'completed', 'discarded')`),
+    check("submission_uploads_size_valid", sql`${table.sizeBytes} > 0`),
+    check("submission_uploads_verified_size_valid", sql`${table.verifiedSizeBytes} is null or ${table.verifiedSizeBytes} > 0`),
+    check("submission_uploads_completed_consistent", sql`(${table.state} = 'completed' and ${table.objectKey} is not null and ${table.verifiedContentType} is not null and ${table.verifiedSizeBytes} is not null and ${table.digest} is not null and ${table.digest} ~ '^[0-9a-f]{64}$' and ${table.completedAt} is not null) or (${table.state} <> 'completed')`),
+    check("submission_uploads_attachment_consistent", sql`(${table.attachedSubmissionId} is null and ${table.attachedAt} is null) or (${table.attachedSubmissionId} is not null and ${table.attachedAt} is not null and ${table.state} = 'completed')`),
+  ],
+);
+
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerUserId: text("owner_user_id").notNull().references(() => profileAccounts.userId, { onDelete: "cascade" }),
+    creatorId: uuid("creator_id").notNull().references(() => creators.id, { onDelete: "restrict" }),
+    requestId: uuid("request_id").notNull(),
+    kind: text("kind").notNull(),
+    sourceUrl: text("source_url"),
+    uploadId: uuid("upload_id").references(() => submissionUploads.id, { onDelete: "restrict" }),
+    sourceFingerprint: text("source_fingerprint").notNull(),
+    status: text("status").default("in_review").notNull(),
+    rejectionReason: text("rejection_reason"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: "date" }),
+    publishedKind: text("published_kind"),
+    publishedId: uuid("published_id"),
+    publishedHref: text("published_href"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("submissions_owner_request_unique").on(table.ownerUserId, table.requestId),
+    uniqueIndex("submissions_upload_unique").on(table.uploadId).where(sql`${table.uploadId} is not null`),
+    uniqueIndex("submissions_owner_active_fingerprint_unique").on(table.ownerUserId, table.sourceFingerprint).where(sql`${table.status} in ('in_review', 'accepted')`),
+    index("submissions_owner_status_created_idx").on(table.ownerUserId, table.status, table.createdAt.desc()),
+    index("submissions_status_created_idx").on(table.status, table.createdAt),
+    check("submissions_kind_valid", sql`${table.kind} in ('design', 'logo', 'website', 'app-icon')`),
+    check("submissions_status_valid", sql`${table.status} in ('in_review', 'accepted', 'rejected')`),
+    check("submissions_exactly_one_source", sql`num_nonnulls(${table.sourceUrl}, ${table.uploadId}) = 1`),
+    check("submissions_rejection_consistent", sql`(${table.status} = 'rejected' and ${table.rejectionReason} is not null and length(trim(${table.rejectionReason})) > 0 and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null) or (${table.status} <> 'rejected' and ${table.rejectionReason} is null)`),
+    check("submissions_acceptance_consistent", sql`(${table.status} = 'accepted' and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null and ${table.publishedKind} is not null and ${table.publishedId} is not null and ${table.publishedHref} is not null) or (${table.status} <> 'accepted' and ${table.publishedKind} is null and ${table.publishedId} is null and ${table.publishedHref} is null)`),
+    check("submissions_published_kind_valid", sql`${table.publishedKind} is null or ${table.publishedKind} in ('design', 'logo', 'website')`),
+  ],
+);
+
+export const submissionQuotaEvents = pgTable(
+  "submission_quota_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerUserId: text("owner_user_id").notNull().references(() => profileAccounts.userId, { onDelete: "cascade" }),
+    submissionId: uuid("submission_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("submission_quota_events_submission_unique").on(table.submissionId),
+    index("submission_quota_events_owner_expiry_idx").on(table.ownerUserId, table.expiresAt),
+    check("submission_quota_events_expiry_valid", sql`${table.expiresAt} > ${table.createdAt}`),
+  ],
+);
+
+export const cleanupJobs = pgTable(
+  "cleanup_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    kind: text("kind").notNull(),
+    targetId: text("target_id").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    notBefore: timestamp("not_before", { withTimezone: true, mode: "date" }).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("cleanup_jobs_idempotency_unique").on(table.idempotencyKey),
+    index("cleanup_jobs_not_before_idx").on(table.notBefore),
+    check("cleanup_jobs_kind_valid", sql`${table.kind} in ('delete_private_upload', 'delete_public_orphan', 'delete_account')`),
+    check("cleanup_jobs_target_not_blank", sql`length(trim(${table.targetId})) > 0`),
+    check("cleanup_jobs_idempotency_not_blank", sql`length(trim(${table.idempotencyKey})) > 0`),
+  ],
+);
+
 export const creatorUsernameAliases = pgTable(
   "creator_username_aliases",
   {

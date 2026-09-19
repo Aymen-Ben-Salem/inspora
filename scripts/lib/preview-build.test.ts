@@ -14,6 +14,8 @@ const approvedPreview: EnvironmentFingerprint = {
     "fbbc3334e2325e09e43cb32dd41ba6e63d0f3ffad0bf108a1cb0db971610f8b7",
   publicMediaHostSha256:
     "425008e1364364fa8e8f714f526d5ad8256cc3961ba4569a5805f5ff4e741117",
+  privateSubmissionsBucketSha256:
+    "d6d6b1a7c74bbc10ea974685835426d103aa604c0fe2bf8e4f8b71b49205ee04",
 };
 
 const developmentFixture = `
@@ -34,6 +36,7 @@ R2_ACCESS_KEY_ID=preview-key
 R2_SECRET_ACCESS_KEY=preview-secret
 R2_BUCKET_NAME=fixture-bucket
 R2_PUBLIC_BASE_URL=https://fixture-media.r2.dev
+R2_SUBMISSIONS_BUCKET_NAME=fixture-private-bucket
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_must_not_win
 NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=preview-posthog-must-not-win
 `;
@@ -66,6 +69,7 @@ describe("guarded Preview build", () => {
     expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("dev-posthog-token");
     expect(environment.DATABASE_URL).toContain("ep-safe-pooler.example.neon.tech");
     expect(environment.R2_BUCKET_NAME).toBe("fixture-bucket");
+    expect(environment.R2_SUBMISSIONS_BUCKET_NAME).toBe("fixture-private-bucket");
   });
 
   it("rejects a mismatched Preview fixture before running sitemap or build", async () => {

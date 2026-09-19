@@ -32,6 +32,7 @@ const PREVIEW_CONFIGURATION_KEYS = [
   "R2_SECRET_ACCESS_KEY",
   "R2_BUCKET_NAME",
   "R2_PUBLIC_BASE_URL",
+  "R2_SUBMISSIONS_BUCKET_NAME",
 ] as const;
 
 type EnvironmentReader = (path: string) => string;
@@ -114,6 +115,11 @@ export function resolvePreviewBuildEnvironment(
       r2PublicBaseUrl: required(
         preview,
         "R2_PUBLIC_BASE_URL",
+        ".env.preview.local",
+      ),
+      r2SubmissionsBucketName: required(
+        preview,
+        "R2_SUBMISSIONS_BUCKET_NAME",
         ".env.preview.local",
       ),
     },

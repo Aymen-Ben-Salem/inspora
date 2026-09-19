@@ -11,7 +11,6 @@ import {
 import {
   isOptimizableStaticImage,
   optimizeStaticImage,
-  type OptimizedImage,
 } from "@/features/admin/image-optimization";
 import {
   ACCEPTED_MEDIA_MIME_TYPES,
@@ -23,11 +22,19 @@ import {
 } from "@/features/admin/media-upload";
 import { createVideoPoster } from "@/features/admin/video-processing";
 import { assertVideoPreviewDimensions } from "@/features/admin/video-preview-validation";
+import {
+  createAdminMediaUploadOperations,
+  createPreparedMediaUploadBundle,
+  type MediaUploadOperations,
+  type PreparedMediaUpload,
+} from "@/features/media/prepare-upload";
 
-type PreparedUpload = OptimizedImage & {
-  uploadKind: MediaUploadKind;
-  role: "primary" | "variant" | "video-preview" | "poster";
-};
+const defaultUploadOperations = createAdminMediaUploadOperations({
+  sign: createMediaUploadSignatureAction,
+  complete: completeMediaUploadAction,
+  discard: discardMediaUploadsAction,
+  converterConfiguration: getMediaConverterConfigurationAction,
+});
 
 type UploadStatus =
   | "idle"
@@ -65,15 +72,18 @@ function acceptedTypes(kind: MediaUploadKind) {
   return "image/avif,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm";
 }
 
-export function MediaUploadButton({
+export function MediaUploadButton<TResult = UploadedAdminMedia>({
   kind = "post-media",
   label = "Upload file",
   onUploaded,
+  operations,
 }: {
   kind?: MediaUploadKind;
   label?: string;
-  onUploaded: (media: UploadedAdminMedia) => void;
+  onUploaded: (media: TResult) => void;
+  operations?: MediaUploadOperations<TResult>;
 }) {
+  const activeOperations = (operations ?? defaultUploadOperations) as MediaUploadOperations<TResult>;
   const inputRef = useRef<HTMLInputElement>(null);
   const conversionControllerRef = useRef<AbortController>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
@@ -82,8 +92,6 @@ export function MediaUploadButton({
 
   async function upload(file: File) {
     setError("");
-    let uploadedStorageKeys: string[] = [];
-
     const contentType = ACCEPTED_MEDIA_MIME_TYPES.find((type) => type === file.type);
     if (
       !contentType ||
@@ -95,7 +103,7 @@ export function MediaUploadButton({
     }
 
     try {
-      let uploadItems: PreparedUpload[];
+      let uploadItems: PreparedMediaUpload[];
       if (isOptimizableStaticImage(contentType)) {
         setStatus("optimizing");
         const images = await optimizeStaticImage(file, kind);
@@ -107,7 +115,7 @@ export function MediaUploadButton({
       } else if (contentType === "image/gif") {
         const controller = new AbortController();
         conversionControllerRef.current = controller;
-        const configuration = await getMediaConverterConfigurationAction();
+        const configuration = await activeOperations.converterConfiguration();
         const { convertGifToMp4, createVideoPreview } = await import(
           "@/features/admin/gif-conversion"
         );
@@ -133,7 +141,7 @@ export function MediaUploadButton({
       } else if (contentType.startsWith("video/")) {
         const controller = new AbortController();
         conversionControllerRef.current = controller;
-        const configuration = await getMediaConverterConfigurationAction();
+        const configuration = await activeOperations.converterConfiguration();
         const { createVideoPreview } = await import(
           "@/features/admin/gif-conversion"
         );
@@ -166,107 +174,13 @@ export function MediaUploadButton({
       const generatedPreview = uploadItems.find((item) => item.role === "video-preview");
       if (generatedPreview) assertVideoPreviewDimensions(generatedPreview);
 
-      setStatus("signing");
-      const signatures = await Promise.all(
-        uploadItems.map((item) =>
-          createMediaUploadSignatureAction({
-            kind: item.uploadKind,
-            fileName: item.file.name,
-            contentType: item.file.type,
-            size: item.file.size,
-          }),
-        ),
-      );
-      const rejectedSignature = signatures.find((signature) => !signature.ok);
-      if (rejectedSignature && !rejectedSignature.ok) {
-        throw new Error(rejectedSignature.message);
-      }
-      const prepared = signatures.filter(
-        (signature): signature is Extract<typeof signature, { ok: true }> => signature.ok,
-      );
-      uploadedStorageKeys = prepared.map((signature) => signature.storageKey);
-
-      setStatus("uploading");
-      const responses = await Promise.all(
-        prepared.map((signature, index) =>
-          fetch(signature.uploadUrl, {
-            method: signature.method,
-            headers: signature.headers,
-            body: uploadItems[index]?.file,
-          }),
-        ),
-      );
-      if (responses.some((response) => !response.ok)) {
-        throw new Error("The storage service rejected the upload.");
-      }
-
-      setStatus("verifying");
-      const completed = await Promise.all(
-        prepared.map((signature, index) => {
-          const item = uploadItems[index];
-          return completeMediaUploadAction({
-            kind: item?.uploadKind,
-            fileName: file.name,
-            contentType: item?.file.type,
-            size: item?.file.size,
-            storageKey: signature.storageKey,
-            width: item?.width,
-            height: item?.height,
-          });
-        }),
-      );
-      const rejectedCompletion = completed.find((result) => !result.ok);
-      if (rejectedCompletion && !rejectedCompletion.ok) {
-        throw new Error(rejectedCompletion.message);
-      }
-      const uploaded = completed.filter(
-        (result): result is Extract<typeof result, { ok: true }> => result.ok,
-      );
-      const primaryIndex = uploadItems.findIndex((item) => item.role === "primary");
-      const primary = uploaded[primaryIndex]?.media;
-      if (!primary) throw new Error("The optimized upload returned no media.");
-      const posterIndex = uploadItems.findIndex((item) => item.role === "poster");
-      const poster = posterIndex >= 0 ? uploaded[posterIndex]?.media : undefined;
-      const videoPreviewIndex = uploadItems.findIndex((item) => item.role === "video-preview");
-      const videoPreviewMedia = videoPreviewIndex >= 0 ? uploaded[videoPreviewIndex]?.media : undefined;
-
-      onUploaded({
-        ...primary,
-        sourceMimeType: contentType,
-        posterUrl: poster?.url,
-        posterStorageKey: poster?.storageKey,
-        videoPreview: videoPreviewMedia?.storageKey
-          ? {
-              url: videoPreviewMedia.url,
-              storageKey: videoPreviewMedia.storageKey,
-              width: videoPreviewMedia.width,
-              height: videoPreviewMedia.height,
-              bytes: videoPreviewMedia.sizeBytes!,
-              format: "mp4",
-            }
-          : undefined,
-        variants:
-          isOptimizableStaticImage(contentType) &&
-          (kind === "post-media" || kind === "logo-media" || kind === "website-section")
-            ? uploaded
-                .filter((_, index) => uploadItems[index]?.role === "variant")
-                .map(({ media }) => ({
-                  url: media.url,
-                  storageKey: media.storageKey!,
-                  width: media.width,
-                  height: media.height,
-                  bytes: media.sizeBytes!,
-                  format: "webp" as const,
-                }))
-            : [],
+      const bundle = createPreparedMediaUploadBundle({
+        source: file,
+        kind,
+        outputs: uploadItems,
       });
-      uploadedStorageKeys = [];
+      onUploaded(await activeOperations.upload(bundle, setStatus));
     } catch (cause) {
-      if (uploadedStorageKeys.length) {
-        await discardMediaUploadsAction({ kind, storageKeys: uploadedStorageKeys }).catch(
-          () => undefined,
-        );
-      }
       setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
     } finally {
       conversionControllerRef.current = null;

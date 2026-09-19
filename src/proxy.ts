@@ -17,7 +17,7 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
 
 export const config = {
   matcher: [
-    // Keep Clerk limited to admin, public auth, and its integration subtree.
+    // Keep Clerk limited to authenticated product routes, public auth, and its integration subtree.
     // Other public pages stay outside Routing Middleware for cacheability.
     "/admin/:path*",
     "/admin-access-denied",
@@ -27,6 +27,7 @@ export const config = {
     "/api/saved-posts/:path*",
     "/profile/:path*",
     "/api/profile/:path*",
+    "/api/submissions/:path*",
     // Preserve Clerk's frontend API and session-handshake route.
     "/__clerk/:path*",
   ],

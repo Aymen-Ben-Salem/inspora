@@ -13,6 +13,7 @@ import {
   logos,
   posts,
   profileAccounts,
+  submissions,
   websites,
 } from "../../db/schema";
 import { withWriteTransaction } from "../../db/write-client";
@@ -21,6 +22,17 @@ import { requireAdmin } from "../../auth/require-admin";
 import { ensureOwnedCreator } from "./repository";
 import type { ClaimResult } from "./types";
 import { normalizeXUsername } from "./validation";
+
+const CREATOR_REFERENCE_KINDS = [
+  "posts",
+  "logos",
+  "websites",
+  "submissions",
+] as const;
+
+export function creatorReferenceKinds() {
+  return [...CREATOR_REFERENCE_KINDS];
+}
 
 export type ExternalAccountEvidence = {
   provider: string;
@@ -377,6 +389,10 @@ export async function reviewCreatorClaim(
         .update(websites)
         .set({ creatorId: target.id })
         .where(eq(websites.creatorId, lockedProvisional.id));
+      await tx
+        .update(submissions)
+        .set({ creatorId: target.id, updatedAt: now })
+        .where(eq(submissions.creatorId, lockedProvisional.id));
       await tx
         .update(creators)
         .set({ ownerUserId: null, xProviderId: null, updatedAt: now })

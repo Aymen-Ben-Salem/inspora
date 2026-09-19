@@ -7,12 +7,12 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
-  S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { MediaUploadKind } from "@/features/admin/media-upload";
 import type { ManagedMediaAsset } from "@/storage/types";
+import { createR2Client } from "./r2-client";
 import {
   assertDataOperationEnvironment,
   runtimeDataEnvironmentFromValues,
@@ -81,15 +81,7 @@ function requireConfiguration(): R2Configuration {
 }
 
 function createClient(configuration: R2Configuration) {
-  return new S3Client({
-    region: "auto",
-    requestChecksumCalculation: "WHEN_REQUIRED",
-    endpoint: `https://${configuration.accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: configuration.accessKeyId,
-      secretAccessKey: configuration.secretAccessKey,
-    },
-  });
+  return createR2Client(configuration);
 }
 
 function encodeStorageKey(storageKey: string) {

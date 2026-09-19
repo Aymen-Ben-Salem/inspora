@@ -148,6 +148,13 @@
       "when": 1789728986207,
       "tag": "0020_cultured_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789812478757,
+      "tag": "0021_silly_deathbird",
+      "breakpoints": true
     }
   ]
 }

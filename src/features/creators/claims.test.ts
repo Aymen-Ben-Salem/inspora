@@ -9,6 +9,7 @@ vi.mock("./repository", () => ({ ensureOwnedCreator: vi.fn() }));
 
 import {
   claimDecision,
+  creatorReferenceKinds,
   existingClaimRequestResult,
   verifiedXIdentityFromAccounts,
   type ExternalAccountEvidence,
@@ -22,6 +23,15 @@ const verifiedAccount: ExternalAccountEvidence = {
 };
 
 describe("creator claims", () => {
+  it("moves every creator-owned work type during claim consolidation", () => {
+    expect(creatorReferenceKinds()).toEqual([
+      "posts",
+      "logos",
+      "websites",
+      "submissions",
+    ]);
+  });
+
   it("uses only server-verified X evidence", () => {
     expect(verifiedXIdentityFromAccounts([verifiedAccount])).toEqual({
       providerId: "x-user-42",

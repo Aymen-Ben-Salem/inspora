@@ -16,6 +16,8 @@ const approved: EnvironmentFingerprint = {
     "fbbc3334e2325e09e43cb32dd41ba6e63d0f3ffad0bf108a1cb0db971610f8b7",
   publicMediaHostSha256:
     "425008e1364364fa8e8f714f526d5ad8256cc3961ba4569a5805f5ff4e741117",
+  privateSubmissionsBucketSha256:
+    "d6d6b1a7c74bbc10ea974685835426d103aa604c0fe2bf8e4f8b71b49205ee04",
 };
 
 const safeEnvironment: FingerprintedEnvironment = {
@@ -26,6 +28,7 @@ const safeEnvironment: FingerprintedEnvironment = {
     "postgresql://fixture:secret@ep-safe.example.neon.tech/neondb",
   r2BucketName: "fixture-bucket",
   r2PublicBaseUrl: "https://fixture-media.r2.dev",
+  r2SubmissionsBucketName: "fixture-private-bucket",
 };
 
 describe("environment fingerprints", () => {
@@ -35,6 +38,7 @@ describe("environment fingerprints", () => {
       DATABASE_URL: safeEnvironment.databaseUrl,
       R2_BUCKET_NAME: safeEnvironment.r2BucketName,
       R2_PUBLIC_BASE_URL: safeEnvironment.r2PublicBaseUrl,
+      R2_SUBMISSIONS_BUCKET_NAME: safeEnvironment.r2SubmissionsBucketName,
     });
 
     expect(environment.databaseUrlUnpooled).toBe(safeEnvironment.databaseUrl);
@@ -64,6 +68,7 @@ describe("environment fingerprints", () => {
       "Neon endpoint",
     ],
     ["R2 bucket", { r2BucketName: "other-bucket" }, "R2 bucket"],
+    ["private submissions bucket", { r2SubmissionsBucketName: "other-private-bucket" }, "Private submissions bucket"],
     [
       "Public media host",
       { r2PublicBaseUrl: "https://other-media.r2.dev" },
@@ -90,6 +95,7 @@ describe("environment fingerprints", () => {
     ["missing Neon URL", { databaseUrl: "" }],
     ["invalid Neon URL", { databaseUrl: "not-a-url" }],
     ["missing bucket", { r2BucketName: "" }],
+    ["missing private submissions bucket", { r2SubmissionsBucketName: "" }],
     ["invalid public host", { r2PublicBaseUrl: "not-a-url" }],
   ])("fails closed for an unverifiable %s", (_label, patch) => {
     expect(() =>

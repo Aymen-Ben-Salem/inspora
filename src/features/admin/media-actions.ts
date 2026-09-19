@@ -18,6 +18,8 @@ import {
   isAcceptedUploadForKind,
   MAX_VIDEO_UPLOAD_BYTES,
   type MediaUploadKind,
+} from "../media/upload-policy";
+import {
   type MediaUploadCompletionResult,
   type MediaUploadSignatureResult,
   defaultAltText,

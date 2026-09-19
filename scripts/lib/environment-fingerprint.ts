@@ -6,6 +6,7 @@ export type FingerprintedEnvironment = {
   databaseUrlUnpooled: string;
   r2BucketName: string;
   r2PublicBaseUrl: string;
+  r2SubmissionsBucketName?: string;
 };
 
 export type EnvironmentFingerprint = {
@@ -13,6 +14,7 @@ export type EnvironmentFingerprint = {
   neonEndpointSha256: string;
   r2BucketSha256: string;
   publicMediaHostSha256: string;
+  privateSubmissionsBucketSha256?: string;
 };
 
 export function runtimeDataEnvironmentFromValues(
@@ -26,6 +28,7 @@ export function runtimeDataEnvironmentFromValues(
     databaseUrlUnpooled: values.DATABASE_URL_UNPOOLED ?? databaseUrl,
     r2BucketName: values.R2_BUCKET_NAME ?? "",
     r2PublicBaseUrl: values.R2_PUBLIC_BASE_URL ?? "",
+    r2SubmissionsBucketName: values.R2_SUBMISSIONS_BUCKET_NAME ?? "",
   };
 }
 
@@ -47,6 +50,8 @@ export const APPROVED_ENVIRONMENT_FINGERPRINTS = {
       "37326831e2bf5dde2302fde06ffba466f489a1907994d99e10ab9aeb078798da",
     publicMediaHostSha256:
       "52f771a6481ead658a267c94899c3b5eabc58db8053fb2fa57c844e32698845e",
+    privateSubmissionsBucketSha256:
+      "UNCONFIGURED_PREVIEW_PRIVATE_SUBMISSIONS_BUCKET_SHA256",
   },
 } as const satisfies Record<"development" | "preview", EnvironmentFingerprint>;
 
@@ -132,6 +137,13 @@ export function assertEnvironmentFingerprint(
     publicMediaHost(environment.r2PublicBaseUrl),
     expected.publicMediaHostSha256,
   );
+  if (expected.privateSubmissionsBucketSha256) {
+    assertHash(
+      "Private submissions bucket",
+      environment.r2SubmissionsBucketName?.trim() ?? "",
+      expected.privateSubmissionsBucketSha256,
+    );
+  }
 }
 
 export function assertDataOperationEnvironment(

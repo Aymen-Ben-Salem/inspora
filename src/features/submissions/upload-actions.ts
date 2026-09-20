@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
+import { ensureOwnedCreator } from "@/features/creators/repository";
 
 import {
   createPrivateStagingKey,
@@ -41,6 +42,7 @@ export async function beginOwnUpload(input: BeginUploadInput): Promise<Submissio
   const uploadId = randomUUID();
   const stagingKey = createPrivateStagingKey({ ownerUserId: userId, uploadId, contentType: parsed.data.contentType });
   try {
+    await ensureOwnedCreator(userId);
     const reserved = await reserveOwnUpload(userId, {
       id: uploadId, requestId: parsed.data.requestId, kind: parsed.data.kind, stagingKey,
       contentType: parsed.data.contentType, sizeBytes: parsed.data.sizeBytes,

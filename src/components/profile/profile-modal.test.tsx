@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  DiscardConfirmation,
   modalDismissalIntent,
   nextContainedFocusIndex,
   ProfileModal,
@@ -10,7 +11,12 @@ import {
 describe("profile modal mechanics", () => {
   it("labels a centered dialog without rendering a close control", () => {
     const html = renderToStaticMarkup(
-      <ProfileModal open label="Edit Profile" onDismiss={vi.fn()}>
+      <ProfileModal
+        open
+        label="Edit Profile"
+        description="Update the details shown on your profile."
+        onDismiss={vi.fn()}
+      >
         <button type="button">Save</button>
       </ProfileModal>,
     );
@@ -18,7 +24,24 @@ describe("profile modal mechanics", () => {
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
     expect(html).toContain("Edit Profile");
+    expect(html).toContain("Update the details shown on your profile.");
     expect(html).not.toContain("Close");
+  });
+
+  it("renders an in-product discard confirmation with safe and destructive actions", () => {
+    const html = renderToStaticMarkup(
+      <DiscardConfirmation
+        message="Discard this submission and its selected file?"
+        onCancel={vi.fn()}
+        onDiscard={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('role="alertdialog"');
+    expect(html).toContain("Discard changes?");
+    expect(html).toContain("Discard this submission and its selected file?");
+    expect(html).toContain("Keep editing");
+    expect(html).toContain("Discard");
   });
 
   it("asks before discarding dirty input but lets Back preserve it", () => {

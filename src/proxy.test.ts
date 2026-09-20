@@ -9,10 +9,11 @@ vi.mock("@clerk/nextjs/server", () => ({ clerkMiddleware: () => vi.fn() }));
 
 import { config } from "./proxy";
 
-function matches(pathname: string) {
+function matches(pathname: string, headers?: Record<string, string>) {
   return unstable_doesMiddlewareMatch({
     config,
     url: `https://www.inspora.design${pathname}`,
+    headers,
   });
 }
 
@@ -59,5 +60,15 @@ describe("Clerk proxy routing", () => {
     "/_next/static/app.js",
   ])("bypasses Clerk for %s", (pathname) => {
     expect(matches(pathname)).toBe(false);
+  });
+
+  it.each([
+    "/",
+    "/posts/example",
+    "/logos",
+    "/websites",
+    "/info",
+  ])("runs Clerk for submission Server Actions posted from %s", (pathname) => {
+    expect(matches(pathname, { "next-action": "submission-action-id" })).toBe(true);
   });
 });

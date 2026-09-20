@@ -1,14 +1,17 @@
 import { SiteNavbar } from "@/components/site-navbar";
 import type { CreatorProfile } from "@/features/creators/types";
+import type { OwnProfileActivity } from "@/features/profiles/messages-repository";
 import type { CreatorWorkFilter, CreatorWorkPage, ProfileWorkCounts } from "@/features/profiles/types";
 
 import { ProfilePageClient } from "./profile-page-client";
 
 export function ProfilePage(props: {
+  activity?: OwnProfileActivity;
   counts: ProfileWorkCounts;
-  filter: CreatorWorkFilter;
+  filter: CreatorWorkFilter | "in-review";
   initialModal?: "edit" | "settings" | null;
   initialPage: CreatorWorkPage;
+  initialSubmissionId?: string;
   owner?: boolean;
   profile: CreatorProfile;
 }) {

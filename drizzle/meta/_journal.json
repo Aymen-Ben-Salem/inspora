@@ -155,6 +155,13 @@
       "when": 1789812478757,
       "tag": "0021_silly_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789832198544,
+      "tag": "0022_skinny_blink",
+      "breakpoints": true
     }
   ]
 }

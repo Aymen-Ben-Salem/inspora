@@ -18,6 +18,7 @@ export type DevelopmentMediaEnvironment = {
   r2SecretAccessKey: string;
   r2BucketName: string;
   r2PublicBaseUrl: string;
+  r2SubmissionsBucketName: string;
 };
 
 const ENV_PATH = resolve(process.cwd(), ".env.local");
@@ -50,6 +51,11 @@ export function loadDevelopmentMediaEnvironment(options: {
     r2SecretAccessKey: required(values, "R2_SECRET_ACCESS_KEY", path),
     r2BucketName: required(values, "R2_BUCKET_NAME", path),
     r2PublicBaseUrl: required(values, "R2_PUBLIC_BASE_URL", path).replace(/\/+$/, ""),
+    r2SubmissionsBucketName: required(
+      values,
+      "R2_SUBMISSIONS_BUCKET_NAME",
+      path,
+    ),
   } satisfies DevelopmentMediaEnvironment;
 
   assertEnvironmentFingerprint(

@@ -41,6 +41,8 @@ export const APPROVED_ENVIRONMENT_FINGERPRINTS = {
       "5accfe99b5b0dfe7314976b3748d52851fa9bd2a5ea6eebc130d7670eab56788",
     publicMediaHostSha256:
       "363255622e000ec651fe794f470bc64bba234f158b00d9f7231de3ae3f460cce",
+    privateSubmissionsBucketSha256:
+      "e8e1f6af2be20e0237ddb370baef664106229ff78b579b6f3cafae51a99bd0e7",
   },
   preview: {
     dataEnvironment: "preview",
@@ -51,7 +53,7 @@ export const APPROVED_ENVIRONMENT_FINGERPRINTS = {
     publicMediaHostSha256:
       "52f771a6481ead658a267c94899c3b5eabc58db8053fb2fa57c844e32698845e",
     privateSubmissionsBucketSha256:
-      "UNCONFIGURED_PREVIEW_PRIVATE_SUBMISSIONS_BUCKET_SHA256",
+      "211d9ee9927fc3b75275b927e5d19defe7933348be302ec3479a1ee39e9fb8f5",
   },
 } as const satisfies Record<"development" | "preview", EnvironmentFingerprint>;
 

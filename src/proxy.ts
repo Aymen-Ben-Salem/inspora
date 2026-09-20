@@ -17,6 +17,12 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
 
 export const config = {
   matcher: [
+    // Server Actions post back to the page that opened them. Run Clerk only for
+    // those action requests so submission actions work from cacheable public pages.
+    {
+      source: "/:path*",
+      has: [{ type: "header", key: "next-action" }],
+    },
     // Keep Clerk limited to authenticated product routes, public auth, and its integration subtree.
     // Other public pages stay outside Routing Middleware for cacheability.
     "/admin/:path*",

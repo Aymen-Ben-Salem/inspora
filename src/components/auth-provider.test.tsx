@@ -6,6 +6,20 @@ const { renderClerkProvider } = vi.hoisted(() => ({
   renderClerkProvider: vi.fn(),
 }));
 
+vi.mock("./submissions/submission-provider", () => ({
+  ClerkSubmissionProvider: ({ children }: PropsWithChildren) => (
+    <div data-submission-provider="clerk">{children}</div>
+  ),
+  PublicSubmissionProvider: ({ children }: PropsWithChildren) => (
+    <div data-submission-provider="public">{children}</div>
+  ),
+}));
+vi.mock("./saved-posts-provider", () => ({
+  SavedPostsProvider: ({ children }: PropsWithChildren) => (
+    <div data-saved-posts-provider>{children}</div>
+  ),
+}));
+
 vi.mock("server-only", () => ({}));
 vi.mock("@clerk/nextjs", () => ({
   ClerkProvider: (props: PropsWithChildren) => renderClerkProvider(props),
@@ -42,6 +56,7 @@ describe("AuthProvider", () => {
       );
 
       expect(html).toContain("Public content");
+      expect(html).toContain('data-submission-provider="public"');
       expect(html).not.toContain("Loading authentication");
       expect(html).not.toContain("data-clerk-provider");
     },
@@ -61,6 +76,8 @@ describe("AuthProvider", () => {
     );
 
     expect(html).toContain("data-clerk-provider");
+    expect(html).toContain('data-submission-provider="clerk"');
+    expect(html).toContain("data-saved-posts-provider");
     expect(html).toContain("Public content");
     expect(html).not.toContain("Loading authentication");
     expect(renderClerkProvider).toHaveBeenCalledWith(

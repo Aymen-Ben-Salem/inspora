@@ -10,6 +10,7 @@ import {
   logos,
   postMedia,
   posts,
+  profileMessages,
   profileAccounts,
   savedPosts,
   sponsors,
@@ -23,6 +24,7 @@ describe("database schema", () => {
   it("keeps the content tables normalized and constrained", () => {
     const creatorsConfig = getTableConfig(creators);
     const accountsConfig = getTableConfig(profileAccounts);
+    const messagesConfig = getTableConfig(profileMessages);
     const aliasesConfig = getTableConfig(creatorUsernameAliases);
     const claimsConfig = getTableConfig(creatorClaims);
     const postsConfig = getTableConfig(posts);
@@ -50,6 +52,10 @@ describe("database schema", () => {
     );
     expect(accountsConfig.name).toBe("profile_accounts");
     expect(accountsConfig.checks).toHaveLength(2);
+    expect(messagesConfig.name).toBe("profile_messages");
+    expect(messagesConfig.foreignKeys).toHaveLength(2);
+    expect(messagesConfig.indexes).toHaveLength(3);
+    expect(messagesConfig.checks).toHaveLength(2);
     expect(aliasesConfig.name).toBe("creator_username_aliases");
     expect(aliasesConfig.foreignKeys).toHaveLength(1);
     expect(aliasesConfig.indexes).toHaveLength(3);

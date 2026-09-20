@@ -12,6 +12,7 @@ import {
   getPublishedCreatorWorkPage,
   isCreatorWorkFilter,
 } from "@/features/profiles/repository";
+import { getOwnProfileActivity } from "@/features/profiles/messages-repository";
 
 export const metadata: Metadata = {
   title: "Your profile",
@@ -21,13 +22,17 @@ export const metadata: Metadata = {
 export default async function OwnerProfilePage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string | string[]; modal?: string | string[] }>;
+  searchParams: Promise<{ filter?: string | string[]; modal?: string | string[]; submission?: string | string[] }>;
 }) {
   if (!isClerkConfigured()) redirect("/sign-in?redirect_url=%2Fprofile" as Route);
   const [{ userId }, params] = await Promise.all([auth(), searchParams]);
   if (!userId) redirect("/sign-in?redirect_url=%2Fprofile" as Route);
   const rawFilter = Array.isArray(params.filter) ? params.filter[0] : params.filter;
-  const filter = rawFilter && isCreatorWorkFilter(rawFilter) ? rawFilter : "all";
+  const filter = rawFilter === "in-review"
+    ? "in-review"
+    : rawFilter && isCreatorWorkFilter(rawFilter)
+      ? rawFilter
+      : "all";
   const rawModal = Array.isArray(params.modal) ? params.modal[0] : params.modal;
   if (rawModal === "edit") {
     await requestCreatorClaimFromVerifiedX(userId).catch((error) => {
@@ -35,9 +40,14 @@ export default async function OwnerProfilePage({
     });
   }
   const profile = await ensureOwnedCreator(userId);
-  const [initialPage, counts] = await Promise.all([
-    getPublishedCreatorWorkPage({ creatorId: profile.id, filter }),
+  const rawSubmission = Array.isArray(params.submission) ? params.submission[0] : params.submission;
+  const [initialPage, counts, activity] = await Promise.all([
+    getPublishedCreatorWorkPage({
+      creatorId: profile.id,
+      filter: filter === "in-review" ? "all" : filter,
+    }),
     getPublishedCreatorWorkCounts(profile.id),
+    getOwnProfileActivity(userId),
   ]);
   return (
     <ProfilePage
@@ -45,6 +55,8 @@ export default async function OwnerProfilePage({
       initialPage={initialPage}
       counts={counts}
       filter={filter}
+      activity={activity}
+      initialSubmissionId={rawSubmission}
       owner
       initialModal={rawModal === "settings" ? "settings" : rawModal === "edit" ? "edit" : null}
     />

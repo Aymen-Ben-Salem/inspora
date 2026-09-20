@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SITE_NAV_ITEMS } from "./site-navigation";
+import { SITE_NAV_ITEMS, SITE_PRIMARY_ACTION } from "./site-navigation";
 
 describe("site navigation", () => {
   it("keeps the design archive canonical at the root route", () => {
@@ -12,6 +12,15 @@ describe("site navigation", () => {
       { kind: "action", label: "Contact", action: "contact" },
       { kind: "link", label: "Info", href: "/info" },
     ]);
+  });
+
+  it("uses the navbar plus for the shared submission flow", () => {
+    expect(SITE_PRIMARY_ACTION).toEqual({
+      kind: "action",
+      label: "Submit work",
+      action: "submit",
+    });
+    expect(SITE_NAV_ITEMS.some((item) => (item.label as string) === "Subscribe")).toBe(false);
   });
 });
 

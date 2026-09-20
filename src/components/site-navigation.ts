@@ -14,6 +14,12 @@ type SiteNavigationAction = {
 
 export type SiteNavigationItem = SiteNavigationLink | SiteNavigationAction;
 
+export const SITE_PRIMARY_ACTION = {
+  kind: "action",
+  label: "Submit work",
+  action: "submit",
+} as const;
+
 export const SITE_NAV_ITEMS = [
   { kind: "link", label: "Design", href: "/" },
   { kind: "link", label: "Websites", href: "/websites" },

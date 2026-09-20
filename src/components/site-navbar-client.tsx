@@ -14,7 +14,8 @@ import { BrandMark } from "./brand-mark";
 import { ContactSheet } from "./contact-sheet";
 import { SaveIcon } from "./feed-save-overlay";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
-import { SubscribeSheet } from "./subscribe-sheet";
+import { SITE_PRIMARY_ACTION } from "./site-navigation";
+import { useSubmission } from "./submissions/submission-provider";
 
 export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "websites";
 
@@ -48,10 +49,10 @@ export function SiteNavbarClient({
   desktopAuth: ReactNode;
   mobileAuth: ReactNode;
 }) {
+  const { openSubmission } = useSubmission();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowPreview, setOverflowPreview] = useState<
     "contact" | "about" | null
@@ -60,7 +61,6 @@ export function SiteNavbarClient({
   const highlightedOverflowItem = overflowPreview ?? "contact";
 
   const closeContact = useCallback(() => setContactOpen(false), []);
-  const closeSubscribe = useCallback(() => setSubscribeOpen(false), []);
   const closeMobileMenu = useCallback(() => setMobileMenuClosing(true), []);
 
   useEffect(() => {
@@ -237,8 +237,8 @@ export function SiteNavbarClient({
             <div className="archive-copy-type hidden min-w-0 items-center justify-end gap-[var(--archive-header-action-gap)] font-medium leading-normal lg:flex">
               <button
                 type="button"
-                onClick={() => setSubscribeOpen(true)}
-                aria-label="Subscribe"
+                onClick={openSubmission}
+                aria-label={SITE_PRIMARY_ACTION.label}
                 className="focus-ring size-[var(--archive-header-icon)] cursor-pointer text-[#767676] transition-colors hover:text-[#262626]"
               >
                 <PlusIcon />
@@ -324,7 +324,6 @@ export function SiteNavbarClient({
         />
       ) : null}
 
-      <SubscribeSheet open={subscribeOpen} onClose={closeSubscribe} />
       <ContactSheet open={contactOpen} onClose={closeContact} />
     </>
   );

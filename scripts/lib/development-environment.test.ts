@@ -14,6 +14,8 @@ const fixtureFingerprint: EnvironmentFingerprint = {
     "fbbc3334e2325e09e43cb32dd41ba6e63d0f3ffad0bf108a1cb0db971610f8b7",
   publicMediaHostSha256:
     "425008e1364364fa8e8f714f526d5ad8256cc3961ba4569a5805f5ff4e741117",
+  privateSubmissionsBucketSha256:
+    "d6d6b1a7c74bbc10ea974685835426d103aa604c0fe2bf8e4f8b71b49205ee04",
 };
 
 describe("development media environment", () => {
@@ -30,10 +32,29 @@ R2_ACCESS_KEY_ID=fixture-key
 R2_SECRET_ACCESS_KEY=fixture-secret
 R2_BUCKET_NAME=fixture-bucket
 R2_PUBLIC_BASE_URL=https://fixture-media.r2.dev
+R2_SUBMISSIONS_BUCKET_NAME=fixture-private-bucket
 `,
     });
 
     expect(environment.r2AccountId).toBe("fixture-account");
+    expect(environment.r2SubmissionsBucketName).toBe("fixture-private-bucket");
+  });
+
+  it("requires a separate private submissions bucket", () => {
+    expect(() => loadDevelopmentMediaEnvironment({
+      path: "isolated-development.env",
+      approvedFingerprint: fixtureFingerprint,
+      readFile: () => `
+DATA_ENVIRONMENT=development
+DATABASE_URL=postgresql://fixture:secret@ep-safe-pooler.example.neon.tech/neondb
+DATABASE_URL_UNPOOLED=postgresql://fixture:secret@ep-safe.example.neon.tech/neondb
+R2_ACCOUNT_ID=fixture-account
+R2_ACCESS_KEY_ID=fixture-key
+R2_SECRET_ACCESS_KEY=fixture-secret
+R2_BUCKET_NAME=fixture-bucket
+R2_PUBLIC_BASE_URL=https://fixture-media.r2.dev
+`,
+    })).toThrow("R2_SUBMISSIONS_BUCKET_NAME");
   });
 });
 

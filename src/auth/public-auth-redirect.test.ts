@@ -9,6 +9,10 @@ describe("publicAuthRedirect", () => {
     );
   });
 
+  it("keeps the local one-shot submission return", () => {
+    expect(publicAuthRedirect("/profile?submit=1")).toBe("/profile?submit=1");
+  });
+
   it.each([
     "https://example.com/steal-session",
     "//example.com/steal-session",

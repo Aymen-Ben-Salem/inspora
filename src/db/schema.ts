@@ -289,6 +289,41 @@ export const submissions = pgTable(
   ],
 );
 
+export const profileMessages = pgTable(
+  "profile_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => profileAccounts.userId, { onDelete: "cascade" }),
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    kind: text("kind").default("submission_accepted").notNull(),
+    publishedKind: text("published_kind").notNull(),
+    publishedId: uuid("published_id").notNull(),
+    publishedHref: text("published_href").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("profile_messages_submission_acceptance_unique").on(table.submissionId),
+    index("profile_messages_owner_visible_idx").on(
+      table.ownerUserId,
+      table.dismissedAt,
+      table.createdAt.desc(),
+    ),
+    index("profile_messages_published_work_idx").on(table.publishedKind, table.publishedId),
+    check("profile_messages_kind_valid", sql`${table.kind} = 'submission_accepted'`),
+    check(
+      "profile_messages_published_work_valid",
+      sql`${table.publishedKind} in ('design', 'logo', 'website') and length(trim(${table.publishedHref})) > 0`,
+    ),
+  ],
+);
+
 export const submissionQuotaEvents = pgTable(
   "submission_quota_events",
   {

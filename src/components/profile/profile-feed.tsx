@@ -9,6 +9,8 @@ import { LogoCard } from "@/components/logos/logo-card";
 import { LogoDetailDialog } from "@/components/logos/logo-detail-dialog";
 import { PostCard } from "@/components/post-card";
 import { RowFirstMasonry } from "@/components/row-first-masonry";
+import { SubmissionCard } from "@/components/submissions/submission-card";
+import { SubmissionDetail } from "@/components/submissions/submission-detail";
 import { WebsiteCard } from "@/components/websites/website-card";
 import { WebsiteDetailDialog } from "@/components/websites/website-detail-dialog";
 import { replaceDetailQueryParam } from "@/lib/detail-query";
@@ -19,6 +21,7 @@ import type {
   CreatorWorkPage,
   ProfileWorkCounts,
 } from "@/features/profiles/types";
+import type { OwnProfileSubmission } from "@/features/profiles/messages-repository";
 
 const typeFilters = [
   ...POST_CATEGORIES,
@@ -46,24 +49,29 @@ export function ProfileFeed({
   creatorId,
   filter,
   initialPage,
+  initialSubmissionId,
   owner = false,
+  submissions = [],
 }: {
   baseHref: string;
   counts: ProfileWorkCounts;
   creatorId: string;
-  filter: CreatorWorkFilter;
+  filter: CreatorWorkFilter | "in-review";
   initialPage: CreatorWorkPage;
+  initialSubmissionId?: string;
   owner?: boolean;
+  submissions?: OwnProfileSubmission[];
 }) {
   const [items, setItems] = useState(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [selectedId, setSelectedId] = useState<string>();
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState(initialSubmissionId);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
 
   const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingRef.current) return;
+    if (filter === "in-review" || !nextCursor || loadingRef.current) return;
     loadingRef.current = true;
     setStatus("loading");
     try {
@@ -97,6 +105,9 @@ export function ProfileFeed({
   }, [loadMore, nextCursor, status]);
 
   const selected = items.find((item) => item.id === selectedId);
+  const selectedSubmission = submissions.find((item) => item.id === selectedSubmissionId);
+  const inReview = submissions.filter((item) => item.status === "in_review");
+  const rejected = submissions.filter((item) => item.status === "rejected");
   const select = (item: WorkCardData) => {
     if (item.kind !== "logo" && item.kind !== "website") return;
     setSelectedId(item.id);
@@ -123,37 +134,65 @@ export function ProfileFeed({
         <nav aria-label="Filter creator work" className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-max items-center gap-2 py-2">
             <ProfileFilterLink active={filter === "all"} href={baseHref} label="All" />
+            {owner && inReview.length > 0 ? (
+              <ProfileFilterLink active={filter === "in-review"} href={`${baseHref}?filter=in-review`} label={`In Review (${inReview.length})`} />
+            ) : null}
             {typeFilters.filter((item) => (counts.filters[item] ?? 0) > 0).map((item) => (
               <ProfileFilterLink key={item} active={filter === item} href={`${baseHref}?filter=${encodeURIComponent(item)}`} label={`${labels[item]} (${counts.filters[item]})`} />
             ))}
           </div>
         </nav>
-        <section aria-label="Published work" className="pt-[18px]">
-          {items.length === 0 ? (
-            <div className="grid min-h-[35dvh] place-items-center px-6 text-center text-sm text-[#767676]">
-              {filter === "all" ? "No published work yet." : "No published work in this category."}
+        {owner && filter === "all" && rejected.length > 0 ? (
+          <section aria-label="Not accepted submissions" className="pt-[18px]">
+            <h2 className="mb-3 text-sm font-medium text-[#262626]">Not accepted</h2>
+            <div className="grid grid-cols-1 gap-x-[15px] gap-y-[18px] sm:grid-cols-2 lg:grid-cols-4">
+              {rejected.map((submission) => (
+                <SubmissionCard key={submission.id} submission={submission} onSelect={() => setSelectedSubmissionId(submission.id)} />
+              ))}
             </div>
-          ) : (
-            <FeedMotion itemCount={items.length}>
-              <RowFirstMasonry itemCount={items.length}>
-                {items.map((item, index) => item.kind === "logo" ? (
-                  <LogoCard key={item.id} logo={item.logo} onSelect={() => select(item)} showCreator={!owner} iconLayout="profile" />
-                ) : item.kind === "website" ? (
-                  <WebsiteCard key={item.id} website={item.website} onSelect={() => select(item)} />
-                ) : (
-                  <PostCard key={item.id} post={item} priority={index === 0} showCreator={!owner} />
+          </section>
+        ) : null}
+        <section aria-label={filter === "in-review" ? "In Review submissions" : "Published work"} className="pt-[18px]">
+          {filter === "in-review" ? (
+            inReview.length === 0 ? (
+              <div className="grid min-h-[35dvh] place-items-center px-6 text-center text-sm text-[#767676]">No submissions are in review.</div>
+            ) : (
+              <div className="grid grid-cols-1 gap-x-[15px] gap-y-[18px] sm:grid-cols-2 lg:grid-cols-4">
+                {inReview.map((submission) => (
+                  <SubmissionCard key={submission.id} submission={submission} onSelect={() => setSelectedSubmissionId(submission.id)} />
                 ))}
-              </RowFirstMasonry>
-            </FeedMotion>
+              </div>
+            )
+          ) : (
+            <>
+              {items.length === 0 ? (
+                <div className="grid min-h-[35dvh] place-items-center px-6 text-center text-sm text-[#767676]">
+                  {filter === "all" ? "No published work yet." : "No published work in this category."}
+                </div>
+              ) : (
+                <FeedMotion itemCount={items.length}>
+                  <RowFirstMasonry itemCount={items.length}>
+                    {items.map((item, index) => item.kind === "logo" ? (
+                      <LogoCard key={item.id} logo={item.logo} onSelect={() => select(item)} showCreator={!owner} iconLayout="profile" />
+                    ) : item.kind === "website" ? (
+                      <WebsiteCard key={item.id} website={item.website} onSelect={() => select(item)} />
+                    ) : (
+                      <PostCard key={item.id} post={item} priority={index === 0} showCreator={!owner} />
+                    ))}
+                  </RowFirstMasonry>
+                </FeedMotion>
+              )}
+              <div ref={sentinelRef} className="flex min-h-16 items-center justify-center py-5">
+                {status === "loading" ? <p role="status" className="text-xs text-[#767676]">Loading more</p> : null}
+                {status === "error" ? <button type="button" onClick={() => void loadMore()} className="focus-ring rounded-lg bg-[#f3f3f3] px-4 py-2 text-xs">Try loading more</button> : null}
+              </div>
+            </>
           )}
-          <div ref={sentinelRef} className="flex min-h-16 items-center justify-center py-5">
-            {status === "loading" ? <p role="status" className="text-xs text-[#767676]">Loading more</p> : null}
-            {status === "error" ? <button type="button" onClick={() => void loadMore()} className="focus-ring rounded-lg bg-[#f3f3f3] px-4 py-2 text-xs">Try loading more</button> : null}
-          </div>
         </section>
       </div>
       {selected?.kind === "logo" ? <LogoDetailDialog logo={selected.logo} onClose={close} onPrevious={() => navigate(-1)} onNext={() => navigate(1)} /> : null}
       {selected?.kind === "website" ? <WebsiteDetailDialog website={selected.website} onClose={close} onPrevious={() => navigate(-1)} onNext={() => navigate(1)} /> : null}
+      {selectedSubmission ? <SubmissionDetail open submission={selectedSubmission} onDismiss={() => setSelectedSubmissionId(undefined)} /> : null}
     </>
   );
 }

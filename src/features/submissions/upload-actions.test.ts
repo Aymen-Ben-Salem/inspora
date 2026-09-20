@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
+  ensureOwnedCreator: vi.fn(),
   reserveOwnUpload: vi.fn(),
   findOwnUpload: vi.fn(),
   recordCompletedUpload: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/features/creators/repository", () => ({ ensureOwnedCreator: mocks.ensureOwnedCreator }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
 vi.mock("./repository", () => ({
   reserveOwnUpload: mocks.reserveOwnUpload,
@@ -55,6 +57,20 @@ describe("private submission upload actions", () => {
     ).resolves.toMatchObject({ ok: false, code: "invalid_input" });
     expect(mocks.reserveOwnUpload).not.toHaveBeenCalled();
     expect(mocks.signPrivateUpload).not.toHaveBeenCalled();
+  });
+
+  it("initializes a first-time owner before reserving an upload", async () => {
+    let initialized = false;
+    mocks.ensureOwnedCreator.mockImplementation(async () => { initialized = true; });
+    mocks.reserveOwnUpload.mockImplementation(async () => {
+      expect(initialized).toBe(true);
+      return { ok: false, code: "review_limit", message: "Fixture capacity" };
+    });
+    await beginOwnUpload({
+      requestId: "71c20e69-2070-4a62-95bc-0f3226ea790e",
+      kind: "design", contentType: "image/png", sizeBytes: 1024,
+    });
+    expect(mocks.ensureOwnedCreator).toHaveBeenCalledWith("user_alpha");
   });
 
   it("derives the upload owner from Clerk and signs only the stored staging key", async () => {

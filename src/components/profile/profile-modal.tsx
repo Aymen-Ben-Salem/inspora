@@ -5,8 +5,10 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 
 import styles from "./profile-modal.module.css";
@@ -47,30 +49,94 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
-export function ProfileModal({
-  children,
-  dirty = false,
-  label,
-  onDismiss,
-  open,
+export function DiscardConfirmation({
+  cancelRef,
+  message,
+  onCancel,
+  onDiscard,
 }: {
+  cancelRef?: RefObject<HTMLButtonElement | null>;
+  message: string;
+  onCancel: () => void;
+  onDiscard: () => void;
+}) {
+  const titleId = useId();
+  const descriptionId = useId();
+
+  return (
+    <div
+      role="alertdialog"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      className="fixed bottom-6 left-1/2 z-10 w-[min(440px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border border-[#e6e6e6] bg-white p-4 text-left shadow-[0_16px_48px_rgba(38,38,38,0.16)]"
+    >
+      <p id={titleId} className="text-sm font-medium tracking-[-0.14px] text-[#262626]">
+        Discard changes?
+      </p>
+      <p id={descriptionId} className="mt-1 text-sm leading-5 tracking-[-0.14px] text-[#767676]">
+        {message}
+      </p>
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          ref={cancelRef}
+          type="button"
+          onClick={onCancel}
+          className="focus-ring min-h-9 rounded-lg border border-[#e6e6e6] bg-white px-4 text-sm text-[#262626] shadow-[0_1px_1px_#e6e6e6]"
+        >
+          Keep editing
+        </button>
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="focus-ring min-h-9 rounded-lg bg-[#262626] px-4 text-sm text-white shadow-[0_2px_0_#000]"
+        >
+          Discard
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type ProfileModalProps = {
   children: ReactNode;
+  description?: string;
+  discardMessage?: string;
   dirty?: boolean;
   label: string;
   onDismiss: () => void;
   open: boolean;
-}) {
+};
+
+export function ProfileModal({ open, ...props }: ProfileModalProps) {
+  return open ? <OpenProfileModal {...props} /> : null;
+}
+
+function OpenProfileModal({
+  children,
+  description,
+  discardMessage = "Discard your unsaved profile changes?",
+  dirty = false,
+  label,
+  onDismiss,
+}: Omit<ProfileModalProps, "open">) {
   const titleId = useId();
   const surfaceRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const confirmationFocusRef = useRef<HTMLElement | null>(null);
+  const cancelConfirmationRef = useRef<HTMLButtonElement>(null);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+
+  const cancelDiscard = useCallback(() => {
+    setConfirmationOpen(false);
+    confirmationFocusRef.current?.focus();
+  }, []);
 
   const requestDismiss = useCallback(
     (reason: Exclude<DismissReason, "back">) => {
       const intent = modalDismissalIntent({ dirty, reason });
-      if (
-        intent === "confirm" &&
-        !window.confirm("Discard your unsaved profile changes?")
-      ) {
+      if (intent === "confirm") {
+        confirmationFocusRef.current = document.activeElement as HTMLElement | null;
+        setConfirmationOpen(true);
         return;
       }
       onDismiss();
@@ -79,7 +145,6 @@ export function ProfileModal({
   );
 
   useEffect(() => {
-    if (!open) return;
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
@@ -90,21 +155,25 @@ export function ProfileModal({
       document.documentElement.style.overflow = previousOverflow;
       restoreFocusRef.current?.focus();
     };
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (confirmationOpen) cancelConfirmationRef.current?.focus();
+  }, [confirmationOpen]);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        requestDismiss("escape");
+        if (confirmationOpen) cancelDiscard();
+        else requestDismiss("escape");
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, requestDismiss]);
+  }, [cancelDiscard, confirmationOpen, requestDismiss]);
 
   function containFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Tab") return;
@@ -128,8 +197,6 @@ export function ProfileModal({
     }
   }
 
-  if (!open) return null;
-
   return (
     <div
       className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-white/45 px-4 py-8 backdrop-blur-[10px]"
@@ -144,12 +211,30 @@ export function ProfileModal({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={containFocus}
-        className={`${styles.surface} w-full max-w-[617px] max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-[3px] border border-[#e6e6e6] bg-white p-6 text-[#262626] outline-none sm:p-10`}
+        className={`${styles.surface} flex w-full max-w-[617px] max-h-[calc(100dvh-4rem)] flex-col gap-3 overflow-y-auto rounded-[3px] border border-[#e6e6e6] bg-white p-6 text-[#262626] outline-none sm:p-10`}
       >
-        <h2 id={titleId} className="text-[25px] font-medium leading-[normal] tracking-[-0.5px]">
-          {label}
-        </h2>
+        <header className="flex flex-col gap-2 pb-3 pr-6">
+          <h2 id={titleId} className="text-[25px] font-medium leading-[normal] tracking-[-0.5px]">
+            {label}
+          </h2>
+          {description ? (
+            <p className="text-sm leading-[normal] tracking-[-0.28px] text-[#767676]">
+              {description}
+            </p>
+          ) : null}
+        </header>
         {children}
+        {confirmationOpen ? (
+          <DiscardConfirmation
+            cancelRef={cancelConfirmationRef}
+            message={discardMessage}
+            onCancel={cancelDiscard}
+            onDiscard={() => {
+              setConfirmationOpen(false);
+              onDismiss();
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ import {
   sortCreatorWorkCandidates,
   getPublishedCreatorWorkPage,
   getPublishedCreatorWorkCounts,
+  resolvePublicCreatorProfile,
 } from "./repository";
 
 const creatorId = "11111111-1111-4111-8111-111111111111";
@@ -28,6 +29,32 @@ const creatorId = "11111111-1111-4111-8111-111111111111";
 afterEach(() => { vi.mocked(getDatabase).mockReturnValue(null); });
 
 describe("Neon raw-query response", () => {
+  it.skipIf(process.env.RUN_PREVIEW_LEGACY_PROFILE_CHECK !== "1")("resolves initialized older Preview creators through the actual profile query", async () => {
+    const { loadPreviewEnvironment } = await import("../../../scripts/lib/preview-environment");
+    const { neon } = await import("@neondatabase/serverless");
+    const { drizzle } = await import("drizzle-orm/neon-http");
+    const schema = await import("../../db/schema");
+    const preview = loadPreviewEnvironment();
+    const client = neon(preview.databaseUrl);
+    const samples = await client.query(`
+      select c.id, c.username, count(p.id)::int as designs from creators c
+      join posts p on p.creator_id = c.id and p.status = 'published' and p.published_at <= now()
+      where c.record_origin = 'mirrored' and c.owner_user_id is null and c.username is not null
+      group by c.id order by c.username limit 3
+    `);
+    expect(samples).toHaveLength(3);
+    vi.mocked(getDatabase).mockReturnValue(drizzle({ client, schema }));
+    for (const sample of samples) {
+      const resolved = await resolvePublicCreatorProfile(sample.username);
+      expect(resolved?.profile.id).toBe(sample.id);
+      expect(resolved?.canonicalUsername).toBe(sample.username);
+      expect(resolved?.isAlias).toBe(false);
+      expect(resolved?.profile).not.toHaveProperty("ownerUserId");
+      expect((await getPublishedCreatorWorkCounts(sample.id)).total).toBeGreaterThanOrEqual(sample.designs);
+      console.info("Verified Preview profile:", "/creators/" + sample.username);
+    }
+  }, 30000);
+
   it.skipIf(process.env.RUN_PREVIEW_PROFILE_MEDIA_CHECK !== "1")("matches website readiness in Preview SQL using read-only virtual rows", async () => {
     const { loadPreviewEnvironment } = await import("../../../scripts/lib/preview-environment");
     const { neon } = await import("@neondatabase/serverless");

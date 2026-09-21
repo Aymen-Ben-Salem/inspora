@@ -6,6 +6,8 @@ import { captureAnalyticsEvent } from "@/analytics/client";
 import { ANALYTICS_EVENTS } from "@/analytics/events";
 import type { Post } from "@/domain/post";
 
+import { WorkAnalytics } from "./work-analytics";
+
 export function PostAnalytics({ post }: { post: Post }) {
   const capturedPostId = useRef<string | null>(null);
 
@@ -23,5 +25,5 @@ export function PostAnalytics({ post }: { post: Post }) {
     });
   }, [post]);
 
-  return null;
+  return <WorkAnalytics workId={post.id} workKind="design" />;
 }

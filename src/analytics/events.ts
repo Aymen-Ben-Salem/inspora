@@ -2,6 +2,7 @@ export const ANALYTICS_EVENTS = {
   newsletterSubscribed: "newsletter subscribed",
   postOpened: "post opened",
   postSourceVisited: "post source visited",
+  workOpened: "work opened",
 } as const;
 
 export type AnalyticsEventProperties = {
@@ -27,6 +28,10 @@ export type AnalyticsEventProperties = {
     post_id: string;
     post_slug: string;
     post_title: string;
+  };
+  [ANALYTICS_EVENTS.workOpened]: {
+    work_id: string;
+    work_kind: "design" | "logo" | "website";
   };
 };
 

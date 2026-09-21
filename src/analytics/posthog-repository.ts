@@ -1,7 +1,6 @@
 import "server-only";
 
 import { cacheLife } from "next/cache";
-import { z } from "zod";
 
 import { ANALYTICS_EVENTS } from "./events";
 import {
@@ -13,16 +12,16 @@ import {
   getAnalyticsRangeDayCount,
   getAnalyticsTimeRange,
   mapAnalyticsBreakdownRows,
-  resolvePostHogApiHost,
   toAnalyticsNumber,
   type AdminAnalytics,
   type AnalyticsRange,
   type LiveVisitorAnalytics,
 } from "./posthog-data";
-
-const queryResponseSchema = z.object({
-  results: z.array(z.array(z.unknown())),
-});
+import {
+  getPostHogConfiguration,
+  isPostHogConfigured,
+  runHogQlQuery,
+} from "./posthog-query";
 
 const ANALYTICS_CACHE_LIFE = {
   stale: 300,
@@ -38,56 +37,8 @@ const LIVE_ANALYTICS_CACHE_LIFE = {
 
 export const LIVE_VISITOR_WINDOW_MINUTES = 2;
 
-type PostHogConfiguration = {
-  apiHost: string;
-  personalApiKey: string;
-  projectId: string;
-};
-
-function getPostHogConfiguration(): PostHogConfiguration | null {
-  const apiHost = resolvePostHogApiHost({
-    apiHost: process.env.POSTHOG_API_HOST,
-    ingestionHost: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-  });
-  const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY;
-  const projectId = process.env.POSTHOG_PROJECT_ID;
-
-  if (!apiHost || !personalApiKey || !projectId) return null;
-  return { apiHost, personalApiKey, projectId };
-}
-
 export function isPostHogAdminConfigured() {
-  return getPostHogConfiguration() !== null;
-}
-
-async function runHogQlQuery(
-  configuration: PostHogConfiguration,
-  name: string,
-  query: string,
-) {
-  const response = await fetch(
-    `${configuration.apiHost}/api/projects/${encodeURIComponent(configuration.projectId)}/query/`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${configuration.personalApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name,
-        query: { kind: "HogQLQuery", query },
-      }),
-      signal: AbortSignal.timeout(10_000),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`PostHog query failed with status ${response.status}.`);
-  }
-
-  const parsed = queryResponseSchema.safeParse(await response.json());
-  if (!parsed.success) throw new Error("PostHog returned an unexpected response.");
-  return parsed.data.results;
+  return isPostHogConfigured();
 }
 
 export async function getAdminAnalytics(
@@ -114,10 +65,9 @@ export async function getAdminAnalytics(
     hourlyRows,
     visitDurationRows,
   ] = await Promise.all([
-    runHogQlQuery(
-      configuration,
-      "Inspora admin summary",
-      `SELECT
+    runHogQlQuery(configuration, {
+      name: "Inspora admin summary",
+      query: `SELECT
         countIf(event = '$pageview') AS pageviews,
         uniqIf(distinct_id, event = '$pageview') AS unique_visitors,
         countIf(event = '${ANALYTICS_EVENTS.postOpened}') AS post_opens,
@@ -126,11 +76,10 @@ export async function getAdminAnalytics(
         toString(toDate(now())) AS current_project_day
       FROM events
       WHERE ${timePredicate}`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin daily activity",
-      `SELECT
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora admin daily activity",
+      query: `SELECT
         toDate(timestamp) AS day,
         countIf(event = '$pageview') AS pageviews,
         uniqIf(distinct_id, event = '$pageview') AS unique_visitors,
@@ -139,11 +88,10 @@ export async function getAdminAnalytics(
       WHERE ${timePredicate}
       GROUP BY day
       ORDER BY day ASC`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin top posts",
-      `SELECT
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora admin top posts",
+      query: `SELECT
         toString(properties.post_id) AS post_id,
         any(toString(properties.post_title)) AS post_title,
         any(toString(properties.post_slug)) AS post_slug,
@@ -155,11 +103,10 @@ export async function getAdminAnalytics(
       GROUP BY post_id
       ORDER BY opens DESC
       LIMIT 8`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin top referrers",
-      `SELECT
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora admin top referrers",
+      query: `SELECT
         toString(properties.$referring_domain) AS referrer,
         uniq(distinct_id) AS visitors,
         count() AS pageviews
@@ -169,11 +116,10 @@ export async function getAdminAnalytics(
       GROUP BY referrer
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin top devices",
-      `SELECT
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora admin top devices",
+      query: `SELECT
         toString(properties.$device_type) AS device,
         uniq(distinct_id) AS visitors,
         count() AS pageviews
@@ -183,11 +129,10 @@ export async function getAdminAnalytics(
       GROUP BY device
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin top browsers",
-      `SELECT
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora admin top browsers",
+      query: `SELECT
         toString(properties.$browser) AS browser,
         uniq(distinct_id) AS visitors,
         count() AS pageviews
@@ -197,11 +142,10 @@ export async function getAdminAnalytics(
       GROUP BY browser
       ORDER BY visitors DESC, pageviews DESC
       LIMIT 8`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora admin hourly activity",
-      `SELECT
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora admin hourly activity",
+      query: `SELECT
         toHour(timestamp) AS hour,
         uniq(distinct_id) AS unique_visitors
       FROM events
@@ -209,11 +153,10 @@ export async function getAdminAnalytics(
         AND ${timePredicate}
       GROUP BY hour
       ORDER BY hour ASC`,
-    ),
-    runHogQlQuery(
-      configuration,
-      "Inspora average visit duration",
-      `SELECT avg(duration_seconds) AS average_duration_seconds
+    }),
+    runHogQlQuery(configuration, {
+      name: "Inspora average visit duration",
+      query: `SELECT avg(duration_seconds) AS average_duration_seconds
       FROM (
         SELECT dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds
         FROM events
@@ -222,7 +165,7 @@ export async function getAdminAnalytics(
         GROUP BY toString(properties.$session_id)
         HAVING duration_seconds >= 0 AND duration_seconds <= 86400
       )`,
-    ),
+    }),
   ]);
 
   const summary = summaryRows[0] ?? [];
@@ -271,14 +214,13 @@ export async function getLiveVisitorAnalytics(): Promise<LiveVisitorAnalytics> {
   const configuration = getPostHogConfiguration();
   if (!configuration) throw new Error("PostHog admin analytics is not configured.");
 
-  const rows = await runHogQlQuery(
-    configuration,
-    "Inspora live visitors",
-    `SELECT uniq(distinct_id) AS live_visitors
+  const rows = await runHogQlQuery(configuration, {
+    name: "Inspora live visitors",
+    query: `SELECT uniq(distinct_id) AS live_visitors
       FROM events
       WHERE timestamp >= now() - INTERVAL ${LIVE_VISITOR_WINDOW_MINUTES} MINUTE
         AND event != '$pageleave'`,
-  );
+  });
 
   return {
     count: toAnalyticsNumber(rows[0]?.[0]),

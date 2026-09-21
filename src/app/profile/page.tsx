@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
 
+import { getCreatorViews } from "@/analytics/creator-views";
 import { isClerkConfigured } from "@/auth/config";
 import { ProfilePage } from "@/components/profile/profile-page";
 import { ensureOwnedCreator } from "@/features/creators/repository";
@@ -41,13 +42,14 @@ export default async function OwnerProfilePage({
   }
   const profile = await ensureOwnedCreator(userId);
   const rawSubmission = Array.isArray(params.submission) ? params.submission[0] : params.submission;
-  const [initialPage, counts, activity] = await Promise.all([
+  const [initialPage, counts, activity, views] = await Promise.all([
     getPublishedCreatorWorkPage({
       creatorId: profile.id,
       filter: filter === "in-review" ? "all" : filter,
     }),
     getPublishedCreatorWorkCounts(profile.id),
     getOwnProfileActivity(userId),
+    getCreatorViews(profile.id),
   ]);
   return (
     <ProfilePage
@@ -58,6 +60,7 @@ export default async function OwnerProfilePage({
       activity={activity}
       initialSubmissionId={rawSubmission}
       owner
+      views={views}
       initialModal={rawModal === "settings" ? "settings" : rawModal === "edit" ? "edit" : null}
     />
   );

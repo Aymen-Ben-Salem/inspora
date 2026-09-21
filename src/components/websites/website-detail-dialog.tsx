@@ -27,6 +27,7 @@ import {
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
 import { RelativeAddedTime } from "../relative-added-time";
+import { WorkAnalytics } from "../work-analytics";
 import { WebsiteCropImage } from "./website-crop-image";
 
 export function WebsiteDetailDialog({
@@ -98,6 +99,7 @@ export function WebsiteDetailDialog({
         data-post-dialog-creator-name={website.creator.name}
         className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
       >
+        <WorkAnalytics workId={website.id} workKind="website" />
         <div
           data-post-dialog-gallery
           data-post-dialog-surface

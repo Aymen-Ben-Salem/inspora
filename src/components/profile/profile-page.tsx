@@ -1,3 +1,4 @@
+import type { CreatorViewsResult } from "@/analytics/creator-views";
 import { SiteNavbar } from "@/components/site-navbar";
 import type { CreatorProfile } from "@/features/creators/types";
 import type { OwnProfileActivity } from "@/features/profiles/messages-repository";
@@ -14,6 +15,7 @@ export function ProfilePage(props: {
   initialSubmissionId?: string;
   owner?: boolean;
   profile: CreatorProfile;
+  views: CreatorViewsResult;
 }) {
   return (
     <main className="min-h-[100dvh] overflow-x-clip bg-white">

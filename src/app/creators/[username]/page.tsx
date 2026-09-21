@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { Route } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 
+import { getCreatorViews } from "@/analytics/creator-views";
 import { ProfilePage } from "@/components/profile/profile-page";
 import {
   getPublishedCreatorWorkCounts,
@@ -34,9 +35,10 @@ export default async function PublicCreatorPage({ params, searchParams }: Creato
   }
   const rawFilter = Array.isArray(query.filter) ? query.filter[0] : query.filter;
   const filter = rawFilter && isCreatorWorkFilter(rawFilter) ? rawFilter : "all";
-  const [initialPage, counts] = await Promise.all([
+  const [initialPage, counts, views] = await Promise.all([
     getPublishedCreatorWorkPage({ creatorId: resolved.profile.id, filter }),
     getPublishedCreatorWorkCounts(resolved.profile.id),
+    getCreatorViews(resolved.profile.id),
   ]);
   return (
     <ProfilePage
@@ -44,6 +46,7 @@ export default async function PublicCreatorPage({ params, searchParams }: Creato
       initialPage={initialPage}
       counts={counts}
       filter={filter}
+      views={views}
     />
   );
 }

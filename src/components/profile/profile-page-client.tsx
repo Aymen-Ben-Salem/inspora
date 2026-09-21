@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import type { CreatorViewsResult } from "@/analytics/creator-views";
 import { useSubmission } from "@/components/submissions/submission-provider";
 import type { CreatorProfile } from "@/features/creators/types";
 import type { OwnProfileActivity } from "@/features/profiles/messages-repository";
@@ -27,6 +28,7 @@ export function ProfilePageClient({
   initialSubmissionId,
   owner = false,
   profile,
+  views,
 }: {
   activity?: OwnProfileActivity;
   counts: ProfileWorkCounts;
@@ -36,6 +38,7 @@ export function ProfilePageClient({
   initialSubmissionId?: string;
   owner?: boolean;
   profile: CreatorProfile;
+  views: CreatorViewsResult;
 }) {
   const router = useRouter();
   const { openSubmission } = useSubmission();
@@ -61,6 +64,7 @@ export function ProfilePageClient({
         profile={profile}
         owner={owner}
         works={counts.total}
+        views={views}
         onEdit={() => openModal("edit")}
         onSettings={() => openModal("settings")}
       />

@@ -24,6 +24,7 @@ import {
 import { PostDialog } from "../post-dialog";
 import { RelativeAddedTime } from "../relative-added-time";
 import { ResponsiveR2Image } from "../responsive-r2-image";
+import { WorkAnalytics } from "../work-analytics";
 
 export function LogoDetailDialog({
   logo,
@@ -67,6 +68,7 @@ export function LogoDetailDialog({
         data-post-dialog-creator-name={logo.creator.name}
         className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
       >
+        <WorkAnalytics workId={logo.id} workKind="logo" />
         <DetailMotion overlay>
           <figure
             data-detail-media

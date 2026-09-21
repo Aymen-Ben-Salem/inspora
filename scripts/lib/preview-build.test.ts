@@ -23,6 +23,7 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_fixture
 CLERK_SECRET_KEY=sk_test_fixture
 NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=dev-posthog-token
 NEXT_PUBLIC_POSTHOG_HOST=https://analytics.example.test
+POSTHOG_WORK_VIEWS_CUTOVER_AT=2026-09-21T12:00:00.000Z
 DATABASE_URL=postgresql://wrong:secret@development.example.neon.tech/neondb
 R2_BUCKET_NAME=wrong-development-bucket
 `;
@@ -67,6 +68,9 @@ describe("guarded Preview build", () => {
     ]);
     expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe("pk_test_fixture");
     expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("dev-posthog-token");
+    expect(environment.POSTHOG_WORK_VIEWS_CUTOVER_AT).toBe(
+      "2026-09-21T12:00:00.000Z",
+    );
     expect(environment.DATABASE_URL).toContain("ep-safe-pooler.example.neon.tech");
     expect(environment.R2_BUCKET_NAME).toBe("fixture-bucket");
     expect(environment.R2_SUBMISSIONS_BUCKET_NAME).toBe("fixture-private-bucket");

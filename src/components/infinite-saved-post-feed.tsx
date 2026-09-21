@@ -24,6 +24,7 @@ import { WebsiteDetailDialog } from "./websites/website-detail-dialog";
 import { FeedMotion } from "./feed-motion";
 import { PostCard } from "./post-card";
 import { RowFirstMasonry } from "./row-first-masonry";
+import { useSavedPosts } from "./saved-posts-provider";
 
 type LoadingStatus = "idle" | "loading" | "error";
 
@@ -74,34 +75,30 @@ export function InfiniteSavedPostFeed({
 }) {
   const [posts, setPosts] = useState(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
-  const [total, setTotal] = useState(initialTotal);
-  const [counts, setCounts] = useState(initialCounts);
+  const [previousPage, setPreviousPage] = useState(initialPage);
   const [status, setStatus] = useState<LoadingStatus>("idle");
-  const [selectedId, setSelectedId] = useState<string>();
+  const [selectedItem, setSelectedItem] = useState<SavedPostCardData>();
+  const savedPosts = useSavedPosts();
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
   const requestRef = useRef<AbortController>(null);
 
-  const updateSavedState = useCallback(
-    (post: SavedPostCardData, saved: boolean) => {
-      setPosts((current) => {
-        const exists = current.some((candidate) => candidate.id === post.id);
-        if (saved) return exists ? current : [post, ...current];
-        return exists
-          ? current.filter((candidate) => candidate.id !== post.id)
-          : current;
-      });
-      setTotal((current) => Math.max(0, current + (saved ? 1 : -1)));
-      setCounts((current) => ({
-        ...current,
-        [post.category]: Math.max(
-          0,
-          (current[post.category] ?? 0) + (saved ? 1 : -1),
-        ),
-      }));
-    },
-    [],
-  );
+  if (previousPage !== initialPage) {
+    setPreviousPage(initialPage);
+    setPosts(initialPage.items);
+    setNextCursor(initialPage.nextCursor);
+    setStatus("idle");
+  }
+
+  // Keep the source cards for rollback and open dialogs, but derive the grid
+  // from the same optimistic state as every bookmark button.
+  const visiblePosts = posts.filter((post) => savedPosts.status(post.id) !== false);
+  const removedPosts = posts.filter((post) => savedPosts.status(post.id) === false);
+  const total = Math.max(0, initialTotal - removedPosts.length);
+  const counts = { ...initialCounts };
+  for (const post of removedPosts) {
+    counts[post.category] = Math.max(0, (counts[post.category] ?? 0) - 1);
+  }
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingRef.current) return;
@@ -123,6 +120,7 @@ export function InfiniteSavedPostFeed({
         },
       );
       const payload: unknown = await response.json();
+      if (controller.signal.aborted) return;
       if (!response.ok || !isSavedPostPage(payload)) {
         throw new Error("Could not load more saved posts.");
       }
@@ -139,12 +137,18 @@ export function InfiniteSavedPostFeed({
       if (error instanceof DOMException && error.name === "AbortError") return;
       setStatus("error");
     } finally {
-      if (requestRef.current === controller) requestRef.current = null;
-      loadingRef.current = false;
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        loadingRef.current = false;
+      }
     }
   }, [category, nextCursor]);
 
-  useEffect(() => () => requestRef.current?.abort(), []);
+  useEffect(() => () => {
+    requestRef.current?.abort();
+    requestRef.current = null;
+    loadingRef.current = false;
+  }, [initialPage]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -163,11 +167,10 @@ export function InfiniteSavedPostFeed({
   const visibleCategories = SAVED_CATEGORIES.filter(
     (postCategory) => (counts[postCategory] ?? 0) > 0,
   );
-  const selectedItem = posts.find((post) => post.id === selectedId);
 
   const selectSavedItem = useCallback((post: SavedPostCardData) => {
     if (post.kind !== "logo" && post.kind !== "website") return;
-    setSelectedId(post.id);
+    setSelectedItem(post);
     replaceDetailQueryParam({
       key: post.kind,
       value: post.kind === "logo" ? post.logo.slug : post.website.slug,
@@ -175,7 +178,7 @@ export function InfiniteSavedPostFeed({
   }, []);
 
   const closeSavedItem = useCallback(() => {
-    setSelectedId(undefined);
+    setSelectedItem(undefined);
     replaceDetailQueryParam();
   }, []);
 
@@ -243,22 +246,21 @@ export function InfiniteSavedPostFeed({
         aria-label="Saved inspiration"
         className="pt-[var(--archive-feed-gap)]"
       >
-        {posts.length === 0 ? (
+        {visiblePosts.length === 0 ? (
           <div className="flex min-h-[45dvh] items-center justify-center px-6 text-center text-sm text-[#777]">
             {category
               ? "No saved posts in this category."
               : "Posts you save will appear here."}
           </div>
         ) : (
-          <FeedMotion itemCount={posts.length}>
-            <RowFirstMasonry itemCount={posts.length}>
-              {posts.map((post, index) => (
+          <FeedMotion itemCount={visiblePosts.length}>
+            <RowFirstMasonry itemCount={visiblePosts.length}>
+              {visiblePosts.map((post, index) => (
                 <SavedItemCard
                   key={post.id}
                   post={post}
                   priority={index === 0}
                   onSelect={selectSavedItem}
-                  onSavedChange={(saved) => updateSavedState(post, saved)}
                 />
               ))}
             </RowFirstMasonry>
@@ -305,13 +307,12 @@ export function InfiniteSavedPostFeed({
   );
 }
 
-function SavedItemCard({ post, priority, onSavedChange, onSelect }: {
+function SavedItemCard({ post, priority, onSelect }: {
   post: SavedPostCardData;
   priority: boolean;
-  onSavedChange: (saved: boolean) => void;
   onSelect: (post: SavedPostCardData) => void;
 }) {
-  const saveProps = { initiallySaved: true, onSavedChange };
+  const saveProps = { initiallySaved: true };
   if (post.kind === "logo") {
     return <LogoCard logo={post.logo} {...saveProps} onSelect={() => onSelect(post)} />;
   }

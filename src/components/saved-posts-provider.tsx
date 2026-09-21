@@ -198,6 +198,9 @@ export function SavedPostsProvider({ children }: PropsWithChildren) {
           headers: { Accept: "application/json" },
         });
         if (!response.ok) throw new Error("Saved-post update failed.");
+        // Drop prefetched Saved pages after a mutation; optimistic button/list
+        // state remains visible while the server supplies the new collection.
+        router.refresh();
         return next;
       } catch {
         updateStatus(postId, current, userId);

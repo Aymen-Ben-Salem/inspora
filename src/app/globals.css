@@ -213,6 +213,10 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 }
 
+.detail-fit-footer input.focus-ring:focus-visible {
+  outline: none;
+}
+
 .focus-ring:focus-visible {
   outline: 2px solid #111;
   outline-offset: 3px;
@@ -377,6 +381,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 
 @media (min-width: 1024px) {
   .detail-fit-sidebar {
+    scrollbar-gutter: stable both-edges;
     --detail-sidebar-pad-x: clamp(18px, min(2.222222vw, 3.950617dvh), 32px);
     --detail-sidebar-pad-y: clamp(10px, min(1.388889vw, 2.469136dvh), 20px);
     --detail-nav-size: clamp(24px, min(2.345833vw, 4.17037dvh), 33.783px);

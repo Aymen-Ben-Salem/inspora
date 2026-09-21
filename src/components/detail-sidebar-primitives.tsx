@@ -105,7 +105,7 @@ export function DetailMetadataList({
       {visibleRows.map((row, index) => (
         <Fragment key={row.label}>
           <div className="detail-fit-metadata-row flex items-start justify-between gap-6 text-[#262626]">
-            <p className="detail-fit-metadata-label shrink-0 text-[14px] tracking-[0.028px]">
+            <p className="detail-fit-metadata-label shrink-0 text-[14px] tracking-[0.028px] text-[#767676]">
               {row.label}
             </p>
             <div

@@ -26,7 +26,6 @@ import {
   postNavigationControlClassName,
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
-import { RelativeAddedTime } from "../relative-added-time";
 import { WorkAnalytics } from "../work-analytics";
 import { WebsiteCropImage } from "./website-crop-image";
 
@@ -272,12 +271,6 @@ export function WebsiteDetailDialog({
               { label: "Categories", values: website.categories },
               { label: "Theme", values: website.themes },
               { label: "Colours", values: website.colors },
-              {
-                label: "Last Updated",
-                values: [
-                  <RelativeAddedTime key="updated" publishedAt={website.publishedAt} />,
-                ],
-              },
             ]}
           />
           <div className="detail-fit-actions flex flex-col gap-3">

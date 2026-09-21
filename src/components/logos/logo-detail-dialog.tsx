@@ -22,7 +22,6 @@ import {
   postNavigationControlClassName,
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
-import { RelativeAddedTime } from "../relative-added-time";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 import { WorkAnalytics } from "../work-analytics";
 
@@ -153,12 +152,6 @@ export function LogoDetailDialog({
               { label: "Industry", values: [logo.industry] },
               { label: "Style", values: logo.styles },
               { label: "Colours", values: logo.colors },
-              {
-                label: "Last Updated",
-                values: [
-                  <RelativeAddedTime key="updated" publishedAt={logo.publishedAt} />,
-                ],
-              },
             ]}
           />
 

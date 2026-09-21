@@ -5,6 +5,8 @@ import Image from "next/image";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { useViewerProfile } from "../profile/use-viewer-profile";
+
 export function PublicAuthControlsClient({
   variant,
 }: {
@@ -12,6 +14,8 @@ export function PublicAuthControlsClient({
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
+  const profile = useViewerProfile(isSignedIn ? user?.id : undefined);
+  const viewerName = profile?.name ?? user?.fullName;
 
   const content = !isLoaded ? (
     <span
@@ -33,8 +37,8 @@ export function PublicAuthControlsClient({
       }`}
     >
       <Image
-        src={user.imageUrl}
-        alt={user.fullName ? `${user.fullName}'s profile` : "Your profile"}
+        src={profile?.avatarUrl || user.imageUrl}
+        alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
         fill
         sizes={variant === "desktop" ? "35px" : "35px"}
         className="object-cover"

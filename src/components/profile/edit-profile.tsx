@@ -15,6 +15,8 @@ import { optimizeStaticImage } from "@/features/admin/image-optimization";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/features/admin/media-upload";
 import type { CreatorProfile } from "@/features/creators/types";
 
+import { refreshViewerProfile } from "./use-viewer-profile";
+
 type Provider = "google" | "x";
 
 function providerAccount(user: NonNullable<ReturnType<typeof useUser>["user"]>, provider: Provider) {
@@ -73,6 +75,7 @@ export function EditProfile({
         setFieldError({ field: result.field, message: result.message });
         return;
       }
+      refreshViewerProfile();
       setSavedValues({ name, username, websiteUrl });
       setEditing(null);
       onDirtyChange(false);
@@ -120,6 +123,7 @@ export function EditProfile({
       if (!completed.ok) throw new Error(completed.message);
       storageKey = undefined;
       setAvatarUrl(completed.avatarUrl);
+      refreshViewerProfile();
       router.refresh();
     } catch (error) {
       if (storageKey) await discardOwnAvatarUpload(storageKey).catch(() => undefined);

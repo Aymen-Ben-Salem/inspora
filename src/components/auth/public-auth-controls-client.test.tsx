@@ -1,14 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { authState, userState } = vi.hoisted(() => ({
+const { authState, userState, viewerProfile } = vi.hoisted(() => ({
   authState: vi.fn(),
   userState: vi.fn(),
+  viewerProfile: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => authState(),
   useUser: () => userState(),
+}));
+
+vi.mock("../profile/use-viewer-profile", () => ({
+  useViewerProfile: (userId: string | undefined) => viewerProfile(userId),
 }));
 
 import { PublicAuthControlsClient } from "./public-auth-controls-client";
@@ -17,6 +22,7 @@ describe("PublicAuthControlsClient", () => {
   afterEach(() => {
     authState.mockReset();
     userState.mockReset();
+    viewerProfile.mockReset();
   });
 
   it.each(["desktop" as const, "mobile" as const])(
@@ -82,6 +88,22 @@ describe("PublicAuthControlsClient", () => {
       expect(html).toContain("Ada Lovelace&#x27;s profile");
       expect(html).not.toContain("Sign in");
       expect(html).not.toContain("Sign up");
+    },
+  );
+
+  it.each(["desktop" as const, "mobile" as const])(
+    "uses the viewer saved profile photo on %s",
+    (variant) => {
+      authState.mockReturnValue({ isLoaded: true, isSignedIn: true });
+      userState.mockReturnValue({
+        user: { id: "viewer-a", fullName: "Clerk name", imageUrl: "https://img.example/clerk.jpg" },
+      });
+      viewerProfile.mockReturnValue({ name: "Saved name", avatarUrl: "https://img.example/saved.jpg" });
+      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      expect(html).toContain("saved.jpg");
+      expect(html).not.toContain("clerk.jpg");
+      expect(viewerProfile).toHaveBeenCalledWith("viewer-a");
+      expect(html).toContain('href="/profile"');
     },
   );
 });

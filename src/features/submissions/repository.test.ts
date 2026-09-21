@@ -44,6 +44,7 @@ function createFakeStore(state: FakeState): SubmissionDataStore {
             (item) =>
               item.ownerUserId === ownerUserId && item.requestId === requestId,
           ) ?? null,
+        findWithdrawalByRequest: async () => false,
         readQuota: async () => ({ ...state.quota }),
         findOwnedUpload: async (ownerUserId, uploadId) =>
           state.uploads.find(

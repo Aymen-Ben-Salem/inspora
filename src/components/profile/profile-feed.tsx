@@ -67,6 +67,7 @@ export function ProfileFeed({
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [selectedId, setSelectedId] = useState<string>();
   const [selectedSubmissionId, setSelectedSubmissionId] = useState(initialSubmissionId);
+  const [optimisticallyWithdrawnIds, setOptimisticallyWithdrawnIds] = useState<string[]>([]);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false);
 
@@ -106,8 +107,9 @@ export function ProfileFeed({
 
   const selected = items.find((item) => item.id === selectedId);
   const selectedSubmission = submissions.find((item) => item.id === selectedSubmissionId);
-  const inReview = submissions.filter((item) => item.status === "in_review");
-  const rejected = submissions.filter((item) => item.status === "rejected");
+  const visibleSubmissions = submissions.filter((item) => !optimisticallyWithdrawnIds.includes(item.id));
+  const inReview = visibleSubmissions.filter((item) => item.status === "in_review");
+  const rejected = visibleSubmissions.filter((item) => item.status === "rejected");
   const select = (item: WorkCardData) => {
     if (item.kind !== "logo" && item.kind !== "website") return;
     setSelectedId(item.id);
@@ -192,7 +194,15 @@ export function ProfileFeed({
       </div>
       {selected?.kind === "logo" ? <LogoDetailDialog logo={selected.logo} onClose={close} onPrevious={() => navigate(-1)} onNext={() => navigate(1)} /> : null}
       {selected?.kind === "website" ? <WebsiteDetailDialog website={selected.website} onClose={close} onPrevious={() => navigate(-1)} onNext={() => navigate(1)} /> : null}
-      {selectedSubmission ? <SubmissionDetail open submission={selectedSubmission} onDismiss={() => setSelectedSubmissionId(undefined)} /> : null}
+      {selectedSubmission ? (
+        <SubmissionDetail
+          open
+          submission={selectedSubmission}
+          onDismiss={() => setSelectedSubmissionId(undefined)}
+          onOptimisticWithdraw={(id) => setOptimisticallyWithdrawnIds((current) => current.includes(id) ? current : [...current, id])}
+          onRollbackWithdraw={(id) => setOptimisticallyWithdrawnIds((current) => current.filter((item) => item !== id))}
+        />
+      ) : null}
     </>
   );
 }

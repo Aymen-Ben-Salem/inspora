@@ -7,7 +7,6 @@ import { ensureOwnedCreator } from "@/features/creators/repository";
 
 import {
   createPrivateStagingKey,
-  deletePrivateUpload,
   freezePrivateUpload,
   PrivateSubmissionUploadValidationError,
   signPrivateUpload,
@@ -15,6 +14,7 @@ import {
 import { getMediaUploadLimit, isAcceptedSubmissionUpload } from "../media/upload-policy";
 import { discardUploadReservation, findOwnUpload, recordCompletedUpload, reserveOwnUpload } from "./repository";
 import type { BeginUploadInput, PrivateUploadTicket, SubmissionResult } from "./types";
+import { queuePrivateUploadCleanupForOwner } from "./cleanup";
 
 const beginSchema = z.object({
   requestId: z.uuid(), kind: z.enum(["design", "logo"]),
@@ -97,9 +97,7 @@ export async function discardOwnUpload(uploadId: string): Promise<SubmissionResu
     if (!upload) return { ok: false, code: "forbidden", message: "That upload is unavailable." };
     const discarded = await discardUploadReservation(userId, uploadId);
     if (!discarded.ok) return discarded;
-    for (const key of [upload.stagingKey, upload.objectKey, ...upload.derivativeKeys]) {
-      if (key) await deletePrivateUpload(key);
-    }
+    await queuePrivateUploadCleanupForOwner(userId, uploadId);
     return { ok: true, value: null };
   } catch (error) {
     console.error("Private submission upload discard failed", error);

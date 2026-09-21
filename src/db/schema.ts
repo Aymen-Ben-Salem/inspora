@@ -204,6 +204,11 @@ export const profileAccounts = pgTable(
   {
     userId: text("user_id").primaryKey(),
     status: text("status").default("active").notNull(),
+    deletionRequestedAt: timestamp("deletion_requested_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    deletionError: text("deletion_error"),
     ...timestamps,
   },
   (table) => [
@@ -377,6 +382,31 @@ export const submissionQuotaEvents = pgTable(
   ],
 );
 
+export const submissionReceipts = pgTable(
+  "submission_receipts",
+  {
+    submissionId: uuid("submission_id").primaryKey(),
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => profileAccounts.userId, { onDelete: "cascade" }),
+    requestId: uuid("request_id").notNull(),
+    state: text("state").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" })
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("submission_receipts_owner_request_unique").on(
+      table.ownerUserId,
+      table.requestId,
+    ),
+    index("submission_receipts_expiry_idx").on(table.expiresAt),
+    check("submission_receipts_state_valid", sql`${table.state} = 'withdrawn'`),
+  ],
+);
+
 export const cleanupJobs = pgTable(
   "cleanup_jobs",
   {
@@ -385,14 +415,37 @@ export const cleanupJobs = pgTable(
     targetId: text("target_id").notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     notBefore: timestamp("not_before", { withTimezone: true, mode: "date" }).notNull(),
+    status: text("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true, mode: "date" })
+      .notNull(),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true, mode: "date" }),
+    lastError: text("last_error"),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("cleanup_jobs_idempotency_unique").on(table.idempotencyKey),
-    index("cleanup_jobs_not_before_idx").on(table.notBefore),
+    index("cleanup_jobs_due_idx").on(table.status, table.nextAttemptAt),
     check("cleanup_jobs_kind_valid", sql`${table.kind} in ('delete_private_upload', 'delete_public_orphan', 'delete_account')`),
+    check("cleanup_jobs_status_valid", sql`${table.status} in ('pending', 'leased')`),
+    check("cleanup_jobs_attempts_valid", sql`${table.attempts} >= 0`),
     check("cleanup_jobs_target_not_blank", sql`length(trim(${table.targetId})) > 0`),
     check("cleanup_jobs_idempotency_not_blank", sql`length(trim(${table.idempotencyKey})) > 0`),
+  ],
+);
+
+export const clerkWebhookReceipts = pgTable(
+  "clerk_webhook_receipts",
+  {
+    eventId: text("event_id").primaryKey(),
+    eventType: text("event_type").notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check("clerk_webhook_receipts_event_not_blank", sql`length(trim(${table.eventId})) > 0`),
+    check("clerk_webhook_receipts_type_valid", sql`${table.eventType} = 'user.deleted'`),
   ],
 );
 

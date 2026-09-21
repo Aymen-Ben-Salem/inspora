@@ -169,6 +169,13 @@
       "when": 1789928897109,
       "tag": "0023_keen_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789994675232,
+      "tag": "0024_opposite_guardsmen",
+      "breakpoints": true
     }
   ]
 }

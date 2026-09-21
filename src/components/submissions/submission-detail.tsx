@@ -1,7 +1,11 @@
 "use client";
 
+import { useState, useTransition } from "react";
+
+import { withdrawOwnSubmission } from "../../features/submissions/actions";
 import { ProfileModal } from "../profile/profile-modal";
 import type { OwnProfileSubmission } from "../../features/profiles/messages-repository";
+import { runOptimisticWithdrawal } from "./withdrawal-ui";
 
 const kindLabels = {
   design: "Design",
@@ -12,13 +16,20 @@ const kindLabels = {
 
 export function SubmissionDetail({
   onDismiss,
+  onOptimisticWithdraw = () => undefined,
+  onRollbackWithdraw = () => undefined,
   open,
   submission,
 }: {
   onDismiss: () => void;
+  onOptimisticWithdraw?: (id: string) => void;
+  onRollbackWithdraw?: (id: string) => void;
   open: boolean;
   submission: OwnProfileSubmission;
 }) {
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string>();
+  const [withdrawing, startWithdrawal] = useTransition();
   const rejected = submission.status === "rejected";
   return (
     <ProfileModal open={open} label={`${kindLabels[submission.kind]} submission`} onDismiss={onDismiss}>
@@ -48,8 +59,37 @@ export function SubmissionDetail({
           ) : null}
         </dl>
 
-        {!rejected ? (
-          <button type="button" disabled title="Withdrawal is not available yet" className="mt-8 min-h-11 rounded-lg border border-[#e6e6e6] px-5 text-sm text-[#767676] opacity-50">
+        {!rejected ? confirming ? (
+          <div className="mt-8 rounded-[3px] border border-[#febbbb] bg-[rgba(239,148,148,0.07)] p-4">
+            <p className="text-sm text-[#262626]">Withdraw this submission?</p>
+            <p className="mt-1 text-xs text-[#767676]">It will leave the review queue immediately and its private upload will be deleted.</p>
+            {error ? <p role="alert" className="mt-3 text-xs text-red-700">{error}</p> : null}
+            <div className="mt-4 flex gap-3">
+              <button type="button" disabled={withdrawing} onClick={() => { setConfirming(false); setError(undefined); }} className="focus-ring min-h-11 cursor-pointer rounded-lg border border-[#e6e6e6] px-5 text-sm text-[#262626] disabled:cursor-not-allowed disabled:opacity-50">
+                Keep submission
+              </button>
+              <button type="button" disabled={withdrawing} onClick={() => {
+                setError(undefined);
+                startWithdrawal(async () => {
+                  const result = await runOptimisticWithdrawal({
+                    id: submission.id,
+                    withdraw: withdrawOwnSubmission,
+                    hide: onOptimisticWithdraw,
+                    restore: onRollbackWithdraw,
+                  });
+                  if (!result.ok) {
+                    setError(result.message);
+                    return;
+                  }
+                  onDismiss();
+                });
+              }} className="focus-ring min-h-11 cursor-pointer rounded-lg bg-[#262626] px-5 text-sm text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50">
+                {withdrawing ? "Withdrawing…" : "Withdraw"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirming(true)} className="focus-ring mt-8 min-h-11 cursor-pointer rounded-lg border border-[#e6e6e6] px-5 text-sm text-[#262626] transition-colors hover:border-[#262626] hover:bg-[#262626] hover:text-white">
             Withdraw
           </button>
         ) : null}

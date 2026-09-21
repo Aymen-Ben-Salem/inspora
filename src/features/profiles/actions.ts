@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, reverificationError } from "@clerk/nextjs/server";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
@@ -34,6 +34,10 @@ import {
   updateOwnedCreatorProfile,
 } from "./repository";
 import type { ProfileEditInput, ProfileEditResult } from "./types";
+import { requestAccountDeletion } from "./account-lifecycle";
+import { profileAccounts } from "@/db/schema";
+import { requireDatabase } from "@/db/client";
+import { eq } from "drizzle-orm";
 
 const profileEditSchema = z.object({
   name: z.string().trim().min(1, "Enter your name.").max(80, "Keep your name under 80 characters.").optional(),
@@ -195,4 +199,31 @@ export async function discardOwnAvatarUpload(storageKey: string) {
   const userId = await authenticatedUserId();
   if (!userId || !isStorageKeyForKind(storageKey, "creator-avatar")) return;
   await deleteR2StorageKeys([storageKey]);
+}
+
+export async function requestOwnAccountDeletion() {
+  const authentication = await auth();
+  if (!authentication.userId) {
+    return { ok: false as const, code: "unauthenticated" as const, message: "Sign in to delete your account." };
+  }
+  if (!authentication.has({ reverification: "strict" })) {
+    return reverificationError("strict");
+  }
+  try {
+    return await requestAccountDeletion(authentication.userId);
+  } catch (error) {
+    console.error("Account deletion request failed", error);
+    return { ok: false as const, code: "unavailable" as const, message: "Account deletion could not be started. Try again." };
+  }
+}
+
+export async function getOwnAccountDeletionStatus() {
+  const { userId } = await auth();
+  if (!userId) return { state: "signed_out" as const, error: null };
+  const [account] = await requireDatabase().select({
+    status: profileAccounts.status,
+    deletionError: profileAccounts.deletionError,
+  }).from(profileAccounts).where(eq(profileAccounts.userId, userId)).limit(1);
+  if (!account || account.status === "active") return { state: "active" as const, error: null };
+  return { state: "deleting" as const, error: account.deletionError };
 }

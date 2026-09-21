@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { and, count, eq, gt, inArray, isNull, min } from "drizzle-orm";
 
-import { creators, profileAccounts, submissionQuotaEvents, submissions, submissionUploads } from "../../db/schema";
+import { creators, profileAccounts, submissionQuotaEvents, submissionReceipts, submissions, submissionUploads } from "../../db/schema";
 import { withWriteTransaction, type WriteTx } from "../../db/write-client";
 import { getDatabase } from "../../db/client";
 
@@ -58,6 +58,7 @@ export type SubmissionTransaction = {
     ownerUserId: string,
     requestId: string,
   ): Promise<SubmissionRecord | null>;
+  findWithdrawalByRequest(ownerUserId: string, requestId: string): Promise<boolean>;
   readQuota(ownerUserId: string, now: Date): Promise<QuotaSnapshot>;
   findOwnedUpload(
     ownerUserId: string,
@@ -159,6 +160,9 @@ export function createSubmissionRepository(
           input.requestId,
         );
         if (existing) return { ok: true, value: receipt(existing) };
+        if (await tx.findWithdrawalByRequest(ownerUserId, input.requestId)) {
+          return failure("conflict", "That submission was withdrawn.");
+        }
 
         const currentTime = now();
         let upload: UploadIntentRecord | null = null;
@@ -344,6 +348,16 @@ function createDrizzleSubmissionTransaction(tx: WriteTx): SubmissionTransaction 
       const [row] = await tx.select().from(submissions).where(and(eq(submissions.ownerUserId, ownerUserId), eq(submissions.requestId, requestId))).limit(1);
       return row ? mapSubmission(row) : null;
     },
+    async findWithdrawalByRequest(ownerUserId, requestId) {
+      const [row] = await tx.select({ submissionId: submissionReceipts.submissionId })
+        .from(submissionReceipts)
+        .where(and(
+          eq(submissionReceipts.ownerUserId, ownerUserId),
+          eq(submissionReceipts.requestId, requestId),
+          gt(submissionReceipts.expiresAt, new Date()),
+        )).limit(1);
+      return Boolean(row);
+    },
     async readQuota(ownerUserId, currentTime) {
       const [[daily], [review], [active], [next]] = await Promise.all([
         tx.select({ value: count() }).from(submissionQuotaEvents).where(and(eq(submissionQuotaEvents.ownerUserId, ownerUserId), gt(submissionQuotaEvents.expiresAt, currentTime))),
@@ -423,10 +437,17 @@ export async function findAuthorizedSubmissionMedia(submissionId: string, viewer
   if (!database) return null;
   const [row] = await database.select({
     ownerUserId: submissions.ownerUserId,
+    status: submissions.status,
+    expiresAt: submissions.expiresAt,
     objectKey: submissionUploads.objectKey,
     contentType: submissionUploads.verifiedContentType,
   }).from(submissions).innerJoin(submissionUploads, eq(submissions.uploadId, submissionUploads.id))
     .where(eq(submissions.id, submissionId)).limit(1);
-  if (!row || !canReadSubmissionMedia(row.ownerUserId, viewerUserId, isAdmin) || !row.objectKey) return null;
+  if (
+    !row ||
+    !canReadSubmissionMedia(row.ownerUserId, viewerUserId, isAdmin) ||
+    !row.objectKey ||
+    (row.status === "rejected" && row.expiresAt && row.expiresAt <= new Date())
+  ) return null;
   return { objectKey: row.objectKey, contentType: row.contentType };
 }

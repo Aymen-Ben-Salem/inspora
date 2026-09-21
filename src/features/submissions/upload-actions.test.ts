@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   discardUploadReservation: vi.fn(),
   signPrivateUpload: vi.fn(),
   freezePrivateUpload: vi.fn(),
-  deletePrivateUpload: vi.fn(),
+  queuePrivateUploadCleanupForOwner: vi.fn(),
   createPrivateStagingKey: vi.fn(),
   PrivateSubmissionUploadValidationError: class PrivateSubmissionUploadValidationError extends Error {},
 }));
@@ -26,9 +26,11 @@ vi.mock("./repository", () => ({
 vi.mock("@/storage/private-submissions", () => ({
   signPrivateUpload: mocks.signPrivateUpload,
   freezePrivateUpload: mocks.freezePrivateUpload,
-  deletePrivateUpload: mocks.deletePrivateUpload,
   createPrivateStagingKey: mocks.createPrivateStagingKey,
   PrivateSubmissionUploadValidationError: mocks.PrivateSubmissionUploadValidationError,
+}));
+vi.mock("./cleanup", () => ({
+  queuePrivateUploadCleanupForOwner: mocks.queuePrivateUploadCleanupForOwner,
 }));
 
 import {
@@ -82,7 +84,7 @@ describe("private submission upload actions", () => {
         stagingKey: "submissions/owner/upload/staging/source.png",
         contentType: "image/png",
         sizeBytes: 1024,
-        expiresAt: new Date("2026-09-20T12:00:00.000Z"),
+        expiresAt: new Date("2099-09-20T12:00:00.000Z"),
       },
     });
     mocks.signPrivateUpload.mockResolvedValue({
@@ -105,7 +107,7 @@ describe("private submission upload actions", () => {
         uploadUrl: "https://private-upload.invalid/signed",
         method: "PUT",
         headers: { "Content-Type": "image/png" },
-        expiresAt: "2026-09-20T12:00:00.000Z",
+        expiresAt: "2099-09-20T12:00:00.000Z",
       },
     });
     expect(mocks.reserveOwnUpload).toHaveBeenCalledWith(
@@ -131,7 +133,7 @@ describe("private submission upload actions", () => {
       discardOwnUpload("b5f3146c-d8b4-4727-8f31-388976cf9865"),
     ).resolves.toMatchObject({ ok: false, code: "forbidden" });
     expect(mocks.freezePrivateUpload).not.toHaveBeenCalled();
-    expect(mocks.deletePrivateUpload).not.toHaveBeenCalled();
+    expect(mocks.queuePrivateUploadCleanupForOwner).not.toHaveBeenCalled();
   });
 
   it("records trusted frozen-object metadata instead of browser claims", async () => {
@@ -144,7 +146,7 @@ describe("private submission upload actions", () => {
       objectKey: null,
       contentType: "image/png",
       sizeBytes: 1024,
-      expiresAt: new Date("2026-09-20T12:00:00.000Z"),
+      expiresAt: new Date("2099-09-20T12:00:00.000Z"),
     });
     mocks.freezePrivateUpload.mockResolvedValue({
       objectKey: "submissions/owner/upload/source/original.png",
@@ -181,7 +183,7 @@ describe("private submission upload actions", () => {
       objectKey: null,
       contentType: "image/png",
       sizeBytes: 1024,
-      expiresAt: new Date("2026-09-20T12:00:00.000Z"),
+      expiresAt: new Date("2099-09-20T12:00:00.000Z"),
     });
 
     mocks.freezePrivateUpload.mockRejectedValueOnce(
@@ -219,14 +221,14 @@ describe("private submission upload actions", () => {
       derivativeKeys: [],
       contentType: "image/png",
       sizeBytes: 1024,
-      expiresAt: new Date("2026-09-20T12:00:00.000Z"),
+      expiresAt: new Date("2099-09-20T12:00:00.000Z"),
       attachedSubmissionId: null,
     });
     mocks.discardUploadReservation.mockResolvedValueOnce({
       ok: true,
       value: {},
     });
-    mocks.deletePrivateUpload.mockRejectedValueOnce(new Error("R2 unavailable"));
+    mocks.queuePrivateUploadCleanupForOwner.mockRejectedValueOnce(new Error("database unavailable"));
 
     await expect(
       discardOwnUpload("b5f3146c-d8b4-4727-8f31-388976cf9865"),

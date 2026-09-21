@@ -435,3 +435,10 @@ export async function readPrivateUpload(objectKey: string) {
 export async function deletePrivateUpload(key: string) {
   return requirePrivateConfiguration().delete(key);
 }
+
+export async function deletePrivateUploads(keys: string[]) {
+  const uniqueKeys = [...new Set(keys.filter(Boolean))];
+  if (uniqueKeys.length === 0) return;
+  const storage = requirePrivateConfiguration();
+  for (const key of uniqueKeys) await storage.delete(key);
+}

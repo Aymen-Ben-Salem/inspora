@@ -213,4 +213,31 @@ describe("shared submission modal", () => {
     expect(html).toContain("Not accepted");
     expect(html).not.toContain("Withdraw");
   });
+
+  it("makes an in-review withdrawal visibly interactive", () => {
+    const html = renderToStaticMarkup(
+      <SubmissionDetail
+        open
+        onDismiss={vi.fn()}
+        onOptimisticWithdraw={vi.fn()}
+        onRollbackWithdraw={vi.fn()}
+        submission={{
+          id: "sub-link",
+          kind: "website",
+          status: "in_review",
+          source: "link",
+          sourceDomain: "example.com",
+          sourceUrl: "https://example.com/private/path",
+          createdAt: "2026-09-19T10:00:00.000Z",
+          rejectionReason: null,
+          rejectionExpiresAt: null,
+          mediaType: null,
+        }}
+      />,
+    );
+
+    expect(html).toContain("cursor-pointer");
+    expect(html).toContain("hover:bg-[#262626]");
+    expect(html).toContain("hover:text-white");
+  });
 });

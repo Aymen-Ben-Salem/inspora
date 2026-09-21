@@ -6,6 +6,7 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, logoMedia, logos } from "@/db/schema";
+import type { WriteTx } from "@/db/write-client";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
 import { mapAdminCreator, resolveCreatorMutation } from "@/features/creators/repository";
@@ -93,6 +94,26 @@ function mediaValues(logoId: string, input: AdminLogoInput) {
     width: input.media.width,
     height: input.media.height,
   };
+}
+
+export async function insertAdminLogoInTransaction(
+  tx: WriteTx,
+  input: AdminLogoInput,
+  actorId: string,
+  creatorId: string,
+) {
+  const id = randomUUID();
+  const now = new Date();
+  await tx.insert(logos).values({
+    id,
+    ...logoValues(input, creatorId),
+    publishedAt: input.status === "published" ? now : null,
+    archivedAt: null,
+    createdBy: actorId,
+    updatedBy: actorId,
+  });
+  await tx.insert(logoMedia).values(mediaValues(id, input));
+  return { id, slug: input.slug };
 }
 
 function managedAssets(media: LogoMediaRow[]): ManagedMediaAsset[] {

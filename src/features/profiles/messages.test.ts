@@ -24,6 +24,7 @@ describe("owner profile activity", () => {
           uploadId: "upload-1",
           createdAt: new Date("2026-09-21T10:00:00.000Z"),
           reviewedAt: null,
+          expiresAt: null,
           rejectionReason: null,
           mediaType: "image/png",
         },
@@ -36,6 +37,7 @@ describe("owner profile activity", () => {
           uploadId: null,
           createdAt: new Date("2026-09-21T10:00:00.000Z"),
           reviewedAt: null,
+          expiresAt: null,
           rejectionReason: null,
           mediaType: null,
         },
@@ -48,6 +50,7 @@ describe("owner profile activity", () => {
           uploadId: null,
           createdAt: new Date("2026-09-18T10:00:00.000Z"),
           reviewedAt: new Date("2026-09-19T10:00:00.000Z"),
+          expiresAt: new Date("2026-09-21T10:00:00.000Z"),
           rejectionReason: "Not a fit",
           mediaType: null,
         },
@@ -88,7 +91,7 @@ describe("owner profile activity", () => {
     ]);
   });
 
-  it("derives a fixed 48-hour rejection deadline and exposes only the domain", () => {
+  it("uses the stored fixed rejection deadline and exposes only the domain", () => {
     const activity = projectOwnProfileActivity({
       ownerUserId: "user_owner",
       now: new Date("2026-09-20T12:00:00.000Z"),
@@ -101,6 +104,7 @@ describe("owner profile activity", () => {
         uploadId: null,
         createdAt: new Date("2026-09-19T10:00:00.000Z"),
         reviewedAt: new Date("2026-09-20T10:00:00.000Z"),
+        expiresAt: new Date("2026-09-22T11:00:00.000Z"),
         rejectionReason: "Not enough detail",
         mediaType: null,
       }],
@@ -111,7 +115,7 @@ describe("owner profile activity", () => {
       source: "link",
       sourceDomain: "example.com",
       sourceUrl: "https://example.com/private/path?token=secret",
-      rejectionExpiresAt: "2026-09-22T10:00:00.000Z",
+      rejectionExpiresAt: "2026-09-22T11:00:00.000Z",
     });
   });
 

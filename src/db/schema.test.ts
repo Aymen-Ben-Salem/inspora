@@ -12,6 +12,8 @@ import {
   posts,
   profileMessages,
   profileAccounts,
+  submissionPublicationAttempts,
+  submissions,
   savedPosts,
   sponsors,
   subscribers,
@@ -25,6 +27,8 @@ describe("database schema", () => {
     const creatorsConfig = getTableConfig(creators);
     const accountsConfig = getTableConfig(profileAccounts);
     const messagesConfig = getTableConfig(profileMessages);
+    const submissionsConfig = getTableConfig(submissions);
+    const publicationAttemptsConfig = getTableConfig(submissionPublicationAttempts);
     const aliasesConfig = getTableConfig(creatorUsernameAliases);
     const claimsConfig = getTableConfig(creatorClaims);
     const postsConfig = getTableConfig(posts);
@@ -56,6 +60,13 @@ describe("database schema", () => {
     expect(messagesConfig.foreignKeys).toHaveLength(2);
     expect(messagesConfig.indexes).toHaveLength(3);
     expect(messagesConfig.checks).toHaveLength(2);
+    expect(submissionsConfig.columns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(["rejected_at", "expires_at"]),
+    );
+    expect(publicationAttemptsConfig.name).toBe("submission_publication_attempts");
+    expect(publicationAttemptsConfig.foreignKeys).toHaveLength(0);
+    expect(publicationAttemptsConfig.indexes).toHaveLength(1);
+    expect(publicationAttemptsConfig.checks).toHaveLength(3);
     expect(aliasesConfig.name).toBe("creator_username_aliases");
     expect(aliasesConfig.foreignKeys).toHaveLength(1);
     expect(aliasesConfig.indexes).toHaveLength(3);

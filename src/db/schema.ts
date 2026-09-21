@@ -12,7 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import type { ImageVariant, VideoPreview } from "@/storage/types";
+import type { ImageVariant, ManagedMediaAsset, VideoPreview } from "@/storage/types";
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
@@ -269,6 +269,8 @@ export const submissions = pgTable(
     rejectionReason: text("rejection_reason"),
     reviewedBy: text("reviewed_by"),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true, mode: "date" }),
+    rejectedAt: timestamp("rejected_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
     publishedKind: text("published_kind"),
     publishedId: uuid("published_id"),
     publishedHref: text("published_href"),
@@ -283,9 +285,44 @@ export const submissions = pgTable(
     check("submissions_kind_valid", sql`${table.kind} in ('design', 'logo', 'website', 'app-icon')`),
     check("submissions_status_valid", sql`${table.status} in ('in_review', 'accepted', 'rejected')`),
     check("submissions_exactly_one_source", sql`num_nonnulls(${table.sourceUrl}, ${table.uploadId}) = 1`),
-    check("submissions_rejection_consistent", sql`(${table.status} = 'rejected' and ${table.rejectionReason} is not null and length(trim(${table.rejectionReason})) > 0 and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null) or (${table.status} <> 'rejected' and ${table.rejectionReason} is null)`),
+    check("submissions_rejection_consistent", sql`(${table.status} = 'rejected' and ${table.rejectionReason} is not null and length(trim(${table.rejectionReason})) > 0 and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null and ${table.rejectedAt} is not null and ${table.expiresAt} = ${table.rejectedAt} + interval '48 hours') or (${table.status} <> 'rejected' and ${table.rejectionReason} is null and ${table.rejectedAt} is null and ${table.expiresAt} is null)`),
     check("submissions_acceptance_consistent", sql`(${table.status} = 'accepted' and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null and ${table.publishedKind} is not null and ${table.publishedId} is not null and ${table.publishedHref} is not null) or (${table.status} <> 'accepted' and ${table.publishedKind} is null and ${table.publishedId} is null and ${table.publishedHref} is null)`),
     check("submissions_published_kind_valid", sql`${table.publishedKind} is null or ${table.publishedKind} in ('design', 'logo', 'website')`),
+  ],
+);
+
+export const submissionPublicationAttempts = pgTable(
+  "submission_publication_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    // Deliberately not a foreign key: a losing publication attempt must retain
+    // its asset manifest after withdrawal/account cleanup removes the submission.
+    submissionId: uuid("submission_id").notNull(),
+    actorId: text("actor_id").notNull(),
+    assets: jsonb("assets").$type<ManagedMediaAsset[]>().default([]).notNull(),
+    status: text("status").default("prepared").notNull(),
+    publishedKind: text("published_kind"),
+    publishedId: uuid("published_id"),
+    publishedHref: text("published_href"),
+    ...timestamps,
+  },
+  (table) => [
+    index("submission_publication_attempts_submission_status_idx").on(
+      table.submissionId,
+      table.status,
+    ),
+    check(
+      "submission_publication_attempts_actor_not_blank",
+      sql`length(trim(${table.actorId})) > 0`,
+    ),
+    check(
+      "submission_publication_attempts_status_valid",
+      sql`${table.status} in ('prepared', 'attached', 'cleanup')`,
+    ),
+    check(
+      "submission_publication_attempts_attachment_consistent",
+      sql`(${table.status} = 'attached' and ${table.publishedKind} is not null and ${table.publishedId} is not null and ${table.publishedHref} is not null) or (${table.status} <> 'attached' and ${table.publishedKind} is null and ${table.publishedId} is null and ${table.publishedHref} is null)`,
+    ),
   ],
 );
 

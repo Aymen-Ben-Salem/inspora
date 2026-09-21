@@ -68,11 +68,17 @@ export function WebsiteEditor({
   creators,
   website,
   lockExistingCreators = false,
+  actionLabel,
+  cancelHref = "/admin/websites",
+  publicationOnly = false,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
   website?: AdminWebsiteRecord;
   lockExistingCreators?: boolean;
+  actionLabel?: string;
+  cancelHref?: Route;
+  publicationOnly?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [creator, setCreator] = useState<AdminCreatorInput>(
@@ -271,10 +277,10 @@ export function WebsiteEditor({
       <aside className="grid content-start gap-5 xl:sticky xl:top-24 xl:self-start">
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5">
           <div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Publishing</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Status</h2></div>
-          <div className="grid grid-cols-2 gap-2">{(["draft", "published"] as const).map((status) => <label key={status} className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="radio" name="status" value={status} defaultChecked={(website?.status ?? "draft") === status} />{status === "draft" ? "Draft" : "Published"}</label>)}</div>
+          {publicationOnly ? <input type="hidden" name="status" value="published" /> : <div className="grid grid-cols-2 gap-2">{(["draft", "published"] as const).map((status) => <label key={status} className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="radio" name="status" value={status} defaultChecked={(website?.status ?? "draft") === status} />{status === "draft" ? "Draft" : "Published"}</label>)}</div>}
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={website?.isFeatured} />Feature this website</label>
-          <button type="submit" disabled={isPending} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : website ? "Save changes" : "Create website"}</button>
-          <Link href={"/admin/websites" as Route} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
+          <button type="submit" disabled={isPending} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
+          <Link href={cancelHref} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
         </section>
       </aside>
     </form>

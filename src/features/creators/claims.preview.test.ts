@@ -19,12 +19,12 @@ import {
 import { withWriteTransaction } from "../../db/write-client";
 import { reviewCreatorClaim } from "./claims";
 
-const runPreviewIntegration =
-  process.env.RUN_PREVIEW_CREATOR_INTEGRATION === "1" &&
-  process.env.DATA_ENVIRONMENT === "preview";
-const suite = runPreviewIntegration ? describe : describe.skip;
+const runNonProductionIntegration =
+  process.env.RUN_CREATOR_CLAIM_INTEGRATION === "1" &&
+  ["development", "preview"].includes(process.env.DATA_ENVIRONMENT ?? "");
+const suite = runNonProductionIntegration ? describe : describe.skip;
 
-suite("creator claims in isolated Preview rows", () => {
+suite("creator claims in isolated non-production rows", () => {
   const suffix = randomUUID().replaceAll("-", "").slice(0, 10);
   const requesterUserId = `task1-${suffix}`;
   const targetCreatorId = randomUUID();
@@ -52,6 +52,7 @@ suite("creator claims in isolated Preview rows", () => {
           name: "Task 1 owner fixture",
           username: provisionalUsername,
           ownerUserId: requesterUserId,
+          editedFields: ["username"],
           avatarUrl: "/brand/default-avatar.svg",
           recordOrigin: "user",
         },
@@ -127,6 +128,7 @@ suite("creator claims in isolated Preview rows", () => {
       expect(canonical).toHaveLength(1);
       expect(canonical[0]?.ownerUserId).toBe(requesterUserId);
       expect(canonical[0]?.xProviderId).toBe(providerId);
+      expect(canonical[0]?.username).toBe(provisionalUsername);
       expect(provisional).toHaveLength(0);
     });
   });

@@ -31,9 +31,10 @@ import type {
   ResolvedCreatorProfile,
   ProfileEditInput,
 } from "./types";
+import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "./cache";
 
 export const CREATOR_WORK_PAGE_SIZE = 16;
-export const PUBLIC_CREATOR_PROFILES_CACHE_TAG = "public-creator-profiles";
+export { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "./cache";
 
 const PUBLIC_PROFILE_CACHE_LIFE = {
   stale: 300,

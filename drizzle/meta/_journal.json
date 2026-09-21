@@ -162,6 +162,13 @@
       "when": 1789832198544,
       "tag": "0022_skinny_blink",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789928897109,
+      "tag": "0023_keen_bushwacker",
+      "breakpoints": true
     }
   ]
 }

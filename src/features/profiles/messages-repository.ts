@@ -14,8 +14,6 @@ import type {
   SubmissionStatus,
 } from "../submissions/types";
 
-const REJECTION_RETENTION_MS = 48 * 60 * 60 * 1000;
-
 export type OwnProfileSubmission = {
   id: string;
   kind: SubmissionKind;
@@ -51,6 +49,7 @@ type ProfileSubmissionRow = {
   mediaType: string | null;
   createdAt: Date;
   reviewedAt: Date | null;
+  expiresAt: Date | null;
   rejectionReason: string | null;
 };
 
@@ -87,14 +86,12 @@ export function projectOwnProfileActivity({
     .filter((row) => row.ownerUserId === ownerUserId)
     .filter((row) => {
       if (row.status === "in_review") return true;
-      if (row.status !== "rejected" || !row.reviewedAt) return false;
-      return row.reviewedAt.getTime() + REJECTION_RETENTION_MS > now.getTime();
+      if (row.status !== "rejected" || !row.expiresAt) return false;
+      return row.expiresAt.getTime() > now.getTime();
     })
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
     .map<OwnProfileSubmission>((row) => {
-      const rejectionExpiresAt = row.reviewedAt
-        ? new Date(row.reviewedAt.getTime() + REJECTION_RETENTION_MS).toISOString()
-        : null;
+      const rejectionExpiresAt = row.expiresAt?.toISOString() ?? null;
       return {
         id: row.id,
         kind: row.kind,
@@ -139,6 +136,7 @@ export async function getOwnProfileActivity(
         mediaType: submissionUploads.verifiedContentType,
         createdAt: submissions.createdAt,
         reviewedAt: submissions.reviewedAt,
+        expiresAt: submissions.expiresAt,
         rejectionReason: submissions.rejectionReason,
       })
       .from(submissions)

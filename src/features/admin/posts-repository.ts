@@ -6,6 +6,7 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, postMedia, posts } from "@/db/schema";
+import type { WriteTx } from "@/db/write-client";
 import {
   mapAdminCreator,
   resolveCreatorMutation,
@@ -20,7 +21,6 @@ import type {
   ManagedMediaAsset,
 } from "./types";
 
-type Database = ReturnType<typeof requireDatabase>;
 type PostRow = typeof posts.$inferSelect;
 type CreatorRow = Parameters<typeof mapAdminCreator>[0];
 type MediaRow = typeof postMedia.$inferSelect;
@@ -122,6 +122,26 @@ function postValues(input: AdminPostInput, creatorId: string) {
     isFeatured: input.isFeatured,
     status: input.status,
   };
+}
+
+export async function insertAdminPostInTransaction(
+  tx: WriteTx,
+  input: AdminPostInput,
+  actorId: string,
+  creatorId: string,
+) {
+  const id = randomUUID();
+  const now = new Date();
+  await tx.insert(posts).values({
+    id,
+    ...postValues(input, creatorId),
+    publishedAt: input.status === "published" ? now : null,
+    archivedAt: null,
+    createdBy: actorId,
+    updatedBy: actorId,
+  });
+  await tx.insert(postMedia).values(mediaValues(id, input));
+  return { id, slug: input.slug };
 }
 
 export async function getAdminPosts() {

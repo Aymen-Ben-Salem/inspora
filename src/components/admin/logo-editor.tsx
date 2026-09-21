@@ -39,6 +39,9 @@ export function LogoEditor({
   creators,
   logo,
   lockExistingCreators = false,
+  actionLabel,
+  cancelHref = "/admin/logos",
+  publicationOnly = false,
 }: {
   action: (
     state: AdminActionState,
@@ -47,6 +50,9 @@ export function LogoEditor({
   creators: AdminCreatorRecord[];
   logo?: AdminLogoRecord;
   lockExistingCreators?: boolean;
+  actionLabel?: string;
+  cancelHref?: Route;
+  publicationOnly?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     action,
@@ -335,7 +341,9 @@ export function LogoEditor({
               Status
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          {publicationOnly ? (
+            <input type="hidden" name="status" value="published" />
+          ) : <div className="grid grid-cols-2 gap-2">
             {(["draft", "published"] as const).map((status) => (
               <label
                 key={status}
@@ -350,16 +358,16 @@ export function LogoEditor({
                 {status === "draft" ? "Draft" : "Published"}
               </label>
             ))}
-          </div>
+          </div>}
           <button
             type="submit"
             disabled={isPending}
             className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white transition-colors hover:bg-[#252525] disabled:cursor-wait disabled:opacity-55"
           >
-            {isPending ? "Saving..." : logo ? "Save changes" : "Create logo"}
+            {isPending ? "Saving..." : (actionLabel ?? (logo ? "Save changes" : "Create logo"))}
           </button>
           <Link
-            href={"/admin/logos" as Route}
+            href={cancelHref}
             className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline"
           >
             Cancel

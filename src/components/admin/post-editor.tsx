@@ -47,11 +47,17 @@ export function PostEditor({
   creators,
   post,
   lockExistingCreators = false,
+  actionLabel,
+  cancelHref = "/admin/posts",
+  publicationOnly = false,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
   post?: AdminPostRecord;
   lockExistingCreators?: boolean;
+  actionLabel?: string;
+  cancelHref?: Route;
+  publicationOnly?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [media, setMedia] = useState<MediaDraft[]>(
@@ -356,18 +362,20 @@ export function PostEditor({
             disabled={isPending}
             className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white transition-colors hover:bg-[#252525] disabled:cursor-wait disabled:opacity-50"
           >
-            {isPending ? "Saving..." : "Save and publish"}
+            {isPending ? "Saving..." : (actionLabel ?? "Save and publish")}
           </button>
-          <button
-            type="submit"
-            name="status"
-            value="draft"
-            disabled={isPending}
-            className="focus-ring h-11 rounded-full border border-black/10 px-5 text-sm font-medium transition-colors hover:bg-[#f3f3f3] disabled:cursor-wait disabled:opacity-50"
-          >
-            Save draft
-          </button>
-          <Link href={"/admin/posts" as Route} className="focus-ring py-2 text-center text-sm text-[#777] hover:text-black">
+          {!publicationOnly ? (
+            <button
+              type="submit"
+              name="status"
+              value="draft"
+              disabled={isPending}
+              className="focus-ring h-11 rounded-full border border-black/10 px-5 text-sm font-medium transition-colors hover:bg-[#f3f3f3] disabled:cursor-wait disabled:opacity-50"
+            >
+              Save draft
+            </button>
+          ) : null}
+          <Link href={cancelHref} className="focus-ring py-2 text-center text-sm text-[#777] hover:text-black">
             Cancel
           </Link>
         </section>

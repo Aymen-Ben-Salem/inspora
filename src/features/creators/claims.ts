@@ -395,7 +395,12 @@ export async function reviewCreatorClaim(
         .where(eq(submissions.creatorId, lockedProvisional.id));
       await tx
         .update(creators)
-        .set({ ownerUserId: null, xProviderId: null, updatedAt: now })
+        .set({
+          ownerUserId: null,
+          xProviderId: null,
+          username: keepProvisionalUsername ? null : lockedProvisional.username,
+          updatedAt: now,
+        })
         .where(eq(creators.id, lockedProvisional.id));
       await tx
         .update(creators)

@@ -10,6 +10,7 @@ import {
   websites,
   websiteSections,
 } from "@/db/schema";
+import type { WriteTx } from "@/db/write-client";
 import { isWebsiteMediaRole } from "@/domain/website";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
@@ -161,6 +162,27 @@ function sectionValues(websiteId: string, input: AdminWebsiteInput) {
     imageWidth: section.width,
     imageHeight: section.height,
   }));
+}
+
+export async function insertAdminWebsiteInTransaction(
+  tx: WriteTx,
+  input: AdminWebsiteInput,
+  actorId: string,
+  creatorId: string,
+) {
+  const id = randomUUID();
+  const now = new Date();
+  await tx.insert(websites).values({
+    id,
+    ...websiteValues(input, creatorId),
+    publishedAt: input.status === "published" ? now : null,
+    archivedAt: null,
+    createdBy: actorId,
+    updatedBy: actorId,
+  });
+  await tx.insert(websiteMedia).values(mediaValues(id, input));
+  await tx.insert(websiteSections).values(sectionValues(id, input));
+  return { id, slug: input.slug };
 }
 
 function websiteRelations() {

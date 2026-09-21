@@ -19,6 +19,11 @@ vi.mock("./saved-posts-provider", () => ({
     <div data-saved-posts-provider>{children}</div>
   ),
 }));
+vi.mock("./profile/viewer-profile-provider", () => ({
+  ViewerProfileProvider: ({ children }: PropsWithChildren) => (
+    <div data-viewer-profile-provider>{children}</div>
+  ),
+}));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@clerk/nextjs", () => ({
@@ -78,6 +83,7 @@ describe("AuthProvider", () => {
     expect(html).toContain("data-clerk-provider");
     expect(html).toContain('data-submission-provider="clerk"');
     expect(html).toContain("data-saved-posts-provider");
+    expect(html).toContain("data-viewer-profile-provider");
     expect(html).toContain("Public content");
     expect(html).not.toContain("Loading authentication");
     expect(renderClerkProvider).toHaveBeenCalledWith(

@@ -14,7 +14,7 @@ export function PublicAuthControlsClient({
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
-  const profile = useViewerProfile(isSignedIn ? user?.id : undefined);
+  const { profile, isLoading: profileLoading } = useViewerProfile(isSignedIn ? user?.id : undefined);
   const viewerName = profile?.name ?? user?.fullName;
 
   const content = !isLoaded ? (
@@ -36,13 +36,17 @@ export function PublicAuthControlsClient({
           : "size-[35px]"
       }`}
     >
-      <Image
-        src={profile?.avatarUrl || user.imageUrl}
-        alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
-        fill
-        sizes={variant === "desktop" ? "35px" : "35px"}
-        className="object-cover"
-      />
+      {profileLoading ? (
+        <span aria-hidden="true" className="absolute inset-0 bg-[#f0f0f0]" />
+      ) : (
+        <Image
+          src={profile?.avatarUrl || user.imageUrl}
+          alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
+          fill
+          sizes={variant === "desktop" ? "35px" : "35px"}
+          className="object-cover"
+        />
+      )}
     </Link>
   ) : (
     <Link

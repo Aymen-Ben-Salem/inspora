@@ -6,6 +6,7 @@ import { Suspense, type PropsWithChildren } from "react";
 import { clerkAppearance, clerkLocalization } from "../auth/appearance";
 import { isClerkConfigured } from "../auth/config";
 import { SavedPostsProvider } from "./saved-posts-provider";
+import { ViewerProfileProvider } from "./profile/viewer-profile-provider";
 import {
   ClerkSubmissionProvider,
   PublicSubmissionProvider,
@@ -29,9 +30,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         appearance={clerkAppearance}
         localization={clerkLocalization}
       >
-        <ClerkSubmissionProvider>
-          <SavedPostsProvider>{children}</SavedPostsProvider>
-        </ClerkSubmissionProvider>
+        <ViewerProfileProvider>
+          <ClerkSubmissionProvider>
+            <SavedPostsProvider>{children}</SavedPostsProvider>
+          </ClerkSubmissionProvider>
+        </ViewerProfileProvider>
       </ClerkProvider>
     </Suspense>
   );

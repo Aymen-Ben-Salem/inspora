@@ -1,18 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/analytics/client", () => ({ captureAnalyticsEvent: vi.fn() }));
+const captureState = vi.hoisted(() => ({ enabled:true, session:"one", events:[] as string[] }));
+vi.mock("react", () => ({useEffect:(effect:()=>void) => effect()}));
+vi.mock("@/analytics/client", () => ({ captureAnalyticsEvent: vi.fn(() => {
+  if (captureState.enabled) captureState.events.push(captureState.session);
+}) }));
 vi.mock("@/analytics/events", () => import("../analytics/events"));
 vi.mock("@/analytics/privacy", () => import("../analytics/privacy"));
 
 import {
-  resetCapturedWorkOpensForTests,
+  WorkAnalytics,
   shouldCaptureWorkOpen,
 } from "./work-analytics";
 
-beforeEach(() => resetCapturedWorkOpensForTests());
+
 
 describe("work-open analytics", () => {
-  it("suppresses obvious remount duplicates for the same kind and work", () => {
+  it("allows reopening after SDK session rollover and leaves exact deduplication to the server", () => {
     expect(
       shouldCaptureWorkOpen({
         pathname: "/logos",
@@ -26,7 +30,7 @@ describe("work-open analytics", () => {
         workId: "shared-id",
         workKind: "logo",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("keeps content-kind collisions separate", () => {
@@ -62,4 +66,17 @@ describe("work-open analytics", () => {
       }),
     ).toBe(false);
   });
+});
+
+it("permits capture after disabled or opted-out opens and after SDK session changes in one tab", () => {
+  vi.stubGlobal("window", {location:{pathname:"/logos"}});
+  captureState.events = [];
+  captureState.enabled = false;
+  WorkAnalytics({workId:"fixture",workKind:"logo"});
+  captureState.enabled = true;
+  WorkAnalytics({workId:"fixture",workKind:"logo"});
+  captureState.session = "two";
+  WorkAnalytics({workId:"fixture",workKind:"logo"});
+  expect(captureState.events).toEqual(["one","two"]);
+  vi.unstubAllGlobals();
 });

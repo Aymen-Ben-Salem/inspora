@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 
 import { parse } from "dotenv";
 
+import { ANALYTICS_CONFIGURATION_KEYS, validatePreviewAnalytics, verifyPreviewAnalyticsProject } from "../../src/analytics/preview-configuration";
+
 import {
   APPROVED_ENVIRONMENT_FINGERPRINTS,
   assertEnvironmentFingerprint,
@@ -16,12 +18,6 @@ const DEVELOPMENT_CONFIGURATION_KEYS = [
   "ADMIN_USER_IDS",
   "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
   "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
-  "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN",
-  "NEXT_PUBLIC_POSTHOG_HOST",
-  "POSTHOG_PERSONAL_API_KEY",
-  "POSTHOG_PROJECT_ID",
-  "POSTHOG_API_HOST",
-  "POSTHOG_WORK_VIEWS_CUTOVER_AT",
 ] as const;
 
 const PREVIEW_CONFIGURATION_KEYS = [
@@ -93,6 +89,9 @@ export function resolvePreviewBuildEnvironment(
   }
   copyOwnedValues(environment, development, DEVELOPMENT_CONFIGURATION_KEYS);
   copyOwnedValues(environment, preview, PREVIEW_CONFIGURATION_KEYS);
+  validatePreviewAnalytics(preview);
+  // Empty strings prevent Next dotenv loading from resurrecting .env.local values.
+  for (const key of ANALYTICS_CONFIGURATION_KEYS) environment[key] = preview[key]?.trim() ?? "";
 
   const blockerPath = resolve(cwd, "scripts", "block-production-environment.cjs");
   const existingNodeOptions = environment.NODE_OPTIONS?.trim();
@@ -180,6 +179,7 @@ export async function runPreviewBuild(options: PreviewBuildOptions = {}) {
   const cwd = options.cwd ?? process.cwd();
   const environment = resolvePreviewBuildEnvironment(options);
   const runCommand = options.runCommand ?? executeCommand;
+  await verifyPreviewAnalyticsProject(environment);
 
   for (const command of previewBuildCommands(cwd, environment)) {
     await runCommand(command);

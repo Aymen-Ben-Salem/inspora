@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  bigint,
   check,
   index,
   integer,
@@ -972,3 +973,11 @@ export const websiteSectionsRelations = relations(websiteSections, ({ one }) => 
     references: [websites.id],
   }),
 }));
+
+// One latest successful aggregate per creator/configuration; no visitor events.
+export const creatorViewSnapshots = pgTable("creator_view_snapshots", {
+  key: text("key").primaryKey(),
+  eligibilityFingerprint: text("eligibility_fingerprint").notNull(),
+  count: bigint("count", { mode: "number" }).notNull(),
+  asOf: timestamp("as_of", { withTimezone: true, mode: "date" }).notNull(),
+}, (table) => [check("creator_view_snapshot_count_valid", sql`${table.count} >= 0 and ${table.count} <= 9007199254740991`)]);

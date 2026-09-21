@@ -58,3 +58,11 @@ describe("profile views integration", () => {
     expect(html).not.toContain(">0</dd>");
   });
 });
+
+it.each([false, true])("uses the same aggregate for owner=%s", (owner) => {
+  const html = renderToStaticMarkup(createElement(ProfileHeader, {
+    profile, owner, works: 4, views: {status:"available",count:1234,asOf:"2026-09-21T12:05:00.000Z"},
+  }));
+  expect(html).toContain("1,234</dd>");
+  expect(html).toContain("1234 published-work views");
+});

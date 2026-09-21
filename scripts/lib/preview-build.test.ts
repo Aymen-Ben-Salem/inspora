@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EnvironmentFingerprint } from "./environment-fingerprint";
 import {
   resolvePreviewBuildEnvironment,
   runPreviewBuild,
 } from "./preview-build";
+
+beforeEach(() => vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({id:12345,api_token:"preview-token"})))));
+afterEach(() => vi.unstubAllGlobals());
 
 const approvedPreview: EnvironmentFingerprint = {
   dataEnvironment: "preview",
@@ -39,7 +42,12 @@ R2_BUCKET_NAME=fixture-bucket
 R2_PUBLIC_BASE_URL=https://fixture-media.r2.dev
 R2_SUBMISSIONS_BUCKET_NAME=fixture-private-bucket
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_must_not_win
-NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=preview-posthog-must-not-win
+NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=preview-token
+NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
+POSTHOG_API_HOST=https://eu.posthog.com
+POSTHOG_PROJECT_ID=12345
+POSTHOG_PERSONAL_API_KEY=preview-read-key
+POSTHOG_WORK_VIEWS_CUTOVER_AT=2026-09-21T12:00:00.000Z
 `;
 
 describe("guarded Preview build", () => {
@@ -67,7 +75,7 @@ describe("guarded Preview build", () => {
       "C:/isolated-fixture/.env.preview.local",
     ]);
     expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe("pk_test_fixture");
-    expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("dev-posthog-token");
+    expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("preview-token");
     expect(environment.POSTHOG_WORK_VIEWS_CUTOVER_AT).toBe(
       "2026-09-21T12:00:00.000Z",
     );
@@ -132,25 +140,25 @@ describe("guarded Preview build", () => {
     expect(runCommand).not.toHaveBeenCalled();
   });
 
-  it("does not inherit PostHog values missing from development config", () => {
+  it("does not inherit analytics when explicitly disabled in Preview", () => {
     const environment = resolvePreviewBuildEnvironment({
       cwd: "C:/isolated-fixture",
-      baseEnvironment: {
-        NODE_ENV: "development",
-        NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "inherited-token",
-      },
+      baseEnvironment: {NODE_ENV:"development",NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:"inherited-token",POSTHOG_PERSONAL_API_KEY:"inherited-key"},
       approvedFingerprint: approvedPreview,
-      readFile(path) {
-        return path.endsWith(".env.local")
-          ? developmentFixture.replace(
-              "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=dev-posthog-token",
-              "",
-            )
-          : previewFixture;
-      },
+      readFile(path) { return path.endsWith(".env.local") ? developmentFixture : previewFixture.replace(/^(?:NEXT_PUBLIC_POSTHOG|POSTHOG).*$/gm, ""); },
     });
-
-    expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBeUndefined();
+    expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("");
+    expect(environment.POSTHOG_PERSONAL_API_KEY).toBe("");
+    expect(environment.POSTHOG_WORK_VIEWS_CUTOVER_AT).toBe("");
+  });
+  it.each([
+    ["POSTHOG_PERSONAL_API_KEY=preview-read-key", "", "POSTHOG_PERSONAL_API_KEY"],
+    ["https://eu.posthog.com", "https://us.posthog.com", "same supported region"],
+  ])("rejects incomplete/mismatched Preview analytics: %s", (from, to, message) => {
+    expect(() => resolvePreviewBuildEnvironment({
+      cwd:"C:/isolated-fixture", approvedFingerprint:approvedPreview,
+      readFile(path) { return path.endsWith(".env.local") ? developmentFixture : previewFixture.replace(from,to); },
+    })).toThrow(message);
   });
 
   it("runs the Preview sitemap before the application build", async () => {

@@ -8,7 +8,8 @@ import { isPrivateAnalyticsPath } from "@/analytics/privacy";
 
 export type WorkAnalyticsKind = "design" | "logo" | "website";
 
-const capturedWorkOpens = new Set<string>();
+// PostHog supplies real session metadata. The aggregate deduplicates opens;
+// client suppression must never outlive an SDK session or a privacy choice.
 
 export function shouldCaptureWorkOpen({
   pathname,
@@ -19,15 +20,9 @@ export function shouldCaptureWorkOpen({
   workId: string;
   workKind: WorkAnalyticsKind;
 }) {
+  if (!["design", "logo", "website"].includes(workKind)) return false;
   if (!workId.trim() || isPrivateAnalyticsPath(pathname)) return false;
-  const key = `${workKind}:${workId}`;
-  if (capturedWorkOpens.has(key)) return false;
-  capturedWorkOpens.add(key);
   return true;
-}
-
-export function resetCapturedWorkOpensForTests() {
-  capturedWorkOpens.clear();
 }
 
 export function WorkAnalytics({

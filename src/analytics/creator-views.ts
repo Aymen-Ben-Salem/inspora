@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+import { readViewSnapshot, writeViewSnapshot } from "./view-snapshots";
 import { sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
@@ -45,7 +47,6 @@ const CREATOR_VIEWS_CACHE_LIFE = {
 
 const creatorIdSchema = z.uuid();
 const workIdSchema = z.uuid();
-const lastSuccessfulViews = new Map<string, Extract<CreatorViewsResult, { status: "available" }>>();
 
 function emptyEligibleWorkIds(): EligibleWorkIds {
   return { design: [], logo: [], website: [] };
@@ -55,23 +56,24 @@ function parseEligibleWorkRows(rows: unknown[]): EligibleWorkIds {
   const eligible = emptyEligibleWorkIds();
 
   for (const value of rows) {
-    if (!value || typeof value !== "object") continue;
+    if (!value || typeof value !== "object") throw new Error("Invalid eligibility result.");
     const row = value as Partial<EligibleWorkRow>;
     if (
       (row.kind !== "design" && row.kind !== "logo" && row.kind !== "website") ||
       !workIdSchema.safeParse(row.id).success
     ) {
-      continue;
+      throw new Error("Invalid eligibility result.");
     }
     if (!eligible[row.kind].includes(row.id as string)) {
       eligible[row.kind].push(row.id as string);
     }
   }
 
+  for (const ids of Object.values(eligible)) ids.sort();
   return eligible;
 }
 
-async function getEligibleCreatorWorkIds(creatorId: string) {
+export async function getEligibleCreatorWorkIds(creatorId: string) {
   const database = getDatabase();
   if (!database) throw new Error("Creator views database is not configured.");
   const now = new Date();
@@ -154,6 +156,7 @@ export function buildCreatorViewsQuery(
 }
 
 export function parseCreatorViewsRows(rows: unknown[][]) {
+  if (rows.length !== 1 || rows[0]?.length !== 1) throw new Error("PostHog returned an unexpected creator views aggregate.");
   const value = rows[0]?.[0];
   const count =
     typeof value === "number"
@@ -167,7 +170,7 @@ export function parseCreatorViewsRows(rows: unknown[][]) {
   return count;
 }
 
-async function getCachedCreatorViews(creatorId: string) {
+async function getCachedCreatorViews(eligible: EligibleWorkIds, cutover: string, scope: string) {
   "use cache";
 
   cacheLife(CREATOR_VIEWS_CACHE_LIFE);
@@ -180,7 +183,7 @@ async function getCachedCreatorViews(creatorId: string) {
 
   const configuration = getPostHogConfiguration();
   if (!configuration) throw new Error("PostHog creator views are not configured.");
-  const eligible = await getEligibleCreatorWorkIds(creatorId);
+  if (!scope) throw new Error("Missing analytics scope.");
   const hasEligibleWork = Object.values(eligible).some((ids) => ids.length > 0);
   if (!hasEligibleWork) {
     return {
@@ -192,7 +195,7 @@ async function getCachedCreatorViews(creatorId: string) {
 
   const rows = await runHogQlQuery(
     configuration,
-    buildCreatorViewsQuery(eligible, configuredCutover()),
+    buildCreatorViewsQuery(eligible, cutover),
   );
   return {
     status: "available",
@@ -209,10 +212,30 @@ export async function getCreatorViews(
   }
 
   try {
-    const result = await getCachedCreatorViews(creatorId);
-    if (result.status === "available") lastSuccessfulViews.set(creatorId, result);
+    const configuration = getPostHogConfiguration();
+    const environment = process.env.DATA_ENVIRONMENT;
+    if (!configuration || !environment) return { status: "unavailable" };
+    const cutover = configuredCutover();
+    const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    const scope = hash([environment, process.env.DATABASE_URL, configuration.apiHost,
+      configuration.projectId, process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN, cutover]);
+    const key = hash([scope, creatorId]);
+    const eligible = await getEligibleCreatorWorkIds(creatorId);
+    const fingerprint = hash(eligible);
+    let result: CreatorViewsResult;
+    try {
+      result = await getCachedCreatorViews(eligible, cutover, scope);
+    } catch {
+      const snapshot = await readViewSnapshot(key, fingerprint);
+      result = snapshot ? { status: "available", ...snapshot } : { status: "unavailable" };
+      if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint) return { status: "unavailable" };
+      return result;
+    }
+    if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint) return { status: "unavailable" };
+    // A snapshot-store outage must not erase a valid provider response.
+    if (result.status === "available") await writeViewSnapshot(key, fingerprint, result).catch(() => {});
     return result;
   } catch {
-    return lastSuccessfulViews.get(creatorId) ?? { status: "unavailable" };
+    return { status: "unavailable" };
   }
 }

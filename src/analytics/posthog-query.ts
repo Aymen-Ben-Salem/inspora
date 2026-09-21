@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { validatePreviewAnalytics, verifyPreviewAnalyticsProject } from "./preview-configuration";
 
 import { resolvePostHogApiHost } from "./posthog-data";
 
@@ -21,6 +22,9 @@ export type HogQlQueryRequest = {
 };
 
 export function getPostHogConfiguration(): PostHogConfiguration | null {
+  if (process.env.DATA_ENVIRONMENT === "preview") {
+    try { if (!validatePreviewAnalytics(process.env)) return null; } catch { return null; }
+  }
   const apiHost = resolvePostHogApiHost({
     apiHost: process.env.POSTHOG_API_HOST,
     ingestionHost: process.env.NEXT_PUBLIC_POSTHOG_HOST,
@@ -40,6 +44,7 @@ export async function runHogQlQuery(
   configuration: PostHogConfiguration,
   request: HogQlQueryRequest,
 ) {
+  if (process.env.DATA_ENVIRONMENT === "preview") await verifyPreviewAnalyticsProject(process.env);
   const response = await fetch(
     `${configuration.apiHost}/api/projects/${encodeURIComponent(configuration.projectId)}/query/`,
     {
@@ -49,6 +54,8 @@ export async function runHogQlQuery(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        // Next owns the five-minute cache. Do not reuse a stale provider query result.
+        refresh: "blocking",
         query: {
           kind: "HogQLQuery",
           name: request.name,

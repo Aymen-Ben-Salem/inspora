@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { ensureOwnedCreator } from "@/features/creators/repository";
+import { ensureCreatorForOwner } from "@/features/creators/identity";
 import { updateOwnProfile } from "@/features/profiles/actions";
 
 const privateHeaders = {
@@ -17,7 +17,7 @@ export async function GET() {
     );
   }
   try {
-    return NextResponse.json(await ensureOwnedCreator(userId), {
+    return NextResponse.json(await ensureCreatorForOwner({ userId }), {
       headers: privateHeaders,
     });
   } catch (error) {

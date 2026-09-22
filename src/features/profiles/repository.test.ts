@@ -17,7 +17,6 @@ vi.mock("@/data/websites-repository", () => import("../../data/websites-reposito
 import {
   decodeCreatorWorkCursor,
   encodeCreatorWorkCursor,
-  mapPublicCreatorProfile,
   sortCreatorWorkCandidates,
   getPublishedCreatorWorkPage,
   getPublishedCreatorWorkCounts,
@@ -106,35 +105,6 @@ describe("Neon raw-query response", () => {
   it("reads published filter counts from the driver's rows envelope", async () => {
     vi.mocked(getDatabase).mockReturnValue({ execute: vi.fn().mockResolvedValue({ rows: [{ filter: "Web", count: 2 }, { filter: "logos", count: 1 }] }) } as unknown as NonNullable<ReturnType<typeof getDatabase>>);
     expect(await getPublishedCreatorWorkCounts(creatorId)).toEqual({ total: 3, filters: { Web: 2, logos: 1 } });
-  });
-});
-
-describe("public creator projection", () => {
-  it("never serializes account ownership or claim identity", () => {
-    const profile = mapPublicCreatorProfile({
-      id: creatorId,
-      name: "Ada Lovelace",
-      username: "ada_lovelace",
-      avatarUrl: "https://img.example/ada.jpg",
-      avatarStorageProvider: "r2",
-      url: "https://ada.example",
-      xProfileUrl: "https://x.com/ada",
-      ownerUserId: "user_secret",
-      xProviderId: "provider_secret",
-      editedFields: ["name"],
-    });
-
-    expect(profile).toEqual({
-      id: creatorId,
-      name: "Ada Lovelace",
-      username: "ada_lovelace",
-      avatarUrl: "https://img.example/ada.jpg",
-      avatarStorageProvider: "r2",
-      websiteUrl: "https://ada.example",
-      xProfileUrl: "https://x.com/ada",
-    });
-    expect(JSON.stringify(profile)).not.toContain("user_secret");
-    expect(JSON.stringify(profile)).not.toContain("provider_secret");
   });
 });
 

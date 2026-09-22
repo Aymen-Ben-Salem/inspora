@@ -1,6 +1,6 @@
 import type { PostCategory } from "@/domain/post";
 import type { WorkCardData } from "@/domain/work-card";
-import type { CreatorProfile } from "@/features/creators/types";
+export type { ResolvedCreatorProfile } from "@/features/creators/types";
 
 export type CreatorWorkFilter =
   | "all"
@@ -23,12 +23,6 @@ export type CreatorWorkPage = {
 export type ProfileWorkCounts = {
   total: number;
   filters: Partial<Record<Exclude<CreatorWorkFilter, "all">, number>>;
-};
-
-export type ResolvedCreatorProfile = {
-  profile: CreatorProfile;
-  canonicalUsername: string;
-  isAlias: boolean;
 };
 
 export type ProfileEditInput = {

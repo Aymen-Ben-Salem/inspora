@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { ensureOwnedCreator } from "@/features/creators/repository";
+import { ensureCreatorForOwner } from "@/features/creators/identity";
 import { createSubmissionForOwner, readOwnSubmissionQuota } from "./repository";
 import type { CreateSubmissionInput, QuotaSnapshot, SubmissionReceipt, SubmissionResult } from "./types";
 import { validateCreateSubmissionInput } from "./validation";
@@ -14,7 +14,7 @@ export async function createOwnSubmission(input: CreateSubmissionInput): Promise
   const validated = validateCreateSubmissionInput(input);
   if (!validated.ok) return validated;
   try {
-    await ensureOwnedCreator(userId);
+    await ensureCreatorForOwner({ userId });
     return await createSubmissionForOwner(userId, validated.value);
   } catch (error) {
     console.error("Submission creation failed", error);

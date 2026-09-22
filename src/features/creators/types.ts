@@ -13,7 +13,8 @@ export type CreatorEditedField =
   | "avatarUrl"
   | "websiteUrl";
 
-export type CreatorProfile = {
+/** Display values only: a fallback username does not promise a public address. */
+export type CreatorSummary = {
   id: string;
   name: string;
   username: string;
@@ -22,6 +23,21 @@ export type CreatorProfile = {
   websiteUrl: string | null;
   xProfileUrl: string | null;
 };
+
+/** A username returned only by alias-backed public lookup. */
+declare const publicUsername: unique symbol;
+export type PublicCreatorProfile = Omit<CreatorSummary, "username"> & {
+  username: string & { readonly [publicUsername]: true };
+};
+
+export type ResolvedCreatorProfile = {
+  profile: PublicCreatorProfile;
+  canonicalUsername: string;
+  isAlias: boolean;
+};
+
+/** Compatibility for owner forms and presentation components. */
+export type CreatorProfile = CreatorSummary;
 
 export type ClaimResult =
   | { status: "pending"; claimId: string }

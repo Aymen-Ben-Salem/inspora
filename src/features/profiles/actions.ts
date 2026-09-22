@@ -1,13 +1,13 @@
 "use server";
 
 import { auth, reverificationError } from "@clerk/nextjs/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
-import { ensureOwnedCreator } from "@/features/creators/repository";
+import { ensureCreatorForOwner } from "@/features/creators/identity";
 import {
   normalizeCreatorUsername,
   validateCreatorUsername,
@@ -76,10 +76,10 @@ function normalizeWebsiteUrl(value: string | null | undefined) {
 }
 
 function refreshProfileCaches() {
-  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
-  updateTag(PUBLISHED_POSTS_CACHE_TAG);
-  updateTag(PUBLISHED_LOGOS_CACHE_TAG);
-  updateTag(PUBLISHED_WEBSITES_CACHE_TAG);
+  revalidateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLISHED_POSTS_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLISHED_LOGOS_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLISHED_WEBSITES_CACHE_TAG, { expire: 0 });
   revalidatePath("/profile");
   revalidatePath("/creators/[username]", "page");
 }
@@ -125,7 +125,7 @@ export async function updateOwnProfile(
   }
 
   try {
-    await ensureOwnedCreator(userId);
+    await ensureCreatorForOwner({ userId });
     await updateOwnedCreatorProfile(userId, normalized);
     refreshProfileCaches();
     return { ok: true };
@@ -151,7 +151,7 @@ export async function createOwnAvatarUploadSignature(
     return { ok: false, message: "Choose one JPG or PNG image up to 10 MB." };
   }
   try {
-    await ensureOwnedCreator(userId);
+    await ensureCreatorForOwner({ userId });
     return {
       ok: true,
       ...(await createR2PresignedUpload({

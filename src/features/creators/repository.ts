@@ -1,8 +1,9 @@
 import "server-only";
 
+import { ensureCreatorForOwner } from "./identity";
+
 import { randomUUID } from "node:crypto";
 
-import { clerkClient } from "@clerk/nextjs/server";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 
@@ -14,7 +15,6 @@ import {
   creatorUsernameAliases,
   logos,
   posts,
-  profileAccounts,
   websites,
 } from "@/db/schema";
 import { withWriteTransaction, type WriteTx } from "@/db/write-client";
@@ -29,7 +29,6 @@ import type {
   AdminCreatorClaimRecord,
   AdminCreatorInput,
   AdminCreatorRecord,
-  CreatorProfile,
   CreatorRecordOrigin,
 } from "./types";
 import {
@@ -51,21 +50,6 @@ function recordOriginForAdminCreate(): CreatorRecordOrigin {
   if (process.env.DATA_ENVIRONMENT === "preview") return "preview";
   if (process.env.DATA_ENVIRONMENT === "development") return "development";
   return "editorial";
-}
-
-function mapCreatorProfile(row: CreatorRow): CreatorProfile {
-  return {
-    id: row.id,
-    name: row.name,
-    username:
-      row.username ?? creatorUsernameCandidates(row.handle ?? row.name)[0] ?? "creator",
-    avatarUrl: row.avatarUrl,
-    avatarStorageProvider: isStorageProvider(row.avatarStorageProvider)
-      ? (row.avatarStorageProvider as NonNullable<CreatorProfile["avatarStorageProvider"]>)
-      : undefined,
-    websiteUrl: row.url,
-    xProfileUrl: row.xProfileUrl,
-  };
 }
 
 export function mapAdminCreator(
@@ -324,66 +308,9 @@ export async function getAdminCreatorClaims(): Promise<AdminCreatorClaimRecord[]
   }));
 }
 
-export async function getCreatorProfile(id: string): Promise<CreatorProfile | null> {
-  const database = requireDatabase();
-  const row = await database.query.creators.findFirst({
-    where: eq(creators.id, id),
-  });
-  return row ? mapCreatorProfile(row) : null;
-}
-
-export async function ensureOwnedCreator(userId: string): Promise<CreatorProfile> {
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const name =
-    user.fullName?.trim() ||
-    user.username?.trim() ||
-    user.primaryEmailAddress?.emailAddress.split("@")[0] ||
-    "Creator";
-  const preferredUsername = user.username?.trim() || name;
-  const avatarUrl = user.imageUrl || "/brand/default-avatar.svg";
-
-  return withWriteTransaction(async (tx) => {
-    await tx
-      .insert(profileAccounts)
-      .values({ userId })
-      .onConflictDoNothing({ target: profileAccounts.userId });
-    const [account] = await tx
-      .select({ status: profileAccounts.status })
-      .from(profileAccounts)
-      .where(eq(profileAccounts.userId, userId))
-      .for("update");
-    if (!account || account.status !== "active") {
-      throw new Error("This account is not active.");
-    }
-
-    const [existing] = await tx
-      .select()
-      .from(creators)
-      .where(eq(creators.ownerUserId, userId))
-      .limit(1);
-    if (existing) return mapCreatorProfile(existing);
-
-    const username = await availableUsername(tx, preferredUsername);
-    const id = randomUUID();
-    const now = new Date();
-    const [created] = await tx
-      .insert(creators)
-      .values({
-        id,
-        name,
-        username,
-        avatarUrl,
-        ownerUserId: userId,
-        recordOrigin: "user",
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-    if (!created) throw new Error("Creator profile could not be created.");
-    await reserveCurrentUsername(tx, id, username);
-    return mapCreatorProfile(created);
-  });
+// Compatibility for the claim workflow until its own ticket migrates that caller.
+export async function ensureOwnedCreator(userId: string) {
+  return ensureCreatorForOwner({ userId });
 }
 
 export async function createAdminCreator(

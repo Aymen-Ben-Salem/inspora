@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getCreatorViews } from "@/analytics/creator-views";
 import { isClerkConfigured } from "@/auth/config";
 import { ProfilePage } from "@/components/profile/profile-page";
-import { ensureOwnedCreator } from "@/features/creators/repository";
+import { ensureCreatorForOwner } from "@/features/creators/identity";
 import { requestCreatorClaimFromVerifiedX } from "@/features/creators/claims";
 import {
   getPublishedCreatorWorkCounts,
@@ -40,7 +40,7 @@ export default async function OwnerProfilePage({
       console.error("Verified X profile synchronization failed", error);
     });
   }
-  const profile = await ensureOwnedCreator(userId);
+  const profile = await ensureCreatorForOwner({ userId });
   const rawSubmission = Array.isArray(params.submission) ? params.submission[0] : params.submission;
   const [initialPage, counts, activity, views] = await Promise.all([
     getPublishedCreatorWorkPage({

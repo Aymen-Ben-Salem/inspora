@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getDatabase } from "@/db/client";
-import { getPostCardsByIds } from "@/data/posts-repository";
+import { websiteFixture } from "@/data/public-work/testing/fixtures";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-vi.mock("@/db/client", () => ({ getDatabase: vi.fn(() => null) }));
+vi.mock("@/db/client", () => ({ getDatabase: vi.fn(() => null), requireDatabase: vi.fn(() => { const db = getDatabase(); if (!db) throw new Error("DATABASE_URL is not configured."); return db; }) }));
 vi.mock("@/db/schema", () => import("../../db/schema"));
 vi.mock("@/db/write-client", () => ({ withWriteTransaction: vi.fn() }));
 vi.mock("@/domain/post", () => import("../../domain/post"));
@@ -84,22 +84,23 @@ describe("Neon raw-query response", () => {
     expect(rows.map((row) => row.id)).toEqual([2, 3]);
   }, 30000);
 
-  it("does not map legacy screenshot-only websites in a creator's mixed feed", async () => {
+  it("fails instead of silently omitting selected incomplete creator work", async () => {
     const id = "33333333-3333-4333-8333-333333333333";
-    const legacy = { id, creator: { id: creatorId }, media: [{ role: "full_page" }], sections: [] };
+    const payload = { ...websiteFixture(), id, creatorId, sections: [] };
     vi.mocked(getDatabase).mockReturnValue({
-      execute: vi.fn().mockResolvedValue({ rows: [{ id, kind: "website", published_at: "2026-09-17T12:00:00Z" }] }),
-      query: { websites: { findMany: vi.fn().mockResolvedValue([legacy]) } },
-    } as unknown as NonNullable<ReturnType<typeof getDatabase>>);
-    vi.mocked(getPostCardsByIds).mockResolvedValue([]);
-    expect(await getPublishedCreatorWorkPage({ creatorId, filter: "all" })).toEqual({ items: [], nextCursor: null });
+      execute: vi.fn().mockResolvedValue({ rows: [{ id, kind: "website", filter: "websites", publishedAt: payload.publishedAt!.toISOString(), payload }] }),
+    } as never);
+    await expect(getPublishedCreatorWorkPage({ creatorId, filter: "all" })).rejects.toThrow(/incomplete/);
   });
-  it("reads published cards from the driver's rows envelope", async () => {
+  it("reads complete cards from the driver's single-statement rows envelope", async () => {
     const id = "22222222-2222-4222-8222-222222222222";
-    const card = { id, title: "Published work" };
-    vi.mocked(getDatabase).mockReturnValue({ execute: vi.fn().mockResolvedValue({ rows: [{ id, kind: "post", published_at: "2026-09-17T12:00:00Z", category: "Web" }] }) } as unknown as NonNullable<ReturnType<typeof getDatabase>>);
-    vi.mocked(getPostCardsByIds).mockResolvedValue([card] as Awaited<ReturnType<typeof getPostCardsByIds>>);
-    expect(await getPublishedCreatorWorkPage({ creatorId, filter: "all" })).toEqual({ items: [{ ...card, category: "Web" }], nextCursor: null });
+    const payload = { ...websiteFixture(), id, creatorId };
+    const execute = vi.fn().mockResolvedValue({ rows: [{ id, kind: "website", filter: "websites", publishedAt: payload.publishedAt!.toISOString(), payload }] });
+    vi.mocked(getDatabase).mockReturnValue({ execute } as never);
+    expect(await getPublishedCreatorWorkPage({ creatorId, filter: "all" })).toMatchObject({
+      items: [{ id, kind: "website", category: "Websites", website: { slug: "paper" } }], nextCursor: null,
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("reads published filter counts from the driver's rows envelope", async () => {
@@ -163,6 +164,6 @@ describe("creator work pagination", () => {
       { id: "00000000-0000-4000-8000-000000000004", kind: "logo", publishedAt },
     ]);
 
-    expect(items.map((item) => item.kind)).toEqual(["post", "website", "logo", "icon"]);
+    expect(items.map((item) => item.kind)).toEqual(["website", "post", "logo", "icon"]);
   });
 });

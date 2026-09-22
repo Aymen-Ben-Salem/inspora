@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("../../", import.meta.url)) } },
   test: {
     include: [
+      "src/features/profiles/repository.test.ts",
+      "src/analytics/creator-views.test.ts",
       "src/data/public-work/**/*.test.ts",
       "src/data/saved-posts-repository.test.ts",
       "src/app/api/saved-posts/feed/route.test.ts",

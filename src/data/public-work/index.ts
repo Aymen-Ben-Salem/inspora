@@ -18,6 +18,8 @@ import { mapPostCard } from "./design-presentation";
 import { mapPublishedLogo } from "./logo-presentation";
 import { completeWebsiteRecordingPredicate, hasCompleteRecording, mapPublishedWebsite } from "./website-presentation";
 
+import { creatorCountRequestSchema, creatorPageRequestSchema, creatorScopeSchema, readCreatorCounts, readCreatorPage, readCreatorIdentities, type CreatorWorkCountRequest, type CreatorWorkPageRequest } from "./creator";
+
 const websiteArchiveRequestSchema = z.strictObject({
   scope: z.strictObject({ kind: z.literal("website-archive") }),
   filters: z.strictObject({ view: z.enum(["latest", "featured"]).optional() }).optional(),
@@ -39,6 +41,7 @@ const logoArchiveRequestSchema = z.strictObject({
   cursor: z.null().optional(),
 });
 const requestSchema = z.union([
+  creatorPageRequestSchema,
   savedPageRequestSchema,
   websiteArchiveRequestSchema,
   designArchiveRequestSchema,
@@ -62,7 +65,7 @@ export type LogoArchiveRequest = {
   order: "created-desc";
   cursor?: string | null;
 };
-export type WorkPageRequest = WebsiteArchiveRequest | DesignArchiveRequest | LogoArchiveRequest | SavedWorkPageRequest;
+export type WorkPageRequest = WebsiteArchiveRequest | DesignArchiveRequest | LogoArchiveRequest | SavedWorkPageRequest | CreatorWorkPageRequest;
 export type WorkPage<Item = Website | PostCardData | Logo | WorkCardData> = {
   items: Item[];
   nextCursor: string | null;
@@ -72,9 +75,12 @@ export function readWorkPage(request: WebsiteArchiveRequest): Promise<WorkPage<W
 export function readWorkPage(request: DesignArchiveRequest): Promise<WorkPage<PostCardData>>;
 export function readWorkPage(request: LogoArchiveRequest): Promise<WorkPage<Logo>>;
 export function readWorkPage(request: SavedWorkPageRequest): Promise<WorkPage<WorkCardData>>;
+export function readWorkPage(request: CreatorWorkPageRequest): Promise<WorkPage<WorkCardData>>;
 export async function readWorkPage(request: WorkPageRequest): Promise<WorkPage> {
   const parsed = requestSchema.safeParse(request);
   if (!parsed.success) throw new Error("Unsupported public-work page request.");
+
+  if (parsed.data.scope.kind === "creator") return readCreatorPage(creatorPageRequestSchema.parse(parsed.data));
 
   if (parsed.data.scope.kind === "saved") return readSavedPage(savedPageRequestSchema.parse(parsed.data));
 
@@ -250,8 +256,21 @@ async function readDesignArchive(
   };
 }
 
-export async function readWorkCounts(request: SavedWorkCountRequest) {
+export function readWorkCounts(request: CreatorWorkCountRequest): ReturnType<typeof readCreatorCounts>;
+export function readWorkCounts(request: SavedWorkCountRequest): ReturnType<typeof readSavedCounts>;
+export async function readWorkCounts(request: SavedWorkCountRequest | CreatorWorkCountRequest) {
+  if (request.scope.kind === "creator") {
+    const parsed = creatorCountRequestSchema.safeParse(request);
+    if (!parsed.success) throw new Error("Unsupported public-work count request.");
+    return readCreatorCounts(parsed.data);
+  }
   const parsed = savedCountRequestSchema.safeParse(request);
   if (!parsed.success) throw new Error("Unsupported public-work count request.");
   return readSavedCounts(parsed.data);
+}
+
+export async function readWorkIdentities(request: { scope: z.infer<typeof creatorScopeSchema> }) {
+  const parsed = z.strictObject({ scope: creatorScopeSchema }).safeParse(request);
+  if (!parsed.success) throw new Error("Unsupported public-work identity request.");
+  return readCreatorIdentities(parsed.data.scope);
 }

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { POST_CATEGORIES } from "@/domain/post";
 import type { mapPublishedWebsite } from "../../websites-repository";
 
 export function websiteFixture(): Parameters<typeof mapPublishedWebsite>[0] {
@@ -109,4 +111,13 @@ export function websiteFixture(): Parameters<typeof mapPublishedWebsite>[0] {
       ],
     };
   return row;
+}
+
+export function mixedCreatorWorkFixtures(now: Date) {
+  return Array.from({ length: 56 }, (_, i) => ({
+    id: randomUUID(),
+    kind: i % 4 === 0 ? "incomplete" : i % 4 === 1 ? "post" : i % 4 === 2 ? "logo" : "website",
+    category: POST_CATEGORIES[Math.floor(i / 4) % POST_CATEGORIES.length],
+    publishedAt: new Date(now.getTime() - 1000 - Math.floor(i / 4) * 1000),
+  }));
 }

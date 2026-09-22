@@ -2,17 +2,13 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { readViewSnapshot, writeViewSnapshot } from "./view-snapshots";
-import { sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 
-import { getDatabase } from "@/db/client";
+import { readWorkIdentities } from "@/data/public-work";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
-import {
-  completeWebsiteRecordingPredicate,
-  PUBLISHED_WEBSITES_CACHE_TAG,
-} from "@/data/websites-repository";
+import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 
 import { ANALYTICS_EVENTS } from "./events";
@@ -74,31 +70,7 @@ function parseEligibleWorkRows(rows: unknown[]): EligibleWorkIds {
 }
 
 export async function getEligibleCreatorWorkIds(creatorId: string) {
-  const database = getDatabase();
-  if (!database) throw new Error("Creator views database is not configured.");
-  const now = new Date();
-  const result = await database.execute(sql`
-    select 'design' as kind, ${sql.raw('"posts"."id"')} as id
-    from ${sql.raw('"posts"')}
-    where ${sql.raw('"posts"."creator_id"')} = ${creatorId}::uuid
-      and ${sql.raw('"posts"."status"')} = 'published'
-      and ${sql.raw('"posts"."published_at"')} <= ${now}
-    union all
-    select 'logo' as kind, ${sql.raw('"logos"."id"')} as id
-    from ${sql.raw('"logos"')}
-    where ${sql.raw('"logos"."creator_id"')} = ${creatorId}::uuid
-      and ${sql.raw('"logos"."status"')} = 'published'
-      and ${sql.raw('"logos"."published_at"')} <= ${now}
-    union all
-    select 'website' as kind, ${sql.raw('"websites"."id"')} as id
-    from ${sql.raw('"websites"')}
-    where ${sql.raw('"websites"."creator_id"')} = ${creatorId}::uuid
-      and ${sql.raw('"websites"."status"')} = 'published'
-      and ${sql.raw('"websites"."published_at"')} <= ${now}
-      and (${completeWebsiteRecordingPredicate()})
-  `);
-
-  return parseEligibleWorkRows(result.rows);
+  return parseEligibleWorkRows(await readWorkIdentities({ scope: { kind: "creator", creatorId } }));
 }
 
 function configuredCutover() {

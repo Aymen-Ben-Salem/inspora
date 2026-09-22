@@ -40,3 +40,17 @@ node node_modules/vitest/vitest.mjs run --config src/data/public-work/vitest.con
 Fixtures use independent UUIDs, future publications evaluated through the internal test clock, and ID-bounded cleanup. Ordinary runtime cannot see those future publications. The public API exposes no database or clock substitution. Also run typecheck and ESLint on changed TypeScript files.
 
 Verified on 2026-09-22: 64 focused interface/adapter checks and seven real Preview PostgreSQL checks passed. TypeScript and changed-code ESLint are part of the final ticket check. The safeguarded Preview run cleaned up its isolated fixtures. Runtime cache invalidation remains unverified as described above.
+
+## Creator reads (ticket 04)
+
+`readWorkPage({ scope: { kind: "creator", creatorId }, filters: { filter: "all" }, order: "publication-desc", cursor })` returns 16 mixed cards and a nullable continuation. `readWorkCounts({ scope, filters })` returns total and filter breakdown; omit filters for independent tab totals. `readWorkIdentities({ scope })` returns fresh distinct design/logo/website IDs, with app icons in the logo family.
+
+The creator implementation shares its eligible population across all three operations. Attribution, publication at one captured time, website completeness, and supported filters precede limits or aggregation. Page candidates and all card relations are projected in one PostgreSQL statement. Counts and identities avoid card projection. A malformed selected card fails the page; it does not redefine the count or identity population.
+
+Version-1 creator cursors bind creator ID, filter, publication order, and exact PostgreSQL timestamp/kind/ID keys. Old unversioned creator cursors are rejected with the existing invalid-cursor response; reload without a cursor to restart. Ticket 04 explicitly specifies website, design, logo, app-icon rank at tied publication times; this corrects the prior implementation's design-before-website order.
+
+Creator page/count caches live here and register all three published-work tags plus public creator profiles, using the existing 300/21600/604800 lifetime. The profile adapters have no outer work cache. Analytics continues to own historical event interpretation, aggregation and snapshot fallback; both fingerprint checks call the uncached identity operation.
+
+Verified: 105 focused interface/profile/analytics tests; 17 isolated Preview PostgreSQL creator cases (including concurrent edit, microseconds, all filters, parity, and fixture transitions); two reused SQL completeness/publication parity cases; typecheck and changed-code ESLint. The two legacy-profile checks were not enabled. No identity mutation scenarios were run.
+
+Runtime cache invalidation verification is unavailable: no authenticated mutation was exercised against a running Preview Next.js app. Mocked dependency-tag checks and the existing admin work invalidations establish wiring only. No deployment or migration was performed.

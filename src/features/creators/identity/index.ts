@@ -13,7 +13,7 @@ import type { CreatorSummary, ResolvedCreatorProfile } from "../types";
 import { creatorUsernameCandidates } from "../validation";
 import { mapCreatorSummary, mapPublicCreatorProfile } from "./projections";
 
-// Compatibility exports preserve existing owner mutation contracts and policy.
+// Owner mutations share this trusted-principal identity boundary.
 export { ProfileMutationError, updateOwnedCreatorProfile, updateOwnedCreatorAvatar } from "./owned-profile";
 
 /** Established by a server authentication adapter, never by request body fields. */

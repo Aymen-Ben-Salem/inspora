@@ -46,3 +46,12 @@ it("preserves profile edit transport errors", async () => {
   expect(await response.json()).toEqual({ ok: false, field: "form", message: "Invalid profile request." });
   expect(adapters.update).not.toHaveBeenCalled();
 });
+
+it("preserves field errors and private headers from owner profile edits", async () => {
+  const failure = { ok: false, field: "username", message: "That username is unavailable." };
+  adapters.update.mockResolvedValue(failure);
+  const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: JSON.stringify({ username: "reserved" }) }));
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual(failure);
+  expect(response.headers.get("Cache-Control")).toContain("no-store");
+});

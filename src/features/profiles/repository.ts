@@ -15,9 +15,6 @@ import type {
 // Compatibility for public profile page callers; identity decisions live in creators.
 export {
   resolvePublicCreatorProfile,
-  ProfileMutationError,
-  updateOwnedCreatorProfile,
-  updateOwnedCreatorAvatar,
 } from "@/features/creators/identity";
 
 export const CREATOR_WORK_PAGE_SIZE = 16;

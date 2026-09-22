@@ -70,7 +70,11 @@ export function EditProfile({
     setSaving(true);
     setFieldError(undefined);
     try {
-      const result = await updateOwnProfile({ name, username, websiteUrl });
+      const result = await updateOwnProfile({
+        ...(name !== savedValues.name ? { name } : {}),
+        ...(username !== savedValues.username ? { username } : {}),
+        ...(websiteUrl !== savedValues.websiteUrl ? { websiteUrl } : {}),
+      });
       if (!result.ok) {
         setFieldError({ field: result.field, message: result.message });
         return;

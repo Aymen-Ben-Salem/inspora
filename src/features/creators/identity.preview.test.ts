@@ -22,6 +22,7 @@ vi.mock("@/db/write-client", async (importOriginal) => {
 
 import { creators, creatorUsernameAliases, profileAccounts } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
+import { getR2PublicUrl } from "@/storage/r2";
 import { revalidateTag } from "next/cache";
 import { ensureCreatorForOwner, getCreatorSummary, resolvePublicCreatorProfile, updateOwnedCreatorProfile, updateOwnedCreatorAvatar } from "./identity";
 
@@ -70,6 +71,113 @@ describe.skipIf(!enabled)("creator identity in isolated guarded nonproduction ro
     expect(revalidateTag).toHaveBeenCalledWith("public-creator-profiles", { expire: 0 });
   }, 60000);
 
+  it("reactivates an own former username and preserves exactly one current alias", async () => {
+    const principal = owner();
+    const profile = await ensureCreatorForOwner(principal);
+    const beta = "beta_" + suffix;
+    await updateOwnedCreatorProfile(principal, { username: beta });
+    await updateOwnedCreatorProfile(principal, { username: profile.username });
+    await updateOwnedCreatorProfile(principal, { username: profile.username });
+    expect(await resolvePublicCreatorProfile(beta)).toMatchObject({ canonicalUsername: profile.username, isAlias: true });
+    expect(await resolvePublicCreatorProfile(profile.username)).toMatchObject({ canonicalUsername: profile.username, isAlias: false });
+    await withWriteTransaction(async (tx) => {
+      const aliases = await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, profile.id));
+      expect(aliases).toHaveLength(2);
+      expect(aliases.filter((alias) => alias.isCurrent).map((alias) => alias.username)).toEqual([profile.username]);
+    });
+  }, 60000);
+
+  it("authorizes only the active owner and marks only explicitly supplied fields", async () => {
+    const principal = owner();
+    const profile = await ensureCreatorForOwner(principal);
+    const stranger = owner();
+    await withWriteTransaction(async (tx) => { await tx.insert(profileAccounts).values({ userId: stranger.userId }); });
+    await expect(updateOwnedCreatorProfile(stranger, { name: "Intruder" })).rejects.toMatchObject({ code: "missing_creator", field: "form" });
+    await expect(updateOwnedCreatorProfile({ userId: "" }, { name: "Intruder" })).rejects.toMatchObject({ code: "ownership_conflict" });
+    await expect(updateOwnedCreatorProfile(principal, { name: " " })).rejects.toMatchObject({ code: "invalid_input", field: "name" });
+    await expect(updateOwnedCreatorProfile(principal, { username: "admin" })).rejects.toMatchObject({ code: "invalid_input", field: "username" });
+    await expect(updateOwnedCreatorProfile(principal, { websiteUrl: "javascript:alert(1)" })).rejects.toMatchObject({ code: "invalid_input", field: "websiteUrl" });
+    expect(await getCreatorSummary(profile.id)).toEqual(profile);
+    await updateOwnedCreatorProfile(principal, { name: "  Owner name  " });
+    await withWriteTransaction(async (tx) => {
+      const [row] = await tx.select().from(creators).where(eq(creators.id, profile.id));
+      expect(row).toMatchObject({ name: "Owner name", editedFields: ["name"] });
+    });
+    await updateOwnedCreatorProfile(principal, { websiteUrl: "https://example.com/page#section" });
+    expect((await getCreatorSummary(profile.id))?.websiteUrl).toBe("https://example.com/page");
+    await updateOwnedCreatorProfile(principal, { websiteUrl: null });
+    await withWriteTransaction(async (tx) => {
+      const [row] = await tx.select().from(creators).where(eq(creators.id, profile.id));
+      expect(row).toMatchObject({ url: null, editedFields: ["name", "websiteUrl"] });
+      await tx.update(profileAccounts).set({ status: "deleting" }).where(eq(profileAccounts.userId, principal.userId));
+    });
+    await expect(updateOwnedCreatorProfile(principal, { name: "Inactive" })).rejects.toMatchObject({ code: "inactive_account" });
+    const key = `creators/${randomUUID()}.webp`;
+    await expect(updateOwnedCreatorAvatar(principal, { url: getR2PublicUrl(key), storageKey: key })).rejects.toMatchObject({ code: "inactive_account" });
+  }, 60000);
+
+  it("keeps avatar metadata together and returns only displaced managed assets", async () => {
+    const principal = owner();
+    const profile = await ensureCreatorForOwner(principal);
+    const key = `creators/${randomUUID()}.webp`;
+    const avatar = { url: getR2PublicUrl(key), storageKey: key };
+    await expect(updateOwnedCreatorAvatar(principal, { ...avatar, url: "https://untrusted.example/avatar.webp" })).rejects.toMatchObject({ code: "invalid_input" });
+    await expect(updateOwnedCreatorAvatar(principal, { ...avatar, storageKey: "logos/invalid.webp" })).rejects.toMatchObject({ code: "invalid_input" });
+    expect((await updateOwnedCreatorAvatar(principal, avatar)).displacedAvatarAssets).toEqual([]);
+    expect((await updateOwnedCreatorAvatar(principal, avatar)).displacedAvatarAssets).toEqual([]);
+    await withWriteTransaction(async (tx) => {
+      const [row] = await tx.select().from(creators).where(eq(creators.id, profile.id));
+      expect(row).toMatchObject({ avatarUrl: avatar.url, avatarStorageProvider: "r2", avatarStorageKey: key, editedFields: ["avatarUrl"] });
+    });
+    const nextKey = `creators/${randomUUID()}.webp`;
+    const nextAvatar = { url: getR2PublicUrl(nextKey), storageKey: nextKey };
+    external.rollbackNext = true;
+    await expect(updateOwnedCreatorAvatar(principal, nextAvatar)).rejects.toMatchObject({ code: "database_unavailable" });
+    expect((await getCreatorSummary(profile.id))?.avatarUrl).toBe(avatar.url);
+    const result = await updateOwnedCreatorAvatar(principal, nextAvatar);
+    expect(result.displacedAvatarAssets).toEqual([{ storageProvider: "r2", storageKey: key, type: "image" }]);
+    expect((await resolvePublicCreatorProfile(profile.username))?.profile.avatarUrl).toBe(nextAvatar.url);
+  }, 60000);
+
+  it("rolls back profile fields, markers and aliases on competing reservations and failed commits", async () => {
+    const principals = [owner(), owner()];
+    const profiles = await Promise.all(principals.map(ensureCreatorForOwner));
+    const username = "edit_race_" + suffix;
+    const results = await Promise.allSettled(principals.map((principal) => updateOwnedCreatorProfile(principal, { name: "Winner", username, websiteUrl: "https://winner.example" })));
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const loser = results.findIndex((result) => result.status === "rejected");
+    expect(results[loser]).toMatchObject({ reason: { code: "unavailable_username", field: "username" } });
+    expect(await getCreatorSummary(profiles[loser]!.id)).toEqual(profiles[loser]);
+    await withWriteTransaction(async (tx) => {
+      const [row] = await tx.select().from(creators).where(eq(creators.id, profiles[loser]!.id));
+      expect(row?.editedFields).toEqual([]);
+      const aliases = await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, profiles[loser]!.id));
+      expect(aliases).toHaveLength(1);
+      expect(aliases[0]).toMatchObject({ username: profiles[loser]!.username, isCurrent: true });
+    });
+    const winner = loser === 0 ? 1 : 0;
+    await expect(updateOwnedCreatorProfile(principals[loser]!, { username: profiles[winner]!.username })).rejects.toMatchObject({ code: "unavailable_username" });
+    // A legacy current username without an alias still hits the database's final guard.
+    const legacyId = randomUUID();
+    fixtureCreatorIds.push(legacyId);
+    const legacyUsername = "legacy_collision_" + suffix;
+    await withWriteTransaction(async (tx) => {
+      await tx.insert(creators).values({ id: legacyId, name: "Legacy", username: legacyUsername, avatarUrl: "/avatar.svg", recordOrigin: "preview" });
+    });
+    await expect(updateOwnedCreatorProfile(principals[loser]!, { name: "Must roll back", username: legacyUsername })).rejects.toMatchObject({ code: "unavailable_username" });
+    external.rollbackNext = true;
+    await expect(updateOwnedCreatorProfile(principals[loser]!, { name: "Must roll back", username: "rollback_edit_" + suffix })).rejects.toMatchObject({ code: "database_unavailable" });
+    expect(await resolvePublicCreatorProfile("rollback_edit_" + suffix)).toBeNull();
+    expect(await getCreatorSummary(profiles[loser]!.id)).toEqual(profiles[loser]);
+    await withWriteTransaction(async (tx) => {
+      const [row] = await tx.select().from(creators).where(eq(creators.id, profiles[loser]!.id));
+      expect(row?.editedFields).toEqual([]);
+      const aliases = await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, profiles[loser]!.id));
+      expect(aliases).toHaveLength(1);
+      expect(aliases[0]?.isCurrent).toBe(true);
+    });
+  }, 60000);
+
   it("allocates distinct candidates when different owners race for the same username", async () => {
     external.getUser.mockResolvedValue({ fullName: "Collision fixture", username: "race_" + suffix, imageUrl: "" });
     const profiles = await Promise.all(Array.from({ length: 4 }, () => ensureCreatorForOwner(owner())));
@@ -104,11 +212,12 @@ describe.skipIf(!enabled)("creator identity in isolated guarded nonproduction ro
     expect((await resolvePublicCreatorProfile(base))?.profile.id).toBe(reservedId);
     expect(await resolvePublicCreatorProfile(base + "_2")).toBeNull();
     expect((await resolvePublicCreatorProfile(profile.username))?.profile.id).toBe(profile.id);
-    const edited = await updateOwnedCreatorProfile(legacyPrincipal.userId, { name: "Updated legacy fixture" });
+    const edited = await updateOwnedCreatorProfile(legacyPrincipal, { name: "Updated legacy fixture" });
     expect(edited.name).toBe("Updated legacy fixture");
-    const avatar = await updateOwnedCreatorAvatar(legacyPrincipal.userId, { url: "/updated-avatar.svg", storageKey: "identity-test-avatar-" + suffix });
-    expect(avatar.profile.avatarUrl).toBe("/updated-avatar.svg");
-    expect(avatar.previousAsset).toBeNull();
+    const storageKey = `creators/${randomUUID()}.webp`;
+    const avatar = await updateOwnedCreatorAvatar(legacyPrincipal, { url: getR2PublicUrl(storageKey), storageKey });
+    expect(avatar.profile.avatarUrl).toBe(getR2PublicUrl(storageKey));
+    expect(avatar.displacedAvatarAssets).toEqual([]);
     expect(await getCreatorSummary(legacyId)).toEqual(avatar.profile);
     expect(await resolvePublicCreatorProfile(base + "_2")).toBeNull();
   }, 60000);

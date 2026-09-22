@@ -7,11 +7,7 @@ import { z } from "zod";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
-import { ensureCreatorForOwner } from "@/features/creators/identity";
-import {
-  normalizeCreatorUsername,
-  validateCreatorUsername,
-} from "@/features/creators/validation";
+import { ensureCreatorForOwner, ProfileMutationError, updateOwnedCreatorAvatar, updateOwnedCreatorProfile } from "@/features/creators/identity";
 import {
   getMediaUploadLimit,
   MAX_IMAGE_UPLOAD_BYTES,
@@ -27,23 +23,13 @@ import {
 } from "@/storage/r2";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
-import {
-  ProfileMutationError,
-  PUBLIC_CREATOR_PROFILES_CACHE_TAG,
-  updateOwnedCreatorAvatar,
-  updateOwnedCreatorProfile,
-} from "./repository";
+import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "./cache";
+import { profileEditSchema } from "./validation";
 import type { ProfileEditInput, ProfileEditResult } from "./types";
 import { requestAccountDeletion } from "./account-lifecycle";
 import { profileAccounts } from "@/db/schema";
 import { requireDatabase } from "@/db/client";
 import { eq } from "drizzle-orm";
-
-const profileEditSchema = z.object({
-  name: z.string().trim().min(1, "Enter your name.").max(80, "Keep your name under 80 characters.").optional(),
-  username: z.string().trim().optional(),
-  websiteUrl: z.string().trim().nullable().optional(),
-});
 
 const avatarRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
@@ -55,25 +41,6 @@ const avatarRequestSchema = z.object({
 const avatarCompletionSchema = avatarRequestSchema.extend({
   storageKey: z.string().trim().min(1).max(1024),
 });
-
-function normalizeWebsiteUrl(value: string | null | undefined) {
-  if (value === undefined) return undefined;
-  if (value === null || value === "") return null;
-  try {
-    const url = new URL(value);
-    if (
-      (url.protocol !== "http:" && url.protocol !== "https:") ||
-      url.username ||
-      url.password
-    ) {
-      return null;
-    }
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
 
 function refreshProfileCaches() {
   revalidateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG, { expire: 0 });
@@ -105,30 +72,8 @@ export async function updateOwnProfile(
       message: issue?.message ?? "Check your profile details.",
     };
   }
-  const normalized: ProfileEditInput = { ...parsed.data };
-  if (parsed.data.username !== undefined) {
-    const username = normalizeCreatorUsername(parsed.data.username);
-    const validation = validateCreatorUsername(username);
-    if (!validation.ok) return { ok: false, field: "username", message: validation.message };
-    normalized.username = username;
-  }
-  if (parsed.data.websiteUrl !== undefined) {
-    const websiteUrl = normalizeWebsiteUrl(parsed.data.websiteUrl);
-    if (parsed.data.websiteUrl && !websiteUrl) {
-      return {
-        ok: false,
-        field: "websiteUrl",
-        message: "Enter a valid http or https website URL.",
-      };
-    }
-    normalized.websiteUrl = websiteUrl;
-  }
-
   try {
-    await ensureCreatorForOwner({ userId });
-    await updateOwnedCreatorProfile(userId, normalized);
-    refreshProfileCaches();
-    return { ok: true };
+    await updateOwnedCreatorProfile({ userId }, parsed.data);
   } catch (error) {
     if (error instanceof ProfileMutationError) {
       return { ok: false, field: error.field, message: error.message };
@@ -136,6 +81,8 @@ export async function updateOwnProfile(
     console.error("Profile update failed", error);
     return { ok: false, field: "form", message: "Your profile could not be saved. Try again." };
   }
+  refreshProfileCaches();
+  return { ok: true };
 }
 
 export async function createOwnAvatarUploadSignature(
@@ -173,6 +120,7 @@ export async function completeOwnAvatarUpload(input: unknown) {
   if (!parsed.success || !isStorageKeyForKind(parsed.data.storageKey, "creator-avatar")) {
     return { ok: false as const, message: "The uploaded photo details are invalid." };
   }
+  let updated: Awaited<ReturnType<typeof updateOwnedCreatorAvatar>>;
   try {
     await verifyR2Upload({
       kind: "creator-avatar",
@@ -180,19 +128,18 @@ export async function completeOwnAvatarUpload(input: unknown) {
       contentType: parsed.data.contentType,
       size: parsed.data.size,
     });
-    const updated = await updateOwnedCreatorAvatar(userId, {
+    updated = await updateOwnedCreatorAvatar({ userId }, {
       storageKey: parsed.data.storageKey,
       url: getR2PublicUrl(parsed.data.storageKey),
     });
-    if (updated.previousAsset) {
-      await deleteManagedMediaAssetsSafely([updated.previousAsset]);
-    }
-    refreshProfileCaches();
-    return { ok: true as const, avatarUrl: updated.profile.avatarUrl };
   } catch (error) {
+    if (error instanceof ProfileMutationError) return { ok: false as const, message: error.message };
     console.error("Profile photo update failed", error);
     return { ok: false as const, message: "The photo could not be saved. Try again." };
   }
+  await deleteManagedMediaAssetsSafely(updated.displacedAvatarAssets);
+  refreshProfileCaches();
+  return { ok: true as const, avatarUrl: updated.profile.avatarUrl };
 }
 
 export async function discardOwnAvatarUpload(storageKey: string) {

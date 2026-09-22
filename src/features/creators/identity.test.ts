@@ -65,3 +65,9 @@ it("keeps owner mutation returns distinct from alias-backed public profiles", ()
   expectTypeOf<Awaited<ReturnType<typeof updateOwnedCreatorAvatar>>["profile"]>().toEqualTypeOf<CreatorSummary>();
   expectTypeOf<CreatorSummary>().not.toExtend<PublicCreatorProfile>();
 });
+
+it("distinguishes unavailable owner writes from unavailable public reads", async () => {
+  await expect(updateOwnedCreatorProfile({ userId: "owner" }, { name: "Ada" })).rejects.toMatchObject({ code: "database_unavailable", field: "form" });
+  expect(await resolvePublicCreatorProfile("ada")).toBeNull();
+  expect(after).not.toHaveBeenCalled();
+});

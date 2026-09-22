@@ -4,6 +4,9 @@ import { getDatabase } from "@/db/client";
 import { getPublishedWebsites } from "../websites-repository";
 import { incompletePresentations } from "./testing/completeness";
 import { websiteFixture } from "./testing/fixtures";
+import { encodePostCursor } from "../post-pagination";
+import { GET } from "@/app/api/posts/route";
+import { getPostCardsByIds } from "../posts-repository";
 import { readWorkPage } from "./index";
 
 vi.mock("server-only", () => ({}));
@@ -105,7 +108,7 @@ it.each([false, 0, "", {}])("does not impose preview shape validation: %j", asyn
 it("pages design cards with a versioned cursor bound to scope, filter, and order", async () => {
   const createdAt = new Date("2026-08-31T00:00:00.000Z");
   const designRows = Array.from({ length: 17 }, (_, index) => ({
-    id: String(17 - index).padStart(2, "0"),
+    id: `00000000-0000-0000-0000-${String(17 - index).padStart(12, "0")}`,
     slug: `design-${index}`,
     title: `Design ${index}`,
     status: "published",
@@ -143,8 +146,11 @@ it("pages design cards with a versioned cursor bound to scope, filter, and order
   const first = await readWorkPage(designRequest);
 
   expect(first.items).toHaveLength(16);
-  expect(first.items[0]).toMatchObject({ id: "17", mediaCount: 1 });
+  expect(first.items[0]).toMatchObject({ id: designRows[0].id, mediaCount: 1 });
   expect(first.nextCursor).toEqual(expect.any(String));
+
+  postFindMany.mockResolvedValueOnce(designRows.slice(0, 16));
+  expect(await getPostCardsByIds(first.items.map(item => item.id))).toEqual(first.items);
 
   postFindMany.mockClear();
   await expect(readWorkPage({
@@ -311,4 +317,31 @@ it("recovers from a rejected legacy cursor on a normal cursor-free load", async 
     scope: { kind: "design-archive" },
     order: "created-desc",
   })).resolves.toEqual({ items: [], nextCursor: null });
+});
+
+it.each(["not-a-uuid", "x", "00000000-0000-0000-0000-00000000000z"])("rejects malformed persisted ID %s before selection and preserves HTTP 400", async id => {
+  const cursor = encodeTestCursorPayload({
+    v: 1, scope: { kind: "design-archive" },
+    filters: { category: null, view: "latest" }, order: "created-desc",
+    keys: { createdAt: "2026-08-01T00:00:00.000Z", id },
+  });
+  await expect(readWorkPage({ scope: { kind: "design-archive" }, order: "created-desc", cursor }))
+    .rejects.toThrow("Invalid public-work cursor");
+  const response = await GET(new Request(`http://localhost/api/posts?cursor=${cursor}`));
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ message: "Invalid pagination cursor." });
+  expect(postFindMany).not.toHaveBeenCalled();
+});
+
+it("keeps development-seed continuation working through the HTTP route", async () => {
+  vi.mocked(getDatabase).mockReturnValue(null);
+  const first = await GET(new Request("http://localhost/api/posts"));
+  const page = await first.json();
+  const cursor = encodePostCursor({ id: page.items[0].id, createdAt: page.items[0].createdAt });
+  const second = await GET(new Request(`http://localhost/api/posts?cursor=${cursor}`));
+  expect(second.status).toBe(200);
+  const next = await second.json();
+  expect(next.items.length).toBeGreaterThan(0);
+  expect(next.items).toEqual(page.items.slice(1));
+  expect(postFindMany).not.toHaveBeenCalled();
 });

@@ -6,15 +6,15 @@ import { z } from "zod";
 import { requireDatabase } from "@/db/client";
 import { logoMedia, logos, postMedia, posts, websiteMedia, websites, websiteSections } from "@/db/schema";
 import type { Logo } from "@/domain/logo";
-import { POST_CATEGORIES, type MediaType, type PostCardData, type PostCategory, type PostView } from "@/domain/post";
+import { POST_CATEGORIES, type PostCardData, type PostCategory, type PostView } from "@/domain/post";
 import type { Website } from "@/domain/website";
 import type { WorkCardData } from "@/domain/work-card";
 import { readSavedCounts, readSavedPage, savedCountRequestSchema, savedPageRequestSchema, type SavedWorkCountRequest, type SavedWorkPageRequest } from "./saved";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
-import { isMediaStorageProvider } from "@/storage/types";
 import { PUBLIC_WORK_CACHE_LIFE, PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_POSTS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG } from "./cache";
 import { evaluationTime } from "./clock";
-import { decodeDesignArchiveCursor, encodeDesignArchiveCursor, type DesignArchiveCursorKeys } from "./cursor";
+import { decodePersistedDesignArchiveCursor, encodeDesignArchiveCursor, InvalidPublicWorkCursorError, type DesignArchiveCursorKeys } from "./cursor";
+import { mapPostCard } from "./design-presentation";
 import { mapPublishedLogo } from "./logo-presentation";
 import { completeWebsiteRecordingPredicate, hasCompleteRecording, mapPublishedWebsite } from "./website-presentation";
 
@@ -90,9 +90,9 @@ export async function readWorkPage(request: WorkPageRequest): Promise<WorkPage> 
     view: designRequest.filters?.view ?? "latest",
   };
   const cursor = designRequest.cursor
-    ? decodeDesignArchiveCursor(designRequest.cursor, binding)
+    ? decodePersistedDesignArchiveCursor(designRequest.cursor, binding)
     : null;
-  if (designRequest.cursor && !cursor) throw new Error("Invalid public-work cursor.");
+  if (designRequest.cursor && !cursor) throw new InvalidPublicWorkCursorError();
   return readDesignArchive(binding.category, binding.view, cursor);
 }
 
@@ -234,35 +234,7 @@ async function readDesignArchive(
     if (row.status !== "published" || !row.publishedAt || row.publishedAt > now) {
       throw new Error(`Public design ${row.id} has inconsistent publication data.`);
     }
-    return {
-      id: row.id,
-      slug: row.slug,
-      title: row.title,
-      creator: {
-        name: row.creator.name,
-        username: row.creator.username ?? undefined,
-        avatarUrl: row.creator.avatarUrl,
-        avatarStorageProvider: isMediaStorageProvider(row.creator.avatarStorageProvider)
-          ? row.creator.avatarStorageProvider
-          : undefined,
-      },
-      createdAt: row.createdAt.toISOString(),
-      media: row.media.map((media) => ({
-        id: media.id,
-        type: media.type as MediaType,
-        url: media.url,
-        posterUrl: media.posterUrl ?? undefined,
-        storageProvider: isMediaStorageProvider(media.storageProvider)
-          ? media.storageProvider
-          : undefined,
-        variants: media.variants,
-        videoPreview: media.videoPreview ?? undefined,
-        alt: media.alt,
-        width: media.width,
-        height: media.height,
-      })),
-      mediaCount: row.mediaCount,
-    };
+    return mapPostCard(row);
   });
   const finalItem = items.at(-1);
 

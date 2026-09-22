@@ -17,6 +17,8 @@ import { MEDIA_STORAGE_PROVIDERS } from "../storage/types";
 
 import { paginatePostArray, type PostPage } from "./post-pagination";
 import { PUBLISHED_POSTS_CACHE_TAG } from "./public-work/cache";
+import { mapPostCard } from "./public-work/design-presentation";
+import { InvalidPublicWorkCursorError } from "./public-work/cursor";
 import { readWorkPage } from "./public-work";
 import { seedPosts } from "./seed-posts";
 
@@ -56,23 +58,6 @@ type PublicMediaRow = Pick<
   | "height"
   | "position"
 >;
-type PostCardCreatorRow = Pick<
-  CreatorRow,
-  "name" | "username" | "avatarUrl" | "avatarStorageProvider"
->;
-type PostCardMediaRow = Pick<
-  MediaRow,
-  | "id"
-  | "type"
-  | "url"
-  | "posterUrl"
-  | "storageProvider"
-  | "variants"
-  | "videoPreview"
-  | "alt"
-  | "width"
-  | "height"
->;
 type PostRecord = Pick<
   PostRow,
   | "id"
@@ -88,11 +73,6 @@ type PostRecord = Pick<
   | "publishedAt"
   | "isFeatured"
 > & { creator: PublicCreatorRow; media: PublicMediaRow[] };
-type PostCardRecord = Pick<PostRow, "id" | "slug" | "title" | "createdAt"> & {
-  creator: PostCardCreatorRow;
-  media: PostCardMediaRow[];
-  mediaCount: number;
-};
 type AdjacentPost = Pick<Post, "slug" | "title">;
 type PostPosition = Pick<Post, "id" | "createdAt" | "slug" | "title">;
 
@@ -227,46 +207,6 @@ function mapPost(row: PostRecord): Post {
   };
 }
 
-function mapPostCard(row: PostCardRecord): PostCardData {
-  return {
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    creator: {
-      name: row.creator.name,
-      username: row.creator.username ?? undefined,
-      avatarUrl: row.creator.avatarUrl,
-      avatarStorageProvider: MEDIA_STORAGE_PROVIDERS.some(
-        (provider) => provider === row.creator.avatarStorageProvider,
-      )
-        ? (row.creator.avatarStorageProvider as NonNullable<
-            PostCardData["creator"]["avatarStorageProvider"]
-          >)
-        : undefined,
-    },
-    createdAt: row.createdAt.toISOString(),
-    media: row.media.map((media) => ({
-      id: media.id,
-      type: media.type as MediaType,
-      url: media.url,
-      posterUrl: media.posterUrl ?? undefined,
-      storageProvider: MEDIA_STORAGE_PROVIDERS.some(
-        (provider) => provider === media.storageProvider,
-      )
-        ? (media.storageProvider as NonNullable<
-            PostCardData["media"][number]["storageProvider"]
-          >)
-        : undefined,
-      variants: media.variants,
-      videoPreview: media.videoPreview ?? undefined,
-      alt: media.alt,
-      width: media.width,
-      height: media.height,
-    })),
-    mediaCount: row.mediaCount,
-  };
-}
-
 export async function getPostCardsByIds(ids: string[]): Promise<PostCardData[]> {
   const uniqueIds = Array.from(new Set(ids));
   if (uniqueIds.length === 0) return [];
@@ -366,6 +306,7 @@ export async function getPostPage({
       cursor,
     });
   } catch (cause) {
+    if (cause instanceof InvalidPublicWorkCursorError) throw cause;
     throw new Error("Could not load posts.", { cause });
   }
 }

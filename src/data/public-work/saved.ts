@@ -89,6 +89,7 @@ export async function readSavedPage(request: SavedWorkPageRequest) {
       return { id: logo.id, kind: "logo", category: "Logos", logo };
     }
     if (!row.post) throw new Error(`Saved design ${row.postId} has missing presentation.`);
+    if (!row.post.media[0]) throw new Error(`Saved design ${row.postId} has missing cover media.`);
     return {
       ...mapPostCard({ ...row.post, mediaCount: row.post.media.length, media: row.post.media.slice(0, 1) }),
       category: row.post.category as SavedCategory,

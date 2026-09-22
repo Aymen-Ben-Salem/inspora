@@ -116,3 +116,31 @@ it.each(["missing media", "malformed media", "invalid kind"])("fails a saved log
   findMany.mockResolvedValue([{ id: "save", logoId: logo.id, logo, websiteId: null, postId: null }]);
   await expect(readWorkPage(request)).rejects.toThrow();
 });
+
+it("fails the whole saved page for a missing design cover and recovers after repair", async () => {
+  const good = {
+    id: "saved-website", websiteId: "website", website: websiteFixture(),
+    postId: null, logoId: null,
+  };
+  const post = {
+    id: "design", slug: "design", title: "Design", category: "Web",
+    status: "published", publishedAt: new Date("2026-08-31T00:00:00Z"),
+    createdAt: new Date("2026-08-31T00:00:00Z"),
+    creator: websiteFixture().creator, media: [],
+  };
+  const savedDesign = { id: "saved-design", postId: post.id, post, logoId: null, websiteId: null };
+  findMany.mockResolvedValue([good, savedDesign]);
+  await expect(readWorkPage(request)).rejects.toThrow(/design.*cover/i);
+
+  selection.groupBy.mockResolvedValue([{ category: "Web", count: 1 }, { category: "Websites", count: 1 }]);
+  expect(await readWorkCounts({ scope: request.scope })).toEqual({
+    total: 2, categories: { Web: 1, Websites: 1 },
+  });
+
+  const cover = { id: "cover", type: "image", url: "/cover.webp", width: 100, height: 100, alt: "Cover" };
+  findMany.mockResolvedValue([good, { ...savedDesign, post: { ...post, media: [cover] } }]);
+  const page = await readWorkPage(request);
+  expect(page.items.map(item => item.id)).toEqual([good.website.id, post.id]);
+  expect(page.items[1]).toMatchObject({ media: [cover], mediaCount: 1 });
+  expect(page.nextCursor).toBeNull();
+});

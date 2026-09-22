@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { decodePostCursor } from "@/data/post-pagination";
+import { InvalidPublicWorkCursorError } from "@/data/public-work/cursor";
 import { getPostPage } from "@/data/posts-repository";
 import { isPostCategory, isPostView } from "@/domain/post";
 
@@ -39,6 +40,9 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": PAGE_CACHE_CONTROL },
     });
   } catch (error) {
+    if (error instanceof InvalidPublicWorkCursorError) {
+      return NextResponse.json({ message: "Invalid pagination cursor." }, { status: 400 });
+    }
     console.error("Post pagination failed", error);
     return NextResponse.json(
       { message: "Could not load more posts." },

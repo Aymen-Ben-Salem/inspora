@@ -64,3 +64,21 @@ export function decodeDesignArchiveCursor(
     return null;
   }
 }
+
+export class InvalidPublicWorkCursorError extends Error {
+  constructor() {
+    super("Invalid public-work cursor.");
+    this.name = "InvalidPublicWorkCursorError";
+  }
+}
+
+// Persisted design IDs are UUIDs; the development array paginator uses string IDs.
+export function decodePersistedDesignArchiveCursor(
+  value: string,
+  binding: DesignArchiveCursorBinding,
+): DesignArchiveCursorKeys | null {
+  const keys = decodeDesignArchiveCursor(value, binding);
+  return keys && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keys.id)
+    ? keys
+    : null;
+}

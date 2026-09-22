@@ -1,8 +1,9 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
+  CopyObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -207,4 +208,64 @@ export async function deleteR2MediaAssets(assets: ManagedMediaAsset[]) {
       ...(asset.posterStorageKey ? [asset.posterStorageKey] : []),
     ]);
   await deleteR2StorageKeys(keys);
+}
+
+// Owner uploads are staged separately: public avatar keys are never accepted
+// as upload inputs, and a still-valid PUT URL cannot overwrite a saved avatar.
+function avatarUploadPrefix(userId: string) {
+  return `creators/uploads/${createHash("sha256").update(userId).digest("hex")}/`;
+}
+
+export function isOwnedAvatarUpload(userId: string, storageKey: string) {
+  if (!userId || typeof storageKey !== "string") return false;
+  const prefix = avatarUploadPrefix(userId);
+  return storageKey.startsWith(prefix) &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/.test(storageKey.slice(prefix.length));
+}
+
+export async function createOwnedAvatarUpload(userId: string, size: number) {
+  if (!userId) throw new Error("An authenticated owner is required.");
+  const configuration = requireConfiguration();
+  const storageKey = `${avatarUploadPrefix(userId)}${randomUUID()}.webp`;
+  const uploadUrl = await getSignedUrl(createClient(configuration), new PutObjectCommand({
+    Bucket: configuration.bucket,
+    Key: storageKey,
+    ContentType: "image/webp",
+    ContentLength: size,
+    CacheControl: "private, no-store",
+  }), { expiresIn: UPLOAD_EXPIRES_SECONDS });
+  return {
+    provider: "r2" as const,
+    uploadUrl,
+    method: "PUT" as const,
+    headers: { "Content-Type": "image/webp", "Cache-Control": "private, no-store" },
+    storageKey,
+  };
+}
+
+export async function freezeOwnedAvatarUpload(userId: string, input: { storageKey: string; size: number }) {
+  if (!isOwnedAvatarUpload(userId, input.storageKey)) throw new Error("The uploaded photo does not belong to you.");
+  const configuration = requireConfiguration();
+  const client = createClient(configuration);
+  const staged = await client.send(new HeadObjectCommand({ Bucket: configuration.bucket, Key: input.storageKey }));
+  if (staged.ContentType?.split(";", 1)[0]?.toLowerCase() !== "image/webp" || staged.ContentLength !== input.size || !staged.ETag) {
+    // Verification is read-only. Only the explicit owned staging discard path deletes uploads.
+    throw new Error("The uploaded object did not match the signed file.");
+  }
+  const storageKey = `creators/${randomUUID()}.webp`;
+  await client.send(new CopyObjectCommand({
+    Bucket: configuration.bucket,
+    Key: storageKey,
+    CopySource: `${configuration.bucket}/${encodeStorageKey(input.storageKey)}`,
+    CopySourceIfMatch: staged.ETag,
+    MetadataDirective: "REPLACE",
+    ContentType: "image/webp",
+    CacheControl: CACHE_CONTROL,
+  }));
+  return { storageKey, url: getR2PublicUrl(storageKey) };
+}
+
+export async function discardOwnedAvatarUpload(userId: string, storageKey: string) {
+  if (!isOwnedAvatarUpload(userId, storageKey)) return;
+  await deleteR2StorageKeys([storageKey]);
 }

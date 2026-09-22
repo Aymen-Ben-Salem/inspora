@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), ensure: vi.fn(), update: vi.fn(), avatar: vi.fn(), verify: vi.fn(), deleteAssets: vi.fn(), revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), ensure: vi.fn(), update: vi.fn(), avatar: vi.fn(), verify: vi.fn(), sign: vi.fn(), deleteKeys: vi.fn(), deleteAssets: vi.fn(), revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth, reverificationError: vi.fn() }));
 vi.mock("next/cache", () => ({
@@ -17,20 +18,27 @@ vi.mock("@/data/posts-repository", () => ({ PUBLISHED_POSTS_CACHE_TAG: "posts" }
 vi.mock("@/data/logos-repository", () => ({ PUBLISHED_LOGOS_CACHE_TAG: "logos" }));
 vi.mock("@/data/websites-repository", () => ({ PUBLISHED_WEBSITES_CACHE_TAG: "websites" }));
 vi.mock("@/features/admin/media-upload", () => ({ MAX_IMAGE_UPLOAD_BYTES: 10000000, getMediaUploadLimit: vi.fn() }));
-vi.mock("@/storage/r2", () => ({
+vi.mock("@/storage/r2", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/storage/r2")>(),
+  freezeOwnedAvatarUpload: mocks.verify,
+  createOwnedAvatarUpload: mocks.sign,
+  discardOwnedAvatarUpload: mocks.deleteKeys,
   verifyR2Upload: mocks.verify,
   isStorageKeyForKind: (key: string) => key.startsWith("creators/"),
   getR2PublicUrl: (key: string) => "https://media.example/" + key,
   deleteR2MediaAssets: mocks.deleteAssets,
+  deleteR2StorageKeys: mocks.deleteKeys,
 }));
 vi.mock("./account-lifecycle", () => ({}));
 
-import { updateOwnProfile, completeOwnAvatarUpload } from "./actions";
+import { updateOwnProfile, completeOwnAvatarUpload, discardOwnAvatarUpload, createOwnAvatarUploadSignature } from "./actions";
 import { ProfileMutationError } from "@/features/creators/identity";
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.auth.mockResolvedValue({ userId: "trusted-owner" });
+  mocks.verify.mockResolvedValue({ storageKey: "creators/new.webp", url: "https://media.example/creators/new.webp" });
+  mocks.deleteKeys.mockResolvedValue(undefined);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
@@ -45,12 +53,12 @@ it("allows the profile API to refresh caches after committed profile entry and e
 
 it("does not edit or invalidate caches after an identity failure", async () => {
   mocks.update.mockRejectedValue(new Error("database connection failed"));
-  expect(await updateOwnProfile({ name: "Ada" })).toEqual({ ok: false, field: "form", message: "Your profile could not be saved. Try again." });
+  expect(await updateOwnProfile({ name: "Ada" })).toEqual({ ok: false, code: "unavailable", field: "form", message: "Your profile could not be saved. Try again." });
   expect(mocks.revalidateTag).not.toHaveBeenCalled();
   expect(mocks.revalidatePath).not.toHaveBeenCalled();
 });
 
-const avatarInput = { fileName: "avatar.png", sourceContentType: "image/png", contentType: "image/webp", size: 1234, storageKey: "creators/new.webp" };
+const avatarInput = { fileName: "avatar.png", sourceContentType: "image/png", contentType: "image/webp", size: 1234, storageKey: "creators/uploads/" + createHash("sha256").update("trusted-owner").digest("hex") + "/11111111-1111-4111-8111-111111111111.webp" };
 
 it.each([
   ["name", "Enter your name.", "invalid_input"],
@@ -61,7 +69,7 @@ it.each([
   ["form", "The database is unavailable. Try again.", "database_unavailable"],
 ] as const)("preserves %s errors for %s", async (field, message, code) => {
   mocks.update.mockRejectedValue(new ProfileMutationError(field, message, code));
-  expect(await updateOwnProfile({ name: "Ada" })).toEqual({ ok: false, field, message });
+  expect(await updateOwnProfile({ name: "Ada" })).toEqual({ ok: false, code, field, message });
   expect(mocks.revalidateTag).not.toHaveBeenCalled();
   expect(mocks.revalidatePath).not.toHaveBeenCalled();
 });
@@ -85,7 +93,7 @@ it.each([
 
 it("refuses signed-out edits without writes or upload verification", async () => {
   mocks.auth.mockResolvedValue({ userId: null });
-  expect(await updateOwnProfile({ name: "Ada" })).toMatchObject({ ok: false, field: "form" });
+  expect(await updateOwnProfile({ name: "Ada" })).toMatchObject({ ok: false, code: "unauthenticated", field: "form" });
   expect(await completeOwnAvatarUpload(avatarInput)).toMatchObject({ ok: false });
   expect(mocks.update).not.toHaveBeenCalled();
   expect(mocks.verify).not.toHaveBeenCalled();
@@ -101,7 +109,7 @@ it("cleans displaced avatars only after commit and still succeeds if storage cle
   });
   mocks.deleteAssets.mockRejectedValue(new Error("Storage unavailable"));
   expect(await completeOwnAvatarUpload(avatarInput)).toEqual({ ok: true, avatarUrl: "https://media.example/creators/new.webp" });
-  expect(mocks.avatar).toHaveBeenCalledWith({ userId: "trusted-owner" }, { storageKey: avatarInput.storageKey, url: "https://media.example/creators/new.webp" });
+  expect(mocks.avatar).toHaveBeenCalledWith({ userId: "trusted-owner" }, { storageKey: "creators/new.webp", url: "https://media.example/creators/new.webp" });
   expect(mocks.deleteAssets).toHaveBeenCalledWith(displaced);
   expect(mocks.revalidateTag).toHaveBeenCalledWith("public-creator-profiles", { expire: 0 });
   expect(console.error).toHaveBeenCalledWith("Managed media cleanup failed", expect.any(Error));
@@ -119,6 +127,7 @@ it("does not clean assets or invalidate after a rolled-back avatar write", async
   expect(mocks.deleteAssets).not.toHaveBeenCalled();
   expect(mocks.revalidateTag).not.toHaveBeenCalled();
   expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  expect(mocks.deleteKeys).not.toHaveBeenCalled();
 });
 
 it("rejects failed upload verification before the identity write", async () => {
@@ -127,4 +136,42 @@ it("rejects failed upload verification before the identity write", async () => {
   expect(mocks.avatar).not.toHaveBeenCalled();
   expect(mocks.deleteAssets).not.toHaveBeenCalled();
   expect(mocks.revalidateTag).not.toHaveBeenCalled();
+});
+
+it("refuses a public avatar key before verification or deletion", async () => {
+  mocks.avatar.mockResolvedValue({ profile: { avatarUrl: "victim" }, displacedAvatarAssets: [] });
+  await completeOwnAvatarUpload({ ...avatarInput, storageKey: "creators/new.webp", size: 1 });
+  await discardOwnAvatarUpload("creators/new.webp");
+  expect(mocks.verify).not.toHaveBeenCalled();
+  expect(mocks.avatar).not.toHaveBeenCalled();
+  expect(mocks.deleteKeys).not.toHaveBeenCalled();
+});
+
+it("rejects another user's staging key before storage access", async () => {
+  mocks.auth.mockResolvedValue({ userId: "other-owner" });
+  expect(await completeOwnAvatarUpload(avatarInput)).toMatchObject({ ok: false });
+  await discardOwnAvatarUpload(avatarInput.storageKey);
+  expect(mocks.verify).not.toHaveBeenCalled();
+  expect(mocks.deleteKeys).not.toHaveBeenCalled();
+  expect(mocks.avatar).not.toHaveBeenCalled();
+});
+it("signs staging uploads only after active owner entry", async () => {
+  mocks.sign.mockImplementation(async () => {
+    expect(mocks.ensure).toHaveBeenCalledWith({ userId: "trusted-owner" });
+    return { storageKey: avatarInput.storageKey };
+  });
+  expect(await createOwnAvatarUploadSignature(avatarInput)).toMatchObject({ ok: true });
+  expect(mocks.sign).toHaveBeenCalledWith("trusted-owner", avatarInput.size);
+});
+it("staging cleanup failure preserves a committed save", async () => {
+  mocks.avatar.mockResolvedValue({ profile: { avatarUrl: "saved" }, displacedAvatarAssets: [] });
+  mocks.deleteKeys.mockRejectedValue(new Error("Storage unavailable"));
+  expect(await completeOwnAvatarUpload(avatarInput)).toEqual({ ok: true, avatarUrl: "saved" });
+  expect(mocks.revalidateTag).toHaveBeenCalled();
+});
+
+it("does not sign an upload when owner entry rejects an inactive account", async () => {
+  mocks.ensure.mockRejectedValue(new Error("This account is not active."));
+  expect(await createOwnAvatarUploadSignature(avatarInput)).toMatchObject({ ok: false });
+  expect(mocks.sign).not.toHaveBeenCalled();
 });

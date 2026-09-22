@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { creators, creatorUsernameAliases, profileAccounts } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
-import type { CreatorEditedField } from "../types";
+import type { CreatorEditedField, CreatorProfileMutationCode } from "../types";
 import type { ProfileEditInput } from "@/features/profiles/types";
 import type { CreatorOwnerPrincipal } from "./index";
 import { profileEditSchema } from "@/features/profiles/validation";
@@ -17,13 +17,11 @@ function mapOwnedCreatorSummary(row: typeof creators.$inferSelect) {
   return mapCreatorSummary(row);
 }
 
-type ProfileMutationCode = "invalid_input" | "unavailable_username" | "missing_creator" | "inactive_account" | "ownership_conflict" | "database_unavailable";
-
 export class ProfileMutationError extends Error {
   constructor(
     readonly field: "name" | "username" | "websiteUrl" | "form",
     message: string,
-    readonly code: ProfileMutationCode = "invalid_input",
+    readonly code: CreatorProfileMutationCode = "invalid_input",
   ) {
     super(message);
     this.name = "ProfileMutationError";

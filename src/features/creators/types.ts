@@ -80,3 +80,11 @@ export type AdminCreatorClaimRecord = {
   createdAt: string;
   reviewedAt?: string;
 };
+
+export type CreatorProfileMutationCode =
+  | "invalid_input"
+  | "unavailable_username"
+  | "missing_creator"
+  | "inactive_account"
+  | "ownership_conflict"
+  | "database_unavailable";

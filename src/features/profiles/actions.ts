@@ -14,12 +14,11 @@ import {
   type MediaUploadSignatureResult,
 } from "@/features/admin/media-upload";
 import {
-  createR2PresignedUpload,
-  deleteR2StorageKeys,
-  getR2PublicUrl,
-  isStorageKeyForKind,
+  createOwnedAvatarUpload,
+  freezeOwnedAvatarUpload,
+  discardOwnedAvatarUpload,
+  isOwnedAvatarUpload,
   R2StorageConfigurationError,
-  verifyR2Upload,
 } from "@/storage/r2";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
@@ -60,7 +59,7 @@ export async function updateOwnProfile(
   input: ProfileEditInput,
 ): Promise<ProfileEditResult> {
   const userId = await authenticatedUserId();
-  if (!userId) return { ok: false, field: "form", message: "Sign in to edit your profile." };
+  if (!userId) return { ok: false, code: "unauthenticated", field: "form", message: "Sign in to edit your profile." };
 
   const parsed = profileEditSchema.safeParse(input);
   if (!parsed.success) {
@@ -68,6 +67,7 @@ export async function updateOwnProfile(
     const field = issue?.path[0];
     return {
       ok: false,
+      code: "invalid_input",
       field: field === "name" || field === "username" || field === "websiteUrl" ? field : "form",
       message: issue?.message ?? "Check your profile details.",
     };
@@ -76,10 +76,10 @@ export async function updateOwnProfile(
     await updateOwnedCreatorProfile({ userId }, parsed.data);
   } catch (error) {
     if (error instanceof ProfileMutationError) {
-      return { ok: false, field: error.field, message: error.message };
+      return { ok: false, code: error.code, field: error.field, message: error.message };
     }
     console.error("Profile update failed", error);
-    return { ok: false, field: "form", message: "Your profile could not be saved. Try again." };
+    return { ok: false, code: "unavailable", field: "form", message: "Your profile could not be saved. Try again." };
   }
   refreshProfileCaches();
   return { ok: true };
@@ -101,10 +101,7 @@ export async function createOwnAvatarUploadSignature(
     await ensureCreatorForOwner({ userId });
     return {
       ok: true,
-      ...(await createR2PresignedUpload({
-        kind: "creator-avatar",
-        contentType: parsed.data.contentType,
-      })),
+      ...(await createOwnedAvatarUpload(userId, parsed.data.size)),
     };
   } catch (error) {
     if (error instanceof R2StorageConfigurationError) return { ok: false, message: error.message };
@@ -117,35 +114,30 @@ export async function completeOwnAvatarUpload(input: unknown) {
   const userId = await authenticatedUserId();
   if (!userId) return { ok: false as const, message: "Sign in to change your photo." };
   const parsed = avatarCompletionSchema.safeParse(input);
-  if (!parsed.success || !isStorageKeyForKind(parsed.data.storageKey, "creator-avatar")) {
+  if (!parsed.success || !isOwnedAvatarUpload(userId, parsed.data.storageKey)) {
     return { ok: false as const, message: "The uploaded photo details are invalid." };
   }
   let updated: Awaited<ReturnType<typeof updateOwnedCreatorAvatar>>;
   try {
-    await verifyR2Upload({
-      kind: "creator-avatar",
-      storageKey: parsed.data.storageKey,
-      contentType: parsed.data.contentType,
-      size: parsed.data.size,
-    });
-    updated = await updateOwnedCreatorAvatar({ userId }, {
-      storageKey: parsed.data.storageKey,
-      url: getR2PublicUrl(parsed.data.storageKey),
-    });
+    const avatar = await freezeOwnedAvatarUpload(userId, parsed.data);
+    updated = await updateOwnedCreatorAvatar({ userId }, avatar);
   } catch (error) {
     if (error instanceof ProfileMutationError) return { ok: false as const, message: error.message };
     console.error("Profile photo update failed", error);
     return { ok: false as const, message: "The photo could not be saved. Try again." };
   }
   await deleteManagedMediaAssetsSafely(updated.displacedAvatarAssets);
+  await discardOwnedAvatarUpload(userId, parsed.data.storageKey).catch((error) => {
+    console.error("Avatar staging cleanup failed", error);
+  });
   refreshProfileCaches();
   return { ok: true as const, avatarUrl: updated.profile.avatarUrl };
 }
 
 export async function discardOwnAvatarUpload(storageKey: string) {
   const userId = await authenticatedUserId();
-  if (!userId || !isStorageKeyForKind(storageKey, "creator-avatar")) return;
-  await deleteR2StorageKeys([storageKey]);
+  if (!userId || !isOwnedAvatarUpload(userId, storageKey)) return;
+  await discardOwnedAvatarUpload(userId, storageKey);
 }
 
 export async function requestOwnAccountDeletion() {

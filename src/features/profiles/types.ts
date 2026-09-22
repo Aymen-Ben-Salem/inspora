@@ -1,3 +1,4 @@
+import type { CreatorProfileMutationCode } from "@/features/creators/types";
 import type { PostCategory } from "@/domain/post";
 import type { WorkCardData } from "@/domain/work-card";
 export type { ResolvedCreatorProfile } from "@/features/creators/types";
@@ -35,6 +36,7 @@ export type ProfileEditResult =
   | { ok: true }
   | {
       ok: false;
+      code: CreatorProfileMutationCode | "unauthenticated" | "unavailable";
       field: "name" | "username" | "websiteUrl" | "form";
       message: string;
     };

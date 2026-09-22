@@ -43,15 +43,24 @@ it.each(["This account is not active.", "DATABASE_URL is not configured."])("pre
 it("preserves profile edit transport errors", async () => {
   const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: "invalid json" }));
   expect(response.status).toBe(400);
-  expect(await response.json()).toEqual({ ok: false, field: "form", message: "Invalid profile request." });
+  expect(await response.json()).toEqual({ ok: false, code: "invalid_input", field: "form", message: "Invalid profile request." });
   expect(adapters.update).not.toHaveBeenCalled();
 });
 
 it("preserves field errors and private headers from owner profile edits", async () => {
-  const failure = { ok: false, field: "username", message: "That username is unavailable." };
+  const failure = { ok: false, code: "unavailable_username", field: "username", message: "That username is unavailable." };
   adapters.update.mockResolvedValue(failure);
   const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: JSON.stringify({ username: "reserved" }) }));
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual(failure);
   expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+
+it.each([
+  ["unauthenticated", "Please log in again.", 401],
+  ["invalid_input", "Sign in is a reserved name.", 400],
+])("maps %s by code independently of display copy", async (code, message, status) => {
+  adapters.update.mockResolvedValue({ ok: false, code, field: "form", message });
+  const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: "{}" }));
+  expect(response.status).toBe(status);
 });

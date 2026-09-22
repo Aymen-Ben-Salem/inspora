@@ -6,6 +6,7 @@ export default defineConfig({
   test: { include: [
     "src/features/creators/identity*.test.ts",
     "src/features/creators/validation.test.ts",
+    "src/storage/owned-avatar.test.ts",
     "src/features/submissions/actions.test.ts",
     "src/features/submissions/upload-actions.test.ts",
     "src/features/profiles/repository.test.ts",

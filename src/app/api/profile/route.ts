@@ -35,13 +35,13 @@ export async function PATCH(request: Request) {
     input = await request.json();
   } catch {
     return NextResponse.json(
-      { ok: false, field: "form", message: "Invalid profile request." },
+      { ok: false, code: "invalid_input", field: "form", message: "Invalid profile request." },
       { status: 400, headers: privateHeaders },
     );
   }
   const result = await updateOwnProfile(input as never);
   return NextResponse.json(result, {
-    status: result.ok ? 200 : result.message.startsWith("Sign in") ? 401 : 400,
+    status: result.ok ? 200 : result.code === "unauthenticated" ? 401 : 400,
     headers: privateHeaders,
   });
 }

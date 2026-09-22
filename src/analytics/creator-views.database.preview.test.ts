@@ -1,14 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { parse } from "dotenv";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { previewEnvironmentFromValues } from "../../scripts/lib/preview-environment";
 import { requireDatabase, type Database } from "../db/client";
-import { creators, posts, logos, websites, websiteMedia, websiteSections, creatorViewSnapshots } from "../db/schema";
+import { creators, posts, logos, websites, websiteMedia, websiteSections, creatorViewSnapshots, profileAccounts, creatorUsernameAliases, creatorClaims, adminAuditLogs } from "../db/schema";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({cacheLife:vi.fn(),cacheTag:vi.fn()}));
+vi.mock("../auth/require-admin", () => ({ requireAdmin: vi.fn(async () => ({ userId: "task8-preview-check" })) }));
+vi.mock("../features/creators/repository", () => ({ ensureOwnedCreator: vi.fn() }));
 const provider = vi.hoisted(() => ({query:vi.fn()}));
 vi.mock("./posthog-query", () => ({
   getPostHogConfiguration: () => ({apiHost:"https://eu.posthog.com",projectId:"280536",personalApiKey:"fixture-only"}),
@@ -19,6 +23,8 @@ suite("Preview eligibility and durable Views snapshots", () => {
   const owner = randomUUID(), other = randomUUID();
   const design = randomUUID(), draft = randomUUID(), logo = randomUUID(), icon = randomUUID(), website = randomUUID();
   const suffix = randomUUID();
+  const claim = randomUUID();
+  const requester = "task8-claim-" + suffix;
   const snapshotKeys: string[] = [];
   let db: Database | undefined;
   beforeAll(async () => {
@@ -38,11 +44,14 @@ suite("Preview eligibility and durable Views snapshots", () => {
   },30000);
   afterAll(async () => {
     if (db) {
+      await db.delete(adminAuditLogs).where(eq(adminAuditLogs.resourceId,claim));
+      await db.delete(creatorClaims).where(eq(creatorClaims.id,claim));
       await db.delete(creatorViewSnapshots).where(inArray(creatorViewSnapshots.key,snapshotKeys));
       await db.delete(posts).where(inArray(posts.id,[design,draft]));
       await db.delete(logos).where(inArray(logos.id,[logo,icon]));
       await db.delete(websites).where(eq(websites.id,website));
       await db.delete(creators).where(inArray(creators.id,[owner,other]));
+      await db.delete(profileAccounts).where(eq(profileAccounts.userId,requester));
     }
     vi.unstubAllEnvs();
   },30000);
@@ -76,4 +85,52 @@ suite("Preview eligibility and durable Views snapshots", () => {
     provider.query.mockResolvedValue([[5]]);
     expect(await freshWorker.getCreatorViews(other)).toMatchObject({status:"available",count:5});
   },30000);
+  it("moves every work family through an actual claim and rejects the old credit snapshot", async () => {
+    const { getCreatorViews, getEligibleCreatorWorkIds } = await import("./creator-views");
+    const { reviewCreatorClaim } = await import("../features/creators/claims");
+    const ownerName = "t8owner_" + suffix.replaceAll("-","").slice(0,12);
+    const targetName = "t8target_" + suffix.replaceAll("-","").slice(0,12);
+    await db!.insert(profileAccounts).values({userId:requester});
+    await db!.update(creators).set({username:ownerName,ownerUserId:requester,editedFields:["username"]}).where(eq(creators.id,owner));
+    await db!.update(creators).set({username:targetName}).where(eq(creators.id,other));
+    await db!.insert(creatorUsernameAliases).values([
+      {creatorId:owner,username:ownerName,isCurrent:true},
+      {creatorId:other,username:targetName,isCurrent:true},
+    ]);
+    await db!.insert(creatorClaims).values({
+      id:claim,requesterUserId:requester,targetCreatorId:other,
+      verifiedXProviderId:"task8-provider-"+suffix,verifiedXUsername:"t8"+suffix.replaceAll("-","").slice(0,10),
+    });
+    provider.query.mockImplementation(async (_config, query) => [[
+      query.values.design_ids.length + query.values.logo_ids.length + query.values.website_ids.length,
+    ]]);
+    expect(await getCreatorViews(other)).toMatchObject({status:"available",count:1});
+    expect(await getCreatorViews(owner)).toMatchObject({status:"available",count:2});
+    expect(await reviewCreatorClaim(claim,"approve")).toEqual({status:"claimed",creatorId:other});
+    expect(await getEligibleCreatorWorkIds(other)).toEqual({design:[design],logo:[icon],website:[website]});
+    expect(await db!.select().from(creators).where(eq(creators.id,owner))).toHaveLength(0);
+    const aliases = await db!.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId,other));
+    expect(aliases.map(row=>({username:row.username,current:row.isCurrent}))).toEqual(expect.arrayContaining([
+      {username:ownerName,current:true},{username:targetName,current:false},
+    ]));
+    provider.query.mockRejectedValue(new Error("fixture-only provider outage"));
+    expect(await getCreatorViews(other)).toEqual({status:"unavailable"});
+    provider.query.mockResolvedValue([[3]]);
+    expect(await getCreatorViews(other)).toMatchObject({status:"available",count:3});
+  },30000);
+
+  it("preserves count and timestamp during provider failure in a separate Node process", async () => {
+    const { getCreatorViews } = await import("./creator-views");
+    provider.query.mockResolvedValue([[3]]);
+    const success = await getCreatorViews(other);
+    const manifest = ".scratch/task8-worker-" + suffix + ".json";
+    writeFileSync(manifest,JSON.stringify({creatorId:other,cutover:process.env.POSTHOG_WORK_VIEWS_CUTOVER_AT,expected:success}));
+    try {
+      const run = promisify(execFile);
+      await run(process.execPath,["node_modules/vitest/vitest.mjs","run","--config","src/analytics/vitest.preview.config.mts","src/analytics/creator-views.worker.preview.test.ts"],{
+        cwd:process.cwd(),timeout:30000,windowsHide:true,
+        env:{...process.env,RUN_PREVIEW_VIEWS_WORKER:"1",PREVIEW_VIEWS_WORKER_MANIFEST:manifest},
+      });
+    } finally { unlinkSync(manifest); }
+  },35000);
 });

@@ -14,12 +14,10 @@ function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
 }
 
-export function mapCreatorSummary(row: CreatorRow): CreatorSummary {
+function mapCreatorDisplayFields(row: PublicCreatorSource): Omit<CreatorSummary, "username"> {
   return {
     id: row.id,
     name: row.name,
-    username:
-      row.username ?? creatorUsernameCandidates(row.handle ?? row.name)[0] ?? "creator",
     avatarUrl: row.avatarUrl,
     avatarStorageProvider: isStorageProvider(row.avatarStorageProvider)
       ? (row.avatarStorageProvider as NonNullable<CreatorSummary["avatarStorageProvider"]>)
@@ -29,17 +27,18 @@ export function mapCreatorSummary(row: CreatorRow): CreatorSummary {
   };
 }
 
+export function mapCreatorSummary(row: CreatorRow): CreatorSummary {
+  return {
+    ...mapCreatorDisplayFields(row),
+    username:
+      row.username ?? creatorUsernameCandidates(row.handle ?? row.name)[0] ?? "creator",
+  };
+}
+
 export function mapPublicCreatorProfile(row: PublicCreatorSource): PublicCreatorProfile {
   if (!row.username) throw new Error("Creator profile has no public username.");
   return {
-    id: row.id,
-    name: row.name,
+    ...mapCreatorDisplayFields(row),
     username: row.username as PublicCreatorProfile["username"],
-    avatarUrl: row.avatarUrl,
-    avatarStorageProvider: isStorageProvider(row.avatarStorageProvider)
-      ? (row.avatarStorageProvider as NonNullable<PublicCreatorProfile["avatarStorageProvider"]>)
-      : undefined,
-    websiteUrl: row.url,
-    xProfileUrl: row.xProfileUrl,
   };
 }

@@ -29,7 +29,8 @@ export async function GET(request: Request) {
       { status: 400, headers: privateHeaders },
     );
   }
-  if (cursor && !decodeSavedPostCursor(cursor)) {
+  const category = rawCategory && isSavedCategory(rawCategory) ? rawCategory : undefined;
+  if (cursor && !decodeSavedPostCursor(cursor, { userId, category })) {
     return NextResponse.json(
       { message: "Invalid saved-post cursor." },
       { status: 400, headers: privateHeaders },
@@ -39,8 +40,7 @@ export async function GET(request: Request) {
   try {
     const page = await getSavedPostPage({
       userId,
-      category:
-        rawCategory && isSavedCategory(rawCategory) ? rawCategory : undefined,
+      category,
       cursor,
     });
     return NextResponse.json(page, { headers: privateHeaders });

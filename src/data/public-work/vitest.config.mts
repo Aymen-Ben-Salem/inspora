@@ -6,6 +6,9 @@ export default defineConfig({
   test: {
     include: [
       "src/data/public-work/**/*.test.ts",
+      "src/data/saved-posts-repository.test.ts",
+      "src/app/api/saved-posts/feed/route.test.ts",
+      "src/components/infinite-saved-post-feed.test.tsx",
       "src/data/websites-repository.test.ts",
       "src/data/posts-repository.test.ts",
       "src/data/post-pagination.test.ts",

@@ -6,22 +6,19 @@ vi.mock("@/db/client", () => ({
   requireDatabase: vi.fn(),
 }));
 vi.mock("@/db/schema", () => import("../db/schema"));
-vi.mock("./logos-repository", () => ({ mapPublishedLogo: vi.fn() }));
-vi.mock("./websites-repository", () => ({ mapPublishedWebsite: vi.fn() }));
-vi.mock("./posts-repository", () => ({ getPostCardsByIds: vi.fn() }));
+vi.mock("./public-work", () => ({ readWorkPage: vi.fn(), readWorkCounts: vi.fn() }));
 
 import {
   decodeSavedPostCursor,
   encodeSavedPostCursor,
   getSavedPostPage,
+  getSavedPostCounts,
   savePostForUser,
   unsavePostForUser,
   SavedPostUnavailableError,
 } from "./saved-posts-repository";
 import { getDatabase, requireDatabase } from "@/db/client";
-import { getPostCardsByIds } from "./posts-repository";
-import { mapPublishedLogo } from "./logos-repository";
-import { mapPublishedWebsite } from "./websites-repository";
+import { readWorkPage, readWorkCounts } from "./public-work";
 import { savedPosts, posts, logos, websites } from "../db/schema";
 import { PgDialect } from "drizzle-orm/pg-core";
 
@@ -69,53 +66,48 @@ describe("saving all archive types", () => {
   });
 });
 
-describe("saved-post pagination", () => {
-  it("preserves newest-saved order when a page mixes all three archives", async () => {
-    const savedAt = new Date("2026-09-17T00:00:00Z");
-    const rows = [
-      { id: "save-3", postId: "website-1", websiteId: "website-1", logoId: null, category: "Websites", savedAt },
-      { id: "save-2", postId: "post-1", websiteId: null, logoId: null, category: "Web", savedAt },
-      { id: "save-1", postId: "logo-1", websiteId: null, logoId: "logo-1", category: "Logos", savedAt },
-    ];
-    const query = { from: vi.fn(), leftJoin: vi.fn(), where: vi.fn(), orderBy: vi.fn(), limit: vi.fn().mockResolvedValue(rows) };
-    for (const method of [query.from, query.leftJoin, query.where, query.orderBy]) method.mockReturnValue(query);
-    const database = {
-      select: () => query,
-      query: {
-        logos: { findMany: vi.fn().mockResolvedValue([{ id: "logo-1" }]) },
-        websites: { findMany: vi.fn().mockResolvedValue([{ id: "website-1" }]) },
-      },
-    };
-    vi.mocked(getDatabase).mockReturnValue(database as unknown as ReturnType<typeof getDatabase>);
-    vi.mocked(getPostCardsByIds).mockResolvedValue([{ id: "post-1" }] as Awaited<ReturnType<typeof getPostCardsByIds>>);
-    vi.mocked(mapPublishedLogo).mockReturnValue({ id: "logo-1" } as ReturnType<typeof mapPublishedLogo>);
-    vi.mocked(mapPublishedWebsite).mockReturnValue({ id: "website-1" } as ReturnType<typeof mapPublishedWebsite>);
-
-    const page = await getSavedPostPage({ userId: "user-a" });
-
-    expect(page.items.map((item) => [item.id, item.category])).toEqual([
-      ["website-1", "Websites"], ["post-1", "Web"], ["logo-1", "Logos"],
-    ]);
-    expect(page.nextCursor).toBeNull();
-    expect(getPostCardsByIds).toHaveBeenCalledWith(["post-1"]);
-    const filter = new PgDialect().sqlToQuery(query.where.mock.calls[0][0]);
-    expect(filter.params).toContain("user-a");
-    expect(filter.params.filter((value) => value === "published")).toHaveLength(3);
+describe("saved-post pagination and counts adapters", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getDatabase).mockReturnValue({} as NonNullable<ReturnType<typeof getDatabase>>);
   });
 
-  it("round-trips a newest-saved cursor", () => {
-    const cursor = {
-      savedAt: "2026-09-16T12:00:00.000Z",
-      id: "11111111-1111-4111-8111-111111111111",
-    };
-
-    expect(decodeSavedPostCursor(encodeSavedPostCursor(cursor))).toEqual(cursor);
+  it("delegates the trusted viewer and filters while tab counts deliberately stay unfiltered", async () => {
+    const page = { items: [], nextCursor: null };
+    vi.mocked(readWorkPage).mockResolvedValue(page);
+    vi.mocked(readWorkCounts).mockResolvedValue({ total: 2, categories: { Web: 1, Logos: 1 } });
+    expect(await getSavedPostPage({ userId: "viewer-a", category: "Web" })).toEqual(page);
+    expect(readWorkPage).toHaveBeenCalledWith({ scope: { kind: "saved", userId: "viewer-a" }, filters: { category: "Web" }, order: "saved-desc", cursor: undefined });
+    expect(await getSavedPostCounts("viewer-a")).toEqual({ total: 2, categories: { Web: 1, Logos: 1 } });
+    expect(readWorkCounts).toHaveBeenCalledWith({ scope: { kind: "saved", userId: "viewer-a" } });
   });
 
-  it("rejects malformed cursors before querying", async () => {
-    expect(decodeSavedPostCursor("not-a-cursor")).toBeNull();
-    await expect(
-      getSavedPostPage({ userId: "user_alpha", cursor: "not-a-cursor" }),
-    ).rejects.toThrow("Invalid saved-post cursor.");
+  it("retains explicit no-database empty pages and counts", async () => {
+    vi.mocked(getDatabase).mockReturnValue(null);
+    expect(await getSavedPostPage({ userId: "viewer-a" })).toEqual({ items: [], nextCursor: null });
+    expect(await getSavedPostCounts("viewer-a")).toEqual({ total: 0, categories: {} });
+    expect(readWorkPage).not.toHaveBeenCalled();
+    expect(readWorkCounts).not.toHaveBeenCalled();
+  });
+
+  it("propagates configured read failures", async () => {
+    vi.mocked(readWorkPage).mockRejectedValueOnce(new Error("query failed"));
+    vi.mocked(readWorkCounts).mockRejectedValueOnce(new Error("count failed"));
+    await expect(getSavedPostPage({ userId: "viewer-a" })).rejects.toThrow("query failed");
+    await expect(getSavedPostCounts("viewer-a")).rejects.toThrow("count failed");
+  });
+
+  it("round-trips only a bound newest-saved cursor", () => {
+    const keys = { savedAt: "2026-09-16T12:00:00.000Z", id: "11111111-1111-4111-8111-111111111111" };
+    const binding = { userId: "viewer-a", category: "Web" as const };
+    const cursor = encodeSavedPostCursor(keys, binding);
+    expect(decodeSavedPostCursor(cursor, binding)).toEqual(keys);
+    expect(decodeSavedPostCursor(cursor, { ...binding, userId: "viewer-b" })).toBeNull();
+  });
+
+  it("rejects malformed cursors before database access, including without a database", async () => {
+    vi.mocked(getDatabase).mockReturnValue(null);
+    await expect(getSavedPostPage({ userId: "viewer-a", cursor: "not-a-cursor" })).rejects.toThrow("Invalid saved-post cursor.");
+    expect(getDatabase).not.toHaveBeenCalled();
   });
 });

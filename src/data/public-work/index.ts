@@ -8,6 +8,8 @@ import { logoMedia, logos, postMedia, posts, websiteMedia, websites, websiteSect
 import type { Logo } from "@/domain/logo";
 import { POST_CATEGORIES, type MediaType, type PostCardData, type PostCategory, type PostView } from "@/domain/post";
 import type { Website } from "@/domain/website";
+import type { WorkCardData } from "@/domain/work-card";
+import { readSavedCounts, readSavedPage, savedCountRequestSchema, savedPageRequestSchema, type SavedWorkCountRequest, type SavedWorkPageRequest } from "./saved";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import { isMediaStorageProvider } from "@/storage/types";
 import { PUBLIC_WORK_CACHE_LIFE, PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_POSTS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG } from "./cache";
@@ -37,6 +39,7 @@ const logoArchiveRequestSchema = z.strictObject({
   cursor: z.null().optional(),
 });
 const requestSchema = z.union([
+  savedPageRequestSchema,
   websiteArchiveRequestSchema,
   designArchiveRequestSchema,
   logoArchiveRequestSchema,
@@ -59,8 +62,8 @@ export type LogoArchiveRequest = {
   order: "created-desc";
   cursor?: string | null;
 };
-export type WorkPageRequest = WebsiteArchiveRequest | DesignArchiveRequest | LogoArchiveRequest;
-export type WorkPage<Item = Website | PostCardData | Logo> = {
+export type WorkPageRequest = WebsiteArchiveRequest | DesignArchiveRequest | LogoArchiveRequest | SavedWorkPageRequest;
+export type WorkPage<Item = Website | PostCardData | Logo | WorkCardData> = {
   items: Item[];
   nextCursor: string | null;
 };
@@ -68,9 +71,12 @@ export type WorkPage<Item = Website | PostCardData | Logo> = {
 export function readWorkPage(request: WebsiteArchiveRequest): Promise<WorkPage<Website>>;
 export function readWorkPage(request: DesignArchiveRequest): Promise<WorkPage<PostCardData>>;
 export function readWorkPage(request: LogoArchiveRequest): Promise<WorkPage<Logo>>;
+export function readWorkPage(request: SavedWorkPageRequest): Promise<WorkPage<WorkCardData>>;
 export async function readWorkPage(request: WorkPageRequest): Promise<WorkPage> {
   const parsed = requestSchema.safeParse(request);
   if (!parsed.success) throw new Error("Unsupported public-work page request.");
+
+  if (parsed.data.scope.kind === "saved") return readSavedPage(savedPageRequestSchema.parse(parsed.data));
 
   if (parsed.data.scope.kind === "website-archive") {
     const websiteRequest = websiteArchiveRequestSchema.parse(parsed.data);
@@ -270,4 +276,10 @@ async function readDesignArchive(
           )
         : null,
   };
+}
+
+export async function readWorkCounts(request: SavedWorkCountRequest) {
+  const parsed = savedCountRequestSchema.safeParse(request);
+  if (!parsed.success) throw new Error("Unsupported public-work count request.");
+  return readSavedCounts(parsed.data);
 }

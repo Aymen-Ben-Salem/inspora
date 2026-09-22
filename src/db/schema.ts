@@ -930,6 +930,14 @@ export const postMediaRelations = relations(postMedia, ({ one }) => ({
 }));
 
 export const savedPostsRelations = relations(savedPosts, ({ one }) => ({
+  logo: one(logos, {
+    fields: [savedPosts.logoId],
+    references: [logos.id],
+  }),
+  website: one(websites, {
+    fields: [savedPosts.websiteId],
+    references: [websites.id],
+  }),
   post: one(posts, {
     fields: [savedPosts.postId],
     references: [posts.id],

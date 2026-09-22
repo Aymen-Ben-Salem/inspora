@@ -12,6 +12,11 @@ export function mapPublishedLogo(row: PublicLogoRecord): Logo {
   if (!isLogoKind(row.kind)) throw new Error(`Unsupported logo kind: ${row.kind}`);
   const media = row.media[0];
   if (!media) throw new Error(`Published logo ${row.id} has no media.`);
+  if (typeof media.url !== "string" || !media.url ||
+    !Number.isFinite(media.width) || media.width <= 0 ||
+    !Number.isFinite(media.height) || media.height <= 0) {
+    throw new Error(`Published logo ${row.id} has malformed media.`);
+  }
 
   return {
     id: row.id,

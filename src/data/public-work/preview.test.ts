@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadPreviewEnvironment } from "../../../scripts/lib/preview-environment";
 import { requireDatabase, getDatabase, type Database } from "@/db/client";
 import * as schema from "@/db/schema";
+import type { PostCardData } from "@/domain/post";
 import { readWorkPage } from "./index";
 import { getPublishedWebsites } from "../websites-repository";
 import { completeWebsiteRecordingPredicate, hasCompleteRecording } from "./website-presentation";
@@ -24,6 +25,10 @@ const suite = process.env.RUN_PREVIEW_PUBLIC_WORK === "1" ? describe : describe.
 suite("Preview website archive statements", () => {
   const owner = randomUUID();
   const ids = Array.from({ length: 44 }, () => randomUUID()).sort().reverse();
+  const postIds = Array.from({ length: 52 }, () => randomUUID()).sort().reverse();
+  const logoIds = Array.from({ length: 22 }, () => randomUUID()).sort().reverse();
+  const postIdSet = new Set<string>(postIds);
+  const logoIdSet = new Set<string>(logoIds);
   let db: Database;
   let client: NeonQueryFunction<false, false>;
   const statements: { query: string; params: unknown[] }[] = [];
@@ -51,10 +56,52 @@ suite("Preview website archive statements", () => {
       { websiteId: id, label: "Second", position: 1, imageUrl: "/second.webp", imageWidth: 100, imageHeight: 100 },
       { websiteId: id, label: "First", position: 0, imageUrl: "/first.webp", imageWidth: 100, imageHeight: 100 },
     ]));
+    const tiedCreation = new Date("2098-01-01T00:00:00Z");
+    await db.insert(schema.posts).values(postIds.map((id, i) => ({
+      id,
+      creatorId: owner,
+      slug: "public-work-design-" + id,
+      title: "Design fixture " + i,
+      description: "Ticket 02",
+      category: i % 2 === 0 ? "Web" : "Branding",
+      sourceUrl: "https://example.invalid",
+      status: i === 0 ? "draft" : i === 1 ? "archived" : "published",
+      archivedAt: i === 1 ? now : null,
+      publishedAt: i === 0 ? null : new Date(now.getTime() + (i === 2 ? 1 : i === 3 ? -1 : 0)),
+      isFeatured: i % 2 === 0,
+      createdAt: tiedCreation,
+    })));
+    await db.insert(schema.postMedia).values(postIds.flatMap((postId, i) => [
+      { postId, type: "image", url: `/design-${i}-second.webp`, alt: "Second", width: 100, height: 100, position: 1 },
+      { postId, type: "image", url: `/design-${i}-first.webp`, alt: "First", width: 100, height: 100, position: 0 },
+    ]));
+    await db.insert(schema.logos).values(logoIds.map((id, i) => ({
+      id,
+      creatorId: owner,
+      slug: "public-work-logo-" + id,
+      title: "Logo fixture " + i,
+      kind: i === 0 ? "icon" : "logo",
+      description: "Ticket 02",
+      industry: "Design",
+      shape: "Symbol",
+      sourceUrl: "https://example.invalid",
+      status: i === 21 ? "draft" : "published",
+      publishedAt: i === 21 ? null : new Date(now.getTime() + (i === 20 ? 1 : i === 19 ? -1 : 0)),
+      createdAt: tiedCreation,
+    })));
+    await db.insert(schema.logoMedia).values(logoIds.map((logoId, i) => ({
+      logoId,
+      url: `/logo-${i}.webp`,
+      alt: `Logo ${i}`,
+      width: 100,
+      height: 100,
+    })));
   }, 60000);
   afterAll(async () => {
     if (db) {
       await db.delete(schema.websites).where(inArray(schema.websites.id, ids));
+      await db.delete(schema.posts).where(inArray(schema.posts.id, postIds));
+      await db.delete(schema.logos).where(inArray(schema.logos.id, logoIds));
       await db.delete(schema.creators).where(eq(schema.creators.id, owner));
     }
   }, 30000);
@@ -82,6 +129,71 @@ suite("Preview website archive statements", () => {
     expect(limited.map(row => row[0])).toEqual(ids.slice(1, 3));
   }, 30000);
 
+  it("traverses more than two full design pages with stable tied ordering and one statement per page", async () => {
+    statements.length = 0;
+    const items: PostCardData[] = [];
+    let cursor: string | null | undefined;
+    let pages = 0;
+
+    do {
+      const before = statements.length;
+      const page = await readWorkPage({
+        scope: { kind: "design-archive" },
+        order: "created-desc",
+        cursor,
+      });
+      expect(statements.length).toBe(before + 1);
+      if (page.nextCursor) expect(page.items).toHaveLength(16);
+      items.push(...page.items);
+      cursor = page.nextCursor;
+      pages += 1;
+      expect(pages).toBeLessThan(20);
+    } while (cursor);
+
+    expect(pages).toBeGreaterThan(3);
+    expect(cursor).toBeNull();
+    expect(new Set(items.map((item) => item.id)).size).toBe(items.length);
+    const own = items.filter((item) => postIdSet.has(item.id));
+    expect(own.map((item) => item.id)).toEqual(postIds.slice(3));
+    expect(own[0]).toMatchObject({
+      media: [{ url: "/design-3-first.webp" }],
+      mediaCount: 2,
+    });
+  }, 30000);
+
+  it("applies design category and featured selection before page limits", async () => {
+    const expected = postIds.filter((_, i) => i >= 4 && i <= 50 && i % 2 === 0);
+    const collected: PostCardData[] = [];
+    let cursor: string | null | undefined;
+    do {
+      const page = await readWorkPage({
+        scope: { kind: "design-archive" },
+        filters: { category: "Web", view: "featured" },
+        order: "created-desc",
+        cursor,
+      });
+      collected.push(...page.items);
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    expect(collected.filter((item) => postIdSet.has(item.id)).map((item) => item.id))
+      .toEqual(expected);
+  }, 30000);
+
+  it("returns the complete ordered logo archive with app icons and no page truncation", async () => {
+    statements.length = 0;
+    const page = await readWorkPage({
+      scope: { kind: "logo-archive" },
+      order: "created-desc",
+    });
+    expect(statements).toHaveLength(1);
+    expect(page.nextCursor).toBeNull();
+    const own = page.items.filter((item) => logoIdSet.has(item.id));
+    expect(own.map((item) => item.id)).toEqual(logoIds.slice(0, 20));
+    expect(own).toHaveLength(20);
+    expect(own[0]).toMatchObject({ kind: "icon", media: { url: "/logo-0.webp" } });
+  }, 30000);
+
   it("matches SQL completeness to the in-memory integrity rule using virtual constraint edge cases", async () => {
     const rows = [websiteFixture(), ...incompletePresentations.map(({ change }) => { const row = websiteFixture(); change(row); return row; })];
     const legacy = websiteFixture();
@@ -107,9 +219,9 @@ suite("Preview website archive statements", () => {
   }, 30000);
 
 
-  it("excludes a missing publication date in virtual rows without weakening its constraint", async () => {
-    const rows = await client.query("with websites(status, published_at) as (values ('published', null::timestamptz), ('published', '2099-01-01'::timestamptz), ('published', '2099-01-01 00:00:00.001Z'::timestamptz), ('draft', '2098-01-01'::timestamptz), ('archived', '2098-01-01'::timestamptz)) select * from websites where status = 'published' and published_at is not null and published_at <= $1::timestamptz", [now.toISOString()]);
-    expect(rows).toHaveLength(1);
+  it("applies design and logo publication boundaries to virtual missing-date rows", async () => {
+    const rows = await client.query("with work(kind, status, published_at) as (values ('design', 'published', null::timestamptz), ('logo', 'published', null::timestamptz), ('design', 'published', '2099-01-01'::timestamptz), ('logo', 'published', '2098-12-31 23:59:59.999Z'::timestamptz), ('design', 'published', '2099-01-01 00:00:00.001Z'::timestamptz), ('logo', 'draft', '2098-01-01'::timestamptz)) select * from work where status = 'published' and published_at is not null and published_at <= $1::timestamptz order by kind", [now.toISOString()]);
+    expect(rows.map((row) => row.kind)).toEqual(["design", "logo"]);
     expect(new Date(rows[0].published_at).toISOString()).toBe(now.toISOString());
   });
 

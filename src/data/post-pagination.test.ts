@@ -132,8 +132,18 @@ describe("post cursor pagination", () => {
       createdAt: "2026-08-07T12:00:00.000Z",
       id: "post-id",
     };
+    const binding = { category: "Web", view: "featured" } as const;
+    const cursor = encodePostCursor(value, binding);
 
-    expect(decodePostCursor(encodePostCursor(value))).toEqual(value);
+    expect(decodePostCursor(cursor, binding)).toEqual(value);
+    expect(decodePostCursor(cursor, { category: "Branding", view: "featured" })).toBeNull();
+    expect(JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"))).toMatchObject({
+      v: 1,
+      scope: { kind: "design-archive" },
+      filters: { category: "Web", view: "featured" },
+      order: "created-desc",
+      keys: value,
+    });
   });
 
   it("rejects malformed cursor values", () => {

@@ -38,6 +38,10 @@ describe("GET /api/posts", () => {
       view: "featured",
       cursor,
     });
+    expect(decodePostCursor).toHaveBeenCalledWith(cursor, {
+      category: "Web",
+      view: "featured",
+    });
     expect(response.headers.get("Cache-Control")).toBe(
       "public, max-age=120, s-maxage=300, stale-while-revalidate=3600",
     );

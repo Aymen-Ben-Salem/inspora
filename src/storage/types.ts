@@ -4,6 +4,12 @@ export const MEDIA_STORAGE_PROVIDERS = ["r2"] as const;
 
 export type MediaStorageProvider = (typeof MEDIA_STORAGE_PROVIDERS)[number];
 
+export function isMediaStorageProvider(
+  value: string | null | undefined,
+): value is MediaStorageProvider {
+  return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
+}
+
 export type ImageVariant = {
   url: string;
   storageKey: string;

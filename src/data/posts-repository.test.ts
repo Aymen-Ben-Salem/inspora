@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cacheLife, cacheTag, getDatabase } = vi.hoisted(() => ({
+const { cacheLife, cacheTag, getDatabase, readWorkPage } = vi.hoisted(() => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
   getDatabase: vi.fn(),
+  readWorkPage: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ cacheLife, cacheTag }));
@@ -11,13 +12,13 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/db/client", () => ({ getDatabase }));
 vi.mock("@/db/schema", () => ({ postMedia: {}, posts: {} }));
 vi.mock("@/domain/post", async () => import("../domain/post"));
+vi.mock("./public-work", () => ({ readWorkPage }));
 
 import {
   getAdjacentPosts,
   getPostBySlug,
   getPostPage,
   getPublishedSlugs,
-  PUBLISHED_POSTS_CACHE_TAG,
 } from "./posts-repository";
 
 describe("published post caching", () => {
@@ -25,18 +26,32 @@ describe("published post caching", () => {
     cacheLife.mockClear();
     cacheTag.mockClear();
     getDatabase.mockReset();
+    readWorkPage.mockReset();
     getDatabase.mockReturnValue(null);
   });
 
-  it("assigns a bounded cache lifetime and invalidation tag", async () => {
+  it("keeps the development seed fallback outside public archive caching", async () => {
     await getPostPage();
 
-    expect(cacheLife).toHaveBeenCalledWith({
-      stale: 300,
-      revalidate: 21600,
-      expire: 604800,
+    expect(cacheLife).not.toHaveBeenCalled();
+    expect(cacheTag).not.toHaveBeenCalled();
+  });
+
+  it("delegates configured design archive pages to public-work reads", async () => {
+    getDatabase.mockReturnValue({});
+    readWorkPage.mockResolvedValue({ items: [], nextCursor: null });
+
+    await expect(getPostPage({ category: "Web", view: "featured", cursor: "cursor" }))
+      .resolves.toEqual({ items: [], nextCursor: null });
+    expect(readWorkPage).toHaveBeenCalledWith({
+      scope: { kind: "design-archive" },
+      filters: { category: "Web", view: "featured" },
+      order: "created-desc",
+      cursor: "cursor",
     });
-    expect(cacheTag).toHaveBeenCalledWith(PUBLISHED_POSTS_CACHE_TAG);
+
+    readWorkPage.mockRejectedValueOnce(new Error("query failed"));
+    await expect(getPostPage()).rejects.toThrow("Could not load posts");
   });
 
   it("resolves a post from the shared published collection", async () => {

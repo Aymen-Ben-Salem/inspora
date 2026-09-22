@@ -1,4 +1,8 @@
 import type { Post, PostCardData, PostCategory, PostView } from "@/domain/post";
+import {
+  decodeDesignArchiveCursor,
+  encodeDesignArchiveCursor,
+} from "./public-work/cursor";
 
 export const POST_PAGE_SIZE = 16;
 export const MAX_POST_PAGE_SIZE = 48;
@@ -20,32 +24,22 @@ type PostPageOptions = {
   limit?: number;
 };
 
-function isPostCursor(value: unknown): value is PostCursor {
-  if (!value || typeof value !== "object") return false;
+type PostCursorBinding = Pick<PostPageOptions, "category" | "view">;
 
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.createdAt === "string" &&
-    !Number.isNaN(Date.parse(candidate.createdAt)) &&
-    typeof candidate.id === "string" &&
-    candidate.id.length > 0 &&
-    candidate.id.length <= 128
-  );
+// Compatibility names retained for the existing route and development-seed
+// paginator; the public-work module owns the cursor format and validation.
+export function encodePostCursor(
+  cursor: PostCursor,
+  binding: PostCursorBinding = {},
+) {
+  return encodeDesignArchiveCursor(cursor, binding);
 }
 
-export function encodePostCursor(cursor: PostCursor) {
-  return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
-}
-
-export function decodePostCursor(value: string): PostCursor | null {
-  try {
-    const parsed: unknown = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8"),
-    );
-    return isPostCursor(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+export function decodePostCursor(
+  value: string,
+  binding: PostCursorBinding = {},
+): PostCursor | null {
+  return decodeDesignArchiveCursor(value, binding);
 }
 
 function comparePostPosition(
@@ -90,7 +84,8 @@ export function paginatePostArray(
   { category, view = "latest", cursor, limit = POST_PAGE_SIZE }: PostPageOptions = {},
 ): PostPage {
   const boundedLimit = Math.max(1, Math.min(Math.trunc(limit), MAX_POST_PAGE_SIZE));
-  const decodedCursor = cursor ? decodePostCursor(cursor) : null;
+  const binding = { category, view };
+  const decodedCursor = cursor ? decodePostCursor(cursor, binding) : null;
 
   if (cursor && !decodedCursor) throw new Error("Invalid post cursor.");
 
@@ -112,10 +107,10 @@ export function paginatePostArray(
     items,
     nextCursor:
       candidates.length > boundedLimit && finalPost
-        ? encodePostCursor({
-            createdAt: finalPost.createdAt,
-            id: finalPost.id,
-          })
+        ? encodePostCursor(
+            { createdAt: finalPost.createdAt, id: finalPost.id },
+            binding,
+          )
         : null,
   };
 }

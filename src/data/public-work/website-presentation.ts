@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { creators, websiteMedia, websites, websiteSections } from "@/db/schema";
 import { isWebsiteMediaRole, type Website, type WebsiteMedia } from "@/domain/website";
-import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
+import { isMediaStorageProvider } from "@/storage/types";
 
 type WebsiteRow = typeof websites.$inferSelect;
 type CreatorRow = typeof creators.$inferSelect;
@@ -14,10 +14,6 @@ type PublicWebsiteRecord = WebsiteRow & {
   sections: SectionRow[];
 };
 
-function isStorageProvider(value: string | null) {
-  return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
-}
-
 function mapMedia(media: MediaRow): WebsiteMedia {
   if (!isWebsiteMediaRole(media.role)) {
     throw new Error(`Unsupported website media role: ${media.role}`);
@@ -27,8 +23,8 @@ function mapMedia(media: MediaRow): WebsiteMedia {
     role: media.role,
     url: media.url,
     posterUrl: media.posterUrl ?? undefined,
-    storageProvider: isStorageProvider(media.storageProvider)
-      ? (media.storageProvider as WebsiteMedia["storageProvider"])
+    storageProvider: isMediaStorageProvider(media.storageProvider)
+      ? media.storageProvider
       : undefined,
     mimeType: media.mimeType ?? undefined,
     sourceMimeType: media.sourceMimeType ?? undefined,
@@ -60,8 +56,8 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
       label: section.label,
       alt: section.imageAlt,
       url: section.imageUrl,
-      storageProvider: isStorageProvider(section.imageStorageProvider)
-        ? (section.imageStorageProvider as Website["sections"][number]["storageProvider"])
+      storageProvider: isMediaStorageProvider(section.imageStorageProvider)
+        ? section.imageStorageProvider
         : undefined,
       mimeType: section.imageMimeType ?? undefined,
       sourceMimeType: section.imageSourceMimeType ?? undefined,
@@ -85,8 +81,8 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
       handle: row.creator.handle ?? undefined,
       url: row.creator.url ?? undefined,
       avatarUrl: row.creator.avatarUrl,
-      avatarStorageProvider: isStorageProvider(row.creator.avatarStorageProvider)
-        ? (row.creator.avatarStorageProvider as Website["creator"]["avatarStorageProvider"])
+      avatarStorageProvider: isMediaStorageProvider(row.creator.avatarStorageProvider)
+        ? row.creator.avatarStorageProvider
         : undefined,
     },
     description: row.description,

@@ -21,7 +21,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Unsupported post view." }, { status: 400 });
   }
 
-  if (rawCursor && !decodePostCursor(rawCursor)) {
+  if (rawCursor && !decodePostCursor(rawCursor, {
+    category: rawCategory && isPostCategory(rawCategory) ? rawCategory : undefined,
+    view: rawView,
+  })) {
     return NextResponse.json({ message: "Invalid pagination cursor." }, { status: 400 });
   }
 

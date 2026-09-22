@@ -15,16 +15,12 @@ import {
 } from "@/domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "../storage/types";
 
-import {
-  decodePostCursor,
-  encodePostCursor,
-  paginatePostArray,
-  POST_PAGE_SIZE,
-  type PostPage,
-} from "./post-pagination";
+import { paginatePostArray, type PostPage } from "./post-pagination";
+import { PUBLISHED_POSTS_CACHE_TAG } from "./public-work/cache";
+import { readWorkPage } from "./public-work";
 import { seedPosts } from "./seed-posts";
 
-export const PUBLISHED_POSTS_CACHE_TAG = "published-posts";
+export { PUBLISHED_POSTS_CACHE_TAG } from "./public-work/cache";
 const ADJACENT_POSTS_CACHE_VERSION = 2;
 const PUBLISHED_SLUG_QUERY_ATTEMPTS = 4;
 const PUBLISHED_SLUG_RETRY_DELAY_MS = 250;
@@ -359,74 +355,16 @@ export async function getPostPage({
   view?: PostView;
   cursor?: string | null;
 } = {}): Promise<PostPage> {
-  "use cache";
-
-  applyPublishedPostCache();
-
-  const decodedCursor = cursor ? decodePostCursor(cursor) : null;
-  if (cursor && !decodedCursor) throw new Error("Invalid post cursor.");
-
   const database = getDatabase();
   if (!database) return paginatePostArray(seedPosts, { category, view, cursor });
 
-  const now = new Date();
-  const cursorDate = decodedCursor ? new Date(decodedCursor.createdAt) : null;
-  const cursorCondition =
-    decodedCursor && cursorDate
-      ? or(
-          lt(posts.createdAt, cursorDate),
-          and(
-            eq(posts.createdAt, cursorDate),
-            lt(posts.id, decodedCursor.id),
-          ),
-        )
-      : undefined;
-
   try {
-    const rows = await database.query.posts.findMany({
-      columns: {
-        id: true,
-        slug: true,
-        title: true,
-        createdAt: true,
-      },
-      extras: {
-        mediaCount: sql<number>`(
-          select count(*)::int
-          from "post_media" as "media_count_rows"
-          where "media_count_rows"."post_id" = ${posts.id}
-        )`.as("media_count"),
-      },
-      where: and(
-        publishedWhere(now),
-        category ? eq(posts.category, category) : undefined,
-        view === "featured" ? eq(posts.isFeatured, true) : undefined,
-        cursorCondition,
-      ),
-      orderBy: [desc(posts.createdAt), desc(posts.id)],
-      limit: POST_PAGE_SIZE + 1,
-      with: {
-        creator: { columns: POST_CARD_CREATOR_COLUMNS },
-        media: {
-          columns: POST_CARD_MEDIA_COLUMNS,
-          orderBy: [asc(postMedia.position)],
-          limit: 1,
-        },
-      },
+    return await readWorkPage({
+      scope: { kind: "design-archive" },
+      filters: { category, view },
+      order: "created-desc",
+      cursor,
     });
-    const items = rows.slice(0, POST_PAGE_SIZE).map(mapPostCard);
-    const finalPost = items.at(-1);
-
-    return {
-      items,
-      nextCursor:
-        rows.length > POST_PAGE_SIZE && finalPost
-          ? encodePostCursor({
-              createdAt: finalPost.createdAt,
-              id: finalPost.id,
-            })
-          : null,
-    };
   } catch (cause) {
     throw new Error("Could not load posts.", { cause });
   }

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cacheLife, cacheTag, getDatabase } = vi.hoisted(() => ({
+const { cacheLife, cacheTag, getDatabase, readWorkPage } = vi.hoisted(() => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
   getDatabase: vi.fn(),
+  readWorkPage: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ cacheLife, cacheTag }));
@@ -12,11 +13,11 @@ vi.mock("@/db/client", () => ({ getDatabase }));
 vi.mock("@/db/schema", () => ({ creators: {}, logoMedia: {}, logos: {} }));
 vi.mock("@/domain/logo", async () => import("../domain/logo"));
 vi.mock("@/storage/types", async () => import("../storage/types"));
+vi.mock("./public-work", () => ({ readWorkPage }));
 
 import {
   getPublishedLogos,
   mapPublishedLogo,
-  PUBLISHED_LOGOS_CACHE_TAG,
 } from "./logos-repository";
 
 describe("published logos repository", () => {
@@ -24,17 +25,28 @@ describe("published logos repository", () => {
     cacheLife.mockClear();
     cacheTag.mockClear();
     getDatabase.mockReset();
+    readWorkPage.mockReset();
     getDatabase.mockReturnValue(null);
   });
 
-  it("uses the public-logo cache policy and an empty local fallback", async () => {
+  it("keeps the empty no-database fallback outside public archive caching", async () => {
     await expect(getPublishedLogos()).resolves.toEqual([]);
-    expect(cacheLife).toHaveBeenCalledWith({
-      stale: 300,
-      revalidate: 21600,
-      expire: 604800,
+    expect(cacheLife).not.toHaveBeenCalled();
+    expect(cacheTag).not.toHaveBeenCalled();
+  });
+
+  it("delegates configured complete-array archives to public-work reads", async () => {
+    getDatabase.mockReturnValue({});
+    readWorkPage.mockResolvedValue({ items: [], nextCursor: null });
+
+    await expect(getPublishedLogos()).resolves.toEqual([]);
+    expect(readWorkPage).toHaveBeenCalledWith({
+      scope: { kind: "logo-archive" },
+      order: "created-desc",
     });
-    expect(cacheTag).toHaveBeenCalledWith(PUBLISHED_LOGOS_CACHE_TAG);
+
+    readWorkPage.mockRejectedValueOnce(new Error("query failed"));
+    await expect(getPublishedLogos()).rejects.toThrow("Could not load logos");
   });
 
   it("maps normalized rows to the public logo shape", () => {

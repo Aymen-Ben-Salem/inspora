@@ -306,13 +306,13 @@ function OptimisticPostTransition({
     >
       <div ref={backdrop} className="absolute inset-0 bg-gradient-to-b from-white to-[#d2d1d1]" />
       <div className="relative flex h-full w-full flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        <section ref={gallery} className="flex min-h-[62dvh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent lg:h-[100dvh]">
+        <section ref={gallery} className="flex min-h-[62dvh] min-w-0 flex-1 items-center justify-center overflow-visible bg-transparent lg:h-[100dvh]">
           <figure className="flex min-w-full items-center justify-center px-4 py-6 sm:px-8 sm:py-8 md:px-10 md:py-10 lg:h-full lg:py-0">
             <div
               ref={hero}
               data-optimistic-post-surface
               className="relative shrink-0 overflow-hidden bg-[#f3f3f3]"
-              style={heroGeometry}
+              style={{ ...heroGeometry, transformOrigin: "top left" }}
             >
               {source.mediaType === "video" ? (
                 <video

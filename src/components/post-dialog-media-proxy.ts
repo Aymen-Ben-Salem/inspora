@@ -11,6 +11,45 @@ function getMediaElement(element: HTMLElement | undefined) {
   );
 }
 
+export function isMediaReady(element: HTMLElement) {
+  const media = getMediaElement(element);
+  if (media instanceof HTMLImageElement) return media.complete && media.naturalWidth > 0;
+  if (media instanceof HTMLVideoElement) return media.readyState >= 2;
+  return true;
+}
+
+// A cached URL still needs decoding before a newly mounted image can paint.
+export function waitForMediaReady(element: HTMLElement, onReady: () => void) {
+  const media = getMediaElement(element);
+  let cancelled = false;
+  let decoding = false;
+  const finish = () => {
+    if (cancelled) return;
+    cancel();
+    onReady();
+  };
+  const ready = () => {
+    if (cancelled || decoding) return;
+    decoding = true;
+    if (media instanceof HTMLImageElement && typeof media.decode === "function") {
+      void media.decode().then(finish, finish);
+    } else {
+      finish();
+    }
+  };
+  const cancel = () => {
+    cancelled = true;
+    media?.removeEventListener("load", ready);
+    media?.removeEventListener("loadeddata", ready);
+    media?.removeEventListener("error", finish);
+  };
+  media?.addEventListener("load", ready);
+  media?.addEventListener("loadeddata", ready);
+  media?.addEventListener("error", finish);
+  if (!media || isMediaReady(element) || (media instanceof HTMLImageElement && media.complete)) ready();
+  return cancel;
+}
+
 function getImageSource(media: HTMLImageElement) {
   return media.currentSrc || media.src;
 }
@@ -120,6 +159,7 @@ function cloneImage(source: HTMLImageElement) {
   image.removeAttribute("sizes");
   image.removeAttribute("srcset");
   image.src = getImageSource(source);
+  image.loading = "eager";
 
   return image;
 }

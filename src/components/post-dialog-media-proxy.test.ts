@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   findVisibleDialogHero,
+  waitForMediaReady,
   resolveExitMediaRect,
   resolveFeedTransitionTarget,
   removeMediaProxy,
@@ -94,5 +95,56 @@ describe("post dialog media transitions", () => {
     expect(resolveProxyTargetBoxShadow(true)).toBe(
       "0 18px 60px rgba(0, 0, 0, 0.12)",
     );
+  });
+});
+
+
+describe("transition media readiness", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function imageFixture() {
+    let decoded!: () => void;
+    class TestImage extends EventTarget {
+      complete = false;
+      naturalWidth = 0;
+      decode = vi.fn(() => new Promise<void>((resolve) => { decoded = resolve; }));
+    }
+    vi.stubGlobal("HTMLImageElement", TestImage);
+    vi.stubGlobal("HTMLVideoElement", class {});
+    const media = new TestImage();
+    const element = { querySelector: () => media } as unknown as HTMLElement;
+    return { media, element, decode: () => decoded() };
+  }
+
+  it("retains the feed cover until the full-size image has loaded AND decoded", async () => {
+    const { media, element, decode } = imageFixture();
+    const ready = vi.fn();
+    waitForMediaReady(element, ready);
+    expect(ready).not.toHaveBeenCalled();
+    media.dispatchEvent(new Event("load"));
+    expect(ready).not.toHaveBeenCalled();
+    decode();
+    await Promise.resolve();
+    expect(ready).toHaveBeenCalledOnce();
+    media.dispatchEvent(new Event("load"));
+    expect(ready).toHaveBeenCalledOnce();
+  });
+
+  it("does not start an animation or handoff after closing during decode", async () => {
+    const { media, element, decode } = imageFixture();
+    media.complete = true; media.naturalWidth = 800;
+    const ready = vi.fn();
+    const cancel = waitForMediaReady(element, ready);
+    cancel(); decode();
+    await Promise.resolve();
+    expect(ready).not.toHaveBeenCalled();
+  });
+
+  it("releases the wait if the detail image fails", () => {
+    const { media, element } = imageFixture();
+    const ready = vi.fn();
+    waitForMediaReady(element, ready);
+    media.dispatchEvent(new Event("error"));
+    expect(ready).toHaveBeenCalledOnce();
   });
 });

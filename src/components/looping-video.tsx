@@ -148,7 +148,15 @@ export function LoopingVideo({
   const savedPositionRef = useRef<number | undefined>(undefined);
   const feedPlayback = useContext(FeedPlaybackContext);
   const suspended = suspendWithFeed && Boolean(feedPlayback?.suspended);
-  const routeActive = pathname === mountedPathname;
+  // Intercepted post routes keep the archive mounted behind the dialog.
+  const routeActive = pathname === mountedPathname ||
+    (suspendWithFeed && pathname.startsWith("/posts/"));
+  const playbackState = useRef({ active, routeActive, suspended });
+
+  useEffect(() => {
+    playbackState.current = { active, routeActive, suspended };
+    videoRef.current?.dispatchEvent(new Event(RECONCILE_EVENT));
+  }, [active, routeActive, suspended]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -174,7 +182,6 @@ export function LoopingVideo({
     if (!video) return;
 
     const source = typeof src === "string" ? src : undefined;
-    const lifecycleActive = active && routeActive && !suspended;
     let visible = false;
     let withinLoadMargin = false;
     let hiddenAt: number | undefined;
@@ -196,11 +203,12 @@ export function LoopingVideo({
       const remaining = getHiddenVideoGraceRemaining(hiddenAt, Date.now());
       hiddenCleanup = window.setTimeout(() => {
         hiddenCleanup = undefined;
-        if (document.hidden && lifecycleActive) detach();
+        if (document.hidden) detach();
       }, remaining);
     };
     const reconcile = () => {
-      if (!lifecycleActive) {
+      const { active, routeActive, suspended } = playbackState.current;
+      if (!active || !routeActive) {
         clearHiddenCleanup();
         detach();
         return;
@@ -222,7 +230,7 @@ export function LoopingVideo({
       }
 
       attachVideoSource(video, source, savedPositionRef.current);
-      if (visible) playSilently(video);
+      if (visible && !suspended) playSilently(video);
       else video.pause();
     };
 
@@ -276,13 +284,10 @@ export function LoopingVideo({
       detach();
     };
   }, [
-    active,
     eager,
     preservePositionWhileInactive,
     releaseWhenNotVisible,
-    routeActive,
     src,
-    suspended,
   ]);
 
   return (

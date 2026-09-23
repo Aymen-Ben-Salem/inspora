@@ -21,6 +21,8 @@ import {
   getCompensatedRadius,
   getCornerRadius,
   getIntrinsicMediaAspectRatio,
+  isMediaReady,
+  waitForMediaReady,
   resolveExitMediaRect,
   resolveFeedTransitionTarget,
   resolveProxyTargetBoxShadow,
@@ -150,10 +152,14 @@ export function PostDialog({
   const dismissIndicator = useRef<HTMLDivElement>(null);
   const entrance = useRef<gsap.core.Timeline>(null);
   const entranceHero = useRef<HTMLElement>(null);
-  const entranceHeroRect = useRef<DOMRect>(null);
   const entranceProxy = useRef<HTMLDivElement>(null);
   const exitProxy = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
+  const mediaWaits = useRef<Array<() => void>>([]);
+  const cancelMediaWaits = useCallback(() => {
+    mediaWaits.current.forEach((cancel) => cancel());
+    mediaWaits.current = [];
+  }, []);
   const activeTransitionIdentity = useRef<string | null>(null);
 
   useEffect(() => suspendFeedPlayback(), [suspendFeedPlayback]);
@@ -183,14 +189,15 @@ export function PostDialog({
     }
 
     closing.current = true;
+    cancelMediaWaits();
     root.style.cursor = "";
+    root.style.removeProperty("visibility");
     if (dismissIndicator.current) {
       dismissIndicator.current.style.opacity = "0";
     }
     entrance.current?.kill();
     entrance.current = null;
-    removeMediaProxy(entranceProxy.current);
-    entranceProxy.current = null;
+    // Keep an entrance cover during exit if the full-size media is still loading.
     removeMediaProxy(exitProxy.current);
     exitProxy.current = null;
 
@@ -206,10 +213,7 @@ export function PostDialog({
       ?.dataset.postDialogPostId;
     const source = resolveFeedTransitionTarget(findFeedPost(postId));
     const sourceRect = source?.getBoundingClientRect();
-    const measuredHeroRect =
-      hero === entranceHero.current && entranceHeroRect.current
-        ? entranceHeroRect.current
-        : hero?.getBoundingClientRect();
+    const measuredHeroRect = hero?.getBoundingClientRect();
     const finalHeroRect = measuredHeroRect
       ? resolveExitMediaRect({
           heroRect: measuredHeroRect,
@@ -267,12 +271,11 @@ export function PostDialog({
       isVisible(sourceRect) &&
       finalHeroRect.width > 0
     ) {
-      const proxy = createMediaProxy({
-        fallback: source,
-        media: hero,
-        rect: finalHeroRect,
-        root,
-      });
+      // Only a cropped website section needs a separate aspect-ratio proxy.
+      // Otherwise keep the already decoded image/video on screen during exit.
+      const proxy = hero.hasAttribute("data-post-dialog-match-feed-aspect")
+        ? createMediaProxy({ fallback: source, media: hero, rect: finalHeroRect, root })
+        : undefined;
 
       if (proxy) {
         exitProxy.current = proxy;
@@ -332,7 +335,7 @@ export function PostDialog({
       },
       POST_EXIT_DELAY,
     );
-  }, [finishClose]);
+  }, [cancelMediaWaits, finishClose]);
 
   useLayoutEffect(() => {
     const previousOverflow = document.documentElement.style.overflow;
@@ -360,6 +363,7 @@ export function PostDialog({
       const root = scope.current;
 
       if (!root || closeMode === "home") return;
+      cancelMediaWaits();
 
       closing.current = false;
       entrance.current = null;
@@ -400,7 +404,6 @@ export function PostDialog({
 
         if (closeMode === "back" && isPostTransitionActive(pathname)) {
           entranceHero.current = hero;
-          entranceHeroRect.current = hero.getBoundingClientRect();
           return true;
         }
 
@@ -430,7 +433,6 @@ export function PostDialog({
         ).matches;
 
         entranceHero.current = hero;
-        entranceHeroRect.current = targetRect;
 
         if (reducedMotion) {
           gsap.set([backdrop, gallery, sidebar, hero], { clearProps: "all" });
@@ -484,9 +486,20 @@ export function PostDialog({
         let proxy: HTMLDivElement | undefined;
         const settleEntrance = () => {
           if (proxy) {
-            removeMediaProxy(proxy);
-            if (entranceProxy.current === proxy) {
-              entranceProxy.current = null;
+            // Keep the feed pixels over the real hero until its larger asset is
+            // decoded. Nesting the cover lets it follow scrolling and resizing.
+            const cover = proxy;
+            hero.appendChild(cover);
+            Object.assign(cover.style, {
+              position: "absolute", left: "0", top: "0", width: "100%",
+              height: "100%", transform: "none", borderRadius: "inherit",
+              boxShadow: "none", willChange: "auto",
+            });
+            if (!closing.current) {
+              mediaWaits.current.push(waitForMediaReady(hero, () => {
+                removeMediaProxy(cover);
+                if (entranceProxy.current === cover) entranceProxy.current = null;
+              }));
             }
           }
 
@@ -527,23 +540,21 @@ export function PostDialog({
           isVisible(sourceRect) &&
           targetRect.width > 0
         ) {
-          // Animate mounted archive media directly, avoiding a clone-to-original
-          // handoff that can reload images or jump between video frames.
-          if (closeMode !== "custom") {
+          // Warm archive media can animate directly. Cold detail assets use
+          // the already loaded feed asset throughout the entrance.
+          if (closeMode !== "custom" || !isMediaReady(hero)) {
             proxy = createMediaProxy({
               fallback: source,
               media: hero,
               rect: targetRect,
               root,
-              mediaSourcePreference: hero.hasAttribute(
-                "data-post-dialog-animated-media",
-              )
-                ? "fallback"
-                : "media",
+              mediaSourcePreference: "fallback",
             });
           }
 
           if (proxy) {
+            timeline.pause();
+            root.style.visibility = "hidden";
             const scaleX = sourceRect.width / targetRect.width;
             const scaleY = sourceRect.height / targetRect.height;
             const targetRadius = getCornerRadius(hero);
@@ -576,6 +587,10 @@ export function PostDialog({
               },
               0,
             );
+            mediaWaits.current.push(waitForMediaReady(proxy, () => {
+              root.style.removeProperty("visibility");
+              timeline.play(0);
+            }));
             return true;
           }
 
@@ -627,6 +642,8 @@ export function PostDialog({
 
       return () => {
         observer?.disconnect();
+        cancelMediaWaits();
+        root.style.removeProperty("visibility");
         removeMediaProxy(entranceProxy.current);
         entranceProxy.current = null;
         entrance.current = null;

@@ -156,7 +156,7 @@ export function WebsiteDetailDialog({
               data-post-dialog-hero
               data-post-dialog-animated-media
               data-post-dialog-max-viewport-height="79"
-              className="aspect-video w-full max-w-[1108px] overflow-hidden bg-[#ececea]"
+              className="relative aspect-video w-full max-w-[1108px] overflow-hidden bg-[#ececea]"
             >
               <LoopingVideo
                 src={website.recording.url}

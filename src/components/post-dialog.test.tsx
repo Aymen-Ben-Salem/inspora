@@ -9,6 +9,8 @@ const lifecycle = vi.hoisted(() => ({
   refIndex: 0,
   createProxy: vi.fn(),
   tween: vi.fn(),
+  waitForMedia: vi.fn((_element: unknown, ready: () => void) => { ready(); return () => {}; }),
+  mediaReady: true,
   measurements: [] as Array<{ overflow: string; gutter: string }>,
 }));
 
@@ -32,11 +34,13 @@ vi.mock("@gsap/react", () => ({
 vi.mock("gsap", () => ({ default: {
   registerPlugin: vi.fn(),
   set: vi.fn(),
-  timeline: () => ({ to: lifecycle.tween, fromTo: lifecycle.tween }),
+  timeline: () => ({ to: lifecycle.tween, fromTo: lifecycle.tween, pause: vi.fn(), play: vi.fn(), kill: vi.fn() }),
 } }));
 vi.mock("./post-dialog-media-proxy", async (importOriginal) => ({
   ...await importOriginal<typeof import("./post-dialog-media-proxy")>(),
   createMediaProxy: lifecycle.createProxy,
+  isMediaReady: () => lifecycle.mediaReady,
+  waitForMediaReady: lifecycle.waitForMedia,
   removeMediaProxy: vi.fn(),
   getIntrinsicMediaAspectRatio: () => undefined,
   getCornerRadius: () => 0,
@@ -59,6 +63,7 @@ describe("post dialog scroll-lock lifecycle", () => {
     lifecycle.measurements.length = 0;
     lifecycle.root = null;
     lifecycle.refIndex = 0;
+    lifecycle.mediaReady = true;
     vi.clearAllMocks();
     vi.unstubAllGlobals();
   });
@@ -86,7 +91,8 @@ describe("post dialog scroll-lock lifecycle", () => {
     },
   );
 
-  it.each(["logo", "website"])("animates the original %s media without loading a temporary copy", (kind) => {
+  it.each(["logo", "website", "cold-image", "routed-image"])("uses loaded media for %s entrance", (kind) => {
+    lifecycle.mediaReady = kind !== "cold-image";
     const rect = { width: 800, height: 450, left: 100, top: 100, right: 900, bottom: 550 };
     const style = { removeProperty: vi.fn() };
     const hero = {
@@ -99,6 +105,7 @@ describe("post dialog scroll-lock lifecycle", () => {
       getBoundingClientRect: () => ({ ...rect, width: 300, height: 169 }),
     };
     lifecycle.root = {
+      style,
       querySelectorAll: () => [],
       querySelector: (selector: string) => ({
         "[data-post-dialog-backdrop]": { style },
@@ -119,11 +126,24 @@ describe("post dialog scroll-lock lifecycle", () => {
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
     renderToStaticMarkup(createElement(PostDialog, {
-      closeMode: "custom", transitionKey: kind, onClose: () => {},
+      closeMode: kind === "routed-image" ? "back" : "custom", transitionKey: kind, onClose: () => {},
     }));
     lifecycle.layout.forEach((effect) => effect());
+    if (kind === "cold-image" || kind === "routed-image") {
+      expect(lifecycle.createProxy).toHaveBeenCalledWith(expect.objectContaining({
+        fallback: source, media: hero, mediaSourcePreference: "fallback",
+      }));
+      expect(lifecycle.waitForMedia).toHaveBeenCalled();
+      return;
+    }
     expect(lifecycle.createProxy).not.toHaveBeenCalled();
     expect(lifecycle.tween).toHaveBeenCalledWith(hero, expect.objectContaining({ scaleX: 1, scaleY: 1 }), 0);
+    lifecycle.tween.mockClear();
+    const keydown = vi.mocked(window.addEventListener).mock.calls.find(([name]) => name === "keydown")?.[1];
+    if (typeof keydown !== "function") throw new Error("Missing close listener");
+    keydown({ key: "Escape" } as KeyboardEvent);
+    expect(lifecycle.createProxy).not.toHaveBeenCalled();
+    expect(lifecycle.tween).toHaveBeenCalledWith(hero, expect.objectContaining({ scaleX: 300 / 800 }), expect.any(Number));
   });
 
 });

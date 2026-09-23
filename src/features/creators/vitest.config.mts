@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("../../", import.meta.url)) } },
   test: { include: [
     "src/features/creators/identity*.test.ts",
+    "src/features/creators/claims*.test.ts",
     "src/features/creators/validation.test.ts",
     "src/features/admin/creator-actions.test.ts",
     "src/features/admin/creator-environment-policy.test.ts",
@@ -14,5 +15,6 @@ export default defineConfig({
     "src/features/profiles/repository.test.ts",
     "src/features/profiles/actions.test.ts",
     "src/app/api/profile/route.test.ts",
+    "src/app/profile/page.test.tsx",
   ] },
 });

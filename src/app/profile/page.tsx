@@ -6,8 +6,7 @@ import { redirect } from "next/navigation";
 import { getCreatorViews } from "@/analytics/creator-views";
 import { isClerkConfigured } from "@/auth/config";
 import { ProfilePage } from "@/components/profile/profile-page";
-import { ensureCreatorForOwner } from "@/features/creators/identity";
-import { requestCreatorClaimFromVerifiedX } from "@/features/creators/claims";
+import { ensureCreatorForOwner, requestCreatorOwnershipClaimFromVerifiedX } from "@/features/creators/identity";
 import {
   getPublishedCreatorWorkCounts,
   getPublishedCreatorWorkPage,
@@ -36,7 +35,7 @@ export default async function OwnerProfilePage({
       : "all";
   const rawModal = Array.isArray(params.modal) ? params.modal[0] : params.modal;
   if (rawModal === "edit") {
-    await requestCreatorClaimFromVerifiedX(userId).catch((error) => {
+    await requestCreatorOwnershipClaimFromVerifiedX({ userId }).catch((error) => {
       console.error("Verified X profile synchronization failed", error);
     });
   }

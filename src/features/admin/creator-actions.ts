@@ -9,9 +9,9 @@ import { AdminAuthConfigurationError } from "@/auth/require-admin";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
-import { reviewCreatorClaim } from "@/features/creators/claims";
 import {
   AdminCreatorMutationError,
+  reviewCreatorOwnershipClaim,
   createAdminCreator,
   deleteAdminCreator,
   updateAdminCreator,
@@ -105,6 +105,5 @@ export async function reviewCreatorClaimAction(formData: FormData) {
   const claimId = idSchema.parse(formData.get("claimId"));
   const decision = z.enum(["approve", "reject"]).parse(formData.get("decision"));
   const reason = String(formData.get("reason") ?? "");
-  await reviewCreatorClaim(claimId, decision, reason);
-  revalidateCreatorPaths();
+  await reviewCreatorOwnershipClaim(claimId, decision, reason);
 }

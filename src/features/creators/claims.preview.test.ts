@@ -7,7 +7,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("../../auth/require-admin", () => ({
   requireAdmin: vi.fn(async () => ({ userId: "task1-preview-admin" })),
 }));
-vi.mock("./repository", () => ({ ensureOwnedCreator: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
+vi.mock("next/server", () => ({ after: vi.fn() }));
 
 import {
   adminAuditLogs,

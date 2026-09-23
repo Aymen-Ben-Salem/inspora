@@ -12,7 +12,7 @@ import { creators, posts, logos, websites, websiteMedia, websiteSections, creato
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({cacheLife:vi.fn(),cacheTag:vi.fn()}));
 vi.mock("../auth/require-admin", () => ({ requireAdmin: vi.fn(async () => ({ userId: "task8-preview-check" })) }));
-vi.mock("../features/creators/repository", () => ({ ensureOwnedCreator: vi.fn() }));
+vi.mock("next/server", () => ({ after: vi.fn() }));
 const provider = vi.hoisted(() => ({query:vi.fn()}));
 vi.mock("./posthog-query", () => ({
   getPostHogConfiguration: () => ({apiHost:"https://eu.posthog.com",projectId:"280536",personalApiKey:"fixture-only"}),

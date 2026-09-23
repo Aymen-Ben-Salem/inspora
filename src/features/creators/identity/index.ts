@@ -13,6 +13,8 @@ import type { CreatorSummary, ResolvedCreatorProfile } from "../types";
 import { creatorUsernameCandidates } from "../validation";
 import { mapCreatorSummary, mapPublicCreatorProfile } from "./projections";
 
+export { requestCreatorOwnershipClaimFromVerifiedX, reviewCreatorOwnershipClaim } from "./claims";
+
 // Owner mutations share this trusted-principal identity boundary.
 export { ProfileMutationError, updateOwnedCreatorProfile, updateOwnedCreatorAvatar } from "./owned-profile";
 export {

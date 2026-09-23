@@ -1,115 +1,30 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@clerk/nextjs/server", () => ({ clerkClient: vi.fn() }));
-vi.mock("../../auth/require-admin", () => ({ requireAdmin: vi.fn() }));
-vi.mock("../../db/schema", () => ({}));
-vi.mock("../../db/write-client", () => ({ withWriteTransaction: vi.fn() }));
-vi.mock("./repository", () => ({ ensureOwnedCreator: vi.fn() }));
+vi.mock("@/auth/require-admin", () => ({ requireAdmin: vi.fn() }));
+vi.mock("@/db/write-client", () => ({ withWriteTransaction: vi.fn() }));
+vi.mock("next/server", () => ({ after: vi.fn() }));
 
-import {
-  claimDecision,
-  creatorReferenceKinds,
-  existingClaimRequestResult,
-  verifiedXIdentityFromAccounts,
-  type ExternalAccountEvidence,
-} from "./claims";
+import { requireAdmin } from "@/auth/require-admin";
+import { withWriteTransaction } from "@/db/write-client";
+import { requestCreatorOwnershipClaimFromVerifiedX, reviewCreatorOwnershipClaim } from "./identity";
 
-const verifiedAccount: ExternalAccountEvidence = {
-  provider: "oauth_x",
-  providerUserId: "x-user-42",
-  username: "NeroPursue",
-  verificationStatus: "verified",
-};
+beforeEach(() => { vi.clearAllMocks(); });
 
-describe("creator claims", () => {
-  it("moves every creator-owned work type during claim consolidation", () => {
-    expect(creatorReferenceKinds()).toEqual([
-      "posts",
-      "logos",
-      "websites",
-      "submissions",
-    ]);
+describe("ownership claim authority and review validation", () => {
+  it("refuses an empty owner principal before provider retrieval or writes", async () => {
+    await expect(requestCreatorOwnershipClaimFromVerifiedX({ userId: " " })).rejects.toThrow("Sign in");
+    expect(withWriteTransaction).not.toHaveBeenCalled();
   });
-
-  it("uses only server-verified X evidence", () => {
-    expect(verifiedXIdentityFromAccounts([verifiedAccount])).toEqual({
-      providerId: "x-user-42",
-      username: "neropursue",
-      profileUrl: "https://x.com/neropursue",
-    });
-    expect(
-      verifiedXIdentityFromAccounts([
-        { ...verifiedAccount, verificationStatus: "unverified" },
-      ]),
-    ).toBeNull();
-    expect(
-      verifiedXIdentityFromAccounts([
-        { ...verifiedAccount, provider: "oauth_google" },
-      ]),
-    ).toBeNull();
+  it.each(["approve", "reject"] as const)("requires server-established admin authority for %s", async (decision) => {
+    const denied = new Error("NEXT_REDIRECT");
+    vi.mocked(requireAdmin).mockRejectedValueOnce(denied);
+    await expect(reviewCreatorOwnershipClaim("claim-id", decision, "Reason")).rejects.toBe(denied);
+    expect(withWriteTransaction).not.toHaveBeenCalled();
   });
-
-  it("recognizes a safe reconnect without opening another claim", () => {
-    expect(
-      claimDecision({
-        requesterUserId: "user-1",
-        currentOwnerUserId: "user-1",
-        currentProviderId: "x-user-42",
-        verifiedProviderId: "x-user-42",
-      }),
-    ).toBe("already_owned");
-  });
-
-  it("returns the existing result for duplicate and delayed claim requests", () => {
-    expect(
-      existingClaimRequestResult({
-        id: "claim-1",
-        status: "pending",
-        targetCreatorId: "creator-1",
-      }),
-    ).toEqual({ status: "pending", claimId: "claim-1" });
-    expect(
-      existingClaimRequestResult({
-        id: "claim-1",
-        status: "approved",
-        targetCreatorId: "creator-1",
-      }),
-    ).toEqual({ status: "claimed", creatorId: "creator-1" });
-    expect(
-      existingClaimRequestResult({
-        id: "claim-1",
-        status: "rejected",
-        targetCreatorId: "creator-1",
-      }),
-    ).toEqual({ status: "rejected" });
-  });
-
-  it.each([
-    {
-      requesterUserId: "user-1",
-      currentOwnerUserId: "user-2",
-      currentProviderId: null,
-      verifiedProviderId: "x-user-42",
-    },
-    {
-      requesterUserId: "user-1",
-      currentOwnerUserId: null,
-      currentProviderId: "different-x-user",
-      verifiedProviderId: "x-user-42",
-    },
-  ])("refuses ownership/provider conflicts", (input) => {
-    expect(claimDecision(input)).toBe("conflict");
-  });
-
-  it("leaves an unowned matching creator pending for team review", () => {
-    expect(
-      claimDecision({
-        requesterUserId: "user-1",
-        currentOwnerUserId: null,
-        currentProviderId: null,
-        verifiedProviderId: "x-user-42",
-      }),
-    ).toBe("pending");
+  it.each([undefined, "", "   "])("requires a nonempty trimmed rejection reason (%s)", async (reason) => {
+    vi.mocked(requireAdmin).mockResolvedValue({ userId: "admin" });
+    await expect(reviewCreatorOwnershipClaim("claim-id", "reject", reason)).rejects.toThrow("Add a reason before rejecting this claim.");
+    expect(withWriteTransaction).not.toHaveBeenCalled();
   });
 });

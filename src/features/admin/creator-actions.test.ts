@@ -11,6 +11,7 @@ const external = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
+  review: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -36,6 +37,7 @@ vi.mock("@/features/creators/identity", () => ({
   createAdminCreator: external.create,
   deleteAdminCreator: vi.fn(),
   updateAdminCreator: external.update,
+  reviewCreatorOwnershipClaim: external.review,
 }));
 vi.mock("@/features/creators/validation", () => ({
   parseAdminCreatorForm: external.parse,
@@ -45,7 +47,7 @@ vi.mock("@/storage/media-storage", () => ({
 }));
 
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
-import { saveCreatorAction } from "./creator-actions";
+import { reviewCreatorClaimAction, saveCreatorAction } from "./creator-actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -106,4 +108,28 @@ it("rethrows framework redirects from server-established admin authority", async
   expect(external.remove).not.toHaveBeenCalled();
   expect(external.updateTag).not.toHaveBeenCalled();
   expect(external.redirect).not.toHaveBeenCalled();
+});
+
+it("delegates claim reviews without repeating the identity module's committed side effects", async () => {
+  const form = new FormData();
+  form.set("claimId", "11111111-1111-4111-8111-111111111111");
+  form.set("decision", "reject");
+  form.set("reason", "Reason");
+  form.set("actorId", "untrusted-browser-actor");
+  external.review.mockResolvedValue({ status: "rejected" });
+  await reviewCreatorClaimAction(form);
+  expect(external.review).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "reject", "Reason");
+  expect(external.updateTag).not.toHaveBeenCalled();
+  expect(external.revalidatePath).not.toHaveBeenCalled();
+});
+
+it("preserves the review error envelope and does not invalidate failed reviews", async () => {
+  const form = new FormData();
+  form.set("claimId", "11111111-1111-4111-8111-111111111111");
+  form.set("decision", "reject");
+  const error = new Error("Add a reason before rejecting this claim.");
+  external.review.mockRejectedValueOnce(error);
+  await expect(reviewCreatorClaimAction(form)).rejects.toBe(error);
+  expect(external.updateTag).not.toHaveBeenCalled();
+  expect(external.revalidatePath).not.toHaveBeenCalled();
 });

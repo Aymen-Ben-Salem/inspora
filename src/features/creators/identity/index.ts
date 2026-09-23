@@ -23,8 +23,10 @@ export {
   deleteAdminCreator,
   getAdminCreatorClaims,
   getAdminCreators,
+  saveAdminCreatorForAttribution,
   updateAdminCreator,
 } from "./admin";
+export type { AdminPrincipal } from "./admin";
 
 /** Established by a server authentication adapter, never by request body fields. */
 export type CreatorOwnerPrincipal = Readonly<{ userId: string }>;

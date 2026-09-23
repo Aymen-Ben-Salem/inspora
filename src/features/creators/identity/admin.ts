@@ -48,6 +48,9 @@ type Database = ReturnType<typeof requireDatabase>;
 type CreatorRow = typeof creators.$inferSelect;
 type MutationDatabase = Database | WriteTx;
 
+/** Established by a server authentication adapter, never by request body fields. */
+export type AdminPrincipal = Readonly<{ userId: string }>;
+
 export class AdminCreatorMutationError extends Error {
   constructor(
     readonly code: AdminCreatorMutationCode,
@@ -100,7 +103,7 @@ function validatedCreatorInput(input: AdminCreatorInput) {
   }
 }
 
-function creatorValues(input: AdminCreatorInput, username: string) {
+function creatorValues(input: AdminCreatorInput, username: string | null) {
   return {
     name: input.name.trim(),
     handle: input.legacyHandle?.trim() || null,
@@ -204,6 +207,162 @@ async function writeAdminCreator<T>(
   }
 }
 
+async function createAdminCreatorRecord(
+  transaction: WriteTx,
+  input: AdminCreatorInput,
+) {
+  const creatorId = randomUUID();
+  const username = await availableUsername(
+    transaction,
+    input.username ?? input.legacyHandle ?? input.name,
+    { explicit: Boolean(input.username) },
+  );
+  const [created] = await transaction
+    .insert(creators)
+    .values({
+      id: creatorId,
+      ...creatorValues(input, username),
+      recordOrigin: recordOriginForAdminCreate(),
+    })
+    .returning();
+  if (!created) {
+    throw new AdminCreatorMutationError(
+      "database_unavailable",
+      "Creator could not be created.",
+    );
+  }
+  await transaction.insert(creatorUsernameAliases).values({
+    creatorId,
+    username,
+    isCurrent: true,
+  });
+  return { created, username };
+}
+
+async function updateAdminCreatorRecord(
+  transaction: WriteTx,
+  existing: CreatorRow,
+  input: AdminCreatorInput,
+  options: { generateUsernameWhenMissing: boolean },
+) {
+  const nextXProfileUrl =
+    normalizedOptionalXProfileUrl(input.xProfileUrl) ?? null;
+  if (
+    (existing.ownerUserId || existing.xProviderId) &&
+    existing.xProfileUrl !== nextXProfileUrl
+  ) {
+    throw new AdminCreatorMutationError(
+      "conflict",
+      "An owned or provider-associated creator's X association cannot be transferred.",
+    );
+  }
+
+  const username = input.username
+    ? await availableUsername(transaction, input.username, {
+        explicit: true,
+        currentCreatorId: existing.id,
+      })
+    : options.generateUsernameWhenMissing
+      ? await availableUsername(
+          transaction,
+          existing.username ?? input.name,
+          { currentCreatorId: existing.id },
+        )
+      : existing.username;
+  const values = {
+    ...creatorValues(input, username),
+    // The form can clear metadata while editing and then restore the same URL.
+    ...(input.avatarUrl === existing.avatarUrl
+      ? {
+          avatarStorageProvider: existing.avatarStorageProvider,
+          avatarStorageKey: existing.avatarStorageKey,
+        }
+      : {}),
+  };
+  const [updated] = await transaction
+    .update(creators)
+    .set({ ...values, updatedAt: new Date() })
+    .where(eq(creators.id, existing.id))
+    .returning();
+  if (!updated) {
+    throw new AdminCreatorMutationError("missing_creator", "Creator not found.");
+  }
+  if (username && username !== existing.username) {
+    await setCurrentUsernameAlias(transaction, existing.id, username);
+  }
+  return {
+    updated,
+    username,
+    displacedAvatarAssets: managedCreatorAvatar(existing).filter(
+      (asset) => asset.storageKey !== updated.avatarStorageKey,
+    ),
+  };
+}
+
+export async function saveAdminCreatorForAttribution(
+  transaction: WriteTx,
+  adminPrincipal: AdminPrincipal,
+  creatorInput: AdminCreatorInput,
+) {
+  if (!adminPrincipal.userId?.trim()) {
+    throw new AdminCreatorMutationError(
+      "invalid_input",
+      "Trusted administrator authority is required.",
+    );
+  }
+
+  const input = validatedCreatorInput(creatorInput);
+  const dataEnvironment = process.env.DATA_ENVIRONMENT;
+
+  if (!input.id) {
+    if (!isCreatorVisibleInEnvironment(input.legacyHandle, dataEnvironment)) {
+      throw new AdminCreatorMutationError(
+        "environment_restricted",
+        "Development fixture creators can only be used in Development.",
+      );
+    }
+    const { created } = await createAdminCreatorRecord(transaction, input);
+    return {
+      creatorId: created.id,
+      displacedAvatarAssets: [] as ManagedMediaAsset[],
+    };
+  }
+
+  const [existing] = await transaction
+    .select()
+    .from(creators)
+    .where(eq(creators.id, input.id))
+    .for("update");
+  if (
+    !existing ||
+    !isCreatorVisibleInEnvironment(existing.handle, dataEnvironment)
+  ) {
+    throw new AdminCreatorMutationError("missing_creator", "Creator not found.");
+  }
+
+  if (shouldLockExistingCreator(existing, dataEnvironment)) {
+    await transaction
+      .update(creators)
+      .set({ updatedAt: new Date() })
+      .where(eq(creators.id, existing.id));
+    return {
+      creatorId: existing.id,
+      displacedAvatarAssets: [] as ManagedMediaAsset[],
+    };
+  }
+
+  const result = await updateAdminCreatorRecord(
+    transaction,
+    existing,
+    input,
+    { generateUsernameWhenMissing: false },
+  );
+  return {
+    creatorId: existing.id,
+    displacedAvatarAssets: result.displacedAvatarAssets,
+  };
+}
+
 export async function getAdminCreators() {
   await requireAdmin();
   const database = requireDatabase();
@@ -283,36 +442,12 @@ export async function createAdminCreator(input: AdminCreatorInput) {
   const { userId: actorId } = await requireAdmin();
   input = validatedCreatorInput(input);
   return writeAdminCreator(async (tx) => {
-    const id = randomUUID();
-    const username = await availableUsername(
-      tx,
-      input.username ?? input.legacyHandle ?? input.name,
-      { explicit: Boolean(input.username) },
-    );
-    const [created] = await tx
-      .insert(creators)
-      .values({
-        id,
-        ...creatorValues(input, username),
-        recordOrigin: recordOriginForAdminCreate(),
-      })
-      .returning();
-    if (!created) {
-      throw new AdminCreatorMutationError(
-        "database_unavailable",
-        "Creator could not be created.",
-      );
-    }
-    await tx.insert(creatorUsernameAliases).values({
-      creatorId: id,
-      username,
-      isCurrent: true,
-    });
+    const { created, username } = await createAdminCreatorRecord(tx, input);
     await tx.insert(adminAuditLogs).values({
       actorId,
       action: "creator.created",
       resourceType: "creator",
-      resourceId: id,
+      resourceId: created.id,
       details: { username },
     });
     return mapAdminCreatorAttribution(created);
@@ -344,59 +479,22 @@ export async function updateAdminCreator(
       );
     }
 
-    const nextXProfileUrl =
-      normalizedOptionalXProfileUrl(input.xProfileUrl) ?? null;
-    if (
-      (existing.ownerUserId || existing.xProviderId) &&
-      existing.xProfileUrl !== nextXProfileUrl
-    ) {
-      throw new AdminCreatorMutationError(
-        "conflict",
-        "An owned or provider-associated creator's X association cannot be transferred.",
-      );
-    }
-    const username = await availableUsername(
-      tx,
-      input.username ?? existing.username ?? input.name,
-      { explicit: Boolean(input.username), currentCreatorId: id },
-    );
-    const usernameChanged = username !== existing.username;
-    const values = {
-      ...creatorValues(input, username),
-      // The form can clear metadata while editing and then restore the same URL.
-      ...(input.avatarUrl === existing.avatarUrl
-        ? {
-            avatarStorageProvider: existing.avatarStorageProvider,
-            avatarStorageKey: existing.avatarStorageKey,
-          }
-        : {}),
-    };
-    const [updated] = await tx
-      .update(creators)
-      .set({ ...values, updatedAt: new Date() })
-      .where(eq(creators.id, id))
-      .returning();
-    if (!updated) {
-      throw new AdminCreatorMutationError(
-        "missing_creator",
-        "Creator not found.",
-      );
-    }
-    if (usernameChanged) {
-      await setCurrentUsernameAlias(tx, id, username);
-    }
+    const result = await updateAdminCreatorRecord(tx, existing, input, {
+      generateUsernameWhenMissing: true,
+    });
     await tx.insert(adminAuditLogs).values({
       actorId,
       action: "creator.updated",
       resourceType: "creator",
       resourceId: id,
-      details: { username, previousUsername: existing.username },
+      details: {
+        username: result.username,
+        previousUsername: existing.username,
+      },
     });
     return {
-      creator: mapAdminCreatorAttribution(updated),
-      removedManagedMedia: managedCreatorAvatar(existing).filter(
-        (asset) => asset.storageKey !== updated.avatarStorageKey,
-      ),
+      creator: mapAdminCreatorAttribution(result.updated),
+      removedManagedMedia: result.displacedAvatarAssets,
     };
   });
 }

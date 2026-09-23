@@ -5,10 +5,13 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 
 import { requireDatabase } from "@/db/client";
-import { adminAuditLogs, postMedia, posts } from "@/db/schema";
-import type { WriteTx } from "@/db/write-client";
+import { adminAuditLogs, creators, postMedia, posts } from "@/db/schema";
+import { withWriteTransaction, type WriteTx } from "@/db/write-client";
 import { mapAdminCreatorAttribution } from "@/features/creators/identity/projections";
-import { resolveCreatorMutation } from "@/features/creators/repository";
+import {
+  saveAdminCreatorForAttribution,
+  type AdminPrincipal,
+} from "@/features/creators/identity";
 import type { MediaType } from "@/domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
@@ -168,79 +171,109 @@ export async function getAdminPostById(id: string) {
   return row ? mapAdminPost(row) : null;
 }
 
-export async function createAdminPost(input: AdminPostInput, actorId: string) {
-  const database = requireDatabase();
-  const now = new Date();
-  const id = randomUUID();
-  const creator = await resolveCreatorMutation(database, input.creator);
+export async function createAdminPost(
+  input: AdminPostInput,
+  adminPrincipal: AdminPrincipal,
+) {
+  return withWriteTransaction(async (tx) => {
+    const creator = await saveAdminCreatorForAttribution(
+      tx,
+      adminPrincipal,
+      input.creator,
+    );
+    const now = new Date();
+    const id = randomUUID();
 
-  await database.batch([
-    ...creator.mutations,
-    database.insert(posts).values({
+    await tx.insert(posts).values({
       id,
-      ...postValues(input, creator.id),
+      ...postValues(input, creator.creatorId),
       publishedAt: input.status === "published" ? now : null,
       archivedAt: null,
-      createdBy: actorId,
-      updatedBy: actorId,
-    }),
-    database.insert(postMedia).values(mediaValues(id, input)),
-    database.insert(adminAuditLogs).values({
-      actorId,
+      createdBy: adminPrincipal.userId,
+      updatedBy: adminPrincipal.userId,
+    });
+    await tx.insert(postMedia).values(mediaValues(id, input));
+    await tx.insert(adminAuditLogs).values({
+      actorId: adminPrincipal.userId,
       action: "post.created",
       resourceType: "post",
       resourceId: id,
       details: { slug: input.slug, status: input.status },
-    }),
-  ]);
+    });
 
-  return {
-    id,
-    slug: input.slug,
-    removedManagedMedia: creator.removedManagedMedia,
-  };
+    return {
+      id,
+      slug: input.slug,
+      removedManagedMedia: creator.displacedAvatarAssets,
+    };
+  });
 }
 
 export async function updateAdminPost(
   id: string,
   input: AdminPostInput,
-  actorId: string,
+  adminPrincipal: AdminPrincipal,
 ) {
-  const database = requireDatabase();
-  const existing = await database.query.posts.findFirst({
-    where: eq(posts.id, id),
-    with: { creator: true, media: true },
-  });
+  return withWriteTransaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(posts)
+      .where(eq(posts.id, id))
+      .for("update");
+    if (!existing) throw new Error("Post not found.");
 
-  if (!existing) throw new Error("Post not found.");
+    const existingMedia = await tx
+      .select()
+      .from(postMedia)
+      .where(eq(postMedia.postId, id))
+      .for("update");
+    const creator = await saveAdminCreatorForAttribution(
+      tx,
+      adminPrincipal,
+      input.creator,
+    );
+    const now = new Date();
+    const publishedAt =
+      input.status === "published" ? (existing.publishedAt ?? now) : null;
+    const [savedCreator] = await tx
+      .select({ avatarStorageKey: creators.avatarStorageKey })
+      .from(creators)
+      .where(eq(creators.id, creator.creatorId));
+    const retainedStorageKeys = new Set([
+      ...input.media.flatMap((media) =>
+        media.storageKey ? [media.storageKey] : [],
+      ),
+      ...(savedCreator?.avatarStorageKey
+        ? [savedCreator.avatarStorageKey]
+        : []),
+    ]);
+    const cleanupCandidates = [
+      ...managedAssets(existingMedia),
+      ...creator.displacedAvatarAssets,
+    ].filter((asset) => !retainedStorageKeys.has(asset.storageKey));
+    const removedManagedMedia = cleanupCandidates.filter(
+      (asset, index) =>
+        cleanupCandidates.findIndex(
+          (candidate) =>
+            candidate.storageProvider === asset.storageProvider &&
+            candidate.storageKey === asset.storageKey,
+        ) === index,
+    );
 
-  const now = new Date();
-  const publishedAt =
-    input.status === "published" ? (existing.publishedAt ?? now) : null;
-  const retainedStorageKeys = new Set(
-    input.media.flatMap((media) => (media.storageKey ? [media.storageKey] : [])),
-  );
-  const removedManagedMedia = managedAssets(existing.media).filter(
-    (media) => !retainedStorageKeys.has(media.storageKey),
-  );
-  const creator = await resolveCreatorMutation(database, input.creator);
-
-  await database.batch([
-    ...creator.mutations,
-    database
+    await tx
       .update(posts)
       .set({
-        ...postValues(input, creator.id),
+        ...postValues(input, creator.creatorId),
         publishedAt,
         archivedAt: null,
-        updatedBy: actorId,
+        updatedBy: adminPrincipal.userId,
         updatedAt: now,
       })
-      .where(eq(posts.id, id)),
-    database.delete(postMedia).where(eq(postMedia.postId, id)),
-    database.insert(postMedia).values(mediaValues(id, input)),
-    database.insert(adminAuditLogs).values({
-      actorId,
+      .where(eq(posts.id, id));
+    await tx.delete(postMedia).where(eq(postMedia.postId, id));
+    await tx.insert(postMedia).values(mediaValues(id, input));
+    await tx.insert(adminAuditLogs).values({
+      actorId: adminPrincipal.userId,
       action: "post.updated",
       resourceType: "post",
       resourceId: id,
@@ -250,18 +283,15 @@ export async function updateAdminPost(
         previousStatus: existing.status,
         status: input.status,
       },
-    }),
-  ]);
+    });
 
-  return {
-    id,
-    slug: input.slug,
-    previousSlug: existing.slug,
-    removedManagedMedia: [
-      ...removedManagedMedia,
-      ...creator.removedManagedMedia,
-    ],
-  };
+    return {
+      id,
+      slug: input.slug,
+      previousSlug: existing.slug,
+      removedManagedMedia,
+    };
+  });
 }
 
 export async function archiveAdminPost(id: string, actorId: string) {

@@ -10,6 +10,8 @@ import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
 import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
+import { AdminCreatorMutationError } from "@/features/creators/identity";
+import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError, parseAdminPostForm } from "./post-validation";
@@ -46,23 +48,42 @@ import type { AdminActionState } from "./types";
 
 const idSchema = z.uuid();
 
-function isUniqueViolation(error: unknown): boolean {
+function uniqueViolation(error: unknown) {
   let current = error;
-
-  while (current instanceof Error) {
-    if ("code" in current && current.code === "23505") return true;
-    current = current.cause;
+  while (current && typeof current === "object") {
+    const candidate = current as {
+      code?: string;
+      constraint?: string;
+      cause?: unknown;
+    };
+    if (candidate.code === "23505") {
+      return { constraint: candidate.constraint };
+    }
+    current = candidate.cause;
   }
-
-  return false;
+  return null;
 }
 
 function postErrorState(error: unknown): AdminActionState {
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
+  if (error instanceof AdminCreatorMutationError) {
+    return { status: "error", message: error.message };
+  }
 
-  if (isUniqueViolation(error)) {
+  const unique = uniqueViolation(error);
+  const constraint = unique?.constraint;
+  if (
+    constraint === "creators_username_lower_unique" ||
+    constraint === "creator_username_aliases_lower_unique"
+  ) {
+    return {
+      status: "error",
+      message: "That creator username is unavailable.",
+    };
+  }
+  if (unique) {
     return { status: "error", message: "That slug is already used by another post." };
   }
 
@@ -85,7 +106,7 @@ function logoErrorState(error: unknown): AdminActionState {
     return { status: "error", message: formatValidationError(error) };
   }
 
-  if (isUniqueViolation(error)) {
+  if (uniqueViolation(error)) {
     return { status: "error", message: "That slug is already used by another logo." };
   }
 
@@ -103,7 +124,7 @@ function websiteErrorState(error: unknown): AdminActionState {
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
-  if (isUniqueViolation(error)) {
+  if (uniqueViolation(error)) {
     return { status: "error", message: "That slug is already used by another website." };
   }
   console.error("Admin website mutation failed", error);
@@ -234,16 +255,20 @@ export async function createPostAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
+  const adminPrincipal = await requireAdmin();
   let created: Awaited<ReturnType<typeof createAdminPost>>;
 
   try {
-    created = await createAdminPost(parseAdminPostForm(formData), userId);
+    created = await createAdminPost(
+      parseAdminPostForm(formData),
+      adminPrincipal,
+    );
   } catch (error) {
     return postErrorState(error);
   }
 
   await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
 
   revalidatePostPaths(created.slug);
   redirect(`/admin/posts/${created.id}/edit?saved=created` as Route);
@@ -254,18 +279,23 @@ export async function updatePostAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
+  const adminPrincipal = await requireAdmin();
   let postId: string;
   let updated: Awaited<ReturnType<typeof updateAdminPost>>;
 
   try {
     postId = idSchema.parse(id);
-    updated = await updateAdminPost(postId, parseAdminPostForm(formData), userId);
+    updated = await updateAdminPost(
+      postId,
+      parseAdminPostForm(formData),
+      adminPrincipal,
+    );
   } catch (error) {
     return postErrorState(error);
   }
 
   await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
 
   revalidatePostPaths(updated.slug, updated.previousSlug);
   redirect(`/admin/posts/${postId}/edit?saved=updated` as Route);

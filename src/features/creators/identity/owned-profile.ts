@@ -10,6 +10,7 @@ import { profileEditSchema } from "@/features/profiles/validation";
 import { getR2PublicUrl, isStorageKeyForKind } from "@/storage/r2";
 import type { ManagedMediaAsset } from "@/storage/types";
 import { mapCreatorSummary } from "./projections";
+import { setCurrentUsernameAlias } from "./username-aliases";
 
 function mapOwnedCreatorSummary(row: typeof creators.$inferSelect) {
   // Preserve the existing owner-mutation guard without promising alias-backed lookup.
@@ -129,30 +130,7 @@ export async function updateOwnedCreatorProfile(
     if (!updated) throw new ProfileMutationError("form", "Your profile could not be saved.", "ownership_conflict");
 
     if (nextUsername !== creator.username) {
-      await tx
-        .update(creatorUsernameAliases)
-        .set({ isCurrent: false })
-        .where(
-          and(
-            eq(creatorUsernameAliases.creatorId, creator.id),
-            eq(creatorUsernameAliases.isCurrent, true),
-          ),
-        );
-      const [reactivated] = await tx
-        .update(creatorUsernameAliases)
-        .set({ isCurrent: true })
-        .where(and(
-          eq(creatorUsernameAliases.creatorId, creator.id),
-          eq(sql`lower(${creatorUsernameAliases.username})`, nextUsername),
-        ))
-        .returning({ id: creatorUsernameAliases.id });
-      if (!reactivated) {
-        await tx.insert(creatorUsernameAliases).values({
-          creatorId: creator.id,
-          username: nextUsername,
-          isCurrent: true,
-        });
-      }
+      await setCurrentUsernameAlias(tx, creator.id, nextUsername);
     }
     return mapOwnedCreatorSummary(updated);
   });

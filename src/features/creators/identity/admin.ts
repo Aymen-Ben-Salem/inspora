@@ -42,6 +42,8 @@ import {
   mapAdminCreatorRecord,
 } from "./projections";
 
+import { setCurrentUsernameAlias } from "./username-aliases";
+
 type Database = ReturnType<typeof requireDatabase>;
 type CreatorRow = typeof creators.$inferSelect;
 type MutationDatabase = Database | WriteTx;
@@ -149,39 +151,6 @@ async function availableUsername(
       ? "That username is unavailable."
       : "No available creator username could be generated.",
   );
-}
-
-async function setCurrentUsernameAlias(
-  tx: WriteTx,
-  creatorId: string,
-  username: string,
-) {
-  await tx
-    .update(creatorUsernameAliases)
-    .set({ isCurrent: false })
-    .where(
-      and(
-        eq(creatorUsernameAliases.creatorId, creatorId),
-        eq(creatorUsernameAliases.isCurrent, true),
-      ),
-    );
-  const [reactivated] = await tx
-    .update(creatorUsernameAliases)
-    .set({ isCurrent: true })
-    .where(
-      and(
-        eq(creatorUsernameAliases.creatorId, creatorId),
-        eq(sql`lower(${creatorUsernameAliases.username})`, username),
-      ),
-    )
-    .returning({ id: creatorUsernameAliases.id });
-  if (!reactivated) {
-    await tx.insert(creatorUsernameAliases).values({
-      creatorId,
-      username,
-      isCurrent: true,
-    });
-  }
 }
 
 function databaseError(error: unknown) {
@@ -392,9 +361,19 @@ export async function updateAdminCreator(
       { explicit: Boolean(input.username), currentCreatorId: id },
     );
     const usernameChanged = username !== existing.username;
+    const values = {
+      ...creatorValues(input, username),
+      // The form can clear metadata while editing and then restore the same URL.
+      ...(input.avatarUrl === existing.avatarUrl
+        ? {
+            avatarStorageProvider: existing.avatarStorageProvider,
+            avatarStorageKey: existing.avatarStorageKey,
+          }
+        : {}),
+    };
     const [updated] = await tx
       .update(creators)
-      .set({ ...creatorValues(input, username), updatedAt: new Date() })
+      .set({ ...values, updatedAt: new Date() })
       .where(eq(creators.id, id))
       .returning();
     if (!updated) {
@@ -416,7 +395,7 @@ export async function updateAdminCreator(
     return {
       creator: mapAdminCreatorAttribution(updated),
       removedManagedMedia: managedCreatorAvatar(existing).filter(
-        (asset) => asset.storageKey !== input.avatarStorageKey,
+        (asset) => asset.storageKey !== updated.avatarStorageKey,
       ),
     };
   });

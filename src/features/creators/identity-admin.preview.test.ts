@@ -207,6 +207,55 @@ describe.skipIf(!enabled)(
       });
     }, 60_000);
 
+    it("retains a restored avatar URL without form metadata and cleans up only its replacement", async () => {
+      const storageKey = "creators/admin-retained-" + suffix + ".webp";
+      const avatarUrl = getR2PublicUrl(storageKey);
+      const created = await createAdminCreator({
+        name: "Retained avatar fixture",
+        username: "retained_" + suffix,
+        avatarUrl,
+        avatarStorageProvider: "r2",
+        avatarStorageKey: storageKey,
+      });
+      creatorIds.push(created.id);
+
+      // Editing the URL and restoring it clears both metadata fields in the form.
+      const restored = await updateAdminCreator(created.id, {
+        name: created.name,
+        username: created.username,
+        avatarUrl,
+      });
+      expect(restored.removedManagedMedia).toEqual([]);
+      expect(restored.creator).toMatchObject({
+        avatarUrl,
+        avatarStorageProvider: "r2",
+        avatarStorageKey: storageKey,
+      });
+      await withWriteTransaction(async (tx) => {
+        const [row] = await tx
+          .select().from(creators).where(eq(creators.id, created.id));
+        expect(row).toMatchObject({
+          avatarUrl,
+          avatarStorageProvider: "r2",
+          avatarStorageKey: storageKey,
+        });
+      });
+
+      const replaced = await updateAdminCreator(created.id, {
+        name: created.name,
+        username: created.username,
+        avatarUrl: "/avatar.svg",
+      });
+      expect(replaced.removedManagedMedia).toEqual([
+        { storageProvider: "r2", storageKey, type: "image" },
+      ]);
+      expect(replaced.creator).toMatchObject({
+        avatarUrl: "/avatar.svg",
+        avatarStorageProvider: undefined,
+        avatarStorageKey: undefined,
+      });
+    }, 60_000);
+
     it("uses stored origin for Preview locks and legacy handles for visibility", async () => {
       const hidden = await createAdminCreator({
         name: "Hidden development fixture",

@@ -16,20 +16,18 @@ import { verifiedXIdentityForUser } from "./external-identity";
 import { decideCreatorOwnershipClaimEligibility, resultFromRecordedCreatorOwnershipClaim } from "./claim-policy";
 import { approveCreatorOwnershipClaim } from "./claim-approval";
 
+// Reviews must invalidate before the action returns so its response includes fresh UI.
 function refreshCommittedClaim(identityChanged: boolean, reviewChanged = false) {
   if (!identityChanged && !reviewChanged) return;
-  // Safe for rendering, route handlers and actions; scheduled only after commit.
-  after(() => {
-    if (identityChanged) {
-      for (const tag of [PUBLIC_CREATOR_PROFILES_CACHE_TAG, PUBLISHED_POSTS_CACHE_TAG,
-        PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG]) {
-        revalidateTag(tag, { expire: 0 });
-      }
-      for (const path of ["/", "/profile", "/admin/posts", "/admin/logos", "/admin/websites"]) revalidatePath(path);
-      revalidatePath("/creators/[username]", "page");
+  if (identityChanged) {
+    for (const tag of [PUBLIC_CREATOR_PROFILES_CACHE_TAG, PUBLISHED_POSTS_CACHE_TAG,
+      PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG]) {
+      revalidateTag(tag, { expire: 0 });
     }
-    revalidatePath("/admin/creators");
-  });
+    for (const path of ["/", "/profile", "/admin/posts", "/admin/logos", "/admin/websites"]) revalidatePath(path);
+    revalidatePath("/creators/[username]", "page");
+  }
+  revalidatePath("/admin/creators");
 }
 
 export async function requestCreatorOwnershipClaimFromVerifiedX(
@@ -130,7 +128,10 @@ export async function requestCreatorOwnershipClaimFromVerifiedX(
     }
     throw error;
   }
-  refreshCommittedClaim(identityChanged, claimCreated);
+  // Requests also run during rendering; defer their committed changes until after it.
+  if (identityChanged || claimCreated) {
+    after(() => refreshCommittedClaim(identityChanged, claimCreated));
+  }
   return result;
 }
 

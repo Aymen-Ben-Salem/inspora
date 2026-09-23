@@ -219,8 +219,7 @@ describe.skipIf(!enabled)("ownership claim requests in isolated nonproduction ro
     expect(saved.audits).toHaveLength(1);
     expect(saved.audits[0]).toMatchObject({ action: "creator_claim.rejected", details: { reason: "Reason", targetCreatorId: f.targets[0] } });
     expect(saved.owned[0]).toMatchObject({ id: f.owned.id, xProviderId: null });
-    expect(external.after).toHaveBeenCalledTimes(1);
-    await flushInvalidation();
+    expect(external.after).not.toHaveBeenCalled();
     expect(revalidateTag).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/admin/creators");
   }, 60000);

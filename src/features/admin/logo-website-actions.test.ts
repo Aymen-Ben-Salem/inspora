@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const external = vi.hoisted(() => ({
   createLogo: vi.fn(),
+  updateLogo: vi.fn(),
   createWebsite: vi.fn(),
+  updateWebsite: vi.fn(),
   parseLogo: vi.fn(),
   parseWebsite: vi.fn(),
   cleanup: vi.fn(),
@@ -47,13 +49,13 @@ vi.mock("./post-validation", () => ({
 }));
 vi.mock("./logos-repository", () => ({
   createAdminLogo: external.createLogo,
-  updateAdminLogo: vi.fn(),
+  updateAdminLogo: external.updateLogo,
   archiveAdminLogo: vi.fn(),
   deleteArchivedLogo: vi.fn(),
 }));
 vi.mock("./websites-repository", () => ({
   createAdminWebsite: external.createWebsite,
-  updateAdminWebsite: vi.fn(),
+  updateAdminWebsite: external.updateWebsite,
   archiveAdminWebsite: vi.fn(),
   deleteArchivedWebsite: vi.fn(),
   setAdminWebsiteFeatured: vi.fn(),
@@ -76,13 +78,20 @@ vi.mock("./subscribers-repository", () => ({
 }));
 
 import { AdminCreatorMutationError } from "@/features/creators/identity";
-import { createLogoAction, createWebsiteAction } from "./actions";
+import {
+  createLogoAction,
+  createWebsiteAction,
+  updateLogoAction,
+  updateWebsiteAction,
+} from "./actions";
 
 describe.each([
   {
     kind: "logo",
     action: createLogoAction,
     create: external.createLogo,
+    updateAction: updateLogoAction,
+    update: external.updateLogo,
     parse: external.parseLogo,
     workTag: "published-logos",
     errorMessage: "The logo could not be saved. Try again.",
@@ -91,11 +100,21 @@ describe.each([
     kind: "website",
     action: createWebsiteAction,
     create: external.createWebsite,
+    updateAction: updateWebsiteAction,
+    update: external.updateWebsite,
     parse: external.parseWebsite,
     workTag: "published-websites",
     errorMessage: "The website could not be saved. Try again.",
   },
-])("$kind save action effects", ({ action, create, parse, workTag, errorMessage }) => {
+])("$kind save action effects", ({
+  action,
+  create,
+  updateAction,
+  update,
+  parse,
+  workTag,
+  errorMessage,
+}) => {
   beforeEach(() => {
     vi.clearAllMocks();
     parse.mockReturnValue({ creator: { name: "Creator" } });
@@ -132,6 +151,47 @@ describe.each([
       status: "error",
       message: errorMessage,
     });
+    expect(external.cleanup).not.toHaveBeenCalled();
+    expect(external.updateTag).not.toHaveBeenCalled();
+  });
+
+  it("runs update effects only after commit", async () => {
+    const removedManagedMedia = [
+      { storageProvider: "r2", storageKey: "work/old.webp", type: "image" },
+      { storageProvider: "r2", storageKey: "creators/old.webp", type: "image" },
+    ];
+    update.mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111",
+      slug: "updated-work",
+      previousSlug: "old-work",
+      removedManagedMedia,
+    });
+
+    await expect(updateAction(
+      "11111111-1111-4111-8111-111111111111",
+      { status: "idle" },
+      new FormData(),
+    )).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(update).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      { creator: { name: "Creator" } },
+      { userId: "admin-1" },
+    );
+    expect(external.cleanup).toHaveBeenCalledWith(removedManagedMedia);
+    expect(external.updateTag).toHaveBeenCalledWith("public-creator-profiles");
+    expect(external.updateTag).toHaveBeenCalledWith(workTag);
+  });
+
+  it("does not run update effects after rollback", async () => {
+    update.mockRejectedValue(new Error("rolled back"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(updateAction(
+      "11111111-1111-4111-8111-111111111111",
+      { status: "idle" },
+      new FormData(),
+    )).resolves.toEqual({ status: "error", message: errorMessage });
     expect(external.cleanup).not.toHaveBeenCalled();
     expect(external.updateTag).not.toHaveBeenCalled();
   });

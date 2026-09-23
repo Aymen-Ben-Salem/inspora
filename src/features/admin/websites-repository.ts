@@ -198,6 +198,19 @@ function websiteRelations() {
   };
 }
 
+function unretainedWebsiteAssets(
+  candidates: ReturnType<typeof collectWebsiteManagedAssets>,
+  retainedKeys: Set<string>,
+) {
+  const seen = new Set<string>();
+  return candidates.filter((asset) => {
+    const key = asset.storageProvider + ":" + asset.storageKey;
+    if (retainedKeys.has(asset.storageKey) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function getAdminWebsites() {
   const database = requireDatabase();
   const rows = await database.query.websites.findMany({
@@ -251,8 +264,9 @@ export async function createAdminWebsite(
     return {
       id,
       slug: input.slug,
-      removedManagedMedia: creator.displacedAvatarAssets.filter(
-        (asset) => !retainedKeys.has(asset.storageKey),
+      removedManagedMedia: unretainedWebsiteAssets(
+        creator.displacedAvatarAssets,
+        retainedKeys,
       ),
     };
   });
@@ -297,10 +311,13 @@ export async function updateAdminWebsite(
     if (savedCreator?.avatarStorageKey) {
       retainedKeys.add(savedCreator.avatarStorageKey);
     }
-    const removedManagedMedia = [
-      ...collectWebsiteManagedAssets(existingMedia, existingSections),
-      ...creator.displacedAvatarAssets,
-    ].filter((asset) => !retainedKeys.has(asset.storageKey));
+    const removedManagedMedia = unretainedWebsiteAssets(
+      [
+        ...collectWebsiteManagedAssets(existingMedia, existingSections),
+        ...creator.displacedAvatarAssets,
+      ],
+      retainedKeys,
+    );
 
     await tx.update(websites).set({
       ...websiteValues(input, creator.creatorId),

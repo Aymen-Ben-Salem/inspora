@@ -205,6 +205,12 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       slug: `ticket-07-logo-rollback-create-${suffix}`,
       creator: { name: "Rollback logo", username: `t07_lrc_${suffix}`, avatarUrl: "/avatar.svg" },
     });
+    const createAuditCount = await withWriteTransaction(async (tx) => (
+      await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(
+        eq(adminAuditLogs.actorId, principal.userId),
+        eq(adminAuditLogs.action, "logo.created"),
+      ))
+    ).length);
     external.rollbackNext = true;
     await expect(createAdminLogo(createInput, principal)).rejects.toThrow("Forced failure");
     await withWriteTransaction(async (tx) => {
@@ -212,6 +218,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       expect(await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.username, `t07_lrc_${suffix}`))).toHaveLength(0);
       expect(await tx.select().from(logos).where(eq(logos.slug, createInput.slug))).toHaveLength(0);
       expect(await tx.select().from(logoMedia).where(eq(logoMedia.storageKey, createInput.media.storageKey!))).toHaveLength(0);
+      expect((await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(
+        eq(adminAuditLogs.actorId, principal.userId),
+        eq(adminAuditLogs.action, "logo.created"),
+      ))).length).toBe(createAuditCount);
     });
 
     const created = await createAdminLogo(logoInput({
@@ -276,6 +286,12 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       slug: `ticket-07-website-rollback-create-${suffix}`,
       creator: { name: "Rollback website", username: `t07_wrc_${suffix}`, avatarUrl: "/avatar.svg" },
     });
+    const createAuditCount = await withWriteTransaction(async (tx) => (
+      await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(
+        eq(adminAuditLogs.actorId, principal.userId),
+        eq(adminAuditLogs.action, "website.created"),
+      ))
+    ).length);
     external.rollbackNext = true;
     await expect(createAdminWebsite(createInput, principal)).rejects.toThrow("Forced failure");
     await withWriteTransaction(async (tx) => {
@@ -284,6 +300,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       expect(await tx.select().from(websites).where(eq(websites.slug, createInput.slug))).toHaveLength(0);
       expect(await tx.select().from(websiteMedia).where(eq(websiteMedia.storageKey, createInput.media[0]!.storageKey!))).toHaveLength(0);
       expect(await tx.select().from(websiteSections).where(eq(websiteSections.id, createInput.sections[0]!.id))).toHaveLength(0);
+      expect((await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(
+        eq(adminAuditLogs.actorId, principal.userId),
+        eq(adminAuditLogs.action, "website.created"),
+      ))).length).toBe(createAuditCount);
     });
 
     const created = await createAdminWebsite(websiteInput({

@@ -179,6 +179,7 @@ export function EditProfile({
 
   const inputClass = "focus-ring mt-1 h-10 w-full min-w-0 rounded-lg border border-[#e6e6e6] bg-[#fcfcfc] px-3 text-sm text-[#262626]";
   const actionClass = "focus-ring shrink-0 cursor-pointer border border-[#e6e6e6] bg-[#fafafa] px-[11px] py-[10px] text-sm leading-[normal] tracking-[0.2px] disabled:cursor-not-allowed disabled:opacity-60";
+  const editActionClass = `${actionClass} transition-colors hover:border-[#262626] hover:bg-[#262626] hover:text-white`;
 
   return (
     <div className="text-sm leading-[normal] tracking-[0.2px]">
@@ -194,7 +195,7 @@ export function EditProfile({
               <p className="text-xs text-[#767676]">JPG or PNG. Automatically optimized.</p>
             </div>
           </div>
-          <label className={`focus-within:ring-2 focus-within:ring-black ${actionClass}`}>
+          <label className={`focus-within:ring-2 focus-within:ring-black ${editActionClass}`}>
             <input aria-label="Edit profile photo" ref={fileRef} type="file" accept="image/jpeg,image/png" disabled={uploading} className="sr-only" onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void uploadPhoto(file);
@@ -220,7 +221,7 @@ export function EditProfile({
                   <div className="grid gap-1"><p className="text-xs text-[#767676]">{label}</p><p className="break-words font-medium">{display}</p></div>
                 )}
               </div>
-              <button type="button" aria-label={editing === field ? `Finish editing ${label.toLowerCase()}` : `Edit ${label.toLowerCase()}`} disabled={saving || uploading} onClick={() => { setEditing(editing === field ? null : field); setFieldError(undefined); }} className={actionClass}>
+              <button type="button" aria-label={editing === field ? `Finish editing ${label.toLowerCase()}` : `Edit ${label.toLowerCase()}`} disabled={saving || uploading} onClick={() => { setEditing(editing === field ? null : field); setFieldError(undefined); }} className={editActionClass}>
                 {editing === field ? "Back" : "Edit"}
               </button>
             </div>

@@ -224,6 +224,39 @@ describe.skipIf(!enabled)("design attribution transaction in guarded preview row
     });
   }, 60_000);
 
+  it("retains an old avatar reused as media when creating with an embedded creator edit", async () => {
+    const creatorId = randomUUID();
+    creatorIds.push(creatorId);
+    const storageKey = `creators/t06-retained-${suffix}.webp`;
+    await withWriteTransaction(async (tx) => {
+      await tx.insert(creators).values({
+        id: creatorId,
+        name: "Existing creator",
+        username: `t06_retained_${suffix}`,
+        avatarUrl: "/old-avatar.webp",
+        avatarStorageProvider: "r2",
+        avatarStorageKey: storageKey,
+        recordOrigin: "preview",
+      });
+      await tx.insert(creatorUsernameAliases).values({
+        creatorId, username: `t06_retained_${suffix}`, isCurrent: true,
+      });
+    });
+    const result = await createAdminPost(input({
+      slug: `ticket-06-retained-${suffix}`,
+      creator: { id: creatorId, name: "Edited creator", avatarUrl: "/new-avatar.webp" },
+      media: [{ type: "image", url: "/old-avatar.webp", storageProvider: "r2", storageKey, alt: "Retained", width: 100, height: 100 }],
+    }), { userId: "ticket-06-admin" });
+    postIds.push(result.id);
+    expect(result.removedManagedMedia).toEqual([]);
+    await withWriteTransaction(async (tx) => {
+      const [creator] = await tx.select().from(creators).where(eq(creators.id, creatorId));
+      expect(creator).toMatchObject({ name: "Edited creator", avatarUrl: "/new-avatar.webp", avatarStorageKey: null });
+      const [media] = await tx.select().from(postMedia).where(eq(postMedia.postId, result.id));
+      expect(media.storageKey).toBe(storageKey);
+    });
+  }, 60_000);
+
   it("rolls back creator, alias, design, media, and audit when create fails before commit", async () => {
     const rollbackInput = input({
       slug: `ticket-06-rollback-create-${suffix}`,

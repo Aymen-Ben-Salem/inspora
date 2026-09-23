@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import type { BatchItem } from "drizzle-orm/batch";
 
 import { requireAdmin } from "@/auth/require-admin";
 import { requireDatabase } from "@/db/client";
@@ -42,7 +43,10 @@ import {
   mapAdminCreatorRecord,
 } from "./projections";
 
-import { setCurrentUsernameAlias } from "./username-aliases";
+import {
+  currentUsernameAliasWrites,
+  setCurrentUsernameAlias,
+} from "./username-aliases";
 
 type Database = ReturnType<typeof requireDatabase>;
 type CreatorRow = typeof creators.$inferSelect;
@@ -207,23 +211,33 @@ async function writeAdminCreator<T>(
   }
 }
 
-async function createAdminCreatorRecord(
-  transaction: WriteTx,
+async function newAdminCreatorValues(
+  database: MutationDatabase,
   input: AdminCreatorInput,
 ) {
   const creatorId = randomUUID();
   const username = await availableUsername(
-    transaction,
+    database,
     input.username ?? input.legacyHandle ?? input.name,
     { explicit: Boolean(input.username) },
   );
+  return {
+    id: creatorId,
+    ...creatorValues(input, username),
+    username,
+    recordOrigin: recordOriginForAdminCreate(),
+  };
+}
+
+async function createAdminCreatorRecord(
+  transaction: WriteTx,
+  input: AdminCreatorInput,
+) {
+  const values = await newAdminCreatorValues(transaction, input);
+  const { id: creatorId, username } = values;
   const [created] = await transaction
     .insert(creators)
-    .values({
-      id: creatorId,
-      ...creatorValues(input, username),
-      recordOrigin: recordOriginForAdminCreate(),
-    })
+    .values(values)
     .returning();
   if (!created) {
     throw new AdminCreatorMutationError(
@@ -239,8 +253,8 @@ async function createAdminCreatorRecord(
   return { created, username };
 }
 
-async function updateAdminCreatorRecord(
-  transaction: WriteTx,
+async function adminCreatorUpdateValues(
+  database: MutationDatabase,
   existing: CreatorRow,
   input: AdminCreatorInput,
   options: { generateUsernameWhenMissing: boolean },
@@ -258,13 +272,13 @@ async function updateAdminCreatorRecord(
   }
 
   const username = input.username
-    ? await availableUsername(transaction, input.username, {
+    ? await availableUsername(database, input.username, {
         explicit: true,
         currentCreatorId: existing.id,
       })
     : options.generateUsernameWhenMissing
       ? await availableUsername(
-          transaction,
+          database,
           existing.username ?? input.name,
           { currentCreatorId: existing.id },
         )
@@ -279,6 +293,18 @@ async function updateAdminCreatorRecord(
         }
       : {}),
   };
+  return { values, username };
+}
+
+async function updateAdminCreatorRecord(
+  transaction: WriteTx,
+  existing: CreatorRow,
+  input: AdminCreatorInput,
+  options: { generateUsernameWhenMissing: boolean },
+) {
+  const { values, username } = await adminCreatorUpdateValues(
+    transaction, existing, input, options,
+  );
   const [updated] = await transaction
     .update(creators)
     .set({ ...values, updatedAt: new Date() })
@@ -293,9 +319,98 @@ async function updateAdminCreatorRecord(
   return {
     updated,
     username,
-    displacedAvatarAssets: managedCreatorAvatar(existing).filter(
-      (asset) => asset.storageKey !== updated.avatarStorageKey,
+    displacedAvatarAssets: displacedAvatarAssets(
+      existing, updated.avatarStorageKey,
     ),
+  };
+}
+
+function assertAttributionCreatorVisible(
+  existing: CreatorRow | undefined,
+): asserts existing is CreatorRow {
+  if (
+    !existing ||
+    !isCreatorVisibleInEnvironment(existing.handle, process.env.DATA_ENVIRONMENT)
+  ) {
+    throw new AdminCreatorMutationError("missing_creator", "Creator not found.");
+  }
+}
+
+function assertNewAttributionCreatorVisible(input: AdminCreatorInput) {
+  if (
+    !isCreatorVisibleInEnvironment(input.legacyHandle, process.env.DATA_ENVIRONMENT)
+  ) {
+    throw new AdminCreatorMutationError(
+      "environment_restricted",
+      "Development fixture creators can only be used in Development.",
+    );
+  }
+}
+
+function displacedAvatarAssets(
+  existing: CreatorRow,
+  avatarStorageKey: string | null,
+) {
+  return managedCreatorAvatar(existing).filter(
+    (asset) => asset.storageKey !== avatarStorageKey,
+  );
+}
+
+// Temporary compatibility for logo/website batches until ticket 07.
+// Identity decisions stay here; this existing contract is not used by design saves.
+export async function resolveCreatorMutation(
+  database: Database,
+  creatorInput: AdminCreatorInput,
+) {
+  const input = validatedCreatorInput(creatorInput);
+  if (!input.id) {
+    assertNewAttributionCreatorVisible(input);
+    const values = await newAdminCreatorValues(database, input);
+    return {
+      id: values.id,
+      mutations: [
+        database.insert(creators).values(values),
+        database.insert(creatorUsernameAliases).values({
+          creatorId: values.id,
+          username: values.username,
+          isCurrent: true,
+        }),
+      ] as [BatchItem<"pg">, ...BatchItem<"pg">[]],
+      removedManagedMedia: [] as ManagedMediaAsset[],
+    };
+  }
+  const existing = await database.query.creators.findFirst({
+    where: eq(creators.id, input.id),
+  });
+  assertAttributionCreatorVisible(existing);
+  if (shouldLockExistingCreator(existing, process.env.DATA_ENVIRONMENT)) {
+    return {
+      id: existing.id,
+      mutations: [
+        database.update(creators)
+          .set({ updatedAt: new Date() })
+          .where(eq(creators.id, existing.id)),
+      ] as [BatchItem<"pg">, ...BatchItem<"pg">[]],
+      removedManagedMedia: [] as ManagedMediaAsset[],
+    };
+  }
+  const { values, username } = await adminCreatorUpdateValues(
+    database, existing, input, { generateUsernameWhenMissing: false },
+  );
+  const mutations: [BatchItem<"pg">, ...BatchItem<"pg">[]] = [
+    database.update(creators)
+      .set({ ...values, updatedAt: new Date() })
+      .where(eq(creators.id, existing.id)),
+  ];
+  if (username && username !== existing.username) {
+    mutations.push(
+      ...await currentUsernameAliasWrites(database, existing.id, username),
+    );
+  }
+  return {
+    id: existing.id,
+    mutations,
+    removedManagedMedia: displacedAvatarAssets(existing, values.avatarStorageKey),
   };
 }
 
@@ -315,12 +430,7 @@ export async function saveAdminCreatorForAttribution(
   const dataEnvironment = process.env.DATA_ENVIRONMENT;
 
   if (!input.id) {
-    if (!isCreatorVisibleInEnvironment(input.legacyHandle, dataEnvironment)) {
-      throw new AdminCreatorMutationError(
-        "environment_restricted",
-        "Development fixture creators can only be used in Development.",
-      );
-    }
+    assertNewAttributionCreatorVisible(input);
     const { created } = await createAdminCreatorRecord(transaction, input);
     return {
       creatorId: created.id,
@@ -333,12 +443,7 @@ export async function saveAdminCreatorForAttribution(
     .from(creators)
     .where(eq(creators.id, input.id))
     .for("update");
-  if (
-    !existing ||
-    !isCreatorVisibleInEnvironment(existing.handle, dataEnvironment)
-  ) {
-    throw new AdminCreatorMutationError("missing_creator", "Creator not found.");
-  }
+  assertAttributionCreatorVisible(existing);
 
   if (shouldLockExistingCreator(existing, dataEnvironment)) {
     await transaction

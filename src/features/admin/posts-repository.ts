@@ -109,6 +109,38 @@ function managedAssets(media: MediaRow[]): ManagedMediaAsset[] {
   );
 }
 
+function unretainedDesignAssets(
+  candidates: ManagedMediaAsset[],
+  input: AdminPostInput,
+  avatarStorageKey?: string | null,
+) {
+  const retainedKeys = new Set([
+    ...input.media.flatMap((media) => [
+      media.storageKey,
+      ...(media.variants ?? []).map((variant) => variant.storageKey),
+      media.videoPreview?.storageKey,
+      media.posterStorageKey,
+    ]),
+    avatarStorageKey,
+  ]);
+  const seen = new Set<string>();
+  return candidates.flatMap((asset): ManagedMediaAsset[] => {
+    const key = asset.storageProvider + ":" + asset.storageKey;
+    if (retainedKeys.has(asset.storageKey) || seen.has(key)) return [];
+    seen.add(key);
+    return [{
+      ...asset,
+      ...(asset.variantStorageKeys ? {
+        variantStorageKeys: asset.variantStorageKeys.filter((key) => !retainedKeys.has(key)),
+      } : {}),
+      ...(asset.videoPreviewStorageKey && retainedKeys.has(asset.videoPreviewStorageKey)
+        ? { videoPreviewStorageKey: undefined } : {}),
+      ...(asset.posterStorageKey && retainedKeys.has(asset.posterStorageKey)
+        ? { posterStorageKey: undefined } : {}),
+    }];
+  });
+}
+
 function postValues(input: AdminPostInput, creatorId: string) {
   return {
     slug: input.slug,
@@ -204,7 +236,7 @@ export async function createAdminPost(
     return {
       id,
       slug: input.slug,
-      removedManagedMedia: creator.displacedAvatarAssets,
+      removedManagedMedia: unretainedDesignAssets(creator.displacedAvatarAssets, input),
     };
   });
 }
@@ -239,25 +271,10 @@ export async function updateAdminPost(
       .select({ avatarStorageKey: creators.avatarStorageKey })
       .from(creators)
       .where(eq(creators.id, creator.creatorId));
-    const retainedStorageKeys = new Set([
-      ...input.media.flatMap((media) =>
-        media.storageKey ? [media.storageKey] : [],
-      ),
-      ...(savedCreator?.avatarStorageKey
-        ? [savedCreator.avatarStorageKey]
-        : []),
-    ]);
-    const cleanupCandidates = [
-      ...managedAssets(existingMedia),
-      ...creator.displacedAvatarAssets,
-    ].filter((asset) => !retainedStorageKeys.has(asset.storageKey));
-    const removedManagedMedia = cleanupCandidates.filter(
-      (asset, index) =>
-        cleanupCandidates.findIndex(
-          (candidate) =>
-            candidate.storageProvider === asset.storageProvider &&
-            candidate.storageKey === asset.storageKey,
-        ) === index,
+    const removedManagedMedia = unretainedDesignAssets(
+      [...managedAssets(existingMedia), ...creator.displacedAvatarAssets],
+      input,
+      savedCreator?.avatarStorageKey,
     );
 
     await tx

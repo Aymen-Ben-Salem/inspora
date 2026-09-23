@@ -10,6 +10,7 @@ export default defineConfig({
     "src/features/admin/creator-actions.test.ts",
     "src/features/admin/creator-environment-policy.test.ts",
     "src/features/admin/posts-repository.preview.test.ts",
+    "src/features/admin/posts-repository.test.ts",
     "src/features/admin/posts-actions.test.ts",
     "src/storage/owned-avatar.test.ts",
     "src/features/submissions/actions.test.ts",

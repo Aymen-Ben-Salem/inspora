@@ -149,16 +149,26 @@ function unretainedLogoAssets(
   const seen = new Set<string>();
   return candidates.flatMap((asset): ManagedMediaAsset[] => {
     const key = asset.storageProvider + ":" + asset.storageKey;
-    if (retainedKeys.has(asset.storageKey) || seen.has(key)) return [];
-    seen.add(key);
-    return [{
-      ...asset,
-      ...(asset.variantStorageKeys ? {
-        variantStorageKeys: asset.variantStorageKeys.filter(
-          (variantKey) => !retainedKeys.has(variantKey),
-        ),
-      } : {}),
-    }];
+    const variantStorageKeys = (asset.variantStorageKeys ?? []).filter(
+      (variantKey) => !retainedKeys.has(variantKey),
+    );
+    if (!retainedKeys.has(asset.storageKey) && !seen.has(key)) {
+      seen.add(key);
+      for (const variantKey of variantStorageKeys) {
+        seen.add(asset.storageProvider + ":" + variantKey);
+      }
+      return [{ ...asset, variantStorageKeys }];
+    }
+    return variantStorageKeys.flatMap((variantKey): ManagedMediaAsset[] => {
+      const variantIdentity = asset.storageProvider + ":" + variantKey;
+      if (seen.has(variantIdentity)) return [];
+      seen.add(variantIdentity);
+      return [{
+        storageProvider: asset.storageProvider,
+        storageKey: variantKey,
+        type: "image",
+      }];
+    });
   });
 }
 

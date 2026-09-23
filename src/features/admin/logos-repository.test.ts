@@ -1,8 +1,24 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 const external = vi.hoisted(() => ({ saveCreator: vi.fn() }));
+const selectResults: unknown[][] = [];
 const transaction = {
   insert: vi.fn(() => ({ values: vi.fn(async () => undefined) })),
+  update: vi.fn(() => ({
+    set: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+  })),
+  delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+  select: vi.fn(() => ({
+    from: vi.fn(() => ({
+      where: vi.fn(() => {
+        const result = selectResults.shift() ?? [];
+        return {
+          for: vi.fn(async () => result),
+          then: (resolve: (value: unknown[]) => unknown) => resolve(result),
+        };
+      }),
+    })),
+  })),
 };
 
 vi.mock("server-only", () => ({}));
@@ -14,7 +30,7 @@ vi.mock("@/db/write-client", () => ({
     work(transaction),
 }));
 
-import { createAdminLogo } from "./logos-repository";
+import { createAdminLogo, updateAdminLogo } from "./logos-repository";
 import type { AdminLogoInput } from "./types";
 
 const retainedAvatar = {
@@ -46,6 +62,7 @@ const input: AdminLogoInput = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  selectResults.length = 0;
   external.saveCreator.mockResolvedValue({
     creatorId: "11111111-1111-4111-8111-111111111111",
     displacedAvatarAssets: [retainedAvatar],
@@ -66,4 +83,33 @@ it("keeps a displaced creator avatar retained by the new logo", async () => {
   const result = await createAdminLogo(input, { userId: "admin-1" });
 
   expect(result.removedManagedMedia).toEqual([]);
+});
+
+it("cleans removed variants when the logo keeps its primary asset", async () => {
+  const removedVariantKey = "logos/removed-variant.webp";
+  selectResults.push(
+    [{ slug: "transactional-logo", status: "draft", publishedAt: null }],
+    [{
+      storageProvider: "r2",
+      storageKey: retainedAvatar.storageKey,
+      variants: [{ storageKey: removedVariantKey }],
+    }],
+    [{ avatarStorageKey: null }],
+  );
+  external.saveCreator.mockResolvedValue({
+    creatorId: "11111111-1111-4111-8111-111111111111",
+    displacedAvatarAssets: [],
+  });
+
+  const result = await updateAdminLogo(
+    "33333333-3333-4333-8333-333333333333",
+    input,
+    { userId: "admin-1" },
+  );
+
+  expect(result.removedManagedMedia).toEqual([{
+    storageProvider: "r2",
+    storageKey: removedVariantKey,
+    type: "image",
+  }]);
 });

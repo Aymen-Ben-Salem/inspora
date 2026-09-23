@@ -145,14 +145,33 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
   });
 
   it("commits logo creation/editing and preserves locked mirrored attribution", async () => {
-    const created = await createAdminLogo(logoInput(), principal);
+    const retainedLogoKey = `logos/ticket-07-${suffix}.webp`;
+    const removedVariantKey = `logos/ticket-07-old-${suffix}.webp`;
+    const created = await createAdminLogo(logoInput({
+      media: {
+        url: "/ticket-07-logo.webp",
+        storageProvider: "r2",
+        storageKey: retainedLogoKey,
+        variants: [{
+          url: "/ticket-07-logo-old.webp",
+          storageKey: removedVariantKey,
+          width: 400,
+          height: 300,
+          bytes: 100,
+          format: "webp",
+        }],
+        alt: "Ticket 07 logo",
+        width: 800,
+        height: 600,
+      },
+    }), principal);
     workIds.push(created.id);
     const [logo] = await withWriteTransaction((tx) =>
       tx.select().from(logos).where(eq(logos.id, created.id)),
     );
     creatorIds.push(logo.creatorId);
 
-    await updateAdminLogo(created.id, logoInput({
+    const edited = await updateAdminLogo(created.id, logoInput({
       slug: `ticket-07-logo-edited-${suffix}`,
       creator: {
         id: logo.creatorId,
@@ -161,6 +180,11 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
         avatarUrl: "/edited.svg",
       },
     }), principal);
+    expect(edited.removedManagedMedia).toEqual([{
+      storageProvider: "r2",
+      storageKey: removedVariantKey,
+      type: "image",
+    }]);
 
     const mirroredId = randomUUID();
     creatorIds.push(mirroredId);
@@ -188,6 +212,15 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       },
     }), principal);
     workIds.push(attributed.id);
+    await updateAdminLogo(attributed.id, logoInput({
+      slug: `ticket-07-logo-mirror-updated-${suffix}`,
+      creator: {
+        id: mirroredId,
+        name: "Second attempted edit",
+        username: `t07_logo_again_${suffix}`,
+        avatarUrl: "/changed-again.svg",
+      },
+    }), principal);
 
     await withWriteTransaction(async (tx) => {
       const [creator] = await tx.select().from(creators).where(eq(creators.id, logo.creatorId));
@@ -196,7 +229,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       const [mirror] = await tx.select().from(creators).where(eq(creators.id, mirroredId));
       expect(mirror).toMatchObject({ name: "Protected mirror", username: `t07_logo_m_${suffix}` });
       const [mirroredLogo] = await tx.select().from(logos).where(eq(logos.id, attributed.id));
-      expect(mirroredLogo.creatorId).toBe(mirroredId);
+      expect(mirroredLogo).toMatchObject({
+        creatorId: mirroredId,
+        slug: `ticket-07-logo-mirror-updated-${suffix}`,
+      });
     });
   }, 60_000);
 
@@ -231,18 +267,23 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
     workIds.push(created.id);
     const [before] = await withWriteTransaction((tx) => tx.select().from(logos).where(eq(logos.id, created.id)));
     creatorIds.push(before.creatorId);
-    external.rollbackNext = true;
-    await expect(updateAdminLogo(created.id, logoInput({
+    const updateInput = logoInput({
       slug: `ticket-07-logo-must-not-stick-${suffix}`,
       creator: { id: before.creatorId, name: "Must not stick", username: `t07_lno_${suffix}`, avatarUrl: "/changed.svg" },
       media: { url: "/changed.webp", storageKey: `logos/changed-${suffix}.webp`, alt: "Changed", width: 1, height: 1 },
-    }), principal)).rejects.toThrow("Forced failure");
+    });
+    external.rollbackNext = true;
+    await expect(updateAdminLogo(created.id, updateInput, principal)).rejects.toThrow("Forced failure");
     await withWriteTransaction(async (tx) => {
       const [saved] = await tx.select().from(logos).where(eq(logos.id, created.id));
       const [creator] = await tx.select().from(creators).where(eq(creators.id, before.creatorId));
       expect(saved.slug).toBe(`ticket-07-logo-rollback-update-${suffix}`);
       expect(creator).toMatchObject({ name: "Original logo", username: `t07_lru_${suffix}` });
       expect(await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.username, `t07_lno_${suffix}`))).toHaveLength(0);
+      expect(await tx.select().from(logoMedia).where(eq(logoMedia.logoId, created.id))).toEqual([
+        expect.objectContaining({ storageKey: `logos/ticket-07-${suffix}.webp` }),
+      ]);
+      expect(await tx.select().from(logoMedia).where(eq(logoMedia.storageKey, updateInput.media.storageKey!))).toHaveLength(0);
       expect(await tx.select().from(adminAuditLogs).where(and(eq(adminAuditLogs.resourceId, created.id), eq(adminAuditLogs.action, "logo.updated")))).toHaveLength(0);
     });
   }, 60_000);
@@ -268,6 +309,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       creator: { id: mirroredId, name: "Attempted edit", username: `t07_web_changed_${suffix}`, avatarUrl: "/changed.svg" },
     }), principal);
     workIds.push(attributed.id);
+    await updateAdminWebsite(attributed.id, websiteInput({
+      slug: `ticket-07-website-mirror-updated-${suffix}`,
+      creator: { id: mirroredId, name: "Second attempted edit", username: `t07_web_again_${suffix}`, avatarUrl: "/changed-again.svg" },
+    }), principal);
 
     await withWriteTransaction(async (tx) => {
       const [creator] = await tx.select().from(creators).where(eq(creators.id, website.creatorId));
@@ -277,7 +322,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       const [mirror] = await tx.select().from(creators).where(eq(creators.id, mirroredId));
       expect(mirror).toMatchObject({ name: "Protected website mirror", username: `t07_web_m_${suffix}` });
       const [mirroredWebsite] = await tx.select().from(websites).where(eq(websites.id, attributed.id));
-      expect(mirroredWebsite.creatorId).toBe(mirroredId);
+      expect(mirroredWebsite).toMatchObject({
+        creatorId: mirroredId,
+        slug: `ticket-07-website-mirror-updated-${suffix}`,
+      });
     });
   }, 60_000);
 
@@ -306,24 +354,41 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       ))).length).toBe(createAuditCount);
     });
 
-    const created = await createAdminWebsite(websiteInput({
+    const originalInput = websiteInput({
       slug: `ticket-07-website-rollback-update-${suffix}`,
       creator: { name: "Original website", username: `t07_wru_${suffix}`, avatarUrl: "/avatar.svg" },
-    }), principal);
+    });
+    const created = await createAdminWebsite(originalInput, principal);
     workIds.push(created.id);
     const [before] = await withWriteTransaction((tx) => tx.select().from(websites).where(eq(websites.id, created.id)));
     creatorIds.push(before.creatorId);
-    external.rollbackNext = true;
-    await expect(updateAdminWebsite(created.id, websiteInput({
+    const updateInput = websiteInput({
       slug: `ticket-07-website-must-not-stick-${suffix}`,
       creator: { id: before.creatorId, name: "Must not stick", username: `t07_wno_${suffix}`, avatarUrl: "/changed.svg" },
-    }), principal)).rejects.toThrow("Forced failure");
+      media: [
+        { role: "recording", url: "/changed.mp4", storageKey: `websites/changed-${suffix}.mp4`, alt: "Changed", width: 1, height: 1 },
+        { role: "favicon", url: "/changed.png", storageKey: `websites/changed-${suffix}.png`, alt: "Changed", width: 1, height: 1 },
+      ],
+      sections: [{ id: randomUUID(), label: "Changed", alt: "Changed", url: "/changed.webp", storageKey: `websites/changed-section-${suffix}.webp`, width: 1, height: 1, position: 0 }],
+    });
+    external.rollbackNext = true;
+    await expect(updateAdminWebsite(created.id, updateInput, principal)).rejects.toThrow("Forced failure");
     await withWriteTransaction(async (tx) => {
       const [saved] = await tx.select().from(websites).where(eq(websites.id, created.id));
       const [creator] = await tx.select().from(creators).where(eq(creators.id, before.creatorId));
       expect(saved.slug).toBe(`ticket-07-website-rollback-update-${suffix}`);
       expect(creator).toMatchObject({ name: "Original website", username: `t07_wru_${suffix}` });
       expect(await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.username, `t07_wno_${suffix}`))).toHaveLength(0);
+      expect(await tx.select().from(websiteMedia).where(eq(websiteMedia.websiteId, created.id))).toEqual(
+        expect.arrayContaining(originalInput.media.map((media) =>
+          expect.objectContaining({ storageKey: media.storageKey }),
+        )),
+      );
+      expect(await tx.select().from(websiteMedia).where(eq(websiteMedia.storageKey, updateInput.media[0]!.storageKey!))).toHaveLength(0);
+      expect(await tx.select().from(websiteSections).where(eq(websiteSections.websiteId, created.id))).toEqual([
+        expect.objectContaining({ id: originalInput.sections[0]!.id }),
+      ]);
+      expect(await tx.select().from(websiteSections).where(eq(websiteSections.id, updateInput.sections[0]!.id))).toHaveLength(0);
       expect(await tx.select().from(adminAuditLogs).where(and(eq(adminAuditLogs.resourceId, created.id), eq(adminAuditLogs.action, "website.updated")))).toHaveLength(0);
     });
   }, 60_000);

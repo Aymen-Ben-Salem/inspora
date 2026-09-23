@@ -12,16 +12,17 @@ export function LogoCard({
   initiallySaved = false,
   onSavedChange,
   showCreator = true,
-  iconLayout = "square",
+  iconLayout = "plain",
 }: {
   logo: Logo;
   onSelect: (logo: Logo) => void;
   initiallySaved?: boolean;
   onSavedChange?: (saved: boolean) => void;
   showCreator?: boolean;
-  iconLayout?: "square" | "profile";
+  iconLayout?: "plain" | "square" | "profile";
 }) {
   const isIcon = logo.kind === "icon";
+  const isFramedIcon = isIcon && iconLayout !== "plain";
   const isProfileIcon = isIcon && iconLayout === "profile";
 
   return (
@@ -36,13 +37,13 @@ export function LogoCard({
         aria-label={`View ${logo.title} ${logo.kind}`}
         onClick={() => onSelect(logo)}
         className={`focus-ring group relative block w-full cursor-pointer overflow-hidden text-left ${
-          isIcon
+          isFramedIcon
             ? `${isProfileIcon ? "aspect-[1.64]" : "aspect-square"} bg-[#f3f3f3]`
             : "bg-transparent"
         }`}
-        style={isIcon ? undefined : { aspectRatio: `${logo.media.width}/${logo.media.height}` }}
+        style={isFramedIcon ? undefined : { aspectRatio: `${logo.media.width}/${logo.media.height}` }}
       >
-        {isIcon ? (
+        {isFramedIcon ? (
           <span className="absolute inset-0 flex items-center justify-center">
             <ResponsiveR2Image
               data-feed-transition-media
@@ -67,7 +68,9 @@ export function LogoCard({
             className="absolute inset-0 size-full object-contain"
           />
         )}
-        <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
+        {!isIcon || isFramedIcon ? (
+          <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
+        ) : null}
       </button>
       {showCreator && logo.kind === "logo" && creatorProfileHref(logo.creator) ? (
         <Link href={creatorProfileHref(logo.creator)! as Route} aria-label={`View ${logo.creator.name}'s profile`} className="focus-ring absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-20 rounded-full">

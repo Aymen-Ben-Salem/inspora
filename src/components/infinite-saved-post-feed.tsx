@@ -314,7 +314,7 @@ function SavedItemCard({ post, priority, onSelect }: {
 }) {
   const saveProps = { initiallySaved: true };
   if (post.kind === "logo") {
-    return <LogoCard logo={post.logo} {...saveProps} onSelect={() => onSelect(post)} />;
+    return <LogoCard logo={post.logo} iconLayout="square" {...saveProps} onSelect={() => onSelect(post)} />;
   }
   if (post.kind === "website") {
     return <WebsiteCard website={post.website} {...saveProps} onSelect={() => onSelect(post)} />;

@@ -141,6 +141,7 @@ describe.each([
     expect(external.cleanup).toHaveBeenCalledWith(removedManagedMedia);
     expect(external.updateTag).toHaveBeenCalledWith("public-creator-profiles");
     expect(external.updateTag).toHaveBeenCalledWith(workTag);
+    expect(external.updateTag).toHaveBeenCalledWith("published-posts");
   });
 
   it("does not run effects after rollback", async () => {
@@ -181,6 +182,7 @@ describe.each([
     expect(external.cleanup).toHaveBeenCalledWith(removedManagedMedia);
     expect(external.updateTag).toHaveBeenCalledWith("public-creator-profiles");
     expect(external.updateTag).toHaveBeenCalledWith(workTag);
+    expect(external.updateTag).toHaveBeenCalledWith("published-posts");
   });
 
   it("does not run update effects after rollback", async () => {

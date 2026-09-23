@@ -240,6 +240,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
     const createInput = logoInput({
       slug: `ticket-07-logo-rollback-create-${suffix}`,
       creator: { name: "Rollback logo", username: `t07_lrc_${suffix}`, avatarUrl: "/avatar.svg" },
+      media: {
+        ...logoInput().media,
+        storageKey: `logos/ticket-07-rollback-create-${suffix}.webp`,
+      },
     });
     const createAuditCount = await withWriteTransaction(async (tx) => (
       await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(
@@ -333,6 +337,10 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
     const createInput = websiteInput({
       slug: `ticket-07-website-rollback-create-${suffix}`,
       creator: { name: "Rollback website", username: `t07_wrc_${suffix}`, avatarUrl: "/avatar.svg" },
+      media: websiteInput().media.map((media) => ({
+        ...media,
+        storageKey: `websites/ticket-07-rollback-create-${suffix}-${media.role}`,
+      })),
     });
     const createAuditCount = await withWriteTransaction(async (tx) => (
       await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(

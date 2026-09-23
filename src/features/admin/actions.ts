@@ -173,6 +173,7 @@ export async function createWebsiteAction(
   }
   await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
+  updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidateWebsitePaths();
   redirect(`/admin/websites/${created.id}/edit?saved=created` as Route);
 }
@@ -197,6 +198,7 @@ export async function updateWebsiteAction(
   }
   await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
+  updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidateWebsitePaths();
   redirect(`/admin/websites/${websiteId}/edit?saved=updated` as Route);
 }
@@ -239,6 +241,7 @@ export async function createLogoAction(
 
   await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
+  updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidateLogoPaths();
   redirect(`/admin/logos/${created.id}/edit?saved=created` as Route);
 }
@@ -265,6 +268,7 @@ export async function updateLogoAction(
 
   await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
+  updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidateLogoPaths();
   redirect(`/admin/logos/${logoId}/edit?saved=updated` as Route);
 }

@@ -5,8 +5,8 @@ import Image from "next/image";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import type {
+  AdminCreatorAttribution,
   AdminCreatorInput,
-  AdminCreatorRecord,
 } from "@/features/admin/types";
 
 const inputClass =
@@ -25,7 +25,7 @@ function canPreviewAvatar(value: string) {
 export function blankAdminCreator(): AdminCreatorInput {
   return {
     name: "",
-    handle: "",
+    legacyHandle: "",
     username: "",
     url: "",
     xProfileUrl: "",
@@ -33,11 +33,13 @@ export function blankAdminCreator(): AdminCreatorInput {
   };
 }
 
-export function toAdminCreatorDraft(creator: AdminCreatorRecord): AdminCreatorInput {
+export function toAdminCreatorDraft(
+  creator: AdminCreatorAttribution,
+): AdminCreatorInput {
   return {
     id: creator.id,
     name: creator.name,
-    handle: creator.handle ?? "",
+    legacyHandle: creator.legacyHandle ?? "",
     username: creator.username ?? "",
     url: creator.url ?? "",
     xProfileUrl: creator.xProfileUrl ?? "",
@@ -55,7 +57,7 @@ export function AdminCreatorEditor({
   lockExistingCreators = false,
 }: {
   creator: AdminCreatorInput;
-  creators: AdminCreatorRecord[];
+  creators: AdminCreatorAttribution[];
   onChange: (creator: AdminCreatorInput) => void;
   lockExistingCreators?: boolean;
 }) {
@@ -140,7 +142,7 @@ export function AdminCreatorEditor({
             <option value="new">Create a new creator</option>
             {creators.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name}{item.handle ? ` (${item.handle})` : ""}
+                {item.name}{item.legacyHandle ? ` (${item.legacyHandle})` : ""}
               </option>
             ))}
           </select>
@@ -174,14 +176,14 @@ export function AdminCreatorEditor({
               />
             </label>
             <label className={labelClass}>
-              Handle
+              Legacy handle
               <input
                 className={inputClass}
                 name="creatorHandle"
                 placeholder="@studio"
                 readOnly={isExistingLocked}
-                value={creator.handle ?? ""}
-                onChange={(event) => updateCreator("handle", event.target.value)}
+                value={creator.legacyHandle ?? ""}
+                onChange={(event) => updateCreator("legacyHandle", event.target.value)}
               />
             </label>
             <label className={labelClass}>

@@ -55,7 +55,13 @@ export function CreatorManager({
     const query = search.trim().toLowerCase();
     if (!query) return creators;
     return creators.filter((item) =>
-      [item.name, item.handle, item.username, item.url, item.xProfileUrl]
+      [
+        item.name,
+        item.legacyHandle,
+        item.username,
+        item.url,
+        item.xProfileUrl,
+      ]
         .filter(Boolean)
         .some((value) => value?.toLowerCase().includes(query)),
     );

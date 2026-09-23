@@ -25,7 +25,6 @@ vi.mock("@/db/write-client", async () => import("../../db/write-client"));
 vi.mock("@/storage/types", async () => import("../../storage/types"));
 vi.mock("@/domain/website", async () => import("../../domain/website"));
 vi.mock("@/features/creators/repository", () => ({
-  mapAdminCreator: vi.fn(),
   resolveCreatorMutation: vi.fn(),
 }));
 

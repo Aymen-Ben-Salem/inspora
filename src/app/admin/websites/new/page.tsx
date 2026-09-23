@@ -1,6 +1,6 @@
 import { WebsiteEditor } from "@/components/admin/website-editor";
 import { createWebsiteAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/creators/repository";
+import { getAdminCreators } from "@/features/creators/identity";
 
 export default async function NewWebsitePage() {
   const creators = await getAdminCreators();

@@ -7,7 +7,7 @@ import {
 import {
   getAdminCreatorClaims,
   getAdminCreators,
-} from "@/features/creators/repository";
+} from "@/features/creators/identity";
 
 export default async function CreatorsPage({
   searchParams,

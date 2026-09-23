@@ -14,7 +14,8 @@ import type { WriteTx } from "@/db/write-client";
 import { isWebsiteMediaRole } from "@/domain/website";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
-import { mapAdminCreator, resolveCreatorMutation } from "@/features/creators/repository";
+import { mapAdminCreatorAttribution } from "@/features/creators/identity/projections";
+import { resolveCreatorMutation } from "@/features/creators/repository";
 import {
   collectWebsiteManagedAssets,
   getRetainedWebsiteStorageKeys,
@@ -27,7 +28,7 @@ import type {
 type WebsiteRow = typeof websites.$inferSelect;
 type WebsiteMediaRow = typeof websiteMedia.$inferSelect;
 type WebsiteSectionRow = typeof websiteSections.$inferSelect;
-type CreatorRow = Parameters<typeof mapAdminCreator>[0];
+type CreatorRow = Parameters<typeof mapAdminCreatorAttribution>[0];
 
 function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
@@ -59,7 +60,7 @@ function mapAdminWebsite(
     slug: row.slug,
     title: row.title,
     tagline: row.tagline,
-    creator: mapAdminCreator(row.creator),
+    creator: mapAdminCreatorAttribution(row.creator),
     description: row.description,
     categories: row.categories,
     themes: row.themes,

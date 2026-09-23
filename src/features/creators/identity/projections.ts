@@ -2,7 +2,13 @@ import "server-only";
 
 import type { creators } from "@/db/schema";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
-import type { CreatorSummary, PublicCreatorProfile } from "../types";
+import type {
+  AdminCreatorAttribution,
+  AdminCreatorRecord,
+  CreatorRecordOrigin,
+  CreatorSummary,
+  PublicCreatorProfile,
+} from "../types";
 import { creatorUsernameCandidates } from "../validation";
 
 type CreatorRow = typeof creators.$inferSelect;
@@ -40,5 +46,40 @@ export function mapPublicCreatorProfile(row: PublicCreatorSource): PublicCreator
   return {
     ...mapCreatorDisplayFields(row),
     username: row.username as PublicCreatorProfile["username"],
+  };
+}
+
+export function mapAdminCreatorAttribution(
+  row: CreatorRow,
+): AdminCreatorAttribution {
+  return {
+    id: row.id,
+    name: row.name,
+    legacyHandle: row.handle ?? undefined,
+    username: row.username ?? undefined,
+    url: row.url ?? undefined,
+    xProfileUrl: row.xProfileUrl ?? undefined,
+    xProviderId: row.xProviderId ?? undefined,
+    ownerUserId: row.ownerUserId ?? undefined,
+    editedFields: row.editedFields as AdminCreatorAttribution["editedFields"],
+    recordOrigin: row.recordOrigin as CreatorRecordOrigin,
+    avatarUrl: row.avatarUrl,
+    avatarStorageProvider: isStorageProvider(row.avatarStorageProvider)
+      ? (row.avatarStorageProvider as AdminCreatorAttribution["avatarStorageProvider"])
+      : undefined,
+    avatarStorageKey: row.avatarStorageKey ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function mapAdminCreatorRecord(
+  row: CreatorRow,
+  counts: { workCount: number; pendingClaimCount: number },
+): AdminCreatorRecord {
+  return {
+    ...mapAdminCreatorAttribution(row),
+    workCount: counts.workCount,
+    pendingClaimCount: counts.pendingClaimCount,
   };
 }

@@ -7,10 +7,8 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, postMedia, posts } from "@/db/schema";
 import type { WriteTx } from "@/db/write-client";
-import {
-  mapAdminCreator,
-  resolveCreatorMutation,
-} from "@/features/creators/repository";
+import { mapAdminCreatorAttribution } from "@/features/creators/identity/projections";
+import { resolveCreatorMutation } from "@/features/creators/repository";
 import type { MediaType } from "@/domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
@@ -22,7 +20,7 @@ import type {
 } from "./types";
 
 type PostRow = typeof posts.$inferSelect;
-type CreatorRow = Parameters<typeof mapAdminCreator>[0];
+type CreatorRow = Parameters<typeof mapAdminCreatorAttribution>[0];
 type MediaRow = typeof postMedia.$inferSelect;
 
 function isStorageProvider(value: string | null) {
@@ -36,7 +34,7 @@ function mapAdminPost(
     id: row.id,
     slug: row.slug,
     title: row.title,
-    creator: mapAdminCreator(row.creator),
+    creator: mapAdminCreatorAttribution(row.creator),
     description: row.description,
     category: row.category as AdminPostRecord["category"],
     industries: row.industries,

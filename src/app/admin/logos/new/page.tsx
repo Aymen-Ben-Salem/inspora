@@ -1,6 +1,6 @@
 import { LogoEditor } from "@/components/admin/logo-editor";
 import { createLogoAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/creators/repository";
+import { getAdminCreators } from "@/features/creators/identity";
 
 export default async function NewLogoPage() {
   const creators = await getAdminCreators();

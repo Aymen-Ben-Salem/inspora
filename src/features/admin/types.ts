@@ -2,6 +2,7 @@ import type { MediaType, PostCategory } from "@/domain/post";
 import type { LogoKind, LogoStatus } from "@/domain/logo";
 import type { WebsiteMediaRole, WebsiteStatus } from "@/domain/website";
 import type {
+  AdminCreatorAttribution,
   AdminCreatorInput,
   AdminCreatorRecord,
 } from "@/features/creators/types";
@@ -21,7 +22,11 @@ export type {
 
 export type AdminPostStatus = "draft" | "published" | "archived";
 
-export type { AdminCreatorInput, AdminCreatorRecord };
+export type {
+  AdminCreatorAttribution,
+  AdminCreatorInput,
+  AdminCreatorRecord,
+};
 
 export type AdminMediaInput = {
   type: MediaType;
@@ -57,7 +62,7 @@ export type AdminPostInput = {
 
 export type AdminPostRecord = Omit<AdminPostInput, "status" | "creator"> & {
   id: string;
-  creator: AdminCreatorRecord;
+  creator: AdminCreatorAttribution;
   status: AdminPostStatus;
   publishedAt?: string;
   archivedAt?: string;
@@ -95,7 +100,7 @@ export type AdminLogoInput = {
 
 export type AdminLogoRecord = Omit<AdminLogoInput, "status" | "creator"> & {
   id: string;
-  creator: AdminCreatorRecord;
+  creator: AdminCreatorAttribution;
   status: LogoStatus;
   publishedAt?: string;
   archivedAt?: string;
@@ -154,7 +159,7 @@ export type AdminWebsiteInput = {
 
 export type AdminWebsiteRecord = Omit<AdminWebsiteInput, "status" | "creator"> & {
   id: string;
-  creator: AdminCreatorRecord;
+  creator: AdminCreatorAttribution;
   status: WebsiteStatus;
   publishedAt?: string;
   archivedAt?: string;

@@ -46,7 +46,7 @@ const creatorSchema = z.preprocess(
   .object({
     id: z.union([z.literal(""), z.uuid()]).transform((value) => value || undefined),
     name: z.string().trim().min(1).max(160),
-    handle: z.string().trim().max(160).optional(),
+    legacyHandle: z.string().trim().max(160).optional(),
     username: z.union([z.literal(""), z.string().regex(/^[a-z0-9_]{3,30}$/)]).optional().transform((value) => value || undefined),
     url: optionalRemoteUrl,
     xProfileUrl: optionalRemoteUrl,
@@ -136,7 +136,7 @@ export function parseAdminLogoForm(formData: FormData): AdminLogoInput {
     creator: {
       id: formData.get("creatorId"),
       name: formData.get("creatorName"),
-      handle: String(formData.get("creatorHandle") ?? "") || undefined,
+      legacyHandle: String(formData.get("creatorHandle") ?? "") || undefined,
       username: String(formData.get("creatorUsername") ?? "") || undefined,
       url: formData.get("creatorUrl"),
       xProfileUrl: String(formData.get("creatorXProfileUrl") ?? ""),

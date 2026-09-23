@@ -2,19 +2,21 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import type { Route } from "next";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
-import { requireAdmin } from "@/auth/require-admin";
+import { AdminAuthConfigurationError } from "@/auth/require-admin";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
 import { reviewCreatorClaim } from "@/features/creators/claims";
 import {
+  AdminCreatorMutationError,
   createAdminCreator,
   deleteAdminCreator,
   updateAdminCreator,
-} from "@/features/creators/repository";
+} from "@/features/creators/identity";
+import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import { parseAdminCreatorForm } from "@/features/creators/validation";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
@@ -27,6 +29,7 @@ function revalidateCreatorPaths() {
   updateTag(PUBLISHED_POSTS_CACHE_TAG);
   updateTag(PUBLISHED_LOGOS_CACHE_TAG);
   updateTag(PUBLISHED_WEBSITES_CACHE_TAG);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   revalidatePath("/");
   revalidatePath("/admin/creators");
   revalidatePath("/admin/posts");
@@ -35,8 +38,13 @@ function revalidateCreatorPaths() {
 }
 
 function creatorErrorState(error: unknown): AdminActionState {
+  unstable_rethrow(error);
+  if (error instanceof AdminAuthConfigurationError) throw error;
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
+  }
+  if (error instanceof AdminCreatorMutationError) {
+    return { status: "error", message: error.message };
   }
   if (error instanceof Error) {
     const expected = [
@@ -63,14 +71,13 @@ export async function saveCreatorAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
   try {
     const input = parseAdminCreatorForm(formData);
     if (input.id) {
-      const updated = await updateAdminCreator(input.id, input, userId);
+      const updated = await updateAdminCreator(input.id, input);
       await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
     } else {
-      await createAdminCreator(input, userId);
+      await createAdminCreator(input);
     }
   } catch (error) {
     return creatorErrorState(error);
@@ -83,10 +90,9 @@ export async function deleteCreatorAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
   try {
     const id = idSchema.parse(formData.get("creatorId"));
-    const deleted = await deleteAdminCreator(id, userId);
+    const deleted = await deleteAdminCreator(id);
     await deleteManagedMediaAssetsSafely(deleted.removedManagedMedia);
   } catch (error) {
     return creatorErrorState(error);

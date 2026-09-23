@@ -5,7 +5,7 @@ import { updatePostAction } from "@/features/admin/actions";
 import {
   getAdminPostById,
 } from "@/features/admin/posts-repository";
-import { getAdminCreators } from "@/features/creators/repository";
+import { getAdminCreators } from "@/features/creators/identity";
 
 type EditPostPageProps = {
   params: Promise<{ id: string }>;

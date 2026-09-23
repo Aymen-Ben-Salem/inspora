@@ -9,7 +9,8 @@ import { adminAuditLogs, logoMedia, logos } from "@/db/schema";
 import type { WriteTx } from "@/db/write-client";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
-import { mapAdminCreator, resolveCreatorMutation } from "@/features/creators/repository";
+import { mapAdminCreatorAttribution } from "@/features/creators/identity/projections";
+import { resolveCreatorMutation } from "@/features/creators/repository";
 import type {
   AdminLogoInput,
   AdminLogoRecord,
@@ -18,7 +19,7 @@ import type {
 
 type LogoRow = typeof logos.$inferSelect;
 type LogoMediaRow = typeof logoMedia.$inferSelect;
-type CreatorRow = Parameters<typeof mapAdminCreator>[0];
+type CreatorRow = Parameters<typeof mapAdminCreatorAttribution>[0];
 
 function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
@@ -35,7 +36,7 @@ function mapAdminLogo(
     slug: row.slug,
     title: row.title,
     kind: row.kind as AdminLogoRecord["kind"],
-    creator: mapAdminCreator(row.creator),
+    creator: mapAdminCreatorAttribution(row.creator),
     description: row.description,
     industry: row.industry,
     colors: row.colors,

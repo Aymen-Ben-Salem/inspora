@@ -5,7 +5,7 @@ import {
   acceptAndPublishAction,
   rejectSubmissionAction,
 } from "../../../../features/admin/submission-actions";
-import { getAdminCreators } from "../../../../features/creators/repository";
+import { getAdminCreators } from "../../../../features/creators/identity";
 import { getSubmissionReviewById } from "../../../../features/submissions/review-service";
 
 export default async function SubmissionReviewPage({

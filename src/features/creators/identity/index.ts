@@ -15,6 +15,14 @@ import { mapCreatorSummary, mapPublicCreatorProfile } from "./projections";
 
 // Owner mutations share this trusted-principal identity boundary.
 export { ProfileMutationError, updateOwnedCreatorProfile, updateOwnedCreatorAvatar } from "./owned-profile";
+export {
+  AdminCreatorMutationError,
+  createAdminCreator,
+  deleteAdminCreator,
+  getAdminCreatorClaims,
+  getAdminCreators,
+  updateAdminCreator,
+} from "./admin";
 
 /** Established by a server authentication adapter, never by request body fields. */
 export type CreatorOwnerPrincipal = Readonly<{ userId: string }>;

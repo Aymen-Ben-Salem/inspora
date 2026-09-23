@@ -1,10 +1,10 @@
 export const DEVELOPMENT_CREATOR_HANDLE_PREFIX = "dev-";
 
 export function isDevelopmentFixtureCreator(
-  handle: string | null | undefined,
+  legacyHandle: string | null | undefined,
 ) {
   return Boolean(
-    handle
+    legacyHandle
       ?.trim()
       .toLowerCase()
       .startsWith(DEVELOPMENT_CREATOR_HANDLE_PREFIX),
@@ -12,10 +12,13 @@ export function isDevelopmentFixtureCreator(
 }
 
 export function isCreatorVisibleInEnvironment(
-  handle: string | null | undefined,
+  legacyHandle: string | null | undefined,
   dataEnvironment: string | undefined,
 ) {
-  return dataEnvironment === "development" || !isDevelopmentFixtureCreator(handle);
+  return (
+    dataEnvironment === "development" ||
+    !isDevelopmentFixtureCreator(legacyHandle)
+  );
 }
 
 export function shouldLockExistingCreator(
@@ -51,7 +54,7 @@ export function normalizeCreatorValidationInput(
   return {
     id,
     name: "Existing creator",
-    handle: "",
+    legacyHandle: "",
     username: "",
     url: "",
     xProfileUrl: "",

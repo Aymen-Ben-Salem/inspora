@@ -47,7 +47,7 @@ export type ClaimResult =
 export type AdminCreatorInput = {
   id?: string;
   name: string;
-  handle?: string;
+  legacyHandle?: string;
   username?: string;
   url?: string;
   xProfileUrl?: string;
@@ -57,16 +57,19 @@ export type AdminCreatorInput = {
   recordOrigin?: CreatorRecordOrigin;
 };
 
-export type AdminCreatorRecord = AdminCreatorInput & {
+export type AdminCreatorAttribution = AdminCreatorInput & {
   id: string;
   ownerUserId?: string;
   xProviderId?: string;
   editedFields: CreatorEditedField[];
   recordOrigin: CreatorRecordOrigin;
-  workCount: number;
-  pendingClaimCount: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AdminCreatorRecord = AdminCreatorAttribution & {
+  workCount: number;
+  pendingClaimCount: number;
 };
 
 export type AdminCreatorClaimRecord = {
@@ -87,4 +90,11 @@ export type CreatorProfileMutationCode =
   | "missing_creator"
   | "inactive_account"
   | "ownership_conflict"
+  | "database_unavailable";
+
+export type AdminCreatorMutationCode =
+  | "invalid_input"
+  | "environment_restricted"
+  | "missing_creator"
+  | "conflict"
   | "database_unavailable";

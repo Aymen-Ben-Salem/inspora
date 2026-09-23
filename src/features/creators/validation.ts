@@ -125,7 +125,7 @@ const adminCreatorSchema = z
   .object({
     id: z.union([z.literal(""), z.uuid()]).transform((value) => value || undefined),
     name: z.string().trim().min(1).max(160),
-    handle: z.string().trim().max(160).optional(),
+    legacyHandle: z.string().trim().max(160).optional(),
     username: z.string().trim().optional(),
     url: optionalUrl,
     xProfileUrl: optionalUrl,
@@ -170,7 +170,7 @@ const adminCreatorSchema = z
   })
   .transform((creator) => ({
     ...creator,
-    handle: creator.handle || undefined,
+    legacyHandle: creator.legacyHandle || undefined,
     username: creator.username || undefined,
   }));
 
@@ -178,7 +178,7 @@ export function parseAdminCreatorForm(formData: FormData): AdminCreatorInput {
   return adminCreatorSchema.parse({
     id: formData.get("creatorId"),
     name: formData.get("creatorName"),
-    handle: String(formData.get("creatorHandle") ?? "") || undefined,
+    legacyHandle: String(formData.get("creatorHandle") ?? "") || undefined,
     username: String(formData.get("creatorUsername") ?? "") || undefined,
     url: formData.get("creatorUrl"),
     xProfileUrl: formData.get("creatorXProfileUrl"),
@@ -187,6 +187,17 @@ export function parseAdminCreatorForm(formData: FormData): AdminCreatorInput {
       String(formData.get("creatorAvatarStorageProvider") ?? "") || undefined,
     avatarStorageKey:
       String(formData.get("creatorAvatarStorageKey") ?? "") || undefined,
+  });
+}
+
+export function validateAdminCreatorInput(
+  input: AdminCreatorInput,
+): AdminCreatorInput {
+  return adminCreatorSchema.parse({
+    ...input,
+    id: input.id ?? "",
+    url: input.url ?? "",
+    xProfileUrl: input.xProfileUrl ?? "",
   });
 }
 import { z } from "zod";

@@ -191,6 +191,9 @@ describe.skipIf(!enabled)("ownership claim requests in isolated nonproduction ro
 
   it.each(["approve", "reject"] as const)("replays %s through both request and review without repeated audit or identity effects", async (decision) => {
     const f = await fixture(1);
+    await withWriteTransaction(async (tx) => {
+      await tx.update(creators).set({ username: f.username }).where(eq(creators.id, f.targets[0]!));
+    });
     const request = await requestCreatorOwnershipClaimFromVerifiedX(f.principal);
     if (request.status !== "pending") throw new Error("Expected pending");
     const reviewed = await reviewCreatorOwnershipClaim(request.claimId, decision, " Original reason ");

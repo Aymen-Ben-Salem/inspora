@@ -118,6 +118,7 @@ it("delegates claim reviews without repeating the identity module's committed si
   form.set("actorId", "untrusted-browser-actor");
   external.review.mockResolvedValue({ status: "rejected" });
   await reviewCreatorClaimAction(form);
+  expect(external.remove).toHaveBeenCalledWith([]);
   expect(external.review).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "reject", "Reason");
   expect(external.updateTag).not.toHaveBeenCalled();
   expect(external.revalidatePath).not.toHaveBeenCalled();
@@ -130,6 +131,18 @@ it("preserves the review error envelope and does not invalidate failed reviews",
   const error = new Error("Add a reason before rejecting this claim.");
   external.review.mockRejectedValueOnce(error);
   await expect(reviewCreatorClaimAction(form)).rejects.toBe(error);
+  expect(external.remove).not.toHaveBeenCalled();
   expect(external.updateTag).not.toHaveBeenCalled();
   expect(external.revalidatePath).not.toHaveBeenCalled();
+});
+
+it("cleans only the candidates returned by a committed claim review", async () => {
+  const assets = [{ storageProvider: "r2", storageKey: "creators/displaced.webp", type: "image" }];
+  external.review.mockResolvedValueOnce({ status: "claimed", creatorId: "survivor", displacedAvatarAssets: assets });
+  const form = new FormData();
+  form.set("claimId", "11111111-1111-4111-8111-111111111111");
+  form.set("decision", "approve");
+  await reviewCreatorClaimAction(form);
+  expect(external.remove).toHaveBeenCalledWith(assets);
+  expect(external.review.mock.invocationCallOrder[0]).toBeLessThan(external.remove.mock.invocationCallOrder[0]!);
 });

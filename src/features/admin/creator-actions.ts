@@ -105,5 +105,6 @@ export async function reviewCreatorClaimAction(formData: FormData) {
   const claimId = idSchema.parse(formData.get("claimId"));
   const decision = z.enum(["approve", "reject"]).parse(formData.get("decision"));
   const reason = String(formData.get("reason") ?? "");
-  await reviewCreatorOwnershipClaim(claimId, decision, reason);
+  const outcome = await reviewCreatorOwnershipClaim(claimId, decision, reason);
+  await deleteManagedMediaAssetsSafely(outcome.displacedAvatarAssets ?? []);
 }

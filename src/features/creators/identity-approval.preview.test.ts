@@ -25,6 +25,7 @@ import { adminAuditLogs, creatorClaims, creators, creatorUsernameAliases, profil
 import { revalidateTag, revalidatePath } from "next/cache";
 import { withWriteTransaction } from "@/db/write-client";
 import { reviewCreatorOwnershipClaim, resolvePublicCreatorProfile, updateOwnedCreatorProfile } from "./identity";
+import { reviewCreatorClaimAction } from "../admin/creator-actions";
 
 const enabled = process.env.RUN_CREATOR_CLAIM_INTEGRATION === "1" &&
   ["development", "preview"].includes(process.env.DATA_ENVIRONMENT ?? "");
@@ -96,31 +97,64 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "conflict" });
     expect(await state(f)).toEqual(before);
   }, 60000);
-  it("preserves an avatar-only owner edit and cleans only the displaced managed target after commit", async () => {
+  it("preserves an avatar-only owner edit and returns only the displaced target for external cleanup", async () => {
     const f = await fixture();
     await withWriteTransaction(async (tx) => {
       await tx.update(creators).set({ avatarUrl: "https://media.example/target.webp", avatarStorageProvider: "r2", avatarStorageKey: "creators/target.webp", editedFields: ["name"] }).where(eq(creators.id, f.targetId));
       await tx.update(creators).set({ avatarUrl: "https://media.example/owner.webp", avatarStorageProvider: "r2", avatarStorageKey: "creators/owner.webp", editedFields: ["avatarUrl"] }).where(eq(creators.id, f.provisionalId));
     });
+    const outcome = await reviewCreatorOwnershipClaim(f.claimId, "approve");
+    expect(outcome).toEqual({ status: "claimed", creatorId: f.targetId,
+      displacedAvatarAssets: [{ storageProvider: "r2", storageKey: "creators/target.webp", type: "image" }] });
+    expect((await state(f)).creators[0]).toMatchObject({ name: "Target name", username: `target_${f.suffix}`, url: "https://target.example", recordOrigin: "editorial", avatarUrl: "https://media.example/owner.webp", avatarStorageProvider: "r2", avatarStorageKey: "creators/owner.webp", editedFields: ["name", "avatarUrl"] });
+    expect(external.deleteAssets).not.toHaveBeenCalled();
+    expect(revalidateTag).toHaveBeenCalledWith("public-creator-profiles", { expire: 0 });
+    expect(revalidateTag).toHaveBeenCalledTimes(4);
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/creators");
+    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.targetId });
+  }, 60000);
+
+  it("runs review action cleanup after commit and preserves success when storage fails", async () => {
+    const f = await fixture();
+    await withWriteTransaction(async (tx) => {
+      await tx.update(creators).set({ avatarStorageProvider: "r2", avatarStorageKey: "creators/displaced.webp" }).where(eq(creators.id, f.provisionalId));
+    });
     let committedAtCleanup: Awaited<ReturnType<typeof state>> | undefined;
     external.deleteAssets.mockImplementationOnce(async () => {
       committedAtCleanup = await state(f);
-
-
       throw new Error("Storage unavailable");
     });
+    const form = new FormData();
+    form.set("claimId", f.claimId);
+    form.set("decision", "approve");
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.targetId });
-      expect((await state(f)).creators[0]).toMatchObject({ name: "Target name", username: `target_${f.suffix}`, url: "https://target.example", recordOrigin: "editorial", avatarUrl: "https://media.example/owner.webp", avatarStorageProvider: "r2", avatarStorageKey: "creators/owner.webp", editedFields: ["name", "avatarUrl"] });
-      expect(external.deleteAssets).toHaveBeenCalledWith([{ storageProvider: "r2", storageKey: "creators/target.webp", type: "image" }]);
+      await expect(reviewCreatorClaimAction(form)).resolves.toBeUndefined();
+      expect(external.deleteAssets).toHaveBeenCalledWith([{ storageProvider: "r2", storageKey: "creators/displaced.webp", type: "image" }]);
       expect(committedAtCleanup?.claims[0]?.status).toBe("approved");
       expect(committedAtCleanup?.creators).toHaveLength(1);
       expect(errorLog).toHaveBeenCalledWith("Managed media cleanup failed", expect.any(Error));
-      expect(revalidateTag).toHaveBeenCalledWith("public-creator-profiles", { expire: 0 });
-      expect(revalidateTag).toHaveBeenCalledTimes(4);
-      expect(revalidatePath).toHaveBeenCalledWith("/admin/creators");
     } finally { errorLog.mockRestore(); }
+  }, 60000);
+
+  it("preserves owner addresses and all state when a legacy target has no canonical username", async () => {
+    const f = await fixture();
+    const ids = await workFixture(f);
+    await withWriteTransaction(async (tx) => {
+      await tx.delete(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, f.targetId));
+      await tx.update(creators).set({ username: null }).where(eq(creators.id, f.targetId));
+    });
+    const before = await state(f);
+    const referencesBefore = await workState(ids, f.userId);
+    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "conflict" });
+    expect(await state(f)).toEqual(before);
+    expect(await workState(ids, f.userId)).toEqual(referencesBefore);
+    for (const username of [`owner_${f.suffix}`, `owner_old_${f.suffix}`]) {
+      expect(await resolvePublicCreatorProfile(username)).toMatchObject({ profile: { id: f.provisionalId }, canonicalUsername: `owner_${f.suffix}` });
+    }
+    expect(external.deleteAssets).not.toHaveBeenCalled();
+    expect(revalidateTag).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   }, 60000);
 
   async function workFixture(f: Awaited<ReturnType<typeof fixture>>) {
@@ -234,9 +268,9 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
       await tx.update(creators).set({ avatarStorageProvider: "r2", avatarStorageKey: "creators/retained.webp" }).where(eq(creators.id, f.targetId));
       await tx.update(creators).set({ avatarStorageProvider: "r2", avatarStorageKey: shared ? "creators/retained.webp" : "creators/displaced.webp" }).where(eq(creators.id, f.provisionalId));
     });
-    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.targetId });
-    if (shared) expect(external.deleteAssets).not.toHaveBeenCalled();
-    else expect(external.deleteAssets).toHaveBeenCalledWith([{ storageProvider: "r2", storageKey: "creators/displaced.webp", type: "image" }]);
+    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.targetId,
+      ...(shared ? {} : { displacedAvatarAssets: [{ storageProvider: "r2", storageKey: "creators/displaced.webp", type: "image" }] }) });
+    expect(external.deleteAssets).not.toHaveBeenCalled();
   }, 60000);
 
   it.each(["inactive", "missing-owner", "target-owner", "target-provider", "other-provider"])("refuses %s state without partial changes", async (conflict) => {

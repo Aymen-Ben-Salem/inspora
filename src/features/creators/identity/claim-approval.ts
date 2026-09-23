@@ -107,6 +107,8 @@ export async function approveCreatorOwnershipClaim(
 
     if (lockedProvisional.id !== target.id) {
       const retained = profileValuesForApprovedClaimMerge(target, lockedProvisional);
+      // Preserve existing addresses until a canonical username can survive the merge.
+      if (!retained.username) return { status: "conflict" };
       for (const creator of [target, lockedProvisional]) {
         if (isMediaStorageProvider(creator.avatarStorageProvider) && creator.avatarStorageKey &&
           !(creator.avatarStorageProvider === retained.avatarStorageProvider && creator.avatarStorageKey === retained.avatarStorageKey) &&
@@ -122,7 +124,7 @@ export async function approveCreatorOwnershipClaim(
         .where(inArray(creatorUsernameAliases.creatorId, creatorIds));
       await tx.update(creatorUsernameAliases).set({ creatorId: target.id })
         .where(eq(creatorUsernameAliases.creatorId, lockedProvisional.id));
-      if (retained.username) await setCurrentUsernameAlias(tx, target.id, retained.username);
+      await setCurrentUsernameAlias(tx, target.id, retained.username);
       await tx
         .update(posts)
         .set({ creatorId: target.id })

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { after } from "next/server";
-import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
+import type { ManagedMediaAsset } from "@/storage/types";
 import { requireAdmin } from "@/auth/require-admin";
 import { adminAuditLogs, creatorClaims, creators, profileAccounts } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
@@ -144,7 +144,7 @@ export async function reviewCreatorOwnershipClaim(
   claimId: string,
   decision: "approve" | "reject",
   reason?: string,
-): Promise<ClaimResult> {
+): Promise<ClaimResult & { displacedAvatarAssets?: ManagedMediaAsset[] }> {
   const { userId: actorId } = await requireAdmin();
   const reviewReason = reason?.trim() || null;
   if (decision === "reject" && !reviewReason) throw new Error("Add a reason before rejecting this claim.");
@@ -159,8 +159,9 @@ export async function reviewCreatorOwnershipClaim(
       throw error;
     }
     refreshCommittedClaim(outcome.identityChanged);
-    await deleteManagedMediaAssetsSafely(outcome.displacedAvatarAssets);
-    return outcome.result;
+    return outcome.displacedAvatarAssets.length
+      ? { ...outcome.result, displacedAvatarAssets: outcome.displacedAvatarAssets }
+      : outcome.result;
   }
   let reviewChanged = false;
   const result = await withWriteTransaction<ClaimResult>(async (tx) => {

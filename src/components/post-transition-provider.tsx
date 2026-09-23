@@ -246,12 +246,10 @@ function OptimisticPostTransition({
       [
         {
           borderRadius: `${source.sourceRadius}px`,
-          boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
           transform: sourceTransform,
         },
         {
           borderRadius: "0",
-          boxShadow: "0 18px 60px rgba(0, 0, 0, 0.12)",
           transform: "none",
         },
       ],

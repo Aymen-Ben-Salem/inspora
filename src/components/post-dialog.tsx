@@ -25,7 +25,6 @@ import {
   waitForMediaReady,
   resolveExitMediaRect,
   resolveFeedTransitionTarget,
-  resolveProxyTargetBoxShadow,
   removeMediaProxy,
   shouldAnimateDialogBackdrop,
 } from "./post-dialog-media-proxy";
@@ -338,6 +337,12 @@ export function PostDialog({
     );
   }, [cancelMediaWaits, finishClose]);
 
+  useLayoutEffect(() => () => {
+    // Next keeps this dialog's refs when Activity hides it on return to the
+    // feed. Only a change within the same visible session is a post swap.
+    activeTransitionIdentity.current = null;
+  }, []);
+
   useLayoutEffect(() => {
     const previousOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
@@ -587,7 +592,6 @@ export function PostDialog({
                 scaleX: 1,
                 scaleY: 1,
                 borderRadius: targetRadius,
-                boxShadow: resolveProxyTargetBoxShadow(animateBackdrop),
                 duration: POST_ENTRANCE_DURATION,
                 ease: "power3.out",
               },

@@ -7,6 +7,7 @@ const lifecycle = vi.hoisted(() => ({
   passive: [] as Array<() => void | (() => void)>,
   root: null as HTMLElement | null,
   refIndex: 0,
+  refs: [] as Array<{ current: unknown }>,
   createProxy: vi.fn(),
   tween: vi.fn(),
   set: vi.fn(),
@@ -17,7 +18,10 @@ const lifecycle = vi.hoisted(() => ({
 
 vi.mock("react", async (importOriginal) => ({
   ...await importOriginal<typeof import("react")>(),
-  useRef: (initial: unknown) => ({ current: lifecycle.refIndex++ === 0 ? lifecycle.root : initial }),
+  useRef: (initial: unknown) => {
+    const index = lifecycle.refIndex++;
+    return lifecycle.refs[index] ??= { current: index === 0 ? lifecycle.root : initial };
+  },
   useEffect: (effect: () => void | (() => void)) => lifecycle.passive.push(effect),
   useLayoutEffect: (effect: () => void | (() => void)) => lifecycle.layout.push(effect),
 }));
@@ -64,6 +68,7 @@ describe("post dialog scroll-lock lifecycle", () => {
     lifecycle.measurements.length = 0;
     lifecycle.root = null;
     lifecycle.refIndex = 0;
+    lifecycle.refs.length = 0;
     lifecycle.mediaReady = true;
     vi.clearAllMocks();
     vi.unstubAllGlobals();
@@ -92,9 +97,10 @@ describe("post dialog scroll-lock lifecycle", () => {
     },
   );
 
-  it.each(["logo", "website", "cold-image", "routed-image", "streamed-image", "streamed-unmount", "streamed-close"])("uses loaded media for %s entrance", (kind) => {
-    const routed = kind === "routed-image" || kind.startsWith("streamed");
+  it.each(["logo", "website", "cold-image", "routed-image", "streamed-image", "streamed-unmount", "streamed-close", "routed-after-close", "routed-after-back", "routed-swap"])("uses loaded media for %s entrance", (kind) => {
+    const routed = kind.startsWith("routed") || kind.startsWith("streamed");
     lifecycle.mediaReady = kind !== "cold-image";
+    let identity = kind;
     const rect = { width: 800, height: 450, left: 100, top: 100, right: 900, bottom: 550 };
     const style = { removeProperty: vi.fn() };
     let hasLayout = !kind.startsWith("streamed");
@@ -116,7 +122,7 @@ describe("post dialog scroll-lock lifecycle", () => {
         "[data-post-dialog-gallery]": gallery,
         "[data-post-dialog-sidebar]": { style },
         "[data-post-dialog-hero]": hero,
-        "[data-post-dialog-post-id]": { dataset: { postDialogPostId: kind } },
+        "[data-post-dialog-post-id]": { dataset: { postDialogPostId: identity } },
       })[selector],
     } as unknown as HTMLElement;
     lifecycle.createProxy.mockReturnValue({ style });
@@ -162,6 +168,34 @@ describe("post dialog scroll-lock lifecycle", () => {
       expect(frames).toHaveLength(1);
       hasLayout = true;
       frames.shift()!(0);
+    }
+    if (kind.startsWith("routed-after") || kind === "routed-swap") {
+      if (kind === "routed-after-close") {
+        const keydown = vi.mocked(window.addEventListener).mock.calls.find(([name]) => name === "keydown")?.[1];
+        if (typeof keydown !== "function") throw new Error("Missing close listener");
+        keydown({ key: "Escape" } as KeyboardEvent);
+      }
+      // Next retains refs when its Activity hides the dialog on return to the
+      // feed. Next/previous navigation instead updates the still-open dialog.
+      if (kind === "routed-swap") cleanups.at(-1)?.();
+      else cleanups.reverse().forEach((cleanup) => cleanup?.());
+      lifecycle.layout.length = 0;
+      lifecycle.refIndex = 0;
+      lifecycle.createProxy.mockClear();
+      lifecycle.tween.mockClear();
+      identity = "second-post";
+      source.dataset.feedPostId = identity;
+      renderToStaticMarkup(createElement(PostDialog, { closeMode: "back", transitionKey: identity }));
+      if (kind === "routed-swap") lifecycle.layout.at(-1)!();
+      else lifecycle.layout.forEach((effect) => effect());
+      if (kind === "routed-swap") {
+        expect(lifecycle.createProxy).not.toHaveBeenCalled();
+        expect(lifecycle.tween).toHaveBeenCalledWith(gallery,
+          expect.objectContaining({ scale: 0.95 }),
+          expect.objectContaining({ scale: 1, duration: 0.7 }), 0);
+        return;
+      }
+      expect(lifecycle.createProxy).toHaveBeenCalledWith(expect.objectContaining({ fallback: source, media: hero }));
     }
     // Retained design dialogs must clear GSAP's cached exit transform as well
     // as the inline CSS, otherwise their next close jumps to the feed size.

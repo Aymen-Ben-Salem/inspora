@@ -9,6 +9,7 @@ const lifecycle = vi.hoisted(() => ({
   refIndex: 0,
   createProxy: vi.fn(),
   tween: vi.fn(),
+  set: vi.fn(),
   waitForMedia: vi.fn((_element: unknown, ready: () => void) => { ready(); return () => {}; }),
   mediaReady: true,
   measurements: [] as Array<{ overflow: string; gutter: string }>,
@@ -33,7 +34,7 @@ vi.mock("@gsap/react", () => ({
 }));
 vi.mock("gsap", () => ({ default: {
   registerPlugin: vi.fn(),
-  set: vi.fn(),
+  set: lifecycle.set,
   timeline: () => ({ to: lifecycle.tween, fromTo: lifecycle.tween, pause: vi.fn(), play: vi.fn(), kill: vi.fn() }),
 } }));
 vi.mock("./post-dialog-media-proxy", async (importOriginal) => ({
@@ -91,13 +92,16 @@ describe("post dialog scroll-lock lifecycle", () => {
     },
   );
 
-  it.each(["logo", "website", "cold-image", "routed-image"])("uses loaded media for %s entrance", (kind) => {
+  it.each(["logo", "website", "cold-image", "routed-image", "streamed-image", "streamed-unmount", "streamed-close"])("uses loaded media for %s entrance", (kind) => {
+    const routed = kind === "routed-image" || kind.startsWith("streamed");
     lifecycle.mediaReady = kind !== "cold-image";
     const rect = { width: 800, height: 450, left: 100, top: 100, right: 900, bottom: 550 };
     const style = { removeProperty: vi.fn() };
+    let hasLayout = !kind.startsWith("streamed");
+    const frames: FrameRequestCallback[] = [];
     const hero = {
       style, dataset: {}, hasAttribute: () => false,
-      getBoundingClientRect: () => rect,
+      getBoundingClientRect: () => hasLayout ? rect : { ...rect, width: 0, height: 0 },
     };
     const gallery = { style, querySelectorAll: () => [] };
     const source = {
@@ -122,14 +126,49 @@ describe("post dialog scroll-lock lifecycle", () => {
     });
     vi.stubGlobal("window", {
       innerWidth: 1440, innerHeight: 900,
+      requestAnimationFrame: (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; },
+      cancelAnimationFrame: vi.fn(),
       matchMedia: () => ({ matches: false }),
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
     renderToStaticMarkup(createElement(PostDialog, {
-      closeMode: kind === "routed-image" ? "back" : "custom", transitionKey: kind, onClose: () => {},
+      closeMode: routed ? "back" : "custom", transitionKey: kind, onClose: () => {},
     }));
-    lifecycle.layout.forEach((effect) => effect());
-    if (kind === "cold-image" || kind === "routed-image") {
+    const cleanups = lifecycle.layout.map((effect) => effect());
+    if (kind.startsWith("streamed")) {
+      expect(lifecycle.tween).not.toHaveBeenCalled();
+      expect(lifecycle.createProxy).not.toHaveBeenCalled();
+      expect(frames).toHaveLength(1);
+      if (kind === "streamed-unmount") {
+        cleanups.reverse().forEach((cleanup) => cleanup?.());
+        expect(window.cancelAnimationFrame).toHaveBeenCalledWith(1);
+        return;
+      }
+      if (kind === "streamed-close") {
+        const keydown = vi.mocked(window.addEventListener).mock.calls.find(([name]) => name === "keydown")?.[1];
+        if (typeof keydown !== "function") throw new Error("Missing close listener");
+        keydown({ key: "Escape" } as KeyboardEvent);
+        lifecycle.tween.mockClear();
+        hasLayout = true;
+        frames.shift()!(0);
+        expect(lifecycle.tween).not.toHaveBeenCalled();
+        expect(lifecycle.createProxy).not.toHaveBeenCalled();
+        expect(frames).toHaveLength(0);
+        return;
+      }
+      // A second frame without layout still must not consume the animation.
+      frames.shift()!(0);
+      expect(lifecycle.tween).not.toHaveBeenCalled();
+      expect(frames).toHaveLength(1);
+      hasLayout = true;
+      frames.shift()!(0);
+    }
+    // Retained design dialogs must clear GSAP's cached exit transform as well
+    // as the inline CSS, otherwise their next close jumps to the feed size.
+    expect(lifecycle.set).toHaveBeenCalledWith(hero, {
+      clearProps: expect.stringContaining("transform"),
+    });
+    if (kind === "cold-image" || routed) {
       expect(lifecycle.createProxy).toHaveBeenCalledWith(expect.objectContaining({
         fallback: source, media: hero, mediaSourcePreference: "fallback",
       }));

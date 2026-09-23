@@ -98,7 +98,8 @@ function restoreEntranceState(
   hero: HTMLElement,
 ) {
   const clearStyles = (element: HTMLElement, properties: string[]) => {
-    properties.forEach((property) => element.style.removeProperty(property));
+    // Clearing through GSAP also invalidates transforms cached on retained dialogs.
+    gsap.set(element, { clearProps: properties.join(",") });
   };
 
   clearStyles(backdrop, ["opacity", "visibility"]);
@@ -381,7 +382,7 @@ export function PostDialog({
         previousPathname !== null && previousPathname !== transitionIdentity;
       activeTransitionIdentity.current = transitionIdentity;
 
-      let observer: MutationObserver | undefined;
+      let entranceFrame: number | undefined;
 
       const startEntrance = () => {
         const backdrop = root.querySelector<HTMLElement>(
@@ -399,6 +400,11 @@ export function PostDialog({
         )?.dataset.postDialogPostId;
 
         if (!backdrop || !gallery || !sidebar || !hero || !postId) return false;
+
+        // Streamed/retained route content can exist before React reveals its
+        // layout. A zero-size hero must wait, not take the fade-in fallback.
+        const layoutRect = hero.getBoundingClientRect();
+        if (layoutRect.width <= 0 || layoutRect.height <= 0) return false;
 
         restoreEntranceState(backdrop, gallery, sidebar, hero);
 
@@ -633,15 +639,23 @@ export function PostDialog({
         return true;
       };
 
-      if (!startEntrance()) {
-        observer = new MutationObserver(() => {
-          if (startEntrance()) observer?.disconnect();
-        });
-        observer.observe(root, { childList: true, subtree: true });
-      }
+      const startWhenLaidOut = () => {
+        entranceFrame = undefined;
+        if (closing.current) return;
+        root.style.removeProperty("visibility");
+        if (startEntrance()) return;
+        // Keep the feed visible until we can paint the first animation frame.
+        root.style.visibility = "hidden";
+        // A reveal can change an ancestor's display without adding children,
+        // so a child-list observer alone cannot tell us when layout is ready.
+        entranceFrame = window.requestAnimationFrame(startWhenLaidOut);
+      };
+      startWhenLaidOut();
 
       return () => {
-        observer?.disconnect();
+        if (entranceFrame !== undefined) window.cancelAnimationFrame(entranceFrame);
+        // A deferred entrance runs outside useGSAP's initial context callback.
+        entrance.current?.kill();
         cancelMediaWaits();
         root.style.removeProperty("visibility");
         removeMediaProxy(entranceProxy.current);
@@ -664,14 +678,8 @@ export function PostDialog({
         if (backdrop && gallery && sidebar && hero) {
           restoreEntranceState(backdrop, gallery, sidebar, hero);
         } else if (entranceHero.current) {
-          [
-            "opacity",
-            "visibility",
-            "transform",
-            "transform-origin",
-            "will-change",
-          ].forEach((property) => {
-            entranceHero.current?.style.removeProperty(property);
+          gsap.set(entranceHero.current, {
+            clearProps: "opacity,visibility,transform,transformOrigin,willChange",
           });
         }
       };

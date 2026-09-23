@@ -4,6 +4,8 @@
 
 Apply new work to the preview branch (`preview/archive-updates` at setup time). Leave `main` and production untouched unless the user changes this boundary.
 
+Never stage or commit `.scratch/`, `/docs/`, or environment files; they are local-only planning notes. Commit application sources, tests, and tracked configuration only.
+
 ## Testing scope
 
 Run the smallest set of tests and checks that meaningfully validates the change, covering the changed behavior and directly affected callers or integrations. Select relevant test files or cases rather than running the entire suite by default. For documentation-only changes, verify the edited content and links; app tests are unnecessary.

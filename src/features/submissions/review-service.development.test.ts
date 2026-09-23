@@ -24,10 +24,6 @@ vi.mock("@/db/schema", async () => import("../../db/schema"));
 vi.mock("@/db/write-client", async () => import("../../db/write-client"));
 vi.mock("@/storage/types", async () => import("../../storage/types"));
 vi.mock("@/domain/website", async () => import("../../domain/website"));
-vi.mock("@/features/creators/repository", () => ({
-  resolveCreatorMutation: vi.fn(),
-}));
-
 import {
   APPROVED_ENVIRONMENT_FINGERPRINTS,
   assertEnvironmentFingerprint,

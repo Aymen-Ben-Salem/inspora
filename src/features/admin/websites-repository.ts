@@ -6,16 +6,20 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { requireDatabase } from "@/db/client";
 import {
   adminAuditLogs,
+  creators,
   websiteMedia,
   websites,
   websiteSections,
 } from "@/db/schema";
-import type { WriteTx } from "@/db/write-client";
+import { withWriteTransaction, type WriteTx } from "@/db/write-client";
 import { isWebsiteMediaRole } from "@/domain/website";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
+import {
+  saveAdminCreatorForAttribution,
+  type AdminPrincipal,
+} from "@/features/creators/identity";
 import { mapAdminCreatorAttribution } from "@/features/creators/identity/projections";
-import { resolveCreatorMutation } from "@/features/creators/repository";
 import {
   collectWebsiteManagedAssets,
   getRetainedWebsiteStorageKeys,
@@ -212,84 +216,118 @@ export async function getAdminWebsiteById(id: string) {
   return row ? mapAdminWebsite(row) : null;
 }
 
-export async function createAdminWebsite(input: AdminWebsiteInput, actorId: string) {
-  const database = requireDatabase();
-  const now = new Date();
-  const id = randomUUID();
-  const creator = await resolveCreatorMutation(database, input.creator);
+export async function createAdminWebsite(
+  input: AdminWebsiteInput,
+  adminPrincipal: AdminPrincipal,
+) {
+  return withWriteTransaction(async (tx) => {
+    const creator = await saveAdminCreatorForAttribution(
+      tx,
+      adminPrincipal,
+      input.creator,
+    );
+    const now = new Date();
+    const id = randomUUID();
 
-  await database.batch([
-    ...creator.mutations,
-    database.insert(websites).values({
+    await tx.insert(websites).values({
       id,
-      ...websiteValues(input, creator.id),
+      ...websiteValues(input, creator.creatorId),
       publishedAt: input.status === "published" ? now : null,
       archivedAt: null,
-      createdBy: actorId,
-      updatedBy: actorId,
-    }),
-    database.insert(websiteMedia).values(mediaValues(id, input)),
-    database.insert(websiteSections).values(sectionValues(id, input)),
-    database.insert(adminAuditLogs).values({
-      actorId,
+      createdBy: adminPrincipal.userId,
+      updatedBy: adminPrincipal.userId,
+    });
+    await tx.insert(websiteMedia).values(mediaValues(id, input));
+    await tx.insert(websiteSections).values(sectionValues(id, input));
+    await tx.insert(adminAuditLogs).values({
+      actorId: adminPrincipal.userId,
       action: "website.created",
       resourceType: "website",
       resourceId: id,
       details: { slug: input.slug, status: input.status },
-    }),
-  ]);
+    });
 
-  return { id, slug: input.slug, removedManagedMedia: creator.removedManagedMedia };
+    const retainedKeys = getRetainedWebsiteStorageKeys(input);
+    return {
+      id,
+      slug: input.slug,
+      removedManagedMedia: creator.displacedAvatarAssets.filter(
+        (asset) => !retainedKeys.has(asset.storageKey),
+      ),
+    };
+  });
 }
 
 export async function updateAdminWebsite(
   id: string,
   input: AdminWebsiteInput,
-  actorId: string,
+  adminPrincipal: AdminPrincipal,
 ) {
-  const database = requireDatabase();
-  const existing = await database.query.websites.findFirst({
-    where: eq(websites.id, id),
-    with: { creator: true, media: true, sections: true },
-  });
-  if (!existing) throw new Error("Website not found.");
+  return withWriteTransaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(websites)
+      .where(eq(websites.id, id))
+      .for("update");
+    if (!existing) throw new Error("Website not found.");
+    const existingMedia = await tx
+      .select()
+      .from(websiteMedia)
+      .where(eq(websiteMedia.websiteId, id))
+      .for("update");
+    const existingSections = await tx
+      .select()
+      .from(websiteSections)
+      .where(eq(websiteSections.websiteId, id))
+      .for("update");
+    const creator = await saveAdminCreatorForAttribution(
+      tx,
+      adminPrincipal,
+      input.creator,
+    );
+    const now = new Date();
+    const publishedAt = input.status === "published"
+      ? (existing.publishedAt ?? now)
+      : null;
+    const retainedKeys = getRetainedWebsiteStorageKeys(input);
+    const [savedCreator] = await tx
+      .select({ avatarStorageKey: creators.avatarStorageKey })
+      .from(creators)
+      .where(eq(creators.id, creator.creatorId));
+    if (savedCreator?.avatarStorageKey) {
+      retainedKeys.add(savedCreator.avatarStorageKey);
+    }
+    const removedManagedMedia = [
+      ...collectWebsiteManagedAssets(existingMedia, existingSections),
+      ...creator.displacedAvatarAssets,
+    ].filter((asset) => !retainedKeys.has(asset.storageKey));
 
-  const now = new Date();
-  const creator = await resolveCreatorMutation(database, input.creator);
-  const publishedAt = input.status === "published" ? (existing.publishedAt ?? now) : null;
-  const retainedKeys = getRetainedWebsiteStorageKeys(input);
-  const removedManagedMedia = collectWebsiteManagedAssets(existing.media, existing.sections).filter(
-    (asset) => !retainedKeys.has(asset.storageKey),
-  );
-
-  await database.batch([
-    ...creator.mutations,
-    database.update(websites).set({
-      ...websiteValues(input, creator.id),
+    await tx.update(websites).set({
+      ...websiteValues(input, creator.creatorId),
       publishedAt,
       archivedAt: null,
-      updatedBy: actorId,
+      updatedBy: adminPrincipal.userId,
       updatedAt: now,
-    }).where(eq(websites.id, id)),
-    database.delete(websiteMedia).where(eq(websiteMedia.websiteId, id)),
-    database.insert(websiteMedia).values(mediaValues(id, input)),
-    database.delete(websiteSections).where(eq(websiteSections.websiteId, id)),
-    database.insert(websiteSections).values(sectionValues(id, input)),
-    database.insert(adminAuditLogs).values({
-      actorId,
+    }).where(eq(websites.id, id));
+    await tx.delete(websiteMedia).where(eq(websiteMedia.websiteId, id));
+    await tx.insert(websiteMedia).values(mediaValues(id, input));
+    await tx.delete(websiteSections).where(eq(websiteSections.websiteId, id));
+    await tx.insert(websiteSections).values(sectionValues(id, input));
+    await tx.insert(adminAuditLogs).values({
+      actorId: adminPrincipal.userId,
       action: "website.updated",
       resourceType: "website",
       resourceId: id,
       details: { previousSlug: existing.slug, slug: input.slug, status: input.status },
-    }),
-  ]);
+    });
 
-  return {
-    id,
-    slug: input.slug,
-    previousSlug: existing.slug,
-    removedManagedMedia: [...removedManagedMedia, ...creator.removedManagedMedia],
-  };
+    return {
+      id,
+      slug: input.slug,
+      previousSlug: existing.slug,
+      removedManagedMedia,
+    };
+  });
 }
 
 export async function archiveAdminWebsite(id: string, actorId: string) {

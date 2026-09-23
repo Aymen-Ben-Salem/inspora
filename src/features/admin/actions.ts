@@ -105,8 +105,18 @@ function logoErrorState(error: unknown): AdminActionState {
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
+  if (error instanceof AdminCreatorMutationError) {
+    return { status: "error", message: error.message };
+  }
 
-  if (uniqueViolation(error)) {
+  const unique = uniqueViolation(error);
+  if (
+    unique?.constraint === "creators_username_lower_unique" ||
+    unique?.constraint === "creator_username_aliases_lower_unique"
+  ) {
+    return { status: "error", message: "That creator username is unavailable." };
+  }
+  if (unique) {
     return { status: "error", message: "That slug is already used by another logo." };
   }
 
@@ -124,7 +134,17 @@ function websiteErrorState(error: unknown): AdminActionState {
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
-  if (uniqueViolation(error)) {
+  if (error instanceof AdminCreatorMutationError) {
+    return { status: "error", message: error.message };
+  }
+  const unique = uniqueViolation(error);
+  if (
+    unique?.constraint === "creators_username_lower_unique" ||
+    unique?.constraint === "creator_username_aliases_lower_unique"
+  ) {
+    return { status: "error", message: "That creator username is unavailable." };
+  }
+  if (unique) {
     return { status: "error", message: "That slug is already used by another website." };
   }
   console.error("Admin website mutation failed", error);
@@ -141,14 +161,18 @@ export async function createWebsiteAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
+  const adminPrincipal = await requireAdmin();
   let created: Awaited<ReturnType<typeof createAdminWebsite>>;
   try {
-    created = await createAdminWebsite(parseAdminWebsiteForm(formData), userId);
+    created = await createAdminWebsite(
+      parseAdminWebsiteForm(formData),
+      adminPrincipal,
+    );
   } catch (error) {
     return websiteErrorState(error);
   }
   await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   revalidateWebsitePaths();
   redirect(`/admin/websites/${created.id}/edit?saved=created` as Route);
 }
@@ -158,16 +182,21 @@ export async function updateWebsiteAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
+  const adminPrincipal = await requireAdmin();
   let updated: Awaited<ReturnType<typeof updateAdminWebsite>>;
   let websiteId: string;
   try {
     websiteId = idSchema.parse(id);
-    updated = await updateAdminWebsite(websiteId, parseAdminWebsiteForm(formData), userId);
+    updated = await updateAdminWebsite(
+      websiteId,
+      parseAdminWebsiteForm(formData),
+      adminPrincipal,
+    );
   } catch (error) {
     return websiteErrorState(error);
   }
   await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   revalidateWebsitePaths();
   redirect(`/admin/websites/${websiteId}/edit?saved=updated` as Route);
 }
@@ -199,16 +228,17 @@ export async function createLogoAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
+  const adminPrincipal = await requireAdmin();
   let created: Awaited<ReturnType<typeof createAdminLogo>>;
 
   try {
-    created = await createAdminLogo(parseAdminLogoForm(formData), userId);
+    created = await createAdminLogo(parseAdminLogoForm(formData), adminPrincipal);
   } catch (error) {
     return logoErrorState(error);
   }
 
   await deleteManagedMediaAssetsSafely(created.removedManagedMedia);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   revalidateLogoPaths();
   redirect(`/admin/logos/${created.id}/edit?saved=created` as Route);
 }
@@ -218,18 +248,23 @@ export async function updateLogoAction(
   _previousState: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
-  const { userId } = await requireAdmin();
+  const adminPrincipal = await requireAdmin();
   let logoId: string;
   let updated: Awaited<ReturnType<typeof updateAdminLogo>>;
 
   try {
     logoId = idSchema.parse(id);
-    updated = await updateAdminLogo(logoId, parseAdminLogoForm(formData), userId);
+    updated = await updateAdminLogo(
+      logoId,
+      parseAdminLogoForm(formData),
+      adminPrincipal,
+    );
   } catch (error) {
     return logoErrorState(error);
   }
 
   await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
+  updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   revalidateLogoPaths();
   redirect(`/admin/logos/${logoId}/edit?saved=updated` as Route);
 }

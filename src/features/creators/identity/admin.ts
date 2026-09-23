@@ -3,7 +3,6 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { BatchItem } from "drizzle-orm/batch";
 
 import { requireAdmin } from "@/auth/require-admin";
 import { requireDatabase } from "@/db/client";
@@ -44,13 +43,11 @@ import {
 } from "./projections";
 
 import {
-  currentUsernameAliasWrites,
   setCurrentUsernameAlias,
 } from "./username-aliases";
 
-type Database = ReturnType<typeof requireDatabase>;
 type CreatorRow = typeof creators.$inferSelect;
-type MutationDatabase = Database | WriteTx;
+type MutationDatabase = WriteTx;
 
 /** Established by a server authentication adapter, never by request body fields. */
 export type AdminPrincipal = Readonly<{ userId: string }>;
@@ -354,64 +351,6 @@ function displacedAvatarAssets(
   return managedCreatorAvatar(existing).filter(
     (asset) => asset.storageKey !== avatarStorageKey,
   );
-}
-
-// Temporary compatibility for logo/website batches until ticket 07.
-// Identity decisions stay here; this existing contract is not used by design saves.
-export async function resolveCreatorMutation(
-  database: Database,
-  creatorInput: AdminCreatorInput,
-) {
-  const input = validatedCreatorInput(creatorInput);
-  if (!input.id) {
-    assertNewAttributionCreatorVisible(input);
-    const values = await newAdminCreatorValues(database, input);
-    return {
-      id: values.id,
-      mutations: [
-        database.insert(creators).values(values),
-        database.insert(creatorUsernameAliases).values({
-          creatorId: values.id,
-          username: values.username,
-          isCurrent: true,
-        }),
-      ] as [BatchItem<"pg">, ...BatchItem<"pg">[]],
-      removedManagedMedia: [] as ManagedMediaAsset[],
-    };
-  }
-  const existing = await database.query.creators.findFirst({
-    where: eq(creators.id, input.id),
-  });
-  assertAttributionCreatorVisible(existing);
-  if (shouldLockExistingCreator(existing, process.env.DATA_ENVIRONMENT)) {
-    return {
-      id: existing.id,
-      mutations: [
-        database.update(creators)
-          .set({ updatedAt: new Date() })
-          .where(eq(creators.id, existing.id)),
-      ] as [BatchItem<"pg">, ...BatchItem<"pg">[]],
-      removedManagedMedia: [] as ManagedMediaAsset[],
-    };
-  }
-  const { values, username } = await adminCreatorUpdateValues(
-    database, existing, input, { generateUsernameWhenMissing: false },
-  );
-  const mutations: [BatchItem<"pg">, ...BatchItem<"pg">[]] = [
-    database.update(creators)
-      .set({ ...values, updatedAt: new Date() })
-      .where(eq(creators.id, existing.id)),
-  ];
-  if (username && username !== existing.username) {
-    mutations.push(
-      ...await currentUsernameAliasWrites(database, existing.id, username),
-    );
-  }
-  return {
-    id: existing.id,
-    mutations,
-    removedManagedMedia: displacedAvatarAssets(existing, values.avatarStorageKey),
-  };
 }
 
 export async function saveAdminCreatorForAttribution(

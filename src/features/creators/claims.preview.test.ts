@@ -18,7 +18,7 @@ import {
   profileAccounts,
 } from "../../db/schema";
 import { withWriteTransaction } from "../../db/write-client";
-import { reviewCreatorClaim } from "./claims";
+import { reviewCreatorOwnershipClaim } from "./identity";
 
 const runNonProductionIntegration =
   process.env.RUN_CREATOR_CLAIM_INTEGRATION === "1" &&
@@ -102,8 +102,8 @@ suite("creator claims in isolated non-production rows", () => {
 
   it("serializes concurrent approvals into one canonical owner", async () => {
     const results = await Promise.all([
-      reviewCreatorClaim(claimId, "approve"),
-      reviewCreatorClaim(claimId, "approve"),
+      reviewCreatorOwnershipClaim(claimId, "approve"),
+      reviewCreatorOwnershipClaim(claimId, "approve"),
     ]);
 
     expect(results).toEqual([

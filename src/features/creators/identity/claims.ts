@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { after } from "next/server";
+import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 import { requireAdmin } from "@/auth/require-admin";
 import { adminAuditLogs, creatorClaims, creators, profileAccounts } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
@@ -16,6 +17,15 @@ import { verifiedXIdentityForUser } from "./external-identity";
 import { decideCreatorOwnershipClaimEligibility, resultFromRecordedCreatorOwnershipClaim } from "./claim-policy";
 import { approveCreatorOwnershipClaim } from "./claim-approval";
 
+function isClaimWriteConflict(error: unknown): boolean {
+  let cause: unknown = error;
+  while (cause && typeof cause === "object") {
+    const databaseError = cause as { code?: string; cause?: unknown };
+    if (["23505", "40001", "40P01"].includes(databaseError.code ?? "")) return true;
+    cause = databaseError.cause;
+  }
+  return false;
+}
 // Reviews must invalidate before the action returns so its response includes fresh UI.
 function refreshCommittedClaim(identityChanged: boolean, reviewChanged = false) {
   if (!identityChanged && !reviewChanged) return;
@@ -120,12 +130,7 @@ export async function requestCreatorOwnershipClaimFromVerifiedX(
     });
   } catch (error) {
     // Concurrent provider association and lost serialization races roll back fully.
-    let cause: unknown = error;
-    while (cause && typeof cause === "object") {
-      const databaseError = cause as { code?: string; cause?: unknown };
-      if (["23505", "40001", "40P01"].includes(databaseError.code ?? "")) return { status: "conflict" };
-      cause = databaseError.cause;
-    }
+    if (isClaimWriteConflict(error)) return { status: "conflict" };
     throw error;
   }
   // Requests also run during rendering; defer their committed changes until after it.
@@ -145,8 +150,16 @@ export async function reviewCreatorOwnershipClaim(
   if (decision === "reject" && !reviewReason) throw new Error("Add a reason before rejecting this claim.");
   if (decision !== "approve" && decision !== "reject") throw new Error("Choose a valid claim decision.");
   if (decision === "approve") {
-    const outcome = await approveCreatorOwnershipClaim(claimId, actorId, reviewReason);
+    let outcome: Awaited<ReturnType<typeof approveCreatorOwnershipClaim>>;
+    try {
+      outcome = await approveCreatorOwnershipClaim(claimId, actorId, reviewReason);
+    } catch (error) {
+      // Translate races only after the transaction has rolled back.
+      if (isClaimWriteConflict(error)) return { status: "conflict" };
+      throw error;
+    }
     refreshCommittedClaim(outcome.identityChanged);
+    await deleteManagedMediaAssetsSafely(outcome.displacedAvatarAssets);
     return outcome.result;
   }
   let reviewChanged = false;

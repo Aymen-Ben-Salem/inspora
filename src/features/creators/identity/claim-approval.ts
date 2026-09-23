@@ -2,10 +2,12 @@ import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { adminAuditLogs, creatorClaims, creators, creatorUsernameAliases, logos, posts, profileAccounts, submissions, websites } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
+import { isMediaStorageProvider, type ManagedMediaAsset } from "@/storage/types";
 import type { ClaimResult } from "../types";
+import { setCurrentUsernameAlias } from "./username-aliases";
 import { decideCreatorOwnershipClaimEligibility } from "./claim-policy";
 
-function retainedCreatorValues(
+function profileValuesForApprovedClaimMerge(
   target: typeof creators.$inferSelect,
   provisional: typeof creators.$inferSelect,
 ) {
@@ -25,13 +27,14 @@ function retainedCreatorValues(
   };
 }
 
-// Compatibility implementation retained until the approval slice.
+// Internal approval transaction; authority is established by reviewCreatorOwnershipClaim.
 export async function approveCreatorOwnershipClaim(
   claimId: string,
   actorId: string,
   reviewReason: string | null,
 ) {
   let identityChanged = false;
+  const displacedAvatarAssets: ManagedMediaAsset[] = [];
   const result = await withWriteTransaction<ClaimResult>(async (tx) => {
     const [claimSnapshot] = await tx
       .select()
@@ -50,7 +53,7 @@ export async function approveCreatorOwnershipClaim(
       .from(creatorClaims)
       .where(eq(creatorClaims.id, claimId))
       .for("update");
-    if (!claim) return { status: "conflict" };
+    if (!claim || claim.requesterUserId !== claimSnapshot.requesterUserId) return { status: "conflict" };
     if (claim.status === "approved") {
       return { status: "claimed", creatorId: claim.targetCreatorId };
     }
@@ -74,7 +77,11 @@ export async function approveCreatorOwnershipClaim(
       .for("update");
     const lockedProvisional = lockedCreators.find((row) => row.id === provisional.id);
     const target = lockedCreators.find((row) => row.id === claim.targetCreatorId);
-    if (!lockedProvisional || !target) return { status: "conflict" };
+    if (!lockedProvisional || !target ||
+      lockedProvisional.ownerUserId !== claim.requesterUserId ||
+      (lockedProvisional.xProviderId && lockedProvisional.xProviderId !== claim.verifiedXProviderId)) {
+      return { status: "conflict" };
+    }
 
     const ownershipDecision = decideCreatorOwnershipClaimEligibility({
       requesterUserId: claim.requesterUserId,
@@ -94,44 +101,28 @@ export async function approveCreatorOwnershipClaim(
         ),
       )
       .limit(1);
-    if (otherIdentity && otherIdentity.ownerUserId !== claim.requesterUserId) {
+    if (otherIdentity && otherIdentity.id !== lockedProvisional.id) {
       return { status: "conflict" };
     }
 
     if (lockedProvisional.id !== target.id) {
-      const retained = retainedCreatorValues(target, lockedProvisional);
+      const retained = profileValuesForApprovedClaimMerge(target, lockedProvisional);
+      for (const creator of [target, lockedProvisional]) {
+        if (isMediaStorageProvider(creator.avatarStorageProvider) && creator.avatarStorageKey &&
+          !(creator.avatarStorageProvider === retained.avatarStorageProvider && creator.avatarStorageKey === retained.avatarStorageKey) &&
+          !displacedAvatarAssets.some((asset) => asset.storageProvider === creator.avatarStorageProvider && asset.storageKey === creator.avatarStorageKey)) {
+          displacedAvatarAssets.push({ storageProvider: creator.avatarStorageProvider, storageKey: creator.avatarStorageKey, type: "image" });
+        }
+      }
       const keepProvisionalUsername = lockedProvisional.editedFields.includes("username");
 
-      await tx
-        .update(creatorUsernameAliases)
-        .set({ isCurrent: false })
-        .where(
-          and(
-            eq(creatorUsernameAliases.creatorId, target.id),
-            eq(creatorUsernameAliases.isCurrent, true),
-          ),
-        );
-      await tx
-        .update(creatorUsernameAliases)
-        .set({
-          creatorId: target.id,
-          isCurrent: keepProvisionalUsername
-            ? creatorUsernameAliases.isCurrent
-            : false,
-        })
+      // Demote both current aliases before moving reservations to satisfy the
+      // one-current-alias constraint throughout the transfer.
+      await tx.update(creatorUsernameAliases).set({ isCurrent: false })
+        .where(inArray(creatorUsernameAliases.creatorId, creatorIds));
+      await tx.update(creatorUsernameAliases).set({ creatorId: target.id })
         .where(eq(creatorUsernameAliases.creatorId, lockedProvisional.id));
-      if (!keepProvisionalUsername) {
-        await tx
-          .update(creatorUsernameAliases)
-          .set({ isCurrent: true })
-          .where(
-            and(
-              eq(creatorUsernameAliases.creatorId, target.id),
-              eq(creatorUsernameAliases.username, target.username ?? ""),
-            ),
-          );
-      }
-
+      if (retained.username) await setCurrentUsernameAlias(tx, target.id, retained.username);
       await tx
         .update(posts)
         .set({ creatorId: target.id })
@@ -203,5 +194,5 @@ export async function approveCreatorOwnershipClaim(
     identityChanged = true;
     return { status: "claimed", creatorId: target.id };
   });
-  return { result, identityChanged };
+  return { result, identityChanged, displacedAvatarAssets };
 }

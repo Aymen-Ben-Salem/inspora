@@ -10,7 +10,7 @@ import { requireDatabase, type Database } from "../db/client";
 import { creators, posts, logos, websites, websiteMedia, websiteSections, creatorViewSnapshots, profileAccounts, creatorUsernameAliases, creatorClaims, adminAuditLogs } from "../db/schema";
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({cacheLife:vi.fn(),cacheTag:vi.fn()}));
+vi.mock("next/cache", () => ({cacheLife:vi.fn(),cacheTag:vi.fn(),revalidateTag:vi.fn(),revalidatePath:vi.fn()}));
 vi.mock("../auth/require-admin", () => ({ requireAdmin: vi.fn(async () => ({ userId: "task8-preview-check" })) }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 const provider = vi.hoisted(() => ({query:vi.fn()}));
@@ -87,7 +87,7 @@ suite("Preview eligibility and durable Views snapshots", () => {
   },30000);
   it("moves every work family through an actual claim and rejects the old credit snapshot", async () => {
     const { getCreatorViews, getEligibleCreatorWorkIds } = await import("./creator-views");
-    const { reviewCreatorClaim } = await import("../features/creators/claims");
+    const { reviewCreatorOwnershipClaim } = await import("../features/creators/identity");
     const ownerName = "t8owner_" + suffix.replaceAll("-","").slice(0,12);
     const targetName = "t8target_" + suffix.replaceAll("-","").slice(0,12);
     await db!.insert(profileAccounts).values({userId:requester});
@@ -106,7 +106,7 @@ suite("Preview eligibility and durable Views snapshots", () => {
     ]]);
     expect(await getCreatorViews(other)).toMatchObject({status:"available",count:1});
     expect(await getCreatorViews(owner)).toMatchObject({status:"available",count:2});
-    expect(await reviewCreatorClaim(claim,"approve")).toEqual({status:"claimed",creatorId:other});
+    expect(await reviewCreatorOwnershipClaim(claim,"approve")).toEqual({status:"claimed",creatorId:other});
     expect(await getEligibleCreatorWorkIds(other)).toEqual({design:[design],logo:[icon],website:[website]});
     expect(await db!.select().from(creators).where(eq(creators.id,owner))).toHaveLength(0);
     const aliases = await db!.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId,other));

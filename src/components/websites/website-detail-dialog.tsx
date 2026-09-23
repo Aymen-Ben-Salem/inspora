@@ -102,7 +102,7 @@ export function WebsiteDetailDialog({
         <div
           data-post-dialog-gallery
           data-post-dialog-surface
-          className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-gradient-to-b from-white to-[#d2d1d1] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]"
+          className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-transparent [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]"
           onClick={(event) => {
             if (view !== "sections") return;
 

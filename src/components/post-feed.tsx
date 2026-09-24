@@ -34,7 +34,7 @@ export function PostFeed({
               <SponsoredPostCard key={`sponsor-${sponsor.id}`} sponsor={sponsor} priority />,
             );
           }
-          items.push(<PostCard key={post.id} post={post} priority={index === 0} />);
+          items.push(<PostCard key={post.id} post={post} priority={index < (sponsor ? 3 : 4)} />);
           return items;
         })}
         {sponsor && posts.length < sponsorIndex ? (

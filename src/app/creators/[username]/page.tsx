@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { getCreatorViews } from "@/analytics/creator-views";
 import { ProfilePage } from "@/components/profile/profile-page";
+import { buildCreatorMetadata, buildCreatorStructuredData, serializeJsonLd } from "@/lib/seo";
 import {
   getPublishedCreatorWorkCounts,
   getPublishedCreatorWorkPage,
@@ -19,11 +20,7 @@ type CreatorPageProps = {
 export async function generateMetadata({ params }: CreatorPageProps): Promise<Metadata> {
   const resolved = await resolvePublicCreatorProfile((await params).username);
   if (!resolved) return { title: "Creator not found" };
-  return {
-    title: resolved.profile.name,
-    description: `Explore published work by ${resolved.profile.name} on Inspora.`,
-    alternates: { canonical: `/creators/${resolved.canonicalUsername}` },
-  };
+  return buildCreatorMetadata(resolved.profile, resolved.canonicalUsername);
 }
 
 export default async function PublicCreatorPage({ params, searchParams }: CreatorPageProps) {
@@ -41,6 +38,10 @@ export default async function PublicCreatorPage({ params, searchParams }: Creato
     getCreatorViews(resolved.profile.id),
   ]);
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: serializeJsonLd(buildCreatorStructuredData(resolved.profile, resolved.canonicalUsername)),
+      }} />
     <ProfilePage
       profile={resolved.profile}
       initialPage={initialPage}
@@ -48,5 +49,6 @@ export default async function PublicCreatorPage({ params, searchParams }: Creato
       filter={filter}
       views={views}
     />
+    </>
   );
 }

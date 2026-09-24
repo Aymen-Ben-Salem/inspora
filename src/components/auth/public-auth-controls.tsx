@@ -15,6 +15,7 @@ export function PublicAuthControls({
     return (
       <Link
         href={"/sign-in" as Route}
+      prefetch={false}
         scroll={false}
         className={
           variant === "desktop"

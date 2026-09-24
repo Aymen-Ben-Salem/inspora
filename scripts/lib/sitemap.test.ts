@@ -9,6 +9,7 @@ describe("renderSitemap", () => {
     expect(xml).toContain("<loc>https://www.inspora.design/</loc>");
     expect(xml).toContain("<loc>https://www.inspora.design/info</loc>");
     expect(xml).toContain("<loc>https://www.inspora.design/logos</loc>");
+    expect(xml).toContain("<loc>https://www.inspora.design/websites</loc>");
     expect(xml).toContain(
       "<loc>https://www.inspora.design/posts/first-project</loc>",
     );

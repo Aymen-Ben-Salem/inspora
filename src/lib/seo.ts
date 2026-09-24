@@ -1,10 +1,13 @@
+import type { Metadata } from "next";
+import type { Website } from "@/domain/website";
+import type { CreatorSummary } from "@/features/creators/types";
 import type { Post } from "@/domain/post";
 import type { Logo } from "@/domain/logo";
 
 export const SITE_NAME = "Inspora";
 export const SITE_URL = "https://www.inspora.design";
 export const SITE_DESCRIPTION =
-  "A curated archive of recent visual design and creative work.";
+  "Discover curated design, website, logo, and app icon inspiration on Inspora. Explore creative work, meet its creators, and save references for your next project.";
 export const SITE_EMAIL = "Neroodesigner@gmail.com";
 export const SITE_OG_IMAGE = "/brand/inspora-og.png";
 
@@ -125,4 +128,76 @@ export function serializeJsonLd(value: unknown) {
     .replace(/&/g, "\\u0026")
     .replace(/\u2028/g, "\\u2028")
     .replace(/\u2029/g, "\\u2029");
+}
+
+export function buildCreatorMetadata(profile: CreatorSummary, username: string): Metadata {
+  const title = profile.name;
+  const description = `Explore designs, websites, logos, and app icons by ${profile.name} on Inspora.`;
+  const url = `/creators/${encodeURIComponent(username)}`;
+  const images = [profile.avatarUrl || SITE_OG_IMAGE];
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { type: "profile", title, description, url, images },
+    twitter: { card: "summary", title, description, images },
+  };
+}
+
+export function buildCreatorStructuredData(profile: CreatorSummary, username: string) {
+  const url = absoluteUrl(`/creators/${encodeURIComponent(username)}`);
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": `${url}#profile`,
+    url,
+    name: profile.name,
+    isPartOf: { "@id": absoluteUrl("/#website") },
+    mainEntity: {
+      "@type": "Person",
+      "@id": `${url}#creator`,
+      name: profile.name,
+      url,
+      ...(profile.avatarUrl ? { image: absoluteUrl(profile.avatarUrl) } : {}),
+      sameAs: [profile.websiteUrl, profile.xProfileUrl].filter(Boolean),
+    },
+  };
+}
+
+export function buildWebsiteCollectionStructuredData(websites: Website[]) {
+  const url = absoluteUrl("/websites");
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${url}#collection`,
+    url,
+    name: "Curated website design inspiration",
+    description: "Website design inspiration with full-page previews, sections, and creator credits.",
+    inLanguage: "en",
+    isPartOf: { "@id": absoluteUrl("/#website") },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: websites.length,
+      itemListElement: websites.map((website, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "CreativeWork",
+          name: website.title,
+          description: website.description,
+          image: absoluteUrl(website.recording.posterUrl),
+          datePublished: website.publishedAt,
+          keywords: [...website.categories, ...website.themes, ...website.colors],
+          creator: {
+            "@type": "Person",
+            name: website.creator.name,
+            ...(website.creator.username
+              ? { url: absoluteUrl(`/creators/${encodeURIComponent(website.creator.username)}`) }
+              : website.creator.url ? { url: website.creator.url } : {}),
+          },
+          citation: website.sourceUrl,
+        },
+      })),
+    },
+  };
 }

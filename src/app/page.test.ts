@@ -12,11 +12,11 @@ vi.mock("@/lib/seo", () => ({
   SITE_OG_IMAGE: "/brand/inspora-og.png",
 }));
 
-import { generateMetadata } from "./page";
+import { metadata } from "./page";
 
 describe("homepage metadata", () => {
-  it("keeps the social image when setting the canonical Open Graph URL", async () => {
-    const metadata = await generateMetadata({ searchParams: Promise.resolve({}) });
+  it("keeps the social image when setting the canonical Open Graph URL", () => {
+    expect(metadata.alternates).toEqual({ canonical: "/" });
 
     expect(metadata.openGraph).toMatchObject({
       url: "/",

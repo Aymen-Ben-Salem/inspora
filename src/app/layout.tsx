@@ -25,7 +25,7 @@ const inter = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Inspora",
+    default: "Design, Website & Logo Inspiration | Inspora",
     template: "%s — Inspora",
   },
   description: SITE_DESCRIPTION,

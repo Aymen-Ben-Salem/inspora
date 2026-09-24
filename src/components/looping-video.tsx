@@ -29,6 +29,7 @@ type LoopingVideoProps = Omit<
 > & {
   active?: boolean;
   eager?: boolean;
+  lazyPoster?: boolean;
   preservePositionWhileInactive?: boolean;
   releaseWhenNotVisible?: boolean;
   suspendWithFeed?: boolean;
@@ -135,6 +136,8 @@ export function resumeLoopingVideos(root: ParentNode) {
 export function LoopingVideo({
   active = true,
   eager = false,
+  lazyPoster = false,
+  poster,
   preload,
   preservePositionWhileInactive = false,
   releaseWhenNotVisible = false,
@@ -229,6 +232,9 @@ export function LoopingVideo({
         return;
       }
 
+      if (lazyPoster && poster && video.getAttribute("poster") !== poster) {
+        video.poster = poster;
+      }
       attachVideoSource(video, source, savedPositionRef.current);
       if (visible && !suspended) playSilently(video);
       else video.pause();
@@ -285,6 +291,8 @@ export function LoopingVideo({
     };
   }, [
     eager,
+    lazyPoster,
+    poster,
     preservePositionWhileInactive,
     releaseWhenNotVisible,
     src,
@@ -294,6 +302,7 @@ export function LoopingVideo({
     <video
       ref={videoRef}
       {...props}
+      poster={lazyPoster && !eager ? undefined : poster}
       data-looping-video
       autoPlay={false}
       controls={false}

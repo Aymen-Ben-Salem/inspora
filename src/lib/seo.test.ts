@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import type { Website } from "@/domain/website";
 import type { Post } from "@/domain/post";
 import type { Logo } from "@/domain/logo";
 
 import {
   absoluteUrl,
+  buildCreatorMetadata,
+  buildCreatorStructuredData,
+  buildWebsiteCollectionStructuredData,
   buildLogoCollectionStructuredData,
   buildPostStructuredData,
   buildWebsiteStructuredData,
@@ -136,5 +140,54 @@ describe("SEO helpers", () => {
 
     expect(serialized).not.toContain("</script>");
     expect(serialized).toContain("\\u003c/script\\u003e");
+  });
+});
+
+const creator = {
+  id: "creator-1", name: "Jane Example", username: "jane",
+  avatarUrl: "/brand/default-avatar.png", websiteUrl: "https://example.com", xProfileUrl: null,
+};
+
+describe("redesigned archive SEO", () => {
+  it("uses the canonical creator identity in metadata and structured data", () => {
+    const metadata = buildCreatorMetadata(creator, "jane-current");
+    expect(metadata.alternates).toEqual({ canonical: "/creators/jane-current" });
+    expect(metadata.openGraph).toMatchObject({ url: "/creators/jane-current", title: "Jane Example" });
+    expect(metadata.twitter).toMatchObject({ title: "Jane Example" });
+    const data = buildCreatorStructuredData(creator, "jane-current");
+    expect(data.mainEntity.url).toBe("https://www.inspora.design/creators/jane-current");
+    expect(data.mainEntity.sameAs).toEqual(["https://example.com"]);
+    expect(data.mainEntity.image).toBe("https://www.inspora.design/brand/default-avatar.png");
+  });
+
+  it("describes the website archive without fabricating entries for an empty collection", () => {
+    expect(buildWebsiteCollectionStructuredData([])).toMatchObject({
+      "@type": "CollectionPage", url: "https://www.inspora.design/websites",
+      mainEntity: { numberOfItems: 0, itemListElement: [] },
+    });
+  });
+});
+
+it("preserves website attribution and poster data in the collection", () => {
+  const website: Website = {
+    id: "site-1", slug: "example", title: "Example website", tagline: "A portfolio",
+    description: "An editorial portfolio", creator: { ...creator, username: "jane-current" },
+    categories: ["Portfolio"], themes: ["Editorial"], colors: ["Black"],
+    sourceUrl: "https://example.com", isFeatured: false,
+    createdAt: "2026-08-01T00:00:00.000Z", publishedAt: "2026-08-02T00:00:00.000Z",
+    recording: {
+      id: "recording", role: "recording", url: "https://media.example.com/full.mp4",
+      posterUrl: "https://media.example.com/poster.webp", alt: "Portfolio preview", width: 1200, height: 900,
+      videoPreview: { url: "https://media.example.com/preview.mp4", storageKey: "preview.mp4", format: "mp4", width: 600, height: 450, bytes: 1024 },
+    },
+    favicon: { id: "icon", role: "favicon", url: "https://example.com/favicon.ico", alt: "", width: 32, height: 32 },
+    sections: [],
+  };
+  expect(buildWebsiteCollectionStructuredData([website]).mainEntity).toMatchObject({
+    numberOfItems: 1,
+    itemListElement: [{ position: 1, item: {
+      name: "Example website", image: "https://media.example.com/poster.webp",
+      citation: "https://example.com", creator: { url: "https://www.inspora.design/creators/jane-current" },
+    } }],
   });
 });

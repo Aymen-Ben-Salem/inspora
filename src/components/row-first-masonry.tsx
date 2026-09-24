@@ -22,23 +22,25 @@ export function RowFirstMasonry({
       grid.querySelectorAll<HTMLElement>("[data-feed-card]"),
     );
 
-    function sizeCard(gridElement: HTMLDivElement, card: HTMLElement) {
+    function sizeCards(gridElement: HTMLDivElement, items: HTMLElement[]) {
       const rowGap = Number.parseFloat(getComputedStyle(gridElement).rowGap) || 0;
-      // offsetHeight reflects layout size without GSAP's reveal transform.
-      const height = card.offsetHeight;
-      const span = Math.max(
+      // Read all layout heights before writing spans to avoid a reflow per card.
+      // offsetHeight includes padding and ignores the reveal animation transform.
+      const spans = items.map((card) => Math.max(
         1,
-        Math.ceil((height + rowGap) / (GRID_ROW_HEIGHT + rowGap)),
-      );
-      card.style.gridRowEnd = `span ${span}`;
+        Math.ceil((card.offsetHeight + rowGap) / (GRID_ROW_HEIGHT + rowGap)),
+      ));
+      items.forEach((card, index) => {
+        card.style.gridRowEnd = `span ${spans[index]}`;
+      });
     }
 
-    cards.forEach((card) => sizeCard(grid, card));
+    sizeCards(grid, cards);
     grid.dataset.masonryReady = "";
     grid.dataset.masonryState = "ready";
 
     const observer = new ResizeObserver((entries) => {
-      entries.forEach((entry) => sizeCard(grid, entry.target as HTMLElement));
+      sizeCards(grid, entries.map((entry) => entry.target as HTMLElement));
     });
     cards.forEach((card) => observer.observe(card));
 

@@ -245,6 +245,7 @@ export function SiteNavbarClient({
               </button>
               <Link
                 href={"/saved" as Route}
+                prefetch={false}
                 aria-label="Saved posts"
                 aria-current={page === "saved" ? "page" : undefined}
                 className="focus-ring size-[var(--archive-card-overlay-size)] rounded-full"

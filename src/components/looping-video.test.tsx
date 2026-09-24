@@ -68,3 +68,14 @@ it("pauses retained feed media across dialog navigation without unloading or res
   expect(source).toBeUndefined(); // Real page navigation still releases resources.
   mounted.reverse().forEach(({ cleanup }) => cleanup?.());
 });
+
+
+it("keeps eager and default posters in HTML while deferring opted-in offscreen posters", () => {
+  const render = (props: { eager?: boolean; lazyPoster?: boolean }) => {
+    hooks.refIndex = 0;
+    return renderToStaticMarkup(createElement(LoopingVideo, { poster: "/poster.webp", ...props }));
+  };
+  expect(render({})).toContain('poster="/poster.webp"');
+  expect(render({ eager: true, lazyPoster: true })).toContain('poster="/poster.webp"');
+  expect(render({ lazyPoster: true })).not.toContain('poster=');
+});

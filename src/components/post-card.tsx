@@ -42,7 +42,7 @@ export function PostCard({
         data-feed-post-title={post.title}
         data-feed-creator-name={post.creator.name}
         href={`/posts/${post.slug}` as Route}
-        aria-label={`View post: ${post.title}`}
+        aria-label={`View work: ${post.title}${post.mediaCount > 1 ? `, ${post.mediaCount} slides` : ""}`}
         className="focus-ring relative block overflow-hidden bg-[#f3f3f3]"
         style={{ aspectRatio: `${cover.width}/${cover.height}` }}
       >
@@ -62,6 +62,7 @@ export function PostCard({
               poster={posterUrl}
               aria-label={cover.alt}
               draggable={false}
+              lazyPoster
               eager={priority}
               preload={priority ? "auto" : undefined}
               suspendWithFeed

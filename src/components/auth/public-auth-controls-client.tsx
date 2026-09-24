@@ -29,6 +29,7 @@ export function PublicAuthControlsClient({
   ) : isSignedIn && user ? (
     <Link
       href={"/profile" as Route}
+      prefetch={false}
       aria-label="Open your profile"
       className={`focus-ring relative block shrink-0 overflow-hidden rounded-full border border-[#e6e6e6] ${
         variant === "desktop"
@@ -51,6 +52,7 @@ export function PublicAuthControlsClient({
   ) : (
     <Link
       href={"/sign-in" as Route}
+      prefetch={false}
       scroll={false}
       className={
         variant === "desktop"

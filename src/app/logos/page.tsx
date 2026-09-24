@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     "Explore a curated archive of logos and icons with creator credits, industries, colours, styles, and shapes.",
   alternates: { canonical: "/logos" },
   robots: { index: true, follow: true },
+  twitter: { card: "summary_large_image", title: "Logo and app icon inspiration", description: "Explore a curated archive of logos and icons with creator credits, industries, colours, styles, and shapes.", images: [SITE_OG_IMAGE] },
   openGraph: {
     url: "/logos",
     title: "Logos — Inspora",

@@ -13,28 +13,22 @@ type HomeProps = {
   }>;
 };
 
-export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
-  const params = await searchParams;
-  const isFiltered = Boolean(params.category || params.view);
-
-  return {
-    alternates: { canonical: "/" },
-    robots: isFiltered
-      ? { index: false, follow: true }
-      : { index: true, follow: true },
-    openGraph: {
-      url: "/",
-      images: [
-        {
-          url: SITE_OG_IMAGE,
-          width: 1201,
-          height: 630,
-          alt: `${SITE_NAME} — a curated visual design archive`,
-        },
-      ],
-    },
-  };
-}
+// Filters are alternate views of this archive; consolidate them at its canonical URL.
+// Static metadata stays in the initial HTML, including when Cache Components stream the feed.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    url: "/",
+    images: [
+      {
+        url: SITE_OG_IMAGE,
+        width: 1201,
+        height: 630,
+        alt: `${SITE_NAME} - a curated visual design archive`,
+      },
+    ],
+  },
+};
 
 export default async function Home({ searchParams }: HomeProps) {
   const { category: categoryParam, view: viewParam } = await searchParams;

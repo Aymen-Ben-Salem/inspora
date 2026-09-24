@@ -49,7 +49,7 @@ export function CategoryFilter({
               className={`archive-control-type focus-ring inline-flex h-[var(--archive-control-height)] shrink-0 items-center justify-center px-[var(--archive-control-x)] leading-none tracking-[0.2px] transition-colors duration-150 ${category === "Illustration" ? "" : "w-[var(--archive-category-width)]"} ${
                 active
                   ? "bg-[#262626] text-white shadow-[0_1px_1px_#e6e6e6]"
-                  : "bg-[#fafafa] text-[#767676] hover:bg-[#f0f0f0] hover:text-[#262626] focus-visible:bg-[#f0f0f0] focus-visible:text-[#262626]"
+                  : "bg-[#fafafa] text-[#707070] hover:bg-[#f0f0f0] hover:text-[#262626] focus-visible:bg-[#f0f0f0] focus-visible:text-[#262626]"
               }`}
             >
               {category}

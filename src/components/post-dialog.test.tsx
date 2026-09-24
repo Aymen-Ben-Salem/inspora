@@ -10,6 +10,7 @@ const lifecycle = vi.hoisted(() => ({
   refs: [] as Array<{ current: unknown }>,
   createProxy: vi.fn(),
   tween: vi.fn(),
+  completions: [] as Array<() => void>,
   set: vi.fn(),
   waitForMedia: vi.fn((_element: unknown, ready: () => void) => { ready(); return () => {}; }),
   mediaReady: true,
@@ -39,7 +40,10 @@ vi.mock("@gsap/react", () => ({
 vi.mock("gsap", () => ({ default: {
   registerPlugin: vi.fn(),
   set: lifecycle.set,
-  timeline: () => ({ to: lifecycle.tween, fromTo: lifecycle.tween, pause: vi.fn(), play: vi.fn(), kill: vi.fn() }),
+  timeline: (options?: { onComplete?: () => void }) => {
+    if (options?.onComplete) lifecycle.completions.push(options.onComplete);
+    return { to: lifecycle.tween, fromTo: lifecycle.tween, pause: vi.fn(), play: vi.fn(), kill: vi.fn() };
+  },
 } }));
 vi.mock("./post-dialog-media-proxy", async (importOriginal) => ({
   ...await importOriginal<typeof import("./post-dialog-media-proxy")>(),
@@ -58,6 +62,12 @@ vi.mock("./looping-video", () => ({
 vi.mock("./post-transition-provider", () => ({
   usePostTransition: () => ({ isPostTransitionActive: () => false }),
 }));
+vi.mock("@/lib/post-dialog-history", () => ({
+    registerPostDialogHistory: (handler: (event: PopStateEvent) => void) => {
+      window.addEventListener("popstate", handler);
+      return () => window.removeEventListener("popstate", handler);
+    },
+}));
 
 import { PostDialog, type PostDialogCloseMode } from "./post-dialog";
 
@@ -66,6 +76,7 @@ describe("post dialog scroll-lock lifecycle", () => {
     lifecycle.layout.length = 0;
     lifecycle.passive.length = 0;
     lifecycle.measurements.length = 0;
+    lifecycle.completions.length = 0;
     lifecycle.root = null;
     lifecycle.refIndex = 0;
     lifecycle.refs.length = 0;
@@ -97,7 +108,7 @@ describe("post dialog scroll-lock lifecycle", () => {
     },
   );
 
-  it.each(["logo", "website", "cold-image", "routed-image", "streamed-image", "streamed-unmount", "streamed-close", "routed-after-close", "routed-after-back", "routed-swap"])("uses loaded media for %s entrance", (kind) => {
+  it.each(["logo", "website", "history", "routed-history", "cold-image", "routed-image", "streamed-image", "streamed-unmount", "streamed-close", "routed-after-close", "routed-after-back", "routed-swap"])("uses loaded media for %s entrance", (kind) => {
     const routed = kind.startsWith("routed") || kind.startsWith("streamed");
     lifecycle.mediaReady = kind !== "cold-image";
     let identity = kind;
@@ -141,6 +152,31 @@ describe("post dialog scroll-lock lifecycle", () => {
       closeMode: routed ? "back" : "custom", transitionKey: kind, onClose: () => {},
     }));
     const cleanups = lifecycle.layout.map((effect) => effect());
+    if (kind.endsWith("history")) {
+      const listener = vi.mocked(window.addEventListener).mock.calls.find(([name]) => name === "popstate");
+      const popstate = listener?.[1];
+      if (typeof popstate !== "function") throw new Error("Missing history listener");
+      vi.stubGlobal("PopStateEvent", class extends Event {
+        state: unknown;
+        constructor(type: string, init: PopStateEventInit) { super(type); this.state = init.state; }
+      });
+      window.dispatchEvent = vi.fn((event) => { popstate(event); return true; });
+      lifecycle.tween.mockClear();
+      const first = new PopStateEvent("popstate", { state: { destination: "feed" } });
+      const stop = vi.spyOn(first, "stopImmediatePropagation");
+      popstate(first);
+      expect(stop).toHaveBeenCalledOnce();
+      expect(window.dispatchEvent).not.toHaveBeenCalled();
+      expect(lifecycle.tween).toHaveBeenCalledWith(hero, expect.objectContaining({ scaleX: 300 / 800 }), expect.any(Number));
+      // A second Back during exit must deliver the latest state, with no
+      // extra traversal and no second animation/replay loop.
+      const latest = new PopStateEvent("popstate", { state: { destination: "previous-page" } });
+      popstate(latest);
+      lifecycle.completions.at(-1)!();
+      expect(window.dispatchEvent).toHaveBeenCalledOnce();
+      expect(vi.mocked(window.dispatchEvent).mock.calls[0][0]).toHaveProperty("state", latest.state);
+      return;
+    }
     if (kind.startsWith("streamed")) {
       expect(lifecycle.tween).not.toHaveBeenCalled();
       expect(lifecycle.createProxy).not.toHaveBeenCalled();

@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { usePathname, useRouter } from "next/navigation";
+import { registerPostDialogHistory } from "@/lib/post-dialog-history";
 import {
   createContext,
   type MouseEvent,
@@ -155,6 +156,7 @@ export function PostDialog({
   const entranceProxy = useRef<HTMLDivElement>(null);
   const exitProxy = useRef<HTMLDivElement>(null);
   const closing = useRef(false);
+  const pendingHistory = useRef<PopStateEvent | null>(null);
   const mediaWaits = useRef<Array<() => void>>([]);
   const cancelMediaWaits = useCallback(() => {
     mediaWaits.current.forEach((cancel) => cancel());
@@ -165,6 +167,14 @@ export function PostDialog({
   useEffect(() => suspendFeedPlayback(), [suspendFeedPlayback]);
 
   const finishClose = useCallback(() => {
+    const historyEvent = pendingHistory.current;
+    if (historyEvent) {
+      pendingHistory.current = null;
+      // The browser already moved its history cursor. Let the router consume
+      // that same destination only after the media reaches its feed position.
+      window.dispatchEvent(new PopStateEvent("popstate", { state: historyEvent.state }));
+      return;
+    }
     if (closeMode === "custom") {
       onClose?.();
       return;
@@ -180,6 +190,7 @@ export function PostDialog({
 
   const requestClose = useCallback(() => {
     if (closing.current) return;
+    closing.current = true;
 
     const root = scope.current;
 
@@ -188,7 +199,6 @@ export function PostDialog({
       return;
     }
 
-    closing.current = true;
     cancelMediaWaits();
     root.style.cursor = "";
     root.style.removeProperty("visibility");
@@ -351,12 +361,24 @@ export function PostDialog({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") requestClose();
     };
+    const handleHistoryNavigation = (event: PopStateEvent) => {
+      // A normal close already animated before calling history.back(). The
+      // replay from finishClose must also reach the router without interception.
+      if (closing.current && !pendingHistory.current) return;
+      event.stopImmediatePropagation();
+      pendingHistory.current = event;
+      requestClose();
+    };
 
     window.addEventListener("keydown", handleKeyDown);
+    // The startup listener receives history events before the router. Repeated
+    // Back presses during exit retain the latest destination.
+    const unregisterHistoryClose = registerPostDialogHistory(handleHistoryNavigation);
 
     return () => {
       document.documentElement.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      unregisterHistoryClose();
       removeMediaProxy(entranceProxy.current);
       entranceProxy.current = null;
       removeMediaProxy(exitProxy.current);

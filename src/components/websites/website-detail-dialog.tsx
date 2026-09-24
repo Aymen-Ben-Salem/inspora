@@ -125,18 +125,18 @@ export function WebsiteDetailDialog({
           }}
         >
           <nav
-            data-post-dialog-surface
             className="sticky top-0 z-20 flex h-[72px] items-center gap-8 px-5 text-[16px] sm:px-8 lg:h-[88px] lg:px-11 xl:text-[18px]"
             aria-label="Website media views"
           >
             {(["preview", "sections"] as const).map((option) => (
               <button
                 data-website-media-tab
+                data-post-dialog-surface
                 key={option}
                 type="button"
                 aria-pressed={view === option}
                 onClick={() => changeView(option)}
-                className={`focus-ring capitalize ${view === option ? "font-medium text-[#262626]" : "text-[#95959d]"}`}
+                className={`focus-ring cursor-pointer capitalize ${view === option ? "font-medium text-[#262626]" : "text-[#95959d]"}`}
               >
                 {option}
               </button>

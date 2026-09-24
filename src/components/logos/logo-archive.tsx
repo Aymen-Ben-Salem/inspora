@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { Logo, LogoKind } from "@/domain/logo";
 import { matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
-import { replaceDetailQueryParam } from "@/lib/detail-query";
+import { useArchiveDetail } from "../use-archive-detail";
 import {
   ArchiveFilterMenu,
   ArchiveSearchIcon,
@@ -36,9 +36,8 @@ export function LogoArchive({
     styles: [],
     shapes: [],
   });
-  const [selectedId, setSelectedId] = useState(
-    logos.find((logo) => logo.slug === initialSlug)?.id,
-  );
+  const { selectedSlug, select, close: closeLogo } = useArchiveDetail("logo");
+  const selectedId = logos.find((logo) => logo.slug === selectedSlug)?.id;
 
   const options = useMemo(() => {
     const source = logos.filter((logo) => logo.kind === kind);
@@ -86,14 +85,8 @@ export function LogoArchive({
     Object.values(selections).some((values) => values.length > 0);
 
   const selectLogo = useCallback((logo: Logo) => {
-    setSelectedId(logo.id);
-    replaceDetailQueryParam({ key: "logo", value: logo.slug });
-  }, []);
-
-  const closeLogo = useCallback(() => {
-    setSelectedId(undefined);
-    replaceDetailQueryParam();
-  }, []);
+    select(logo.slug);
+  }, [select]);
 
   const navigateLogo = useCallback(
     (direction: -1 | 1) => {

@@ -28,8 +28,7 @@ type WebsitesPageProps = {
 };
 
 export default async function WebsitesPage({ searchParams }: WebsitesPageProps) {
-  const { website: websiteParam, view: viewParam } = await searchParams;
-  const initialSlug = Array.isArray(websiteParam) ? websiteParam[0] : websiteParam;
+  const { view: viewParam } = await searchParams;
   const rawView = Array.isArray(viewParam) ? viewParam[0] : viewParam;
   const view = rawView && isPostView(rawView) ? rawView : "latest";
   const websites = await getPublishedWebsites({ view });
@@ -37,7 +36,7 @@ export default async function WebsitesPage({ searchParams }: WebsitesPageProps) 
   return (
     <div className="min-h-[100dvh] bg-white">
       <SiteNavbar page="websites" />
-      <WebsiteArchive websites={websites} initialSlug={initialSlug} view={view} />
+      <WebsiteArchive websites={websites} view={view} />
     </div>
   );
 }

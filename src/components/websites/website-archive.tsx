@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { Website } from "@/domain/website";
 import type { PostView } from "@/domain/post";
-import { replaceDetailQueryParam } from "@/lib/detail-query";
+import { useArchiveDetail } from "../use-archive-detail";
 
 import {
   ArchiveFilterMenu,
@@ -21,11 +21,9 @@ type FilterKey = "categories" | "themes" | "colors";
 
 export function WebsiteArchive({
   websites,
-  initialSlug,
   view,
 }: {
   websites: Website[];
-  initialSlug?: string;
   view: PostView;
 }) {
   const [query, setQuery] = useState("");
@@ -34,9 +32,8 @@ export function WebsiteArchive({
     themes: [],
     colors: [],
   });
-  const [selectedId, setSelectedId] = useState(
-    websites.find((website) => website.slug === initialSlug)?.id,
-  );
+  const { selectedSlug, select, close: closeWebsite } = useArchiveDetail("website");
+  const selectedId = websites.find((website) => website.slug === selectedSlug)?.id;
 
   const options = useMemo(() => {
     const withCounts = (
@@ -68,13 +65,8 @@ export function WebsiteArchive({
   const hasFilters = normalizedQuery.length > 0 || Object.values(selections).some((values) => values.length > 0);
 
   const selectWebsite = useCallback((website: Website) => {
-    setSelectedId(website.id);
-    replaceDetailQueryParam({ key: "website", value: website.slug });
-  }, []);
-  const closeWebsite = useCallback(() => {
-    setSelectedId(undefined);
-    replaceDetailQueryParam();
-  }, []);
+    select(website.slug);
+  }, [select]);
   const navigateWebsite = useCallback((direction: -1 | 1) => {
     if (!selectedId) return;
     const source = filtered.length > 0 ? filtered : websites;

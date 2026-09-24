@@ -108,7 +108,7 @@ export function SiteNavbarClient({
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-white">
-        <div className="archive-frame pt-[var(--archive-header-pad-y)]">
+        <div className="archive-frame py-[var(--archive-header-pad-y)]">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
             <div className="flex min-w-0 items-center">
               <Link

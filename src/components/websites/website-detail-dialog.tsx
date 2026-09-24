@@ -101,7 +101,7 @@ export function WebsiteDetailDialog({
         <WorkAnalytics workId={website.id} workKind="website" />
         <div
           data-post-dialog-gallery
-          data-post-dialog-surface
+          data-post-dialog-surface={view === "sections" ? "" : undefined}
           className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-transparent [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]"
           onClick={(event) => {
             if (view !== "sections") return;
@@ -125,6 +125,7 @@ export function WebsiteDetailDialog({
           }}
         >
           <nav
+            data-post-dialog-surface
             className="sticky top-0 z-20 flex h-[72px] items-center gap-8 px-5 text-[16px] sm:px-8 lg:h-[88px] lg:px-11 xl:text-[18px]"
             aria-label="Website media views"
           >

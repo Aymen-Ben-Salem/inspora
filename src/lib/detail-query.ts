@@ -24,3 +24,25 @@ export function replaceDetailQueryParam(selection?: DetailQuerySelection) {
     detailPageHref(window.location.pathname, window.location.search, selection),
   );
 }
+
+// Opening from an archive needs its own history entry. Moving between details
+// replaces that entry so Back always returns to the same archive and filters.
+export function openArchiveDetail(selection: DetailQuerySelection) {
+  const { pathname, search } = window.location;
+  const href = detailPageHref(pathname, search, selection);
+  if (new URLSearchParams(search).has(selection.key)) {
+    const owner = window.history.state?.archiveDetailPath;
+    window.history.replaceState(owner ? { archiveDetailPath: owner } : null, "", href);
+  } else {
+    window.history.pushState({ archiveDetailPath: pathname }, "", href);
+  }
+}
+
+export function closeArchiveDetail() {
+  if (window.history.state?.archiveDetailPath === window.location.pathname) {
+    window.history.back();
+  } else {
+    // A directly loaded detail has no archive entry to return to.
+    replaceDetailQueryParam();
+  }
+}

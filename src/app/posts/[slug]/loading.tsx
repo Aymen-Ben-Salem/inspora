@@ -1,5 +1,5 @@
 import { PostDetailSkeleton } from "@/components/loading/page-skeletons";
 
 export default function Loading() {
-  return <PostDetailSkeleton />;
+  return <PostDetailSkeleton standalone />;
 }

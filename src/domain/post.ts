@@ -1,5 +1,7 @@
 import type { ImageVariant, MediaStorageProvider, VideoPreview } from "@/storage/types";
 
+import { isCategoryName } from "./category";
+
 export const POST_CATEGORIES = [
   "Web",
   "Branding",
@@ -10,7 +12,7 @@ export const POST_CATEGORIES = [
   "Print",
 ] as const;
 
-export type PostCategory = (typeof POST_CATEGORIES)[number];
+export type PostCategory = string;
 export const POST_VIEWS = ["latest", "featured"] as const;
 export type PostView = (typeof POST_VIEWS)[number];
 export type MediaType = "image" | "video";
@@ -81,7 +83,7 @@ export type PostCardData = Pick<Post, "id" | "slug" | "title" | "createdAt"> & {
 };
 
 export function isPostCategory(value: string): value is PostCategory {
-  return POST_CATEGORIES.some((category) => category === value);
+  return isCategoryName(value);
 }
 
 export function isPostView(value: string): value is PostView {

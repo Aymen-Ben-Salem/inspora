@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { POST_CATEGORIES } from "../../domain/post";
+import { isPostCategory } from "../../domain/post";
 import { MEDIA_STORAGE_PROVIDERS } from "../../storage/types";
 import { normalizeCreatorValidationInput } from "./creator-environment-policy";
 
@@ -140,7 +140,7 @@ const postSchema = z.object({
   title: z.string().trim().min(1).max(200),
   creator: creatorSchema,
   description: z.string().trim().min(1).max(4000),
-  category: z.enum(POST_CATEGORIES),
+  category: z.string().refine(isPostCategory, "Choose a valid category."),
   industries: z.array(z.string().max(80)).max(30),
   colors: z.array(z.string().max(80)).max(30),
   styles: z.array(z.string().max(80)).max(30),

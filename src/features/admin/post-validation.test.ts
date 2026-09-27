@@ -48,6 +48,12 @@ function withR2BaseUrl<T>(operation: () => T) {
 }
 
 describe("admin post validation", () => {
+  it("accepts a custom category on a post", () => {
+    const form = validForm();
+    form.set("category", "Typography");
+    expect(parseAdminPostForm(form).category).toBe("Typography");
+  });
+
   it("normalizes comma-separated tags and local media paths", () => {
     const result = parseAdminPostForm(validForm());
 

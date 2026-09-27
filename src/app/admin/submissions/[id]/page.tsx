@@ -1,3 +1,4 @@
+import { getDesignCategories } from "@/data/categories-repository";
 import { notFound } from "next/navigation";
 
 import { SubmissionReview } from "../../../../components/admin/submission-review";
@@ -14,9 +15,10 @@ export default async function SubmissionReviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [submission, creators] = await Promise.all([
+  const [submission, creators, categories] = await Promise.all([
     getSubmissionReviewById(id),
     getAdminCreators(),
+    getDesignCategories(),
   ]);
   if (!submission) notFound();
   const creator = creators.find((candidate) => candidate.id === submission.creatorId);
@@ -32,6 +34,7 @@ export default async function SubmissionReviewPage({
         submission={submission}
         creator={creator}
         creators={creators}
+        categories={categories}
         acceptAction={acceptAndPublishAction.bind(null, submission.id)}
         rejectAction={rejectSubmissionAction.bind(null, submission.id)}
       />

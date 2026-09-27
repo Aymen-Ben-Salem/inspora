@@ -139,8 +139,8 @@ export function ProfileFeed({
             {owner && inReview.length > 0 ? (
               <ProfileFilterLink active={filter === "in-review"} href={`${baseHref}?filter=in-review`} label={`In Review (${inReview.length})`} />
             ) : null}
-            {typeFilters.filter((item) => (counts.filters[item] ?? 0) > 0).map((item) => (
-              <ProfileFilterLink key={item} active={filter === item} href={`${baseHref}?filter=${encodeURIComponent(item)}`} label={`${labels[item]} (${counts.filters[item]})`} />
+            {[...new Set([...typeFilters, ...Object.keys(counts.filters)])].filter((item) => (counts.filters[item] ?? 0) > 0).map((item) => (
+              <ProfileFilterLink key={item} active={filter === item} href={`${baseHref}?filter=${encodeURIComponent(item)}`} label={`${Object.hasOwn(labels, item) ? labels[item] : item} (${counts.filters[item]})`} />
             ))}
           </div>
         </nav>

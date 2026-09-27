@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireDatabase } from "@/db/client";
 import { logoMedia, logos, postMedia, posts, websiteMedia, websites, websiteSections } from "@/db/schema";
 import type { Logo } from "@/domain/logo";
-import { POST_CATEGORIES, type PostCardData, type PostCategory, type PostView } from "@/domain/post";
+import { isPostCategory, type PostCardData, type PostCategory, type PostView } from "@/domain/post";
 import type { Website } from "@/domain/website";
 import type { WorkCardData } from "@/domain/work-card";
 import { readSavedCounts, readSavedPage, savedCountRequestSchema, savedPageRequestSchema, type SavedWorkCountRequest, type SavedWorkPageRequest } from "./saved";
@@ -29,7 +29,7 @@ const websiteArchiveRequestSchema = z.strictObject({
 const designArchiveRequestSchema = z.strictObject({
   scope: z.strictObject({ kind: z.literal("design-archive") }),
   filters: z.strictObject({
-    category: z.enum(POST_CATEGORIES).optional(),
+    category: z.string().refine(isPostCategory).optional(),
     view: z.enum(["latest", "featured"]).optional(),
   }).optional(),
   order: z.literal("created-desc"),

@@ -8,17 +8,19 @@ import { InfinitePostFeed } from "./infinite-post-feed";
 export function ArchiveView({
   page,
   category,
+  categories,
   view = "latest",
   sponsor,
 }: {
   page: PostPage;
   category?: PostCategory;
+  categories?: string[];
   view?: PostView;
   sponsor?: ActiveSponsor | null;
 }) {
   return (
     <main className="min-h-[100dvh] w-full max-w-full overflow-x-clip bg-white">
-      <DesignHeader category={category} view={view} />
+      <DesignHeader categories={categories} category={category} view={view} />
       <section
         aria-label="Design inspiration"
         className="archive-frame pb-16 pt-[var(--archive-feed-gap)]"

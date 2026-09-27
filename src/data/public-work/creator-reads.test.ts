@@ -57,7 +57,7 @@ it.each([
   await expect(readWorkIdentities({ scope })).rejects.toThrow();
 });
 it.each([
-  { filter: "unknown", count: 2 }, { filter: "logos", count: -1 },
+  { filter: "all", count: 2 }, { filter: "logos", count: -1 },
   { filter: "Web", count: null }, { filter: "Web", count: 1.5 },
 ])("fails malformed count data: %j", async row => {
   execute.mockResolvedValue({ rows: [row] });
@@ -121,4 +121,10 @@ it.each([null, "2099-01-01T00:00:00.000Z"])("fails inconsistent selected publica
   const row = selectedWebsite();
   execute.mockResolvedValue({ rows: [{ ...row, payload: { ...row.payload, publishedAt } }] });
   await expect(readWorkPage({ scope, order: "publication-desc" })).rejects.toThrow();
+});
+
+it("includes custom categories in creator counts and accepts their filtered pages", async () => {
+  execute.mockResolvedValueOnce({ rows: [{ filter: "Typography", count: 2 }] });
+  expect(await readWorkCounts({ scope })).toEqual({ total: 2, filters: { Typography: 2 } });
+  expect(await readWorkPage({ scope, filters: { filter: "Typography" }, order: "publication-desc" })).toEqual({ items: [], nextCursor: null });
 });

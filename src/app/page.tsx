@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { getDesignCategories } from "@/data/categories-repository";
 import { ArchiveView } from "@/components/archive-view";
 import { getPostPage } from "@/data/posts-repository";
 import { getActiveSponsor } from "@/data/sponsor-repository";
@@ -37,13 +38,15 @@ export default async function Home({ searchParams }: HomeProps) {
   const rawView = Array.isArray(viewParam) ? viewParam[0] : viewParam;
   const view = rawView && isPostView(rawView) ? rawView : "latest";
 
-  const [page, sponsor] = await Promise.all([
+  const [page, sponsor, categories] = await Promise.all([
     getPostPage({ category, view }),
     getActiveSponsor(),
+    getDesignCategories(),
   ]);
 
   return (
     <ArchiveView
+      categories={categories}
       page={page}
       category={category}
       view={view}

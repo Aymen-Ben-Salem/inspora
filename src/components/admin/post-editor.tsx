@@ -11,7 +11,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
-import { POST_CATEGORIES } from "@/domain/post";
+import { CategoryPicker } from "./category-picker";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
   initialAdminActionState,
@@ -45,6 +45,7 @@ function blankMedia(): MediaDraft {
 export function PostEditor({
   action,
   creators,
+  categories,
   post,
   lockExistingCreators = false,
   actionLabel,
@@ -53,6 +54,7 @@ export function PostEditor({
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
+  categories: string[];
   post?: AdminPostRecord;
   lockExistingCreators?: boolean;
   actionLabel?: string;
@@ -139,14 +141,7 @@ export function PostEditor({
                 defaultValue={post?.slug}
               />
             </label>
-            <label className={labelClass}>
-              Category
-              <select className={inputClass} name="category" defaultValue={post?.category ?? "Branding"}>
-                {POST_CATEGORIES.map((category) => (
-                  <option key={category}>{category}</option>
-                ))}
-              </select>
-            </label>
+            <CategoryPicker categories={categories} initialCategory={post?.category} />
             <label className={`${labelClass} sm:col-span-2`}>
               Description
               <textarea

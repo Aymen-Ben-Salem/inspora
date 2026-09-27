@@ -135,12 +135,14 @@ export function SubmissionReview({
   submission,
   creator,
   creators,
+  categories,
   acceptAction,
   rejectAction,
 }: {
   submission: AdminSubmissionReview;
   creator: AdminCreatorRecord;
   creators: AdminCreatorRecord[];
+  categories: string[];
   acceptAction: ReviewAction;
   rejectAction: ReviewAction;
 }) {
@@ -203,7 +205,7 @@ export function SubmissionReview({
       {submission.status === "in_review" ? (
         <>
           {submission.kind === "design" ? (
-            <PostEditor action={acceptAction} creators={creators} post={postDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <PostEditor categories={categories} action={acceptAction} creators={creators} post={postDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : submission.kind === "website" ? (
             <WebsiteEditor action={acceptAction} creators={creators} website={websiteDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : (

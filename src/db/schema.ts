@@ -75,6 +75,18 @@ export const creators = pgTable(
   ],
 );
 
+export const designCategories = pgTable(
+  "design_categories",
+  {
+    name: text("name").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("design_categories_name_lower_unique").on(sql`lower(${table.name})`),
+    check("design_categories_name_valid", sql`length(${table.name}) between 1 and 60 and ${table.name} = trim(${table.name}) and lower(${table.name}) not in ('all', 'logos', 'websites', 'app-icons', 'in-review')`),
+  ],
+);
+
 export const posts = pgTable(
   "posts",
   {
@@ -85,7 +97,7 @@ export const posts = pgTable(
       .notNull()
       .references(() => creators.id, { onDelete: "restrict" }),
     description: text("description").notNull(),
-    category: text("category").notNull(),
+    category: text("category").notNull().references(() => designCategories.name, { onDelete: "restrict" }),
     industries: text("industries").array().default(sql`'{}'::text[]`).notNull(),
     colors: text("colors").array().default(sql`'{}'::text[]`).notNull(),
     styles: text("styles").array().default(sql`'{}'::text[]`).notNull(),
@@ -111,10 +123,6 @@ export const posts = pgTable(
       .where(sql`${table.status} = 'published' and ${table.isFeatured} = true`),
     check("posts_slug_format", sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'`),
     check("posts_title_not_blank", sql`length(trim(${table.title})) > 0`),
-    check(
-      "posts_category_valid",
-      sql`${table.category} in ('Web', 'Branding', 'Product', 'Motion', 'Illustration', '3D', 'Print')`,
-    ),
     check("posts_status_valid", sql`${table.status} in ('draft', 'published', 'archived')`),
     check(
       "posts_published_at_required",
@@ -836,7 +844,7 @@ export const adminAuditLogs = pgTable(
     check("admin_audit_logs_action_not_blank", sql`length(trim(${table.action})) > 0`),
     check(
       "admin_audit_logs_resource_type_valid",
-      sql`${table.resourceType} in ('post', 'logo', 'website', 'subscriber', 'sponsor', 'creator', 'creator_claim')`,
+      sql`${table.resourceType} in ('post', 'logo', 'website', 'subscriber', 'sponsor', 'creator', 'creator_claim', 'category')`,
     ),
   ],
 );

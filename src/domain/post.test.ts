@@ -10,7 +10,9 @@ describe("post categories", () => {
       expect(isPostCategory(category)).toBe(true);
     }
 
-    expect(isPostCategory("Interface")).toBe(false);
+    expect(isPostCategory("Interface")).toBe(true);
+    expect(isPostCategory("All")).toBe(false);
+    expect(isPostCategory(" ")).toBe(false);
   });
 });
 

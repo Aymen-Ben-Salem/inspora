@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/data/categories-repository", () => ({ getDesignCategories: vi.fn() }));
 vi.mock("@/components/archive-view", () => ({ ArchiveView: () => null }));
 vi.mock("@/data/posts-repository", () => ({ getPostPage: vi.fn() }));
 vi.mock("@/data/sponsor-repository", () => ({ getActiveSponsor: vi.fn() }));

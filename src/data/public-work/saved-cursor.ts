@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { SAVED_CATEGORIES, type SavedCategory } from "@/domain/saved-post";
+import { isSavedCategory, type SavedCategory } from "@/domain/saved-post";
 
 const cursorSchema = z.strictObject({
   v: z.literal(1),
   scope: z.strictObject({ kind: z.literal("saved"), userId: z.string().min(1) }),
-  filters: z.strictObject({ category: z.enum(SAVED_CATEGORIES).nullable() }),
+  filters: z.strictObject({ category: z.string().refine(isSavedCategory).nullable() }),
   order: z.literal("saved-desc"),
   keys: z.strictObject({
     savedAt: z.iso.datetime(),

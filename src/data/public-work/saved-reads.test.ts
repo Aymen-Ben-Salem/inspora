@@ -69,7 +69,7 @@ it.each([
 
 it.each([
   { ...request, filters: { view: "featured" } },
-  { ...request, filters: { category: "Unknown" } },
+  { ...request, filters: { category: "All" } },
   { ...request, order: "created-desc" },
   { ...request, scope: { kind: "saved", userId: "" } },
 ])("rejects unsupported saved requests before selection: %j", async invalid => {
@@ -143,4 +143,12 @@ it("fails the whole saved page for a missing design cover and recovers after rep
   expect(page.items.map(item => item.id)).toEqual([good.website.id, post.id]);
   expect(page.items[1]).toMatchObject({ media: [cover], mediaCount: 1 });
   expect(page.nextCursor).toBeNull();
+});
+
+it("accepts custom category counts and cursor bindings", async () => {
+  selection.groupBy.mockResolvedValue([{ category: "Typography", count: 2 }]);
+  expect(await readWorkCounts({ scope: request.scope })).toEqual({ total: 2, categories: { Typography: 2 } });
+  findMany.mockResolvedValue([]);
+  const cursor = encode({ ...boundCursor, filters: { category: "Typography" } });
+  await expect(readWorkPage({ ...request, filters: { category: "Typography" }, cursor })).resolves.toBeDefined();
 });

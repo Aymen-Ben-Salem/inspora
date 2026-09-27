@@ -183,6 +183,13 @@
       "when": 1790006414187,
       "tag": "0025_striped_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790523243657,
+      "tag": "0026_admin_categories",
+      "breakpoints": true
     }
   ]
 }

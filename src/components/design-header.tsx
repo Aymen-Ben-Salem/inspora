@@ -6,9 +6,11 @@ import { ViewFilter } from "./view-filter";
 
 export function DesignHeader({
   category,
+  categories,
   view = "latest",
 }: {
   category?: PostCategory;
+  categories?: string[];
   view?: PostView;
 }) {
   return (
@@ -22,7 +24,7 @@ export function DesignHeader({
         </h1>
 
         <div className="mt-[var(--archive-description-gap)] flex min-w-0 items-center justify-between gap-3">
-          <CategoryFilter current={category} view={view} />
+          <CategoryFilter categories={categories} current={category} view={view} />
           <ViewFilter category={category} view={view} />
         </div>
       </div>

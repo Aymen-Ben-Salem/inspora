@@ -13,11 +13,13 @@ import { ViewFilter } from "./view-filter";
 
 export function SiteHeader({
   category,
+  categories,
   view,
   sponsor,
   showFilters = true,
 }: {
   category?: PostCategory;
+  categories?: string[];
   view: PostView;
   sponsor?: ActiveSponsor | null;
   showFilters?: boolean;
@@ -99,7 +101,7 @@ export function SiteHeader({
       secondary={
         showFilters ? (
           <div className="flex min-w-0 items-center justify-between gap-3">
-            <CategoryFilter current={category} view={view} />
+            <CategoryFilter categories={categories} current={category} view={view} />
             <ViewFilter category={category} view={view} />
           </div>
         ) : undefined

@@ -164,7 +164,7 @@ export function InfiniteSavedPostFeed({
     return () => observer.disconnect();
   }, [loadMore, nextCursor, status]);
 
-  const visibleCategories = SAVED_CATEGORIES.filter(
+  const visibleCategories = [...new Set([...SAVED_CATEGORIES, ...Object.keys(counts)])].filter(
     (postCategory) => (counts[postCategory] ?? 0) > 0,
   );
 

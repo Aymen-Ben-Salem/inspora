@@ -1,3 +1,4 @@
+import { getDesignCategories } from "@/data/categories-repository";
 import { notFound } from "next/navigation";
 
 import { PostEditor } from "@/components/admin/post-editor";
@@ -14,9 +15,10 @@ type EditPostPageProps = {
 
 export default async function EditPostPage({ params, searchParams }: EditPostPageProps) {
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
-  const [post, creators] = await Promise.all([
+  const [post, creators, categories] = await Promise.all([
     getAdminPostById(id),
     getAdminCreators(),
+    getDesignCategories(),
   ]);
 
   if (!post) notFound();
@@ -38,6 +40,7 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
         action={updatePostAction.bind(null, post.id)}
         post={post}
         creators={creators}
+        categories={categories}
         lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
       />
     </div>

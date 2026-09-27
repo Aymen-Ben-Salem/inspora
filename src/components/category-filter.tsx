@@ -22,11 +22,13 @@ function archiveHref({
 export function CategoryFilter({
   current,
   view,
+  categories: availableCategories = [...POST_CATEGORIES],
 }: {
+  categories?: string[];
   current?: PostCategory;
   view: PostView;
 }) {
-  const categories = ["All", ...POST_CATEGORIES] as const;
+  const categories = ["All", ...availableCategories] as const;
 
   return (
     <nav
@@ -46,7 +48,7 @@ export function CategoryFilter({
               key={category}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`archive-control-type focus-ring inline-flex h-[var(--archive-control-height)] shrink-0 items-center justify-center px-[var(--archive-control-x)] leading-none tracking-[0.2px] transition-colors duration-150 ${category === "Illustration" ? "" : "w-[var(--archive-category-width)]"} ${
+              className={`archive-control-type focus-ring inline-flex h-[var(--archive-control-height)] shrink-0 items-center justify-center px-[var(--archive-control-x)] leading-none tracking-[0.2px] transition-colors duration-150 ${category.length > 10 ? "" : "min-w-[var(--archive-category-width)]"} ${
                 active
                   ? "bg-[#262626] text-white shadow-[0_1px_1px_#e6e6e6]"
                   : "bg-[#fafafa] text-[#707070] hover:bg-[#f0f0f0] hover:text-[#262626] focus-visible:bg-[#f0f0f0] focus-visible:text-[#262626]"

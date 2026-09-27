@@ -1,9 +1,10 @@
+import { getDesignCategories } from "@/data/categories-repository";
 import { PostEditor } from "@/components/admin/post-editor";
 import { createPostAction } from "@/features/admin/actions";
 import { getAdminCreators } from "@/features/creators/identity";
 
 export default async function NewPostPage() {
-  const creators = await getAdminCreators();
+  const [creators, categories] = await Promise.all([getAdminCreators(), getDesignCategories()]);
 
   return (
     <div className="grid gap-7">
@@ -14,6 +15,7 @@ export default async function NewPostPage() {
       <PostEditor
         action={createPostAction}
         creators={creators}
+        categories={categories}
         lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
       />
     </div>

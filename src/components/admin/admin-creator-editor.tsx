@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { CreatorPicker } from "./creator-picker";
 
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
@@ -132,21 +133,7 @@ export function AdminCreatorEditor({
           </p>
         </div>
 
-        <label className={labelClass}>
-          Select creator
-          <select
-            className={inputClass}
-            value={creator.id ?? "new"}
-            onChange={(event) => selectCreator(event.target.value)}
-          >
-            <option value="new">Create a new creator</option>
-            {creators.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}{item.legacyHandle ? ` (${item.legacyHandle})` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CreatorPicker creators={creators} selectedId={creator.id} onSelect={selectCreator} />
 
         <div className="grid gap-5 rounded-2xl bg-[#f7f7f4] p-4 sm:grid-cols-[88px_minmax(0,1fr)] sm:p-5">
           <div className="flex items-start">

@@ -5,7 +5,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { requireDatabase } from "@/db/client";
 import { creators, posts, postMedia, logos, logoMedia, websites, websiteMedia, websiteSections } from "@/db/schema";
-import { POST_CATEGORIES, isPostCategory } from "@/domain/post";
+import { isPostCategory } from "@/domain/post";
 import type { WorkCardData } from "@/domain/work-card";
 import type { ProfileWorkCounts } from "@/features/profiles/types";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
@@ -16,7 +16,7 @@ import { mapPublishedLogo } from "./logo-presentation";
 import { completeWebsiteRecordingPredicate, hasCompleteRecording, mapPublishedWebsite } from "./website-presentation";
 
 export const creatorScopeSchema = z.strictObject({ kind: z.literal("creator"), creatorId: z.uuid() });
-const filterSchema = z.enum(["all", "websites", "logos", "app-icons", ...POST_CATEGORIES]);
+const filterSchema = z.string().refine((value) => ["all", "websites", "logos", "app-icons"].includes(value) || isPostCategory(value));
 export const creatorCountRequestSchema = z.strictObject({
   scope: creatorScopeSchema,
   filters: z.strictObject({ filter: filterSchema.optional() }).optional(),
@@ -100,7 +100,7 @@ const presentationSchema = z.object({
   creator: z.object({ name: z.string(), avatarUrl: z.string() }).passthrough(),
   media: z.array(z.object({ id: z.string(), url: z.string() }).passthrough()),
 }).passthrough();
-const candidateSchema = keysSchema.extend({ filter: filterSchema.exclude(["all"]), payload: z.unknown() });
+const candidateSchema = keysSchema.extend({ filter: filterSchema.refine((value) => value !== "all"), payload: z.unknown() });
 function mapCandidate(value: unknown, request: CreatorWorkCountRequest, now: Date): { keys: CursorKeys; item: WorkCardData } {
   const candidate = candidateSchema.parse(value);
   const row = presentationSchema.parse(candidate.payload);
@@ -159,15 +159,15 @@ async function cachedCreatorCounts(creatorId: string, filter: z.infer<typeof fil
   creatorCache();
   const now = evaluationTime();
   const result = await requireDatabase().execute(sql`with eligible as (${eligibleCreatorWork({ scope: { kind: "creator", creatorId }, filters: { filter } }, now)}) select filter, count(*)::int as count from eligible group by filter`);
-  const filters: ProfileWorkCounts["filters"] = {};
+  const filters = new Map<string, number>();
   let total = 0;
   for (const value of result.rows) {
-    const row = z.object({ filter: filterSchema.exclude(["all"]), count: z.number().int().nonnegative().safe() }).parse(value);
-    if (filters[row.filter] !== undefined) throw new Error("Duplicate creator count filter.");
-    filters[row.filter] = row.count;
+    const row = z.object({ filter: filterSchema.refine((value) => value !== "all"), count: z.number().int().nonnegative().safe() }).parse(value);
+    if (filters.has(row.filter)) throw new Error("Duplicate creator count filter.");
+    filters.set(row.filter, row.count);
     total += row.count;
   }
-  return { total, filters };
+  return { total, filters: Object.fromEntries(filters) };
 }
 export type WorkIdentity = { kind: "design" | "logo" | "website"; id: string };
 export async function readCreatorIdentities(scope: z.infer<typeof creatorScopeSchema>): Promise<WorkIdentity[]> {

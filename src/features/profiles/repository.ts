@@ -85,7 +85,7 @@ export async function getPublishedCreatorWorkCounts(creatorId: string): Promise<
 
 export function availableCreatorWorkFilters(counts: ProfileWorkCounts) {
   return [
-    ...POST_CATEGORIES,
+    ...new Set([...POST_CATEGORIES, ...Object.keys(counts.filters).filter(isPostCategory)]),
     "websites" as const,
     "logos" as const,
     "app-icons" as const,

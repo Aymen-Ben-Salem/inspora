@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, isNotNull, lt, lte, or, sql } from "drizzl
 import { z } from "zod";
 import { requireDatabase } from "@/db/client";
 import { logos, posts, savedPosts, websites } from "@/db/schema";
-import { SAVED_CATEGORIES, type SavedCategory } from "@/domain/saved-post";
+import { isSavedCategory, type SavedCategory } from "@/domain/saved-post";
 import type { WorkCardData } from "@/domain/work-card";
 import { evaluationTime } from "./clock";
 import { mapPostCard } from "./design-presentation";
@@ -15,7 +15,7 @@ export const SAVED_POST_PAGE_SIZE = 16;
 
 export const savedCountRequestSchema = z.strictObject({
   scope: z.strictObject({ kind: z.literal("saved"), userId: z.string().min(1) }),
-  filters: z.strictObject({ category: z.enum(SAVED_CATEGORIES).optional() }).optional(),
+  filters: z.strictObject({ category: z.string().refine(isSavedCategory).optional() }).optional(),
 });
 export const savedPageRequestSchema = savedCountRequestSchema.extend({
   order: z.literal("saved-desc"),
@@ -114,11 +114,11 @@ export async function readSavedCounts(request: SavedWorkCountRequest): Promise<S
     .leftJoin(websites, eq(savedPosts.websiteId, websites.id))
     .where(eligibleSavedWhere(request, now))
     .groupBy(savedCategory);
-  const categories: SavedWorkCounts["categories"] = {};
+  const categories = new Map<string, number>();
   let total = 0;
   for (const row of rows) {
-    categories[row.category] = Number(row.count);
+    categories.set(row.category, Number(row.count));
     total += Number(row.count);
   }
-  return { total, categories };
+  return { total, categories: Object.fromEntries(categories) };
 }

@@ -8,6 +8,24 @@
   --line: #f0f0f0;
   --surface: #fafafa;
   --paper: #ffffff;
+  --radius-surface: 6px;
+}
+
+@theme inline {
+  --radius-ui: var(--radius-surface);
+}
+
+@layer base {
+  /* Shared square surfaces; explicit pills, circles, and sheet corners win.
+     Side-only borders remain straight dividers. */
+  :is(a, button, input, select, textarea, summary, .border, .border-2, .border-4,
+    .archive-control-surface, [data-feed-transition-target], [data-post-dialog-hero]) {
+    border-radius: var(--radius-surface);
+  }
+
+  input[type="checkbox"] {
+    border-radius: calc(var(--radius-surface) / 3);
+  }
 }
 
 * {

@@ -6,7 +6,7 @@ export const verificationCardAppearance = {
     maxWidth: "429px",
     position: "relative",
     border: 0,
-    borderRadius: 0,
+    borderRadius: "var(--radius-surface)",
     background: "#ffffff",
     padding: "80px 40px",
     margin: 0,

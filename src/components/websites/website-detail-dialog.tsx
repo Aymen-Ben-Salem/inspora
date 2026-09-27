@@ -201,7 +201,7 @@ export function WebsiteDetailDialog({
                                 "center top",
                             }
                           : {})}
-                        className={`transition-shadow ${selected ? "ring-2 ring-[#262626] ring-offset-4" : ""}`}
+                        className={`overflow-hidden rounded-ui transition-shadow ${selected ? "ring-2 ring-[#262626] ring-offset-4" : ""}`}
                       >
                         <WebsiteCropImage
                           website={website}

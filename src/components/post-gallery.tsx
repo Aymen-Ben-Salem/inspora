@@ -41,7 +41,7 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
               data-post-dialog-max-viewport-height={maxViewportHeight}
               data-post-dialog-max-pixel-width={isConvertedGif ? media.width : undefined}
               className={`relative shrink-0 overflow-hidden bg-[#f3f3f3] ${
-                overlay ? "rounded-none" : "rounded-[10px]"
+                overlay ? "rounded-ui" : "rounded-[10px]"
               }`}
               style={{
                 aspectRatio: `${media.width} / ${media.height}`,

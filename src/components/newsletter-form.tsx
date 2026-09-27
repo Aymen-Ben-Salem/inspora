@@ -95,8 +95,8 @@ export function NewsletterForm({
         placeholder="you@email.com"
         className={`ios-no-focus-zoom focus-ring min-w-0 flex-1 border border-[#f0f0f0] bg-[#f0f0f0] text-[13px] tracking-[-0.002em] text-[#262626] outline-none transition-colors placeholder:text-[#767676] focus:border-[#767676] ${
           compact
-            ? "h-10 w-full rounded-none px-[11px] sm:h-[41px] sm:flex-1 xl:w-[358px] xl:flex-none min-[1700px]:px-3"
-            : "h-10 rounded-none pl-[14px] pr-3"
+            ? "h-10 w-full rounded-ui px-[11px] sm:h-[41px] sm:flex-1 xl:w-[358px] xl:flex-none min-[1700px]:px-3"
+            : "h-10 rounded-ui pl-[14px] pr-3"
         }`}
       />
       <input
@@ -112,8 +112,8 @@ export function NewsletterForm({
         disabled={status === "pending"}
         className={`focus-ring shrink-0 bg-[#262626] text-[13px] tracking-[-0.002em] text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60 ${
           compact
-            ? "h-10 w-full rounded-none px-2 text-[12px] sm:h-[41px] sm:w-auto sm:px-[11px] sm:text-[13px] xl:w-[119px] xl:px-3"
-            : "h-10 w-24 rounded-none px-3"
+            ? "h-10 w-full rounded-ui px-2 text-[12px] sm:h-[41px] sm:w-auto sm:px-[11px] sm:text-[13px] xl:w-[119px] xl:px-3"
+            : "h-10 w-24 rounded-ui px-3"
         }`}
       >
         {status === "pending" ? "joining..." : "subscribe"}

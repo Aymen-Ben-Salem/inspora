@@ -249,7 +249,7 @@ function OptimisticPostTransition({
           transform: sourceTransform,
         },
         {
-          borderRadius: "0",
+          borderRadius: getComputedStyle(heroElement).borderRadius,
           transform: "none",
         },
       ],
@@ -309,7 +309,7 @@ function OptimisticPostTransition({
             <div
               ref={hero}
               data-optimistic-post-surface
-              className="relative shrink-0 overflow-hidden bg-[#f3f3f3]"
+              className="relative shrink-0 overflow-hidden rounded-ui bg-[#f3f3f3]"
               style={{ ...heroGeometry, transformOrigin: "top left" }}
             >
               {source.mediaType === "video" ? (

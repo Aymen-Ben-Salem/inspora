@@ -426,7 +426,7 @@ export function SponsorEditor({
             <div className="mt-4 rounded-xl border border-black/10 bg-[#fafafa] p-4">
               <div className="mx-auto max-w-[320px]">
                 <div
-                  className="relative overflow-hidden rounded-none border border-black/10 bg-[#111]"
+                  className="relative overflow-hidden rounded-ui border border-black/10 bg-[#111]"
                   style={{
                     aspectRatio: `${formValues.mediaWidth || 1200}/${formValues.mediaHeight || 800}`,
                   }}

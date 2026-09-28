@@ -17,6 +17,11 @@ const remoteImageHostnames = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  experimental: {
+    // Reuse completed pages on repeat link navigation within this browser tab.
+    // Saves/profile edits already call router.refresh() to invalidate this cache.
+    staleTimes: { dynamic: 300 },
+  },
   async headers() {
     return [
       {

@@ -118,13 +118,7 @@ export function LogoArchive({
     <>
       <main className="archive-frame pb-16 pt-[var(--archive-header-gap)]">
         <section aria-label="Browse logos and icons">
-          <h1 className="text-[length:var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em] text-[#767676] md:whitespace-nowrap">
-            A <span className="text-[#262626]">curated</span> archive of recent{" "}
-            <span className="text-[#262626]">visual design</span> inspiration and{" "}
-            <span className="text-[#262626]">creative work</span>.
-          </h1>
-
-          <div className="mt-[var(--archive-description-gap)] flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-[var(--archive-search-gap)]">
               <label className="relative block w-full shrink-0 lg:w-[var(--archive-search-width)]">
                 <span className="sr-only">Search logos and icons</span>
@@ -230,6 +224,11 @@ export function LogoArchive({
               ) : null}
             </div>
           )}
+          <h1 className="mt-16 text-center text-[length:calc(var(--archive-heading-size)_-_2px)] font-normal leading-normal tracking-[-0.02em] text-[#767676]">
+            A <span className="text-[#262626]">curated</span> archive of recent{" "}
+            <span className="text-[#262626]">visual design</span> inspiration and{" "}
+            <span className="text-[#262626]">creative work</span>.
+          </h1>
         </section>
       </main>
 

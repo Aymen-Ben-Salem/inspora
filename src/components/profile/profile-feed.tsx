@@ -185,7 +185,7 @@ export function ProfileFeed({
                 </FeedMotion>
               )}
               <div ref={sentinelRef} className="flex min-h-16 items-center justify-center py-5">
-                {status === "loading" ? <p role="status" className="text-xs text-[#767676]">Loading more</p> : null}
+                {status === "loading" ? <p role="status" className="sr-only">Loading more</p> : null}
                 {status === "error" ? <button type="button" onClick={() => void loadMore()} className="focus-ring rounded-lg bg-[#f3f3f3] px-4 py-2 text-xs">Try loading more</button> : null}
               </div>
             </>

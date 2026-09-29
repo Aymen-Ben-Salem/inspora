@@ -37,7 +37,7 @@ export default async function LogosPage({ searchParams }: LogosPageProps) {
   const initialSlug = Array.isArray(logoParam) ? logoParam[0] : logoParam;
 
   return (
-    <div className="min-h-[100dvh] bg-white">
+    <div className="flex min-h-[100dvh] flex-col bg-white">
       <SiteNavbar page="logos" />
       <script
         type="application/ld+json"

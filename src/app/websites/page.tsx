@@ -35,7 +35,7 @@ export default async function WebsitesPage({ searchParams }: WebsitesPageProps) 
   const websites = await getPublishedWebsites({ view });
 
   return (
-    <div className="min-h-[100dvh] bg-white">
+    <div className="flex min-h-[100dvh] flex-col bg-white">
       <SiteNavbar page="websites" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{
         __html: serializeJsonLd(buildWebsiteCollectionStructuredData(websites)),

@@ -82,13 +82,13 @@ export function ArchiveSkeleton({ kind = "design" }: { kind?: "design" | "logos"
       <div className="archive-frame pb-16 pt-[var(--archive-header-gap)]">
         {kind === "saved" ? (
           <div className="flex items-center" style={{ height: "calc(var(--archive-heading-size) * 1.5)" }}><Block className="h-4 w-48" /></div>
-        ) : (
+        ) : kind !== "design" ? (
           <p className="text-[length:var(--archive-heading-size)] font-normal leading-normal tracking-[-0.02em] text-[#767676] md:whitespace-nowrap">
             A <span className="text-[#262626]">curated</span> archive of recent{" "}
             <span className="text-[#262626]">visual design</span> inspiration and{" "}
             <span className="text-[#262626]">creative work</span>.
           </p>
-        )}
+        ) : null}
         {searchable ? (
           <div className="mt-[var(--archive-description-gap)] flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:gap-[var(--archive-search-gap)]">
@@ -100,7 +100,7 @@ export function ArchiveSkeleton({ kind = "design" }: { kind?: "design" | "logos"
             <Block className={`h-[var(--archive-control-height)] shrink-0 self-end lg:self-auto ${kind === "logos" ? "w-[calc(var(--archive-switch-width)*2)]" : "w-28"}`} />
           </div>
         ) : (
-          <div className="mt-[var(--archive-description-gap)] flex min-w-0 items-center justify-between gap-3">
+          <div className={`flex min-w-0 items-center justify-between gap-3 ${kind === "design" ? "" : "mt-[var(--archive-description-gap)]"}`}>
             <CategorySkeleton />
             {kind === "design" ? <Block className="h-[var(--archive-control-height)] w-28 shrink-0" /> : null}
           </div>

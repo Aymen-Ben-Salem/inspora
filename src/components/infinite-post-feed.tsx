@@ -109,7 +109,7 @@ export function InfinitePostFeed({
         className="flex min-h-16 items-center justify-center py-5"
       >
         {status === "loading" ? (
-          <p role="status" className="animate-pulse text-xs tracking-wide text-[#8a8a8a]">
+          <p role="status" className="sr-only">
             Loading more
           </p>
         ) : status === "error" ? (

@@ -32,6 +32,12 @@ export function ArchiveView({
           view={view}
           sponsor={sponsor}
         />
+        {/* Keep the heading server-rendered and outside the feed's loading state. */}
+        <h1 className="text-center text-[length:calc(var(--archive-heading-size)_-_2px)] font-normal leading-normal tracking-[-0.02em] text-[#767676]">
+          A <span className="text-[#262626]">curated</span> archive of recent{" "}
+          <span className="text-[#262626]">visual design</span> inspiration and{" "}
+          <span className="text-[#262626]">creative work</span>.
+        </h1>
       </section>
     </main>
   );

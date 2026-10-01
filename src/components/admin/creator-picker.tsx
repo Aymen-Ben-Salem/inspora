@@ -41,7 +41,7 @@ export function CreatorPicker({ creators, selectedId, onSelect }: {
   }
 
   return (
-    <div className="relative grid gap-2" onBlur={(event) => {
+    <div className="relative grid min-w-0 gap-2" onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
     }} onKeyDown={(event) => {
       if (event.key === "Escape" && open) {
@@ -52,16 +52,18 @@ export function CreatorPicker({ creators, selectedId, onSelect }: {
       <button ref={trigger} type="button" aria-labelledby={`${id}-label ${id}-value`}
         aria-expanded={open} aria-controls={`${id}-panel`}
         onClick={() => { setOpen(!open); setQuery(""); setActive(0); }}
-        className="focus-ring flex h-11 w-full items-center justify-between rounded-xl border border-black/10 bg-white px-3 text-left text-sm">
-        <span id={`${id}-value`}>{selected ? `${selected.name}${selected.username ? ` (@${selected.username})` : selected.legacyHandle ? ` (${selected.legacyHandle})` : ""}` : "Create a new creator"}</span>
-        <span aria-hidden="true">?</span>
+        className="focus-ring flex h-11 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-black/10 bg-white px-3 text-left text-sm">
+        <span id={`${id}-value`} className="truncate">{selected ? `${selected.name}${selected.username ? ` (@${selected.username})` : selected.legacyHandle ? ` (${selected.legacyHandle})` : ""}` : "Create a new creator"}</span>
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" className={`size-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}>
+          <path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open ? (
         <div id={`${id}-panel`} className="absolute top-full z-20 mt-1 w-full rounded-xl border border-black/10 bg-white p-2 shadow-lg">
           <input autoFocus role="combobox" aria-label="Search creators" aria-expanded="true"
             aria-autocomplete="list" aria-controls={`${id}-list`}
             aria-activedescendant={`${id}-option-${active}`}
-            value={query} placeholder="Search by name or username?"
+            value={query} placeholder="Search by name or username"
             className="focus-ring h-11 w-full rounded-lg border border-black/10 px-3 text-sm"
             onChange={(event) => { setQuery(event.target.value); setActive(0); }}
             onKeyDown={(event) => {
@@ -79,7 +81,7 @@ export function CreatorPicker({ creators, selectedId, onSelect }: {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => select(option.id)}
                 onMouseMove={() => setActive(index)}
-                className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${index === active ? "bg-[#efefed]" : "hover:bg-[#f7f7f4]"}`}>
+                className={`cursor-pointer break-words rounded-lg px-3 py-2 text-sm ${index === active ? "bg-[#efefed]" : "hover:bg-[#f7f7f4]"}`}>
                 {option.label}
               </div>
             ))}

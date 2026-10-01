@@ -80,21 +80,21 @@ export function CreatorManager({
   );
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
-      <div className="grid gap-6">
+    <div className="grid min-w-0 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid min-w-0 content-start gap-6">
         {(saveState.status === "error" || deleteState.status === "error") ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {saveState.message ?? deleteState.message}
           </p>
         ) : null}
 
-        <section className="grid gap-4 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+        <section className="grid min-w-0 gap-4 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Directory</p>
               <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Creator records</h2>
             </div>
-            <label className="grid min-w-64 gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#777]">
+            <label className="grid w-full min-w-0 gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#777] sm:w-64">
               Search
               <input
                 className={inputClass}
@@ -110,19 +110,20 @@ export function CreatorManager({
                 key={item.id}
                 type="button"
                 onClick={() => setCreator(toAdminCreatorDraft(item))}
-                className={`focus-ring grid gap-2 rounded-xl border p-4 text-left transition-colors sm:grid-cols-[minmax(0,1fr)_auto] ${
+                aria-pressed={creator.id === item.id}
+                className={`focus-ring grid min-w-0 items-start gap-2 rounded-xl border p-4 text-left transition-colors sm:grid-cols-[minmax(0,1fr)_auto] ${
                   creator.id === item.id
                     ? "border-black bg-[#f3f3ef]"
                     : "border-black/10 hover:bg-[#f7f7f4]"
                 }`}
               >
-                <span>
+                <span className="min-w-0 break-words">
                   <span className="block text-sm font-medium">{item.name}</span>
                   <span className="mt-1 block text-xs text-[#777]">
                     {item.username ? `@${item.username}` : "Username not assigned"}
                   </span>
                 </span>
-                <span className="flex flex-wrap justify-end gap-2 text-[10px] uppercase tracking-[0.08em] text-[#666]">
+                <span className="flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.08em] text-[#666] sm:justify-end">
                   <span>{item.workCount} works</span>
                   {item.ownerUserId ? <span>Claimed</span> : null}
                   {item.pendingClaimCount ? <span>{item.pendingClaimCount} pending</span> : null}
@@ -144,7 +145,7 @@ export function CreatorManager({
           </button>
         </section>
 
-        <form action={saveFormAction} className="grid gap-4">
+        <form action={saveFormAction} className="grid min-w-0 gap-4">
           <AdminCreatorEditor
             creator={creator}
             creators={creators}
@@ -185,7 +186,7 @@ export function CreatorManager({
         ) : null}
       </div>
 
-      <aside className="grid content-start gap-4 xl:sticky xl:top-24">
+      <aside className="grid min-w-0 content-start gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Identity review</p>
           <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Creator claims</h2>
@@ -196,18 +197,18 @@ export function CreatorManager({
         {claims.map((claim) => (
           <article key={claim.id} className="rounded-2xl border border-black/10 bg-white p-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0 break-words">
                 <h3 className="font-medium">{claim.targetCreatorName}</h3>
                 <a
                   href={`https://x.com/${claim.verifiedXUsername}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="focus-ring mt-1 inline-block rounded text-sm text-[#666] underline underline-offset-4"
+                  className="focus-ring mt-1 inline-block max-w-full break-all rounded text-sm text-[#666] underline underline-offset-4"
                 >
                   @{claim.verifiedXUsername}
                 </a>
               </div>
-              <span className="rounded-full bg-[#f1f1ed] px-2.5 py-1 text-[10px] uppercase tracking-[0.08em] text-[#666]">
+              <span className="shrink-0 rounded-full bg-[#f1f1ed] px-2.5 py-1 text-[10px] uppercase tracking-[0.08em] text-[#666]">
                 {claim.status}
               </span>
             </div>

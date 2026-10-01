@@ -12,7 +12,7 @@ import type {
 
 const inputClass =
   "focus-ring h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition-colors placeholder:text-[#aaa] focus:border-black/30";
-const labelClass = "grid gap-2 text-sm font-medium text-[#333]";
+const labelClass = "grid min-w-0 gap-2 text-sm font-medium text-[#333]";
 function canPreviewAvatar(value: string) {
   if (value.startsWith("/")) return true;
 
@@ -116,7 +116,7 @@ export function AdminCreatorEditor({
         value={creator.avatarStorageKey ?? ""}
       />
 
-      <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+      <section className="grid min-w-0 gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
@@ -150,7 +150,7 @@ export function AdminCreatorEditor({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <label className={labelClass}>
               Creator name
               <input

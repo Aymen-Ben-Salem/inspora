@@ -85,6 +85,17 @@ function createClient(configuration: R2Configuration) {
   return createR2Client(configuration);
 }
 
+export async function assertR2StorageKeysExist(keys: string[]) {
+  if (keys.length === 0) return;
+  const configuration = requireConfiguration();
+  const client = createClient(configuration);
+  try {
+    for (const key of [...new Set(keys)]) {
+      await client.send(new HeadObjectCommand({ Bucket: configuration.bucket, Key: key }));
+    }
+  } finally { client.destroy(); }
+}
+
 function encodeStorageKey(storageKey: string) {
   return storageKey.split("/").map(encodeURIComponent).join("/");
 }

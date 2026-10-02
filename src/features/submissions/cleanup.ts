@@ -42,6 +42,8 @@ import {
 } from "../../storage/private-submissions";
 import type { ManagedMediaAsset } from "../../storage/types";
 import { enqueueCleanup } from "./cleanup-jobs";
+import { createImmediateCleanup, type CleanupAttempt } from "./immediate-cleanup";
+import { lockPublicationAssets } from "./publication-assets";
 import type { CleanupJobInput, SubmissionResult } from "./types";
 
 const HOUR = 60 * 60 * 1000;
@@ -59,6 +61,7 @@ export type LeasedCleanupJob = {
   kind: CleanupJobInput["kind"];
   targetId: string;
   attempts: number;
+  leaseExpiresAt?: Date;
 };
 
 export type CleanupRunnerDependencies = {
@@ -66,8 +69,8 @@ export type CleanupRunnerDependencies = {
   expireAbandonedUploads(now: Date, batchSize: number): Promise<number>;
   leaseJobs(now: Date, batchSize: number): Promise<LeasedCleanupJob[]>;
   processJob(job: LeasedCleanupJob): Promise<void>;
-  completeJob(id: string): Promise<void>;
-  retryJob(id: string, nextAttemptAt: Date, error: string): Promise<void>;
+  completeJob(id: string, leaseExpiresAt?: Date): Promise<void>;
+  retryJob(id: string, nextAttemptAt: Date, error: string, leaseExpiresAt?: Date): Promise<void>;
   pruneReceipts(now: Date): Promise<void>;
 };
 
@@ -92,8 +95,8 @@ export function withdrawalFailure(
   return null;
 }
 
-function errorMessage(error: unknown) {
-  return (error instanceof Error ? error.message : "Cleanup failed.").slice(0, 1000);
+function errorMessage() {
+  return "Cleanup could not finish. An admin can retry it from Cleanup.";
 }
 
 export function createCleanupRunner(dependencies: CleanupRunnerDependencies) {
@@ -108,14 +111,15 @@ export function createCleanupRunner(dependencies: CleanupRunnerDependencies) {
     for (const job of jobs) {
       try {
         await dependencies.processJob(job);
-        await dependencies.completeJob(job.id);
+        await dependencies.completeJob(job.id, job.leaseExpiresAt);
         completedJobs += 1;
-      } catch (error) {
+      } catch {
         const attempts = job.attempts + 1;
         await dependencies.retryJob(
           job.id,
           new Date(now.getTime() + retryDelayMilliseconds(attempts)),
-          errorMessage(error),
+          errorMessage(),
+          job.leaseExpiresAt,
         );
         retryableFailures += 1;
       }
@@ -162,6 +166,7 @@ async function queuePublicationAttemptCleanup(
       notBefore: now.toISOString(),
     });
   }
+  return [...new Set([...attempts, ...alreadyQueued].map((attempt) => `publication-attempt:${attempt.id}`))];
 }
 
 async function removeSubmission(
@@ -170,7 +175,7 @@ async function removeSubmission(
   now: Date,
   keepWithdrawalReceipt: boolean,
 ) {
-  await queuePublicationAttemptCleanup(tx, submission.id, now);
+  const cleanupKeys = await queuePublicationAttemptCleanup(tx, submission.id, now);
   if (submission.uploadId) {
     await tx
       .update(submissionUploads)
@@ -186,6 +191,7 @@ async function removeSubmission(
   await tx.delete(submissions).where(eq(submissions.id, submission.id));
   if (submission.uploadId) {
     await enqueueCleanup(tx, privateUploadCleanupInput(submission.uploadId, now));
+    cleanupKeys.push(`private-upload:${submission.uploadId}`);
   }
   if (keepWithdrawalReceipt) {
     const [quota] = await tx
@@ -203,13 +209,15 @@ async function removeSubmission(
       }).onConflictDoNothing({ target: submissionReceipts.submissionId });
     }
   }
+  return cleanupKeys;
 }
 
 export async function withdrawSubmissionForOwner(
   ownerUserId: string,
   submissionId: string,
 ): Promise<SubmissionResult<null>> {
-  return withWriteTransaction(async (tx) => {
+  const cleanupKeys: string[] = [];
+  const result = await withWriteTransaction<SubmissionResult<null>>(async (tx) => {
     const [account] = await tx
       .select({ status: profileAccounts.status })
       .from(profileAccounts)
@@ -239,9 +247,11 @@ export async function withdrawSubmissionForOwner(
     }
     const invalid = withdrawalFailure(submission, ownerUserId);
     if (invalid) return invalid;
-    await removeSubmission(tx, submission, new Date(), true);
+    cleanupKeys.push(...await removeSubmission(tx, submission, new Date(), true));
     return { ok: true, value: null };
   });
+  if (result.ok) for (const key of cleanupKeys) await attemptCleanupKey(key);
+  return result;
 }
 
 async function expireRejected(now: Date, batchSize: number) {
@@ -253,15 +263,17 @@ async function expireRejected(now: Date, batchSize: number) {
     .limit(batchSize);
   let removed = 0;
   for (const candidate of candidates) {
+    const keys: string[] = [];
     removed += await withWriteTransaction(async (tx) => {
       await tx.select({ userId: profileAccounts.userId }).from(profileAccounts)
         .where(eq(profileAccounts.userId, candidate.ownerUserId)).for("update");
       const [submission] = await tx.select().from(submissions)
         .where(eq(submissions.id, candidate.id)).for("update");
       if (!submission || submission.status !== "rejected" || !submission.expiresAt || submission.expiresAt > now) return 0;
-      await removeSubmission(tx, submission, now, false);
+      keys.push(...await removeSubmission(tx, submission, now, false));
       return 1;
     });
+    for (const key of keys) await attemptCleanupKey(key);
   }
   return removed;
 }
@@ -279,12 +291,12 @@ async function expireAbandonedUploads(now: Date, batchSize: number) {
     .limit(batchSize);
   let queued = 0;
   for (const candidate of candidates) {
-    queued += await withWriteTransaction(async (tx) => {
+    const changed = await withWriteTransaction(async (tx) => {
       await tx.select({ userId: profileAccounts.userId }).from(profileAccounts)
         .where(eq(profileAccounts.userId, candidate.ownerUserId)).for("update");
       const [upload] = await tx.select().from(submissionUploads)
         .where(eq(submissionUploads.id, candidate.id)).for("update");
-      if (!upload || upload.attachedSubmissionId || upload.expiresAt > now) return 0;
+      if (!upload || upload.attachedSubmissionId || upload.expiresAt > now || !["pending", "completed"].includes(upload.state)) return 0;
       await tx.update(submissionUploads).set({
         state: "discarded",
         discardedAt: upload.discardedAt ?? now,
@@ -293,6 +305,8 @@ async function expireAbandonedUploads(now: Date, batchSize: number) {
       await enqueueCleanup(tx, privateUploadCleanupInput(upload.id, now));
       return 1;
     });
+    queued += changed;
+    if (changed) await attemptCleanupKey(`private-upload:${candidate.id}`);
   }
   return queued;
 }
@@ -319,13 +333,15 @@ export async function queuePrivateUploadCleanupForOwner(
     ) throw new Error("The upload is not ready for cleanup.");
     await enqueueCleanup(tx, privateUploadCleanupInput(uploadId, new Date()));
   });
+  await attemptCleanupKey(`private-upload:${uploadId}`);
 }
 
-async function leaseJobs(now: Date, batchSize: number): Promise<LeasedCleanupJob[]> {
+async function leaseJobs(now: Date, batchSize: number, id?: string): Promise<LeasedCleanupJob[]> {
   return withWriteTransaction(async (tx) => {
     const rows = await tx.select().from(cleanupJobs)
       .where(and(
-        lte(cleanupJobs.nextAttemptAt, now),
+        id ? eq(cleanupJobs.id, id) : lte(cleanupJobs.nextAttemptAt, now),
+        lte(cleanupJobs.notBefore, now),
         or(
           eq(cleanupJobs.status, "pending"),
           and(eq(cleanupJobs.status, "leased"), lte(cleanupJobs.leaseExpiresAt, now)),
@@ -346,17 +362,23 @@ async function leaseJobs(now: Date, batchSize: number): Promise<LeasedCleanupJob
       kind: row.kind as CleanupJobInput["kind"],
       targetId: row.targetId,
       attempts: row.attempts,
+      leaseExpiresAt: new Date(now.getTime() + LEASE_MILLISECONDS),
     }));
   });
 }
 
 export const leaseCleanupJobs = leaseJobs;
 
-async function completeJob(id: string) {
-  await requireDatabase().delete(cleanupJobs).where(eq(cleanupJobs.id, id));
+function ownedLease(id: string, leaseExpiresAt?: Date) {
+  if (!leaseExpiresAt) throw new Error("A cleanup lease is required.");
+  return and(eq(cleanupJobs.id, id), eq(cleanupJobs.status, "leased"), eq(cleanupJobs.leaseExpiresAt, leaseExpiresAt));
 }
 
-async function retryJob(id: string, nextAttemptAt: Date, error: string) {
+async function completeJob(id: string, leaseExpiresAt?: Date) {
+  await requireDatabase().delete(cleanupJobs).where(ownedLease(id, leaseExpiresAt));
+}
+
+async function retryJob(id: string, nextAttemptAt: Date, error: string, leaseExpiresAt?: Date) {
   await requireDatabase().update(cleanupJobs).set({
     status: "pending",
     attempts: sql`${cleanupJobs.attempts} + 1`,
@@ -364,7 +386,26 @@ async function retryJob(id: string, nextAttemptAt: Date, error: string) {
     leaseExpiresAt: null,
     lastError: error,
     updatedAt: new Date(),
-  }).where(eq(cleanupJobs.id, id));
+  }).where(ownedLease(id, leaseExpiresAt));
+}
+
+export const attemptCleanupJob = createImmediateCleanup<LeasedCleanupJob>({
+  async claim(id) { return (await leaseJobs(new Date(), 1, id))[0] ?? null; },
+  async exists(id) {
+    const rows = await requireDatabase().select({ id: cleanupJobs.id }).from(cleanupJobs).where(eq(cleanupJobs.id, id)).limit(1);
+    return rows.length > 0;
+  },
+  process: processJob,
+  complete: (job) => completeJob(job.id, job.leaseExpiresAt),
+  fail: (job) => retryJob(job.id, new Date(), errorMessage(), job.leaseExpiresAt),
+});
+
+export async function attemptCleanupKey(key: string): Promise<CleanupAttempt> {
+  try {
+    const [job] = await requireDatabase().select({ id: cleanupJobs.id }).from(cleanupJobs)
+      .where(eq(cleanupJobs.idempotencyKey, key)).limit(1);
+    return job ? attemptCleanupJob(job.id) : "completed";
+  } catch { return "pending"; }
 }
 
 async function processPrivateUpload(uploadId: string) {
@@ -427,15 +468,14 @@ function addMediaKeys(target: Set<string>, row: {
   if (row.posterStorageKey) target.add(row.posterStorageKey);
 }
 
-async function publicReferenceKeys() {
-  const database = requireDatabase();
+async function publicReferenceKeys(database: WriteTx) {
   const [posts, logos, websiteAssets, sections, avatars, attachedAttempts] = await Promise.all([
     database.select({ storageKey: postMedia.storageKey, variants: postMedia.variants, videoPreview: postMedia.videoPreview, posterStorageKey: postMedia.posterStorageKey }).from(postMedia),
     database.select({ storageKey: logoMedia.storageKey, variants: logoMedia.variants }).from(logoMedia),
     database.select({ storageKey: websiteMedia.storageKey, variants: websiteMedia.variants, videoPreview: websiteMedia.videoPreview, posterStorageKey: websiteMedia.posterStorageKey }).from(websiteMedia),
     database.select({ storageKey: websiteSections.imageStorageKey, variants: websiteSections.imageVariants }).from(websiteSections),
     database.select({ storageKey: creators.avatarStorageKey }).from(creators),
-    database.select({ assets: submissionPublicationAttempts.assets }).from(submissionPublicationAttempts).where(eq(submissionPublicationAttempts.status, "attached")),
+    database.select({ assets: submissionPublicationAttempts.assets }).from(submissionPublicationAttempts).where(inArray(submissionPublicationAttempts.status, ["prepared", "attached"])),
   ]);
   const keys = new Set<string>();
   for (const row of [...posts, ...logos, ...websiteAssets, ...sections]) addMediaKeys(keys, row);
@@ -447,15 +487,18 @@ async function publicReferenceKeys() {
 }
 
 async function processPublicOrphan(attemptId: string) {
-  const [attempt] = await requireDatabase().select().from(submissionPublicationAttempts)
+  const [identity] = await requireDatabase().select().from(submissionPublicationAttempts)
     .where(eq(submissionPublicationAttempts.id, attemptId)).limit(1);
-  if (!attempt || attempt.status === "attached") return;
-  if (attempt.status !== "cleanup") throw new Error("Publication assets are not ready for cleanup.");
-  const referenced = await publicReferenceKeys();
-  const deletable = unreferencedAssetKeys(attempt.assets, referenced);
-  await deleteR2StorageKeys(deletable);
-  await requireDatabase().delete(submissionPublicationAttempts)
-    .where(and(eq(submissionPublicationAttempts.id, attemptId), eq(submissionPublicationAttempts.status, "cleanup")));
+  if (!identity) return;
+  await withWriteTransaction(async (tx) => {
+    await lockPublicationAssets(tx, identity.assets);
+    const [attempt] = await tx.select().from(submissionPublicationAttempts).where(eq(submissionPublicationAttempts.id, attemptId)).for("update");
+    if (!attempt || attempt.status === "attached") return;
+    if (attempt.status !== "cleanup") throw new Error("Publication assets are not ready for cleanup.");
+    const referenced = await publicReferenceKeys(tx);
+    await deleteR2StorageKeys(unreferencedAssetKeys(attempt.assets, referenced));
+    await tx.delete(submissionPublicationAttempts).where(eq(submissionPublicationAttempts.id, attemptId));
+  });
 }
 
 function clerkMissing(error: unknown) {
@@ -475,7 +518,7 @@ export function createAccountDeletionFinalizer(dependencies: {
       await dependencies.deleteClerk(userId);
     } catch (error) {
       if (!dependencies.isMissing(error)) {
-        await dependencies.recordFailure(userId, errorMessage(error));
+        await dependencies.recordFailure(userId, errorMessage());
         throw error;
       }
     }
@@ -522,6 +565,7 @@ async function ensureDurableCreatorAvatar(userId: string) {
 
 async function processAccountDeletion(userId: string) {
   await ensureDurableCreatorAvatar(userId);
+  const orphanKeys: string[] = [];
   const uploadIds = await withWriteTransaction(async (tx) => {
     const [account] = await tx.select().from(profileAccounts)
       .where(eq(profileAccounts.userId, userId)).for("update");
@@ -531,7 +575,7 @@ async function processAccountDeletion(userId: string) {
       .where(eq(submissions.ownerUserId, userId));
     const ids = ownedSubmissions.map((submission) => submission.id);
     for (const submission of ownedSubmissions) {
-      await queuePublicationAttemptCleanup(tx, submission.id, new Date());
+      orphanKeys.push(...await queuePublicationAttemptCleanup(tx, submission.id, new Date()));
     }
     if (ids.length > 0) await tx.delete(submissions).where(inArray(submissions.id, ids));
     const uploads = await tx.select({ id: submissionUploads.id }).from(submissionUploads)
@@ -554,7 +598,13 @@ async function processAccountDeletion(userId: string) {
     return uploads.map((upload) => upload.id);
   });
   if (!uploadIds) return;
-  for (const uploadId of uploadIds) await processPrivateUpload(uploadId);
+  // Orphan publication jobs remain independently recoverable if their provider fails.
+  for (const key of orphanKeys) await attemptCleanupKey(key);
+  for (const uploadId of uploadIds) {
+    if (await attemptCleanupKey(`private-upload:${uploadId}`) !== "completed") {
+      throw new Error("Private account media cleanup is still pending.");
+    }
+  }
 
   await withWriteTransaction(async (tx) => {
     const [account] = await tx.select({ status: profileAccounts.status }).from(profileAccounts)
@@ -609,4 +659,12 @@ const productionRunner = createCleanupRunner({
 
 export function runProfileCleanup(now: Date, batchSize: number): Promise<CleanupReport> {
   return productionRunner(now, batchSize);
+}
+
+// Deliberately does not lease the general queue: expiry cannot delete accounts.
+export async function cleanExpiredItems(now = new Date()) {
+  const expiredSubmissions = await expireRejected(now, 25);
+  const abandonedUploads = await expireAbandonedUploads(now, 25);
+  await pruneReceipts(now);
+  return { expiredSubmissions, abandonedUploads };
 }

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "tsx scripts/generate-sitemap.ts",
     "build": "next build",
     "build:preview": "tsx scripts/build-preview.ts",
     "start": "next start",
@@ -15,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:preview": "drizzle-kit migrate --config=drizzle.preview.config.ts",
-    "db:migrate:production": "drizzle-kit migrate --config=drizzle.production.config.ts",
+    "db:migrate:production": "tsx scripts/migrate-release.ts --target production",
+    "db:migrate:rehearsal": "tsx scripts/migrate-release.ts --target rehearsal",
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:archives": "tsx scripts/seed-dev-archives.ts",
     "db:studio": "drizzle-kit studio",

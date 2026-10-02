@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const external = vi.hoisted(() => ({ saveCreator: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("../submissions/publication-assets", () => ({ protectPublicationMedia: vi.fn() }));
 vi.mock("@/features/creators/identity", () => ({
   saveAdminCreatorForAttribution: external.saveCreator,
 }));

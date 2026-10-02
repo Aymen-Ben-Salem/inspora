@@ -9,6 +9,7 @@ import { getConfiguredAdminUserIds, isClerkConfigured } from "@/auth/config";
 import { requireAdmin } from "@/auth/require-admin";
 import { AdminAuthEntry } from "@/components/auth/admin-auth-entry";
 import { BrandMark } from "@/components/brand-mark";
+import { CleanupNotice } from "@/components/admin/cleanup-notice";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -138,6 +139,7 @@ async function AdminContent({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto w-full max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10">
+        <Suspense fallback={<p className="mb-6 text-sm">Checking cleanup status…</p>}><CleanupNotice /></Suspense>
         {children}
       </main>
     </div>

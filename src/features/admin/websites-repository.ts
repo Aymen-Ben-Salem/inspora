@@ -1,4 +1,5 @@
 import "server-only";
+import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
@@ -185,6 +186,7 @@ export async function insertAdminWebsiteInTransaction(
     createdBy: actorId,
     updatedBy: actorId,
   });
+  await protectPublicationMedia(tx, [...input.media, ...input.sections]);
   await tx.insert(websiteMedia).values(mediaValues(id, input));
   await tx.insert(websiteSections).values(sectionValues(id, input));
   return { id, slug: input.slug };
@@ -250,7 +252,8 @@ export async function createAdminWebsite(
       createdBy: adminPrincipal.userId,
       updatedBy: adminPrincipal.userId,
     });
-    await tx.insert(websiteMedia).values(mediaValues(id, input));
+    await protectPublicationMedia(tx, [...input.media, ...input.sections]);
+  await tx.insert(websiteMedia).values(mediaValues(id, input));
     await tx.insert(websiteSections).values(sectionValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
@@ -327,7 +330,8 @@ export async function updateAdminWebsite(
       updatedAt: now,
     }).where(eq(websites.id, id));
     await tx.delete(websiteMedia).where(eq(websiteMedia.websiteId, id));
-    await tx.insert(websiteMedia).values(mediaValues(id, input));
+    await protectPublicationMedia(tx, [...input.media, ...input.sections]);
+  await tx.insert(websiteMedia).values(mediaValues(id, input));
     await tx.delete(websiteSections).where(eq(websiteSections.websiteId, id));
     await tx.insert(websiteSections).values(sectionValues(id, input));
     await tx.insert(adminAuditLogs).values({

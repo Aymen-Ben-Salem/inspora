@@ -51,6 +51,7 @@ export function PostEditor({
   actionLabel,
   cancelHref = "/admin/posts",
   publicationOnly = false,
+  submittedMediaHref,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorRecord[];
@@ -60,6 +61,7 @@ export function PostEditor({
   actionLabel?: string;
   cancelHref?: Route;
   publicationOnly?: boolean;
+  submittedMediaHref?: string;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [media, setMedia] = useState<MediaDraft[]>(
@@ -234,13 +236,16 @@ export function PostEditor({
                       </button>
                     </div>
                   </div>
+                  {item.url === submittedMediaHref ? (
+                    <p className="text-sm text-[#666]">Submitted file attached. It will be prepared automatically when you accept and publish.</p>
+                  ) : null}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className={labelClass}>
                       Type
                       <select
                         className={inputClass}
                         value={item.type}
-                        disabled={Boolean(item.storageProvider)}
+                        disabled={Boolean(item.storageProvider) || item.url === submittedMediaHref}
                         onChange={(event) => updateMedia(index, "type", event.target.value)}
                       >
                         <option value="image">Image</option>
@@ -285,7 +290,9 @@ export function PostEditor({
                         type="number"
                         min={1}
                         max={12000}
-                        value={item.width}
+                        value={item.url === submittedMediaHref ? "" : item.width}
+                    disabled={item.url === submittedMediaHref}
+                    placeholder="Automatic"
                         onChange={(event) => updateMedia(index, "width", event.target.value)}
                       />
                     </label>
@@ -296,7 +303,9 @@ export function PostEditor({
                         type="number"
                         min={1}
                         max={12000}
-                        value={item.height}
+                        value={item.url === submittedMediaHref ? "" : item.height}
+                    disabled={item.url === submittedMediaHref}
+                    placeholder="Automatic"
                         onChange={(event) => updateMedia(index, "height", event.target.value)}
                       />
                     </label>

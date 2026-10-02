@@ -1,4 +1,5 @@
 import "server-only";
+import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
 
@@ -116,6 +117,7 @@ export async function insertAdminLogoInTransaction(
     createdBy: actorId,
     updatedBy: actorId,
   });
+  await protectPublicationMedia(tx, [input.media]);
   await tx.insert(logoMedia).values(mediaValues(id, input));
   return { id, slug: input.slug };
 }
@@ -219,7 +221,8 @@ export async function createAdminLogo(
       createdBy: adminPrincipal.userId,
       updatedBy: adminPrincipal.userId,
     });
-    await tx.insert(logoMedia).values(mediaValues(id, input));
+    await protectPublicationMedia(tx, [input.media]);
+  await tx.insert(logoMedia).values(mediaValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "logo.created",
@@ -285,7 +288,8 @@ export async function updateAdminLogo(
       })
       .where(eq(logos.id, id));
     await tx.delete(logoMedia).where(eq(logoMedia.logoId, id));
-    await tx.insert(logoMedia).values(mediaValues(id, input));
+    await protectPublicationMedia(tx, [input.media]);
+  await tx.insert(logoMedia).values(mediaValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "logo.updated",

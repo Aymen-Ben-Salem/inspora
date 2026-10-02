@@ -42,6 +42,7 @@ export function LogoEditor({
   actionLabel,
   cancelHref = "/admin/logos",
   publicationOnly = false,
+  submittedMediaHref,
 }: {
   action: (
     state: AdminActionState,
@@ -53,6 +54,7 @@ export function LogoEditor({
   actionLabel?: string;
   cancelHref?: Route;
   publicationOnly?: boolean;
+  submittedMediaHref?: string;
 }) {
   const [state, formAction, isPending] = useActionState(
     action,
@@ -271,6 +273,9 @@ export function LogoEditor({
               )}
             </div>
             <div className="grid gap-4 p-5">
+              {media.url === submittedMediaHref ? (
+                <p className="text-sm text-[#666]">Submitted file attached. It will be prepared automatically when you accept and publish.</p>
+              ) : null}
               <MediaUploadButton
                 kind="logo-media"
                 label="Upload logo"
@@ -305,7 +310,9 @@ export function LogoEditor({
                     min={1}
                     max={12000}
                     required
-                    value={media.width}
+                    value={media.url === submittedMediaHref ? "" : media.width}
+                    disabled={media.url === submittedMediaHref}
+                    placeholder="Automatic"
                     onChange={(event) =>
                       updateMedia("width", event.target.value)
                     }
@@ -319,7 +326,9 @@ export function LogoEditor({
                     min={1}
                     max={12000}
                     required
-                    value={media.height}
+                    value={media.url === submittedMediaHref ? "" : media.height}
+                    disabled={media.url === submittedMediaHref}
+                    placeholder="Automatic"
                     onChange={(event) =>
                       updateMedia("height", event.target.value)
                     }

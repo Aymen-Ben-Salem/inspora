@@ -1,4 +1,5 @@
 import "server-only";
+import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
 
@@ -173,6 +174,7 @@ export async function insertAdminPostInTransaction(
     createdBy: actorId,
     updatedBy: actorId,
   });
+  await protectPublicationMedia(tx, input.media);
   await tx.insert(postMedia).values(mediaValues(id, input));
   return { id, slug: input.slug };
 }
@@ -224,7 +226,8 @@ export async function createAdminPost(
       createdBy: adminPrincipal.userId,
       updatedBy: adminPrincipal.userId,
     });
-    await tx.insert(postMedia).values(mediaValues(id, input));
+    await protectPublicationMedia(tx, input.media);
+  await tx.insert(postMedia).values(mediaValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "post.created",
@@ -288,7 +291,8 @@ export async function updateAdminPost(
       })
       .where(eq(posts.id, id));
     await tx.delete(postMedia).where(eq(postMedia.postId, id));
-    await tx.insert(postMedia).values(mediaValues(id, input));
+    await protectPublicationMedia(tx, input.media);
+  await tx.insert(postMedia).values(mediaValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "post.updated",

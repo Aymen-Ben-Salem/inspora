@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), ensure: vi.fn(), update: vi.fn(), avatar: vi.fn(), verify: vi.fn(), sign: vi.fn(), deleteKeys: vi.fn(), deleteAssets: vi.fn(), revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), deletion: vi.fn(), reverification: vi.fn(), ensure: vi.fn(), update: vi.fn(), avatar: vi.fn(), verify: vi.fn(), sign: vi.fn(), deleteKeys: vi.fn(), deleteAssets: vi.fn(), revalidateTag: vi.fn(), revalidatePath: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth, reverificationError: vi.fn() }));
+vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth, reverificationError: mocks.reverification }));
 vi.mock("next/cache", () => ({
   revalidateTag: mocks.revalidateTag, revalidatePath: mocks.revalidatePath,
   updateTag: () => { throw new Error("updateTag can only be called from within a Server Action."); },
@@ -29,9 +29,9 @@ vi.mock("@/storage/r2", async (importOriginal) => ({
   deleteR2MediaAssets: mocks.deleteAssets,
   deleteR2StorageKeys: mocks.deleteKeys,
 }));
-vi.mock("./account-lifecycle", () => ({}));
+vi.mock("./account-lifecycle", () => ({ requestAccountDeletion: mocks.deletion }));
 
-import { updateOwnProfile, completeOwnAvatarUpload, discardOwnAvatarUpload, createOwnAvatarUploadSignature } from "./actions";
+import { requestOwnAccountDeletion, updateOwnProfile, completeOwnAvatarUpload, discardOwnAvatarUpload, createOwnAvatarUploadSignature } from "./actions";
 import { ProfileMutationError } from "@/features/creators/identity";
 
 beforeEach(() => {
@@ -174,4 +174,16 @@ it("does not sign an upload when owner entry rejects an inactive account", async
   mocks.ensure.mockRejectedValue(new Error("This account is not active."));
   expect(await createOwnAvatarUploadSignature(avatarInput)).toMatchObject({ ok: false });
   expect(mocks.sign).not.toHaveBeenCalled();
+});
+
+
+it("requires strict reverification before immediate account deletion", async () => {
+  mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => false });
+  mocks.reverification.mockReturnValue({ reverificationRequired: true });
+  expect(await requestOwnAccountDeletion()).toEqual({ reverificationRequired: true });
+  expect(mocks.deletion).not.toHaveBeenCalled();
+  mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => true });
+  mocks.deletion.mockResolvedValue({ ok: true, value: { jobId: "job", state: "pending" } });
+  expect(await requestOwnAccountDeletion()).toMatchObject({ ok: true, value: { state: "pending" } });
+  expect(mocks.deletion).toHaveBeenCalledWith("trusted-owner");
 });

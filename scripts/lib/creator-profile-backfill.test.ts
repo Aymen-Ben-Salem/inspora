@@ -7,6 +7,13 @@ const creator = (id: string, values: Partial<BackfillCreator> = {}): BackfillCre
 });
 
 describe("legacy creator public profile initialization", () => {
+  it("bounds allocation to selected IDs while reserving every existing route", () => {
+    const rows = [creator('a'), creator('b'), creator('c', {username:'ada_lovelace'})];
+    expect(planCreatorProfileBackfill(rows, [], {environment:'rehearsal',creatorIds:new Set(['b'])})).toEqual([
+      {creatorId:'b',username:'ada_lovelace_2',updateUsername:true,insertAlias:true},
+    ]);
+    expect(() => planCreatorProfileBackfill(rows, [], {environment:'production',creatorIds:new Set(['missing'])})).toThrow(/scope/);
+  });
   it("assigns a route to a legacy creator using the existing handle rules", () => {
     expect(planCreatorProfileBackfill([creator("a", { handle: "@Ada" })], [])).toEqual([
       { creatorId: "a", username: "ada", updateUsername: true, insertAlias: true },

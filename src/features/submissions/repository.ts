@@ -9,6 +9,7 @@ import { withWriteTransaction, type WriteTx } from "../../db/write-client";
 import { getDatabase } from "../../db/client";
 
 import { SUBMISSION_LIMIT } from "./quota";
+import { enqueueCleanup } from "./cleanup-jobs";
 import type {
   QuotaSnapshot,
   SubmissionKind,
@@ -410,6 +411,10 @@ function createDrizzleSubmissionTransaction(tx: WriteTx): SubmissionTransaction 
     async discardUpload(ownerUserId, uploadId) {
       const [row] = await tx.update(submissionUploads).set({ state: "discarded", discardedAt: new Date(), updatedAt: new Date() })
         .where(and(eq(submissionUploads.ownerUserId, ownerUserId), eq(submissionUploads.id, uploadId), inArray(submissionUploads.state, ["pending", "completed"]), isNull(submissionUploads.attachedSubmissionId))).returning({ id: submissionUploads.id });
+      if (row) await enqueueCleanup(tx, {
+        kind: "delete_private_upload", targetId: uploadId,
+        idempotencyKey: `private-upload:${uploadId}`, notBefore: new Date().toISOString(),
+      });
       return Boolean(row);
     },
   };

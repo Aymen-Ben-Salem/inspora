@@ -1,4 +1,5 @@
 import "server-only";
+import { attemptCleanupKey } from "./cleanup";
 
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
@@ -14,7 +15,8 @@ import {
   submissions,
 } from "../../db/schema";
 import { withWriteTransaction, type WriteTx } from "../../db/write-client";
-import { getR2PublicUrl, isStorageKeyForKind } from "../../storage/r2";
+import { assertR2StorageKeysExist, getR2PublicUrl, isStorageKeyForKind } from "../../storage/r2";
+import { lockPublicationAssets, publicationAssetKeys } from "./publication-assets";
 import type { ManagedMediaAsset } from "../../storage/types";
 import {
   enforceReviewedPublication,
@@ -135,7 +137,7 @@ export function createReviewService(dependencies: ReviewServiceDependencies) {
         prepared = await dependencies.preparePublication(submissionId, input, actorId);
       } catch (error) {
         console.error("Review publication preparation failed", error);
-        return failure("unavailable", "The public media could not be prepared. Try again.");
+        return failure("unavailable", "The public media could not be verified. Reload the submitted source or re-upload replacement media, then try again.");
       }
 
       try {
@@ -218,7 +220,7 @@ export function createReviewService(dependencies: ReviewServiceDependencies) {
           }
         }
         console.error("Submission acceptance failed", error);
-        return failure("unavailable", "The submission could not be published. Try again.");
+        return failure("unavailable", "The submission could not be published. Unused prepared files are cleaned up. Reload the submitted source or re-upload replacement media before retrying.");
       }
     },
 
@@ -601,12 +603,17 @@ function createDrizzleReviewTransaction(tx: WriteTx): ReviewTransaction {
         .from(submissionPublicationAttempts)
         .where(eq(submissionPublicationAttempts.id, attemptId));
       if (!current) throw new Error("The publication attempt is unavailable.");
+      await lockPublicationAssets(tx, current.assets);
+      const [claim] = await tx.select({ status: submissionPublicationAttempts.status }).from(submissionPublicationAttempts)
+        .where(eq(submissionPublicationAttempts.id, attemptId)).for("update");
+      if (claim?.status !== "prepared") throw new Error("The publication attempt is no longer available. Prepare the media again.");
+      await assertR2StorageKeysExist(publicationAssetKeys(current.assets));
       const matching = await tx
         .select({ id: submissionPublicationAttempts.id })
         .from(submissionPublicationAttempts)
         .where(and(
           eq(submissionPublicationAttempts.submissionId, current.submissionId),
-          inArray(submissionPublicationAttempts.status, ["prepared", "cleanup"]),
+          eq(submissionPublicationAttempts.status, "prepared"),
           sql`${submissionPublicationAttempts.assets} = ${JSON.stringify(current.assets)}::jsonb`,
         ));
       const matchingIds = matching.map((attempt) => attempt.id);
@@ -644,6 +651,8 @@ const productionReviewService = createReviewService({
     const reviewed = enforceReviewedPublication(input);
     const assets = collectReviewedPublicationAssets(reviewed, getR2PublicUrl);
     return withWriteTransaction(async (tx) => {
+      await lockPublicationAssets(tx, assets);
+      await assertR2StorageKeysExist(publicationAssetKeys(assets));
       const [attempt] = await tx
         .insert(submissionPublicationAttempts)
         .values({ submissionId, actorId, assets })
@@ -659,6 +668,7 @@ const productionReviewService = createReviewService({
         .from(submissionPublicationAttempts)
         .where(eq(submissionPublicationAttempts.id, attemptId));
       if (!current || current.status !== "prepared") return;
+      await lockPublicationAssets(tx, current.assets);
       const [attached] = await tx
         .select()
         .from(submissionPublicationAttempts)
@@ -678,7 +688,7 @@ const productionReviewService = createReviewService({
             publishedHref: attached.publishedHref,
             updatedAt: new Date(),
           })
-          .where(eq(submissionPublicationAttempts.id, attemptId));
+          .where(and(eq(submissionPublicationAttempts.id, attemptId), eq(submissionPublicationAttempts.status, "prepared")));
         await tx
           .delete(cleanupJobs)
           .where(eq(cleanupJobs.targetId, attemptId));
@@ -700,6 +710,7 @@ const productionReviewService = createReviewService({
         notBefore: new Date().toISOString(),
       });
     });
+    await attemptCleanupKey(`publication-attempt:${attemptId}`);
   },
   transaction: (work) =>
     withWriteTransaction((tx) => work(createDrizzleReviewTransaction(tx))),

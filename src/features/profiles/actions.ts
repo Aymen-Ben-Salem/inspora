@@ -164,5 +164,5 @@ export async function getOwnAccountDeletionStatus() {
     deletionError: profileAccounts.deletionError,
   }).from(profileAccounts).where(eq(profileAccounts.userId, userId)).limit(1);
   if (!account || account.status === "active") return { state: "active" as const, error: null };
-  return { state: "deleting" as const, error: account.deletionError };
+  return { state: "deleting" as const, error: account.deletionError ? "An admin can retry the pending cleanup." : null };
 }

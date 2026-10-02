@@ -13,6 +13,8 @@ import {
   type AdminPostRecord,
   type AdminWebsiteRecord,
 } from "../../features/admin/types";
+import { submissionMediaDraft, prepareSubmissionMedia } from "../../features/admin/submission-media";
+import { prepareAndUploadMedia } from "../../features/media/prepare-and-upload";
 import { LogoEditor } from "./logo-editor";
 import { PostEditor } from "./post-editor";
 import { WebsiteEditor } from "./website-editor";
@@ -44,7 +46,7 @@ function postDraft(
     sourceUrl: submission.sourceUrl ?? "",
     isFeatured: false,
     status: "draft",
-    media: [],
+    media: submissionMediaDraft(submission) ? [submissionMediaDraft(submission)!] : [],
     createdAt: submission.createdAt,
     updatedAt: submission.createdAt,
   };
@@ -67,7 +69,7 @@ function logoDraft(
     shape: submission.kind === "app-icon" ? "Square" : "",
     sourceUrl: submission.sourceUrl ?? "",
     status: "draft",
-    media: { url: "", alt: "", width: 1080, height: 659 },
+    media: submissionMediaDraft(submission) ?? { url: "", alt: "", width: 1080, height: 659 },
     createdAt: submission.createdAt,
     updatedAt: submission.createdAt,
   };
@@ -146,6 +148,15 @@ export function SubmissionReview({
   acceptAction: ReviewAction;
   rejectAction: ReviewAction;
 }) {
+  async function acceptWithSubmittedMedia(state: AdminActionState, formData: FormData) {
+    try {
+      await prepareSubmissionMedia(submission, formData, prepareAndUploadMedia);
+    } catch (error) {
+      return { status: "error" as const, message: error instanceof Error ? error.message : "The submitted file could not be prepared. Try again." };
+    }
+    return acceptAction(state, formData);
+  }
+
   const submittedAt = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -205,11 +216,11 @@ export function SubmissionReview({
       {submission.status === "in_review" ? (
         <>
           {submission.kind === "design" ? (
-            <PostEditor categories={categories} action={acceptAction} creators={creators} post={postDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <PostEditor submittedMediaHref={submission.mediaHref ?? undefined} categories={categories} action={acceptWithSubmittedMedia} creators={creators} post={postDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : submission.kind === "website" ? (
-            <WebsiteEditor action={acceptAction} creators={creators} website={websiteDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <WebsiteEditor action={acceptWithSubmittedMedia} creators={creators} website={websiteDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : (
-            <LogoEditor action={acceptAction} creators={creators} logo={logoDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <LogoEditor submittedMediaHref={submission.mediaHref ?? undefined} action={acceptWithSubmittedMedia} creators={creators} logo={logoDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           )}
           <RejectForm action={rejectAction} />
         </>

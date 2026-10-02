@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { renderSitemap } from "./sitemap";
 
 describe("renderSitemap", () => {
+  it('includes canonical creator profiles once alongside archives and designs',()=>{
+    const xml=renderSitemap(['first-project'],['cabralorenzo','cabralorenzo']);
+    expect(xml.match(/<loc>https:\/\/www.inspora.design\/creators\/cabralorenzo<\/loc>/g)).toHaveLength(1);
+    expect(xml).not.toContain('r2.dev');
+  });
   it("renders the canonical homepage, logos page, info page, and post URLs", () => {
     const xml = renderSitemap(["first-project", "second-project"]);
 

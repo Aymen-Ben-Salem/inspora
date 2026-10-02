@@ -70,11 +70,12 @@ describe("profile cleanup", () => {
       completedJobs: 1,
       retryableFailures: 1,
     });
-    expect(completeJob).toHaveBeenCalledWith("job-1");
+    expect(completeJob).toHaveBeenCalledWith("job-1", undefined);
     expect(retryJob).toHaveBeenCalledWith(
       "job-2",
       new Date(now.getTime() + retryDelayMilliseconds(3)),
-      "R2 unavailable",
+      "Cleanup could not finish. An admin can retry it from Cleanup.",
+      undefined,
     );
   });
 
@@ -110,7 +111,7 @@ describe("profile cleanup", () => {
       isMissing: () => false,
     });
     await expect(failing("user-1")).rejects.toThrow("Clerk unavailable");
-    expect(recordFailure).toHaveBeenCalledWith("user-1", "Clerk unavailable");
+    expect(recordFailure).toHaveBeenCalledWith("user-1", "Cleanup could not finish. An admin can retry it from Cleanup.");
     expect(finalize).not.toHaveBeenCalled();
 
     const missing = createAccountDeletionFinalizer({

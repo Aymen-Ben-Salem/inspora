@@ -10,7 +10,8 @@ export type FingerprintedEnvironment = {
 };
 
 export type EnvironmentFingerprint = {
-  dataEnvironment: "development" | "preview";
+  dataEnvironment: "development" | "preview" | "rehearsal";
+  databaseNameSha256?: string;
   neonEndpointSha256: string;
   r2BucketSha256: string;
   publicMediaHostSha256: string;
@@ -56,6 +57,15 @@ export const APPROVED_ENVIRONMENT_FINGERPRINTS = {
       "211d9ee9927fc3b75275b927e5d19defe7933348be302ec3479a1ee39e9fb8f5",
   },
 } as const satisfies Record<"development" | "preview", EnvironmentFingerprint>;
+
+export const APPROVED_REHEARSAL_FINGERPRINT: EnvironmentFingerprint = {
+  dataEnvironment: 'rehearsal',
+  neonEndpointSha256: '41216fa6801e563d2e658d1a0ceaaf96f2848e74984a1533d852eec485f75918',
+  databaseNameSha256: sha256('/phase3_production_restore'),
+  r2BucketSha256: sha256('inspora-media-rehearsal-20260929'),
+  publicMediaHostSha256: sha256('pub-7fe6254d6647460f89db9822e4fa619a.r2.dev'),
+  privateSubmissionsBucketSha256: sha256('inspora-submissions-rehearsal-20260929'),
+};
 
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -133,6 +143,11 @@ export function assertEnvironmentFingerprint(
     throw new Error("Neon endpoint fingerprint does not match the approved destination.");
   }
   assertHash("Neon endpoint", pooledEndpoint, expected.neonEndpointSha256);
+  if(expected.databaseNameSha256){
+    for(const url of [environment.databaseUrl,environment.databaseUrlUnpooled]){
+      assertHash('Neon database',new URL(url).pathname,expected.databaseNameSha256);
+    }
+  }
   assertHash("R2 bucket", environment.r2BucketName.trim(), expected.r2BucketSha256);
   assertHash(
     "Public media host",
@@ -157,8 +172,13 @@ export function assertDataOperationEnvironment(
     >;
     nodeEnvironment?: string;
     vercelEnvironment?: string;
+    approvedRehearsalFingerprint?: EnvironmentFingerprint;
   } = {},
 ) {
+  if(environment.dataEnvironment === 'rehearsal'){
+    assertEnvironmentFingerprint(environment,options.approvedRehearsalFingerprint ?? APPROVED_REHEARSAL_FINGERPRINT);
+    return;
+  }
   if (
     environment.dataEnvironment === "development" ||
     environment.dataEnvironment === "preview"

@@ -9,7 +9,7 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
-export function renderSitemap(slugs: readonly string[]) {
+export function renderSitemap(slugs: readonly string[], creatorUsernames: readonly string[] = []) {
   const entries = [
     {
       url: `${SITE_URL}/`,
@@ -31,10 +31,15 @@ export function renderSitemap(slugs: readonly string[]) {
       changeFrequency: "monthly",
       priority: "0.6",
     },
-    ...slugs.map((slug) => ({
+    ...[...new Set(slugs)].map((slug) => ({
       url: `${SITE_URL}/posts/${slug}`,
       changeFrequency: "monthly",
       priority: "0.8",
+    })),
+    ...[...new Set(creatorUsernames)].map((username) => ({
+      url: `${SITE_URL}/creators/${username}`,
+      changeFrequency: 'weekly',
+      priority: '0.7',
     })),
   ];
 

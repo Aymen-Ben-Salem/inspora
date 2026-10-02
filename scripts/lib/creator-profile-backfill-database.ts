@@ -7,7 +7,12 @@ export async function initializeCreatorProfiles(
   client: PoolClient,
   apply: boolean,
   creatorIds?: ReadonlySet<string>,
+  context: { environment: 'preview' | 'production' | 'rehearsal'; actorId: string } = {
+    environment: 'preview', actorId: 'preview-creator-profile-backfill',
+  },
 ) {
+  if (context.environment !== 'preview' && !creatorIds) throw new Error('Creator backfill requires bounded release IDs.');
+  if (!context.actorId.trim() || !['preview','production','rehearsal'].includes(context.environment)) throw new Error('Creator backfill audit context is invalid.');
   if (apply) {
     await client.query("LOCK TABLE creators, creator_username_aliases IN SHARE ROW EXCLUSIVE MODE");
   }
@@ -23,7 +28,8 @@ export async function initializeCreatorProfiles(
   };
   const before = await read();
   const inScope = (row: { creatorId: string }) => !creatorIds || creatorIds.has(row.creatorId);
-  const plan = planCreatorProfileBackfill(before.creators, before.aliases).filter(inScope);
+  const options = { environment: context.environment, creatorIds };
+  const plan = planCreatorProfileBackfill(before.creators, before.aliases, options);
   if (apply && plan.length) {
     const payload = JSON.stringify(plan);
     const changed = await client.query(`
@@ -43,12 +49,12 @@ export async function initializeCreatorProfiles(
     `, [payload]);
     await client.query(`
       insert into admin_audit_logs (actor_id, action, resource_type, resource_id, details)
-      select 'preview-creator-profile-backfill', 'creator.profile_initialized', 'creator',
-        p."creatorId", jsonb_build_object('username', p.username, 'environment', 'preview')
+      select $2, 'creator.profile_initialized', 'creator',
+        p."creatorId", jsonb_build_object('username', p.username, 'environment', $3::text)
       from jsonb_to_recordset($1::jsonb) as p("creatorId" uuid, username text)
-    `, [payload]);
+    `, [payload, context.actorId, context.environment]);
     const after = await read();
-    if (planCreatorProfileBackfill(after.creators, after.aliases).some(inScope)) {
+    if (planCreatorProfileBackfill(after.creators, after.aliases, options).some(inScope)) {
       throw new Error("Creator backfill is incomplete; transaction must roll back.");
     }
   }

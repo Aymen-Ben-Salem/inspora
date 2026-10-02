@@ -70,7 +70,7 @@ export function ProfileSettings({ onEdit }: { onEdit: () => void }) {
         </div>
         {deletionState === "deleting" ? (
           <div role="status" className="text-xs text-[#767676]">
-            {deletionError ? `Deletion needs another retry: ${deletionError}` : "Deletion is pending. Cleanup retries automatically if a provider is unavailable."}
+            Deletion has been requested but has not finished. An admin can see the pending cleanup and retry it. Published work and creator credit remain.
           </div>
         ) : confirmingDeletion ? (
           <div className="grid w-full gap-3">
@@ -89,11 +89,19 @@ export function ProfileSettings({ onEdit }: { onEdit: () => void }) {
                       setDeletionError(result.message);
                       return;
                     }
+                    if (result.value.state === "completed") {
+                      // Clerk has already removed the account and revoked its sessions.
+                      window.location.assign("/");
+                      return;
+                    }
                     setDeletionState("deleting");
                     setConfirmingDeletion(false);
                   } catch (requestError) {
                     if (!isReverificationCancelledError(requestError)) {
-                      setDeletionError("Account deletion could not be started. Try again.");
+                      setDeletionError("The deletion result could not be confirmed. Refresh to check its status before trying again. If deletion started, an admin can finish any pending cleanup.");
+                      const status = await getOwnAccountDeletionStatus().catch(() => null);
+                      if (status?.state === "deleting") setDeletionState("deleting");
+                      if (status?.state === "signed_out") window.location.assign("/");
                     }
                   }
                 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import {createHash} from 'node:crypto';
 
 import {
   assertDataOperationEnvironment,
@@ -32,6 +33,13 @@ const safeEnvironment: FingerprintedEnvironment = {
 };
 
 describe("environment fingerprints", () => {
+  it('registers rehearsal honestly and rejects another database on the same branch',()=>{
+    const digest=(v:string)=>createHash('sha256').update(v).digest('hex');
+    const rehearsal={...safeEnvironment,dataEnvironment:'rehearsal',databaseUrl:safeEnvironment.databaseUrl.replace('/neondb','/phase3_production_restore'),databaseUrlUnpooled:safeEnvironment.databaseUrlUnpooled.replace('/neondb','/phase3_production_restore')};
+    const fingerprint={...approved,dataEnvironment:'rehearsal' as const,databaseNameSha256:digest('/phase3_production_restore')};
+    expect(()=>assertDataOperationEnvironment(rehearsal,{approvedRehearsalFingerprint:fingerprint})).not.toThrow();
+    expect(()=>assertDataOperationEnvironment({...rehearsal,databaseUrl:safeEnvironment.databaseUrl},{approvedRehearsalFingerprint:fingerprint})).toThrow(/database/i);
+  });
   it("uses the pooled Neon URL when runtime configuration omits the direct URL", () => {
     const environment = runtimeDataEnvironmentFromValues({
       DATA_ENVIRONMENT: "development",

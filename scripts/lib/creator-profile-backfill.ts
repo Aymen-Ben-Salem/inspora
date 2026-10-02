@@ -21,7 +21,11 @@ export type CreatorProfileInitialization = {
 export function planCreatorProfileBackfill(
   creators: readonly BackfillCreator[],
   aliases: readonly BackfillAlias[],
+  options: {environment?: 'preview' | 'production' | 'rehearsal'; creatorIds?: ReadonlySet<string>} = {},
 ): CreatorProfileInitialization[] {
+  if (options.creatorIds && [...options.creatorIds].some(id => !creators.some(row => row.id === id))) {
+    throw new Error('Creator backfill scope contains an unknown creator.');
+  }
   const reservations = new Map<string, Set<string>>();
   const reserve = (username: string, id: string) => {
     const key = username.toLowerCase();
@@ -34,8 +38,9 @@ export function planCreatorProfileBackfill(
 
   const result: CreatorProfileInitialization[] = [];
   for (const row of [...creators].sort((a, b) => a.id.localeCompare(b.id))) {
+    if (options.creatorIds && !options.creatorIds.has(row.id)) continue;
     if (row.ownerUserId || row.xProviderId || row.recordOrigin === "user" ||
-        row.recordOrigin === "development" || !isCreatorVisibleInEnvironment(row.handle, "preview")) continue;
+        row.recordOrigin === "development" || !isCreatorVisibleInEnvironment(row.handle, options.environment ?? "preview")) continue;
     const ownAliases = aliases.filter((alias) => alias.creatorId === row.id);
     const current = ownAliases.filter((alias) => alias.isCurrent);
     const conflict = () => new Error(`Profile alias conflict for creator ${row.id}; no changes applied.`);

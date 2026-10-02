@@ -11,6 +11,7 @@ import {
 } from "../../db/schema";
 import { withWriteTransaction } from "../../db/write-client";
 import type { SubmissionResult } from "../submissions/types";
+import { attemptCleanupJob, attemptCleanupKey } from "../submissions/cleanup";
 
 type DeletionRequest = { jobId: string; state: "pending" };
 
@@ -136,10 +137,15 @@ const productionWebhookDeletionStore: WebhookDeletionStore = {
   },
 };
 
-export function requestAccountDeletion(userId: string) {
-  return requestAccountDeletionWithStore(productionAccountDeletionStore, userId);
+export async function requestAccountDeletion(userId: string) {
+  const result = await requestAccountDeletionWithStore(productionAccountDeletionStore, userId);
+  if (!result.ok) return result;
+  const state = await attemptCleanupJob(result.value.jobId);
+  return { ok: true as const, value: { ...result.value, state } };
 }
 
-export function requestWebhookAccountDeletion(input: { eventId: string; userId: string }) {
-  return requestWebhookAccountDeletionWithStore(productionWebhookDeletionStore, input);
+export async function requestWebhookAccountDeletion(input: { eventId: string; userId: string }) {
+  const result = await requestWebhookAccountDeletionWithStore(productionWebhookDeletionStore, input);
+  if (result.state !== "missing") await attemptCleanupKey(accountCleanupKey(input.userId));
+  return result;
 }

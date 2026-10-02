@@ -6,6 +6,7 @@ const transaction = {
 };
 
 vi.mock("server-only", () => ({}));
+vi.mock("../submissions/publication-assets", () => ({ protectPublicationMedia: vi.fn() }));
 vi.mock("@/features/creators/identity", () => ({
   saveAdminCreatorForAttribution: external.saveCreator,
 }));

@@ -9,7 +9,7 @@ import type {
   CreatorSummary,
   PublicCreatorProfile,
 } from "../types";
-import { creatorUsernameCandidates } from "../validation";
+import { creatorUsernameCandidates, normalizeXProfileUrl } from "../validation";
 
 type CreatorRow = typeof creators.$inferSelect;
 type PublicCreatorSource = Pick<CreatorRow,
@@ -21,6 +21,14 @@ function isStorageProvider(value: string | null) {
 }
 
 function mapCreatorDisplayFields(row: PublicCreatorSource): Omit<CreatorSummary, "username"> {
+  let legacyXProfileUrl: string | null = null;
+  if (row.url) {
+    try {
+      legacyXProfileUrl = normalizeXProfileUrl(row.url);
+    } catch {
+      // Non-X URLs remain creator websites.
+    }
+  }
   return {
     id: row.id,
     name: row.name,
@@ -28,8 +36,8 @@ function mapCreatorDisplayFields(row: PublicCreatorSource): Omit<CreatorSummary,
     avatarStorageProvider: isStorageProvider(row.avatarStorageProvider)
       ? (row.avatarStorageProvider as NonNullable<CreatorSummary["avatarStorageProvider"]>)
       : undefined,
-    websiteUrl: row.url,
-    xProfileUrl: row.xProfileUrl,
+    websiteUrl: legacyXProfileUrl ? null : row.url,
+    xProfileUrl: row.xProfileUrl ?? legacyXProfileUrl,
   };
 }
 

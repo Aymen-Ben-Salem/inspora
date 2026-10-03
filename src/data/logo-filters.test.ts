@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Logo } from "../domain/logo";
-import { matchesLogoFilters, type LogoFilters } from "./logo-filters";
+import { getLogoFilterOptions, matchesLogoFilters, type LogoFilters } from "./logo-filters";
 
 const paper: Logo = {
   id: "logo-1",
@@ -43,6 +43,16 @@ function filters(overrides: Partial<LogoFilters> = {}): LogoFilters {
 }
 
 describe("logo filters", () => {
+  it("splits industry and shape options and counts each logo once", () => {
+    const logo = { ...paper, industry: "SaaS, Technology, SaaS, ", shape: "Abstract, Star" };
+    const options = getLogoFilterOptions([logo, { ...paper, kind: "icon" }], "logo");
+    expect(options.industries).toEqual([{ value: "SaaS", count: 1 }, { value: "Technology", count: 1 }]);
+    expect(options.shapes).toEqual([{ value: "Abstract", count: 1 }, { value: "Star", count: 1 }]);
+    expect(matchesLogoFilters(logo, filters({ industries: ["technology"], shapes: ["star"] }))).toBe(true);
+    expect(matchesLogoFilters(logo, filters({ industries: ["SaaS", "Technology"], shapes: ["Abstract", "Star"] }))).toBe(true);
+    expect(matchesLogoFilters(logo, filters({ shapes: ["Circle"] }))).toBe(false);
+    expect(matchesLogoFilters(paper, filters({ shapes: ["Symbol & text"] }))).toBe(true);
+  });
   it("matches searchable descriptive fields", () => {
     expect(matchesLogoFilters(paper, filters({ query: "nero" }))).toBe(true);
     expect(matchesLogoFilters(paper, filters({ query: "geometric" }))).toBe(false);

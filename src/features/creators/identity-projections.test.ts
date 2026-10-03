@@ -10,6 +10,8 @@ import type {
 import {
   mapAdminCreatorAttribution,
   mapAdminCreatorRecord,
+  mapPublicCreatorProfile,
+  mapCreatorSummary,
 } from "./identity/projections";
 
 const row = {
@@ -29,6 +31,16 @@ const row = {
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-02T00:00:00.000Z"),
 } as typeof creators.$inferSelect;
+
+it.each([mapPublicCreatorProfile, mapCreatorSummary])("separates legacy X links from creator websites", (map) => {
+  expect(map({ ...row, url: "https://twitter.com/studio_one", xProfileUrl: null }))
+    .toMatchObject({ websiteUrl: null, xProfileUrl: "https://x.com/studio_one" });
+  expect(map({ ...row, url: row.xProfileUrl }))
+    .toMatchObject({ websiteUrl: null, xProfileUrl: row.xProfileUrl });
+  expect(map(row)).toMatchObject({ websiteUrl: row.url, xProfileUrl: row.xProfileUrl });
+  expect(map({ ...row, xProfileUrl: null })).toMatchObject({ websiteUrl: row.url, xProfileUrl: null });
+  expect(map({ ...row, url: null, xProfileUrl: null })).toMatchObject({ websiteUrl: null, xProfileUrl: null });
+});
 
 it("keeps unmeasured totals out of embedded creator attribution", () => {
   const attribution = mapAdminCreatorAttribution(row);

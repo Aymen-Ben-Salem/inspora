@@ -14,6 +14,28 @@ function includesEvery(values: string[], selected: string[]) {
   return selected.every((value) => normalized.has(value.toLowerCase()));
 }
 
+function splitValues(value: string) {
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+export function getLogoFilterOptions(logos: Logo[], kind: LogoKind) {
+  const source = logos.filter((logo) => logo.kind === kind);
+  const withCounts = (valuesFor: (logo: Logo) => string[]) => {
+    const values = [...new Set(source.flatMap(valuesFor).filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right));
+    return values.map((value) => ({
+      value,
+      count: source.filter((logo) => valuesFor(logo).includes(value)).length,
+    }));
+  };
+  return {
+    colors: withCounts((logo) => logo.colors),
+    industries: withCounts((logo) => splitValues(logo.industry)),
+    styles: withCounts((logo) => logo.styles),
+    shapes: withCounts((logo) => splitValues(logo.shape)),
+  };
+}
+
 export function matchesLogoFilters(logo: Logo, filters: LogoFilters) {
   if (logo.kind !== filters.kind) return false;
   if (
@@ -24,7 +46,7 @@ export function matchesLogoFilters(logo: Logo, filters: LogoFilters) {
   }
   if (
     filters.industries.length > 0 &&
-    !includesEvery([logo.industry], filters.industries)
+    !includesEvery(splitValues(logo.industry), filters.industries)
   ) {
     return false;
   }
@@ -36,7 +58,7 @@ export function matchesLogoFilters(logo: Logo, filters: LogoFilters) {
   }
   if (
     filters.shapes.length > 0 &&
-    !includesEvery([logo.shape], filters.shapes)
+    !includesEvery(splitValues(logo.shape), filters.shapes)
   ) {
     return false;
   }

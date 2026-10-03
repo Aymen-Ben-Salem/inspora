@@ -3,13 +3,11 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { Logo, LogoKind } from "@/domain/logo";
-import { matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
+import { getLogoFilterOptions, matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
 import { useArchiveDetail } from "../use-archive-detail";
 import {
   ArchiveFilterMenu,
   ArchiveSearchIcon,
-  uniqueArchiveValues,
-  type ArchiveFilterOption,
 } from "../archive-filter-menu";
 
 import { FeedMotion } from "../feed-motion";
@@ -39,36 +37,7 @@ export function LogoArchive({
   const { selectedSlug, select, close: closeLogo } = useArchiveDetail("logo");
   const selectedId = logos.find((logo) => logo.slug === selectedSlug)?.id;
 
-  const options = useMemo(() => {
-    const source = logos.filter((logo) => logo.kind === kind);
-    const withCounts = (
-      values: string[],
-      includesValue: (logo: Logo, value: string) => boolean,
-    ): ArchiveFilterOption[] =>
-      uniqueArchiveValues(values).map((value) => ({
-        value,
-        count: source.filter((logo) => includesValue(logo, value)).length,
-      }));
-
-    return {
-      colors: withCounts(
-        source.flatMap((logo) => logo.colors),
-        (logo, value) => logo.colors.includes(value),
-      ),
-      industries: withCounts(
-        source.map((logo) => logo.industry),
-        (logo, value) => logo.industry === value,
-      ),
-      styles: withCounts(
-        source.flatMap((logo) => logo.styles),
-        (logo, value) => logo.styles.includes(value),
-      ),
-      shapes: withCounts(
-        source.map((logo) => logo.shape),
-        (logo, value) => logo.shape === value,
-      ),
-    };
-  }, [kind, logos]);
+  const options = useMemo(() => getLogoFilterOptions(logos, kind), [kind, logos]);
 
   const filters: LogoFilters = {
     query,

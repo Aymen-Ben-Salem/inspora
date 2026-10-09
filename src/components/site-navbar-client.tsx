@@ -51,7 +51,7 @@ export function SiteNavbarClient({
   const [contactOpen, setContactOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [overflowPreview, setOverflowPreview] = useState<
-    "contact" | "about" | null
+    "contact" | "about" | "sponsor" | null
   >(null);
   const overflowRef = useRef<HTMLDivElement>(null);
   const mobileActionRef = useRef<(() => void) | null>(null);
@@ -185,7 +185,9 @@ export function SiteNavbarClient({
                       "pointer-events-none absolute inset-x-[var(--archive-menu-padding)] top-[var(--archive-menu-padding)] h-[var(--archive-menu-item-height)] rounded-[var(--archive-menu-radius)] bg-[#f0f0f0] transition-transform duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none " +
                       (highlightedOverflowItem === "about"
                         ? "translate-y-[var(--archive-menu-item-height)]"
-                        : "translate-y-0")
+                        : highlightedOverflowItem === "sponsor"
+                          ? "translate-y-[calc(var(--archive-menu-item-height)*2)]"
+                          : "translate-y-0")
                     }
                   />
                   <button
@@ -227,7 +229,25 @@ export function SiteNavbarClient({
                   >
                     About Us
                   </Link>
-                  <Link href={"/sponsor" as Route} role="menuitem" tabIndex={overflowOpen ? 0 : -1} onClick={() => setOverflowOpen(false)} className="focus-ring relative z-10 flex min-h-11 items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] text-[#262626] hover:bg-[#f0f0f0]">Sponsor</Link>
+                  <Link
+                    href={"/sponsor" as Route}
+                    role="menuitem"
+                    tabIndex={overflowOpen ? 0 : -1}
+                    onFocus={() => setOverflowPreview("sponsor")}
+                    onMouseEnter={() => setOverflowPreview("sponsor")}
+                    onClick={() => {
+                      setOverflowOpen(false);
+                      setOverflowPreview(null);
+                    }}
+                    className={
+                      "focus-ring relative z-10 flex h-[var(--archive-menu-item-height)] w-full items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] transition-colors " +
+                      (highlightedOverflowItem === "sponsor"
+                        ? "text-[#262626]"
+                        : "text-[rgba(38,38,38,0.8)]")
+                    }
+                  >
+                    Sponsor
+                  </Link>
                 </div>
               </div>
             </nav>

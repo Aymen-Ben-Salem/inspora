@@ -1,6 +1,40 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
+
+const placements = [
+  ["feed", "A presence in our most popular design feeds.", 244],
+  [
+    "detail",
+    "Your logo stays visible in the sidebar whenever work is open.",
+    244,
+  ],
+  ["header", "Your brand appears in the header across Inspora.", 268],
+] as const;
+const features = [
+  [
+    "upload",
+    "Upload Your Ads",
+    "Upload your logo, brand icon, and the work featured in your design feed placement.",
+  ],
+  [
+    "edit",
+    "Edit Any Time",
+    "Update your logo, icon, or featured work whenever you want—changes go live instantly.",
+  ],
+  [
+    "stats",
+    "Live Stats",
+    "See views and clicks across your placements, tracked live from your dashboard.",
+  ],
+] as const;
+const benefits = [
+  "Reach designers, founders, and indie makers already searching for their next great tool.",
+  "Stay visible across Inspora with placements built into the way people naturally browse.",
+  "Put your brand alongside curated design work without interrupting the experience.",
+  "Get repeated exposure across feeds, work, and pages — not just a single ad impression.",
+];
+
 export function SponsorPage({
   availability,
   enabled,
@@ -9,107 +43,119 @@ export function SponsorPage({
   enabled: boolean;
 }) {
   const canPrepare = enabled && availability !== null && availability > 0;
-  const cta = (
-    <>
-      {canPrepare ? (
-        <Link
-          href={"/sponsor/start" as Route}
-          className="focus-ring inline-flex min-h-11 items-center rounded-md bg-[#262626] px-[18px] py-3 font-medium tracking-[0.2px] text-white shadow-[0_1px_1px_#e6e6e6]"
-        >
-          Become a sponsor
-        </Link>
-      ) : (
-        <span className="inline-flex min-h-11 items-center rounded-md bg-[#f0f0f0] px-[18px] py-3 text-[#767676]">
-          {enabled && availability === 0
-            ? "No seats available"
-            : "Preparation unavailable"}
-        </span>
-      )}
-    </>
+  const ctaClass =
+    "inline-flex min-h-[43px] items-center justify-center rounded-md px-[18px] py-3 text-base font-medium leading-[19px] tracking-[0.2px]";
+  const cta = canPrepare ? (
+    <Link
+      href={"/sponsor/start" as Route}
+      className={`${ctaClass} focus-ring bg-[#262626] text-white shadow-[0_1px_1px_#e6e6e6]`}
+    >
+      Become a sponsor
+    </Link>
+  ) : (
+    <span className={`${ctaClass} bg-[#f0f0f0] text-[#767676]`}>
+      {enabled && availability === 0
+        ? "No seats available"
+        : "Preparation unavailable"}
+    </span>
   );
   return (
-    <main className="mx-auto flex max-w-[1000px] flex-col items-center gap-20 px-4 pb-28 pt-8 text-[#262626] sm:px-6">
-      <section className="flex flex-col items-center gap-8 text-center">
+    <main className="mx-auto flex w-full max-w-[1046px] flex-col items-center gap-20 px-4 pb-5 pt-3 text-[#262626] lg:min-h-[1708px] lg:px-[45px] lg:pt-[11px]">
+      <section className="flex w-full flex-col items-center gap-8 text-center">
         <div className="flex flex-col items-center gap-4">
           <span
             role="status"
-            className="rounded-[3px] border border-[#e6e6e6] px-3 py-1 text-xs font-semibold text-[#767676]"
+            className="inline-flex items-center gap-2 rounded-[3px] border border-[#e6e6e6] px-3 py-1 text-xs font-bold leading-[normal] tracking-[-0.24px] text-[#767676]"
           >
+            {availability !== null && availability > 0 && (
+              <Image
+                src="/sponsorship/availability.svg"
+                alt=""
+                width={6}
+                height={6}
+                className="-m-px"
+              />
+            )}
             {availability === null
               ? "Seat availability unavailable"
-              : `${availability} available ${availability === 1 ? "seat" : "seats"}`}
+              : `${availability} available ${availability === 1 ? "spot" : "spots"}`}
           </span>
-          <h1 className="max-w-[438px] text-[36px] leading-[1.2] font-bold tracking-[-0.8px] sm:text-[40px]">
+          <h1 className="max-w-[438px] text-[36px] font-bold leading-[1.2] tracking-[-0.8px] sm:text-[40px]">
             Put your product on more creative radars.
           </h1>
-          <p className="max-w-[416px] text-base leading-6 tracking-[-0.32px] text-[#767676]">
-            Build visibility with creatives discovering new work and tools on
-            Inspora.
+          <p className="max-w-[416px] text-base font-medium leading-[19px] tracking-[-0.32px] text-[#767676]">
+            Boost your visibility, build credibility, and reach creatives
+            actively discovering new tools.
           </p>
         </div>
         {cta}
-        <Link
-          href={"/api/sponsorship/intent" as Route}
-          className="focus-ring text-sm text-[#767676] underline"
-        >
-          Returning sponsor? Sign in
-        </Link>
+      </section>
+      <section
+        aria-label="Audience statistics"
+        className="grid w-full max-w-[576px] grid-cols-3 gap-2 sm:gap-[18px]"
+      >
+        {["visitors / month", "page views / month", "average time on site"].map(
+          (label) => (
+            <div
+              key={label}
+              className="flex flex-col gap-1 rounded-md border border-[#e6e6e6] p-3 text-center sm:p-[15px]"
+            >
+              <span
+                className="text-[22px] font-bold leading-[27px] tracking-[0.2px]"
+                aria-label="Verified figure unavailable"
+              >
+                —
+              </span>
+              <span className="text-xs leading-[normal] tracking-[0.2px] text-[#767676]">
+                {label}
+              </span>
+            </div>
+          ),
+        )}
       </section>
       <section className="flex w-full flex-col items-center gap-6">
-        <p className="max-w-[662px] text-center text-base leading-6 tracking-[-0.32px] text-[#767676]">
-          Your brand appears in randomized positions in Design, Websites and
-          Logos feeds, beside opened work, and in the header.{" "}
-          <span className="text-[#262626]">Three placements</span> keep your
-          product in view as creators browse and discover.
+        <p className="max-w-[662px] text-center text-base leading-5 tracking-[-0.32px] text-[#767676]">
+          Your brand gets a randomized spot in our design feeds, a dedicated
+          presence beside opened work, and visibility in the header across
+          Inspora. <span className="text-[#262626]">Three placements</span>{" "}
+          designed to keep your product{" "}
+          <span className="text-[#262626]">in front of creators</span> while
+          they browse and discover.
         </p>
-        <div className="grid w-full gap-5 sm:grid-cols-3">
-          {[
-            ["feed", "Randomized positions in the archive feeds."],
-            ["detail", "Your full wordmark beside opened work."],
-            ["header", "Your compact icon in the site header."],
-          ].map(([key, label]) => (
-            <figure key={key} className="mx-auto w-full max-w-[312px]">
+        <div className="grid w-full justify-items-center gap-6 lg:grid-cols-3 lg:gap-[10px]">
+          {placements.map(([key, label, captionWidth]) => (
+            <figure
+              key={key}
+              className="flex w-full max-w-[312px] flex-col items-center gap-[10px]"
+            >
               <Image
                 src={`/sponsorship/${key}-placement.png`}
                 alt={label}
                 width={312}
                 height={169}
-                className="h-auto w-full"
+                className="block h-[168.91px] w-full"
               />
-              <figcaption className="mx-auto mt-3 max-w-[268px] text-center text-base leading-5 tracking-[-0.32px] text-[#767676]">
+              <figcaption
+                style={{ maxWidth: captionWidth }}
+                className="text-center text-base leading-[19px] tracking-[-0.32px] text-[#767676]"
+              >
                 {label}
               </figcaption>
             </figure>
           ))}
         </div>
       </section>
-      <section className="flex flex-col items-center gap-6">
-        <p className="max-w-[490px] text-center text-base leading-6 tracking-[-0.32px] text-[#767676]">
+      <section className="flex w-full flex-col items-center gap-6">
+        <p className="max-w-[490px] text-center text-base leading-5 tracking-[-0.32px] text-[#767676]">
           <span className="text-[#262626]">Everything in one place.</span>{" "}
-          Prepare your assets and review each placement. Campaign management and
-          private reporting become available with paid sponsorship.
+          Upload your sponsor assets, make changes whenever you need, and keep
+          an eye on how each placement is performing from your dashboard.
         </p>
-        <div className="grid gap-[18px] sm:grid-cols-3">
-          {[
-            [
-              "upload",
-              "Upload your ads",
-              "Prepare your compact icon, full wordmark and optional feed image or video.",
-            ],
-            [
-              "edit",
-              "Edit any time",
-              "Paid sponsors can update their creative from their private account.",
-            ],
-            [
-              "stats",
-              "Placement stats",
-              "Paid sponsorship includes measured delivery and outbound engagement.",
-            ],
-          ].map(([icon, title, description]) => (
+        <div className="grid w-full justify-items-center gap-[18px] lg:w-auto lg:grid-cols-3">
+          {features.map(([icon, title, description]) => (
             <article
               key={icon}
-              className="rounded-md border border-[#e6e6e6] p-4"
+              className="flex w-[248px] max-w-full flex-col items-start gap-2 rounded-md border border-[#e6e6e6] p-[15px]"
             >
               <span className="inline-flex rounded-md bg-[#fafafa] p-1">
                 <Image
@@ -119,59 +165,69 @@ export function SponsorPage({
                   height={16}
                 />
               </span>
-              <h2 className="mt-2 text-lg font-medium tracking-[0.2px]">
+              <h2 className="text-lg font-medium leading-[22px] tracking-[0.2px]">
                 {title}
               </h2>
-              <p className="mt-2 max-w-[216px] text-xs leading-5 tracking-[0.2px] text-[#767676]">
+              <p className="text-xs font-medium leading-[normal] tracking-[0.2px] text-[#767676]">
                 {description}
               </p>
             </article>
           ))}
         </div>
       </section>
-      <ul className="max-w-[690px] space-y-4 text-base leading-6 text-[#767676]">
-        {[
-          "Reach designers, founders and independent makers discovering their next tool.",
-          "Stay visible with placements built into the way people browse.",
-          "Put your brand alongside curated design work.",
-          "Promote a business or professional activity; incorporation is not required.",
-        ].map((text) => (
-          <li key={text} className="flex items-start gap-2.5">
+      <ul className="flex max-w-full flex-col items-start gap-4 text-base leading-[1.017] tracking-[-0.32px] text-[#767676]">
+        {benefits.map((text) => (
+          <li key={text} className="flex items-center gap-2.5">
             <Image
               src="/sponsorship/star.svg"
               alt=""
               width={20}
               height={20}
-              className="mt-0.5 shrink-0"
+              className="shrink-0"
             />
             <span>{text}</span>
           </li>
         ))}
       </ul>
-      <section className="flex flex-col items-center gap-6 text-center">
-        <div>
-          <p className="text-base text-[#767676]">
-            Only <span className="font-medium text-[#262626]">4 seats.</span>
+      <section className="flex w-full flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-base font-medium leading-5 tracking-[-0.32px] text-[#767676]">
+            Only <span className="text-[#262626]">4 slots.</span>
           </p>
-          <p className="mt-2 text-[40px] font-bold tracking-[-0.8px]">
-            USD 500 <span className="text-base text-[#767676]">/ 30 days</span>
-          </p>
-          <p className="mt-3 max-w-[490px] text-sm leading-6 text-[#767676]">
-            Base price before applicable tax. Automatically renews every exact
-            30 days until cancelled. For business and professional promotion.
+          <p className="flex items-end gap-[6px] font-bold leading-[normal]">
+            <span className="h-[39px] text-[40px] tracking-[-0.8px]">500$</span>
+            <span className="text-base tracking-[-0.32px] text-[#767676]">
+              / 30 days
+            </span>
           </p>
         </div>
-        {cta}
-        <p className="text-sm text-[#767676]">
-          Payment is currently unavailable. Preparation stays private and uses
-          no seat.
-        </p>
-        <a
-          href="mailto:neroodesign@gmail.com"
-          className="focus-ring text-sm text-[#767676]"
-        >
-          or write to <span className="font-medium">neroodesign@gmail.com</span>
-        </a>
+        <div className="flex flex-col items-center gap-3">
+          {cta}
+          <a
+            href="mailto:neroodesign@gmail.com"
+            className="focus-ring text-base leading-5 tracking-[-0.32px] text-[#767676]"
+          >
+            or write to{" "}
+            <span className="font-medium">neroodesign@gmail.com</span>
+          </a>
+        </div>
+        <div className="max-w-[490px] text-xs leading-5 text-[#767676]">
+          <p>
+            USD 500 before applicable tax. Automatically renews every exact 30
+            days until cancelled. For business and professional promotion.
+          </p>
+          <p className="mt-1">
+            Payment is currently unavailable. Preparation stays private and uses
+            no seat. Campaign management and live stats become available with
+            paid sponsorship.{" "}
+            <Link
+              href={"/api/sponsorship/intent" as Route}
+              className="focus-ring underline"
+            >
+              Returning sponsor? Sign in
+            </Link>
+          </p>
+        </div>
       </section>
     </main>
   );

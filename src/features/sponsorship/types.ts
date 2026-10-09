@@ -22,7 +22,7 @@ export type CampaignState =
   "legacy" | "prepared" | "draft" | "published" | "archived";
 export type SponsorPlacement = "header" | "feed" | "detail";
 export type SponsorAssetKind =
-  "media" | "icon" | "wordmark" | "poster" | "video-preview" | "variant";
+  "original" | "media" | "icon" | "wordmark" | "poster" | "video-preview" | "variant";
 export type VerifiedSponsorAsset = {
   id: string;
   kind: SponsorAssetKind;
@@ -32,6 +32,7 @@ export type VerifiedSponsorAsset = {
   height: number;
   digest: string;
   url: string;
+  sourceAssetId?: string;
 };
 export type CampaignInput = {
   title: string;
@@ -69,6 +70,7 @@ export type SponsorUpload = {
   id: string;
   ownerUserId: string;
   checkoutId: string;
+  sourceAssetId?: string | null;
   kind: SponsorAssetKind;
   state: "pending" | "verified" | "deleting";
   contentType: string;

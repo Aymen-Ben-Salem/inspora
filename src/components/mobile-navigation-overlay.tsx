@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SITE_NAV_ITEMS } from "./site-navigation";
+import { MobileNavigationActionContext } from "./mobile-navigation-actions";
 
 const browseItems = SITE_NAV_ITEMS.filter(
   (item) => item.kind === "link" && item.href !== "/info",
@@ -21,6 +22,7 @@ export function MobileNavigationOverlay({
   onClose,
   onClosed,
   onContact,
+  onAction,
   activeHref,
   auth,
 }: {
@@ -28,6 +30,7 @@ export function MobileNavigationOverlay({
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
+  onAction: (action: () => void) => void;
   activeHref: "/" | "/websites" | "/logos" | "/saved" | "/info";
   auth: ReactNode;
 }) {
@@ -131,7 +134,9 @@ export function MobileNavigationOverlay({
           </div>
         </section>
 
-        {auth}
+        <MobileNavigationActionContext.Provider value={onAction}>
+          {auth}
+        </MobileNavigationActionContext.Provider>
         <section aria-labelledby="mobile-nav-sponsors" className="mt-6"><h2 id="mobile-nav-sponsors" className="text-[15px] text-[#b0b0b0]">Sponsorship</h2><Link href={"/sponsor" as Route} onClick={onClose} className="focus-ring mt-2 flex min-h-11 items-center text-[17px] text-[#262626]">Become a sponsor +</Link></section>
       </nav>
     </div>

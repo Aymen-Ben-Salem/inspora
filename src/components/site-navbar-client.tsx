@@ -54,6 +54,7 @@ export function SiteNavbarClient({
     "contact" | "about" | null
   >(null);
   const overflowRef = useRef<HTMLDivElement>(null);
+  const mobileActionRef = useRef<(() => void) | null>(null);
   const highlightedOverflowItem = overflowPreview ?? "contact";
 
   const closeContact = useCallback(() => setContactOpen(false), []);
@@ -296,6 +297,13 @@ export function SiteNavbarClient({
           onClosed={() => {
             setMobileMenuOpen(false);
             setMobileMenuClosing(false);
+            const action = mobileActionRef.current;
+            mobileActionRef.current = null;
+            action?.();
+          }}
+          onAction={(action) => {
+            mobileActionRef.current = action;
+            closeMobileMenu();
           }}
           onContact={() => setContactOpen(true)}
           activeHref={

@@ -117,7 +117,11 @@ export async function cleanupExpiredSponsorPreparations(now = new Date()) {
           );
       return unreferenced;
     });
-    for (const asset of keys) {
+    // Derivatives hold a restrictive source FK; remove them before their originals.
+    for (const asset of keys.sort(
+      (a, b) =>
+        Number(Boolean(b.sourceAssetId)) - Number(Boolean(a.sourceAssetId)),
+    )) {
       const storage = privateSponsorStorage();
       // A freeze can finish before a DB transaction fails. Its deterministic
       // source key must be removed at expiry too.

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import {
   afterAll,
@@ -30,7 +30,10 @@ vi.mock("@clerk/nextjs/server", () => ({
   clerkClient: async () => ({
     users: {
       getUser: async () => ({
-        primaryEmailAddress: { verification: { status: "verified" }, emailAddress:"sponsor-fixture@example.invalid" },
+        primaryEmailAddress: {
+          verification: { status: "verified" },
+          emailAddress: "sponsor-fixture@example.invalid",
+        },
       }),
     },
   }),
@@ -99,16 +102,14 @@ let iconId: string, wordmarkId: string;
 beforeAll(async () => {
   for (const owner of owners) await bindSponsorIdentity(owner);
   await withSponsorWrite((tx) =>
-    tx
-      .insert(sponsorCheckouts)
-      .values(
-        Array.from({ length: 25 }, () => ({
-          ownerUserId: owners[0],
-          state: "expired",
-          expiresAt: new Date("2020-01-01"),
-          createdAt: new Date("2020-01-01"),
-        })),
-      ),
+    tx.insert(sponsorCheckouts).values(
+      Array.from({ length: 25 }, () => ({
+        ownerUserId: owners[0],
+        state: "expired",
+        expiresAt: new Date("2020-01-01"),
+        createdAt: new Date("2020-01-01"),
+      })),
+    ),
   );
   fixtures.owner = owners[0];
 });
@@ -117,10 +118,21 @@ beforeEach(() => {
 });
 afterAll(async () => {
   await withSponsorWrite(async (tx) => {
-    const profiles=await tx.select({id:creators.id}).from(creators).where(inArray(creators.ownerUserId,owners));
-    if(profiles.length)await tx.delete(creatorUsernameAliases).where(inArray(creatorUsernameAliases.creatorId,profiles.map(p=>p.id)));
-    await tx.delete(creators).where(inArray(creators.ownerUserId,owners));
-    await tx.delete(profileAccounts).where(inArray(profileAccounts.userId,owners));
+    const profiles = await tx
+      .select({ id: creators.id })
+      .from(creators)
+      .where(inArray(creators.ownerUserId, owners));
+    if (profiles.length)
+      await tx.delete(creatorUsernameAliases).where(
+        inArray(
+          creatorUsernameAliases.creatorId,
+          profiles.map((p) => p.id),
+        ),
+      );
+    await tx.delete(creators).where(inArray(creators.ownerUserId, owners));
+    await tx
+      .delete(profileAccounts)
+      .where(inArray(profileAccounts.userId, owners));
     await tx
       .delete(sponsorVersionAssets)
       .where(inArray(sponsorVersionAssets.ownerUserId, owners));
@@ -143,13 +155,22 @@ afterAll(async () => {
   });
 });
 describe("ticket 01 on guarded disposable preview database", () => {
-  it("preserves ordinary bootstrap and an existing creator with both capabilities",async()=>{
-    const ordinary="sponsor-rehearsal-ordinary-"+randomUUID();owners.push(ordinary);fixtures.owner=ordinary;
+  it("preserves ordinary bootstrap and an existing creator with both capabilities", async () => {
+    const ordinary = "sponsor-rehearsal-ordinary-" + randomUUID();
+    owners.push(ordinary);
+    fixtures.owner = ordinary;
     expect((await readAccountCapabilities(ordinary)).viewer).toBe(true);
-    const created=await ensureCreatorForOwner({userId:ordinary});expect(created.id).toBeTruthy();
+    const created = await ensureCreatorForOwner({ userId: ordinary });
+    expect(created.id).toBeTruthy();
     await bindSponsorIdentity(ordinary);
-    expect(await readAccountCapabilities(ordinary)).toEqual({viewer:true,sponsor:true,sponsorReadonly:false});
-    expect((await ensureCreatorForOwner({userId:ordinary})).id).toBe(created.id);
+    expect(await readAccountCapabilities(ordinary)).toEqual({
+      viewer: true,
+      sponsor: true,
+      sponsorReadonly: false,
+    });
+    expect((await ensureCreatorForOwner({ userId: ordinary })).id).toBe(
+      created.id,
+    );
   });
   it("enforces non-null verification fields at the database boundary", async () => {
     fixtures.owner = owners[1];
@@ -161,20 +182,18 @@ describe("ticket 01 on guarded disposable preview database", () => {
     ]) {
       await expect(
         withSponsorWrite((tx) =>
-          tx
-            .insert(sponsorAssets)
-            .values({
-              ownerUserId: owners[1],
-              checkoutId: p.value.id,
-              kind: "icon",
-              state: "verified",
-              contentType: "image/png",
-              sizeBytes: 100,
-              stagingKey: randomUUID(),
-              objectKey: "fixture",
-              expiresAt: new Date(Date.now() + 86400000),
-              ...missing,
-            }),
+          tx.insert(sponsorAssets).values({
+            ownerUserId: owners[1],
+            checkoutId: p.value.id,
+            kind: "icon",
+            state: "verified",
+            contentType: "image/png",
+            sizeBytes: 100,
+            stagingKey: randomUUID(),
+            objectKey: "fixture",
+            expiresAt: new Date(Date.now() + 86400000),
+            ...missing,
+          }),
         ),
       ).rejects.toThrow();
     }
@@ -220,13 +239,13 @@ describe("ticket 01 on guarded disposable preview database", () => {
         await tx
           .select()
           .from(profileAccounts)
-          .where(inArray(profileAccounts.userId, owners.slice(0,2))),
+          .where(inArray(profileAccounts.userId, owners.slice(0, 2))),
       ).toEqual([]);
       expect(
         await tx
           .select()
           .from(creators)
-          .where(inArray(creators.ownerUserId, owners.slice(0,2))),
+          .where(inArray(creators.ownerUserId, owners.slice(0, 2))),
       ).toEqual([]);
       expect(
         await tx
@@ -245,11 +264,61 @@ describe("ticket 01 on guarded disposable preview database", () => {
       .png()
       .toBuffer();
     const ids: string[] = [];
+    const sourceBytes = await sharp({
+      create: { width: 3200, height: 1600, channels: 4, background: "blue" },
+    })
+      .png()
+      .toBuffer();
+    const sourceTicket = await beginSponsorUpload({
+      kind: "original",
+      contentType: "image/png",
+      sizeBytes: sourceBytes.length,
+    });
+    await expect(
+      beginSponsorUpload({
+        kind: "icon",
+        contentType: "image/png",
+        sizeBytes: bytes.length,
+        sourceAssetId: sourceTicket.id,
+      }),
+    ).rejects.toThrow("verified original");
+    await withSponsorWrite(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(sponsorAssets)
+        .where(eq(sponsorAssets.id, sourceTicket.id));
+      fixtures.objects.set(row.stagingKey, {
+        bytes: sourceBytes,
+        contentType: "image/png",
+      });
+    });
+    const original = await completeSponsorUpload(sourceTicket.id);
+    expect(original).toMatchObject({
+      kind: "original",
+      width: 3200,
+      height: 1600,
+      digest: createHash("sha256").update(sourceBytes).digest("hex"),
+    });
+    expect((await readOwnSponsorAsset(original.id))?.bytes).toEqual(
+      sourceBytes,
+    );
+    fixtures.owner = owners[1];
+    await service.begin();
+    await expect(
+      beginSponsorUpload({
+        kind: "icon",
+        contentType: "image/png",
+        sizeBytes: bytes.length,
+        sourceAssetId: original.id,
+      }),
+    ).rejects.toThrow("verified original");
+    fixtures.owner = owners[0];
     for (const kind of ["icon", "wordmark"] as const) {
       const ticket = await beginSponsorUpload({
         kind,
         contentType: "image/png",
         sizeBytes: bytes.length,
+        sourceAssetId: original.id,
       });
       await withSponsorWrite(async (tx) => {
         const [row] = await tx
@@ -271,6 +340,7 @@ describe("ticket 01 on guarded disposable preview database", () => {
         width: 64,
         height: 32,
         contentType: "image/png",
+        sourceAssetId: original.id,
       });
       ids.push(ticket.id);
     }
@@ -287,6 +357,10 @@ describe("ticket 01 on guarded disposable preview database", () => {
       ok: true,
       value: { revision: 1, state: "prepared" },
     });
+    expect(
+      result.ok &&
+        result.value.creative.assets.filter((a) => a.id === original.id),
+    ).toEqual([original]);
     fixtures.owner = owners[1];
     expect(
       await service.save({
@@ -372,7 +446,7 @@ describe("ticket 01 on guarded disposable preview database", () => {
       }),
     ).toMatchObject({ ok: false, code: "expired" });
     expect(await cleanupExpiredSponsorPreparations(clock)).toMatchObject({
-      removed: 2,
+      removed: 3,
     });
     await expect(readOwnSponsorAsset(iconId)).rejects.toThrow("expired");
     expect(fixtures.objects.size).toBe(0);

@@ -30,6 +30,7 @@ import type {
 const uploadInput = z
   .object({
     kind: z.enum([
+      "original",
       "media",
       "icon",
       "wordmark",
@@ -39,6 +40,7 @@ const uploadInput = z
     ]),
     contentType: z.enum(ACCEPTED_MEDIA_MIME_TYPES),
     sizeBytes: z.number().int().positive(),
+    sourceAssetId: z.uuid().optional(),
   })
   .strict();
 async function withOwnMedia<T>(
@@ -70,6 +72,7 @@ export async function beginSponsorUpload(raw: unknown) {
   if (input.sizeBytes > getMediaUploadLimit(input.contentType))
     throw new Error("Images are limited to 10 MiB and videos to 50 MiB.");
   if (
+    input.kind !== "original" &&
     input.kind !== "media" &&
     input.kind !== "video-preview" &&
     (!input.contentType.startsWith("image/") ||
@@ -79,6 +82,20 @@ export async function beginSponsorUpload(raw: unknown) {
   if (input.kind === "video-preview" && input.contentType !== "video/mp4")
     throw new Error("Video previews must be MP4.");
   return withOwnMedia(true, async ({ userId, tx, p }) => {
+    if (input.sourceAssetId) {
+      const source = await findOwnUpload(tx, userId, input.sourceAssetId);
+      if (
+        input.kind === "original" ||
+        !source ||
+        source.kind !== "original" ||
+        source.state !== "verified" ||
+        source.checkoutId !== p.id ||
+        source.expiresAt <= new Date()
+      )
+        throw new Error(
+          "Use a verified original from your own current preparation.",
+        );
+    }
     const count = await tx.execute(
       sql`select count(*)::int as count from sponsor_assets where checkout_id = ${p.id}`,
     );
@@ -137,7 +154,9 @@ export async function completeSponsorUpload(
       ownerUserId: userId,
       uploadId: upload.id,
       kind:
-        upload.kind === "media" || upload.kind === "video-preview"
+        upload.kind === "original" ||
+        upload.kind === "media" ||
+        upload.kind === "video-preview"
           ? "design"
           : "logo",
       stagingKey: upload.stagingKey,

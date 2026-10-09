@@ -4,9 +4,11 @@ import { SignOutButton, useAuth, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import type { Route } from "next";
 import Link from "next/link";
+import { useContext } from "react";
 
 import { useViewerProfile } from "../profile/use-viewer-profile";
 import { useSubmission } from "../submissions/submission-provider";
+import { MobileNavigationActionContext } from "../mobile-navigation-actions";
 
 export function PublicAuthControlsClient({
   variant,
@@ -16,6 +18,7 @@ export function PublicAuthControlsClient({
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
   const { openSubmission } = useSubmission();
+  const navigate = useContext(MobileNavigationActionContext);
   const {
     profile,
     capabilities,
@@ -72,7 +75,7 @@ export function PublicAuthControlsClient({
               Saved
             </Link>
             <button
-              onClick={openSubmission}
+              onClick={() => navigate(openSubmission)}
               type="button"
               className="focus-ring flex min-h-11 w-full items-center rounded px-3 hover:bg-[#fafafa]"
             >

@@ -171,4 +171,50 @@ describe("owned unpaid sponsor preparation", () => {
     });
     expect(f.preparations.size).toBe(1);
   });
+  it("freezes and retains the verified original associated with a creative asset", async () => {
+    const f = fixture();
+    await f.service.begin();
+    const icon = f.assets.get(f.input.iconId)!;
+    const sourceId = randomUUID();
+    icon.asset.sourceAssetId = sourceId;
+    f.assets.set(sourceId, {
+      ...icon,
+      asset: {
+        ...icon.asset,
+        id: sourceId,
+        kind: "original",
+        sourceAssetId: undefined,
+      },
+    });
+    const saved = await f.service.save(f.input);
+    expect(saved.ok && saved.value.creative.assets.map((a) => a.id)).toContain(
+      sourceId,
+    );
+  });
+  it.each(["foreign", "expired"])(
+    "rejects a creative referencing an %s original",
+    async (caseName) => {
+      const f = fixture();
+      await f.service.begin();
+      const icon = f.assets.get(f.input.iconId)!;
+      const sourceId = randomUUID();
+      icon.asset.sourceAssetId = sourceId;
+      f.assets.set(sourceId, {
+        ...icon,
+        owner: caseName === "foreign" ? "owner-b" : icon.owner,
+        expiresAt:
+          caseName === "expired" ? new Date("2020-01-01") : icon.expiresAt,
+        asset: {
+          ...icon.asset,
+          id: sourceId,
+          kind: "original",
+          sourceAssetId: undefined,
+        },
+      });
+      expect(await f.service.save(f.input)).toMatchObject({
+        ok: false,
+        code: "forbidden",
+      });
+    },
+  );
 });

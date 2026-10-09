@@ -134,6 +134,7 @@ export async function inspectSponsorMedia(
   )
     throw new Error("Unsupported, oversized or invalid media.");
   if (
+    kind !== "original" &&
     kind !== "media" &&
     kind !== "video-preview" &&
     !mime.startsWith("image/")
@@ -145,9 +146,13 @@ export async function inspectSponsorMedia(
       animated: true,
       limitInputPixels: 40000000,
     }).metadata();
-    if (!m.width || !m.height || (kind !== "media" && (m.pages ?? 1) !== 1))
+    if (
+      !m.width ||
+      !m.height ||
+      (kind !== "original" && kind !== "media" && (m.pages ?? 1) !== 1)
+    )
       throw new Error("Use a valid static raster image.");
-    dimensions = { width: m.width, height: m.height };
+    dimensions = { width: m.width, height: m.pageHeight ?? m.height };
   } else
     dimensions =
       mime === "video/mp4" ? mp4Dimensions(bytes) : webmDimensions(bytes);

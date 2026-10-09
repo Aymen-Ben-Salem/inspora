@@ -1088,6 +1088,7 @@ export const sponsorAssets = pgTable("sponsor_assets", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerUserId: text("owner_user_id").notNull().references(() => sponsorIdentities.userId),
   checkoutId: uuid("checkout_id").notNull().references(() => sponsorCheckouts.id),
+  sourceAssetId: uuid("source_asset_id"),
   kind: text("kind").notNull(), state: text("state").default("pending").notNull(),
   contentType: text("content_type").notNull(), sizeBytes: integer("size_bytes").notNull(),
   stagingKey: text("staging_key").notNull(), objectKey: text("object_key"), digest: text("digest"),
@@ -1096,14 +1097,17 @@ export const sponsorAssets = pgTable("sponsor_assets", {
   ...timestamps,
 }, t => [
   uniqueIndex("sponsor_assets_id_owner_unique").on(t.id, t.ownerUserId),
+  uniqueIndex("sponsor_assets_id_owner_checkout_unique").on(t.id, t.ownerUserId, t.checkoutId),
   uniqueIndex("sponsor_assets_staging_unique").on(t.stagingKey),
   index("sponsor_assets_expiry_idx").on(t.state, t.expiresAt),
-  check("sponsor_assets_kind_valid", sql`${t.kind} in ('media','icon','wordmark','poster','video-preview','variant')`),
+  check("sponsor_assets_kind_valid", sql`${t.kind} in ('original','media','icon','wordmark','poster','video-preview','variant')`),
+  check("sponsor_assets_source_valid", sql`${t.sourceAssetId} is null or (${t.sourceAssetId} <> ${t.id} and ${t.kind} <> 'original')`),
   check("sponsor_assets_state_valid", sql`${t.state} in ('pending','verified','deleting')`),
   check("sponsor_assets_size_valid", sql`${t.sizeBytes} > 0 and ${t.sizeBytes} <= 52428800`),
   check("sponsor_assets_dimensions_valid", sql`(${t.width} is null and ${t.height} is null) or (${t.width} > 0 and ${t.height} > 0)`),
   check("sponsor_assets_verified_complete", sql`${t.state} <> 'verified' or (${t.objectKey} is not null and ${t.digest} is not null and ${t.digest} ~ '^[a-f0-9]{64}$' and ${t.width} is not null and ${t.height} is not null and ${t.width} > 0 and ${t.height} > 0)`),
   foreignKey({ name: "sponsor_assets_checkout_owner_fk", columns: [t.checkoutId, t.ownerUserId], foreignColumns: [sponsorCheckouts.id, sponsorCheckouts.ownerUserId] }),
+  foreignKey({ name: "sponsor_assets_source_owner_checkout_fk", columns: [t.sourceAssetId, t.ownerUserId, t.checkoutId], foreignColumns: [t.id, t.ownerUserId, t.checkoutId] }),
 ]);
 
 export const sponsorVersionAssets = pgTable("sponsor_version_assets", {

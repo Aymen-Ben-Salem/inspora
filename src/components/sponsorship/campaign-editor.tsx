@@ -23,6 +23,12 @@ const empty: PreviewFields = {
 };
 const fieldClass =
   "focus-ring mt-2 min-h-11 w-full rounded-md border border-[#e6e6e6] bg-white px-3 py-2 text-sm";
+const uploadRoles = {
+  media: { kind: "sponsor-media", field: "mediaId" },
+  icon: { kind: "sponsor-icon", field: "iconId" },
+  wordmark: { kind: "sponsor-wordmark", field: "wordmarkId" },
+  poster: { kind: "website-poster", field: "posterId" },
+} as const;
 export function CampaignEditor({
   authenticationEnabled = true,
 }: {
@@ -35,20 +41,24 @@ export function CampaignEditor({
   );
 }
 function AuthenticatedCampaignEditor() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, userId } = useAuth();
   return (
     <CampaignEditorContent
-      isSignedIn={Boolean(isSignedIn)}
+      key={isSignedIn && userId ? userId : "anonymous"}
+      isSignedIn={Boolean(isSignedIn && userId)}
       isLoaded={isLoaded}
+      ownerUserId={isSignedIn ? (userId ?? undefined) : undefined}
     />
   );
 }
 function CampaignEditorContent({
   isSignedIn,
   isLoaded,
+  ownerUserId,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
+  ownerUserId?: string;
 }) {
   const [fields, setFields] = useState(empty),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>([]),
@@ -60,22 +70,51 @@ function CampaignEditorContent({
     [message, setMessage] = useState(""),
     [failed, setFailed] = useState(false);
   const loaded = useRef<string | undefined>(undefined);
+  const pending = useRef(new Set<AbortController>());
+  useEffect(() => {
+    const controllers = pending.current;
+    return () => {
+      for (const controller of controllers) controller.abort();
+    };
+  }, []);
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
     let active = true;
-    void sponsorRequest<SponsorPreparation>("preparation", "POST")
+    const controller = new AbortController();
+    void sponsorRequest<SponsorPreparation>(
+      "preparation",
+      "POST",
+      undefined,
+      controller.signal,
+    )
       .then((p) => {
         if (!active) return;
         setReady(true);
         setExpiresAt(new Date(p.expiresAt).toISOString());
         // Restore manual fields after verification only when no saved creative exists.
-        if (!p.campaign) {
-          try {
-            const typed = sessionStorage.getItem("inspora:sponsor-typed");
-            if (typed) setFields(JSON.parse(typed));
-            sessionStorage.removeItem("inspora:sponsor-typed");
-          } catch {}
-        }
+        try {
+          const stored = sessionStorage.getItem("inspora:sponsor-typed");
+          sessionStorage.removeItem("inspora:sponsor-typed");
+          const typed = stored ? JSON.parse(stored) : null;
+          if (
+            !p.campaign &&
+            typed &&
+            (typed.ownerUserId === null || typed.ownerUserId === ownerUserId)
+          )
+            setFields({
+              ...empty,
+              title:
+                typeof typed.title === "string"
+                  ? typed.title.slice(0, 160)
+                  : "",
+              url:
+                typeof typed.url === "string" ? typed.url.slice(0, 2048) : "",
+              tagline:
+                typeof typed.tagline === "string"
+                  ? typed.tagline.slice(0, 300)
+                  : "",
+            });
+        } catch {}
         if (p.campaign && loaded.current !== p.id) {
           loaded.current = p.id;
           const c = p.campaign.creative;
@@ -92,35 +131,51 @@ function CampaignEditorContent({
         }
       })
       .catch((error) => {
-        if (active) {
+        if (active && !controller.signal.aborted) {
           setFailed(true);
           setMessage(error.message);
         }
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [isSignedIn, isLoaded]);
+  }, [isSignedIn, isLoaded, ownerUserId]);
   function update(key: keyof PreviewFields, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
     setMessage("");
   }
-  async function run(label: string, work: () => Promise<void>) {
+  async function run(
+    label: string,
+    work: (signal: AbortSignal) => Promise<void>,
+  ) {
+    const controller = new AbortController();
+    pending.current.add(controller);
     setBusy(label);
     setMessage("");
     setFailed(false);
     try {
-      await work();
+      await work(controller.signal);
     } catch (error) {
+      if (controller.signal.aborted) return;
       setFailed(true);
       setMessage(error instanceof Error ? error.message : "Try again.");
     } finally {
-      setBusy(undefined);
+      pending.current.delete(controller);
+      if (!controller.signal.aborted) setBusy(undefined);
     }
   }
   function verify() {
     try {
-      sessionStorage.setItem("inspora:sponsor-typed", JSON.stringify(fields));
+      sessionStorage.setItem(
+        "inspora:sponsor-typed",
+        JSON.stringify({
+          ownerUserId: ownerUserId ?? null,
+          title: fields.title,
+          url: fields.url,
+          tagline: fields.tagline,
+        }),
+      );
     } catch {}
     window.location.assign("/api/sponsorship/intent");
   }
@@ -128,21 +183,24 @@ function CampaignEditorContent({
     file: File,
     kind: "media" | "icon" | "wordmark" | "poster",
   ) {
-    await run(`Uploading ${kind}…`, async () => {
+    await run(`Uploading ${kind}…`, async (signal) => {
       const result = await prepareAndUploadMedia(
         file,
-        kind === "icon"
-          ? "sponsor-icon"
-          : kind === "wordmark"
-            ? "sponsor-wordmark"
-            : kind === "poster"
-              ? "website-poster"
-              : "sponsor-media",
-        sponsorUploadOperations(kind),
+        uploadRoles[kind].kind,
+        sponsorUploadOperations(kind, signal),
         (status) => setBusy(`${kind}: ${status}…`),
+        (controller) => {
+          if (signal.aborted) controller.abort();
+          else
+            signal.addEventListener("abort", () => controller.abort(), {
+              once: true,
+            });
+        },
       );
+      signal.throwIfAborted();
       setAssets((previous) => [
         ...previous,
+        result.original,
         result.primary,
         ...result.variants,
         ...(result.poster ? [result.poster] : []),
@@ -150,13 +208,7 @@ function CampaignEditorContent({
       ]);
       setFields((f) => ({
         ...f,
-        [kind === "media"
-          ? "mediaId"
-          : kind === "icon"
-            ? "iconId"
-            : kind === "wordmark"
-              ? "wordmarkId"
-              : "posterId"]: result.primary.id,
+        [uploadRoles[kind].field]: result.primary.id,
         ...(kind === "media"
           ? {
               posterId: result.poster?.id ?? "",
@@ -187,7 +239,7 @@ function CampaignEditorContent({
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            void run("Saving preparation…", async () => {
+            void run("Saving preparation…", async (signal) => {
               const c = await sponsorRequest<OwnedCampaign>(
                 "preparation",
                 "PUT",
@@ -203,6 +255,7 @@ function CampaignEditorContent({
                   variantIds: variants,
                   expectedRevision: revision,
                 },
+                signal,
               );
               setRevision(c.revision);
               setMessage(
@@ -229,10 +282,10 @@ function CampaignEditorContent({
             disabled={!ready || Boolean(busy) || !fields.url}
             className="focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 text-sm disabled:opacity-40"
             onClick={() =>
-              void run("Finding suggestions…", async () => {
+              void run("Finding suggestions…", async (signal) => {
                 const s = await sponsorRequest<
                   MetadataSuggestions & { assets: VerifiedSponsorAsset[] }
-                >("metadata", "POST", { url: fields.url });
+                >("metadata", "POST", { url: fields.url }, signal);
                 setFields((f) => fillEmptySponsorFields(f, s));
                 setAssets((a) => [...a, ...s.assets]);
                 setMessage(

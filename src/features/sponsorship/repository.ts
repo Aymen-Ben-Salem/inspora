@@ -111,6 +111,7 @@ export function assetView(row: SponsorUpload): VerifiedSponsorAsset {
     height: row.height,
     digest: row.digest,
     url: `/api/sponsorship/assets/${row.id}`,
+    ...(row.sourceAssetId ? { sourceAssetId: row.sourceAssetId } : {}),
   };
 }
 function preparation(

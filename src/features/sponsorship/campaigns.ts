@@ -117,6 +117,20 @@ export function createPreparationService(deps: {
               "Use verified assets from your own current preparation.",
             );
           assets.push(asset);
+          if (asset.sourceAssetId) {
+            const source = await tx.findOwnedAsset(
+              p.ownerUserId,
+              asset.sourceAssetId,
+              p.id,
+              now,
+            );
+            if (!source || source.kind !== "original" || source.sourceAssetId)
+              return failure(
+                "forbidden",
+                "Use a verified original from your own current preparation.",
+              );
+            if (!assets.some((a) => a.id === source.id)) assets.push(source);
+          }
         }
         const media = assets.find((a) => a.id === fields.mediaId);
         if (

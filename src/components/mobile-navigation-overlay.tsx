@@ -78,7 +78,7 @@ export function MobileNavigationOverlay({
           </h2>
 
           <div className="mt-2 flex flex-col items-start">
-            {browseItems.map((item) => (
+            {browseItems.filter(item => item.href !== "/saved").map((item) => (
               <Link
                 key={item.label}
                 href={item.href as Route}
@@ -132,6 +132,7 @@ export function MobileNavigationOverlay({
         </section>
 
         {auth}
+        <section aria-labelledby="mobile-nav-sponsors" className="mt-6"><h2 id="mobile-nav-sponsors" className="text-[15px] text-[#b0b0b0]">Sponsorship</h2><Link href={"/sponsor" as Route} onClick={onClose} className="focus-ring mt-2 flex min-h-11 items-center text-[17px] text-[#262626]">Become a sponsor +</Link></section>
       </nav>
     </div>
   );

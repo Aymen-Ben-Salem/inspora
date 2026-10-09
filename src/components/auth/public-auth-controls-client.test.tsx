@@ -8,9 +8,11 @@ const { authState, userState, viewerProfile } = vi.hoisted(() => ({
 }));
 
 vi.mock("@clerk/nextjs", () => ({
+  SignOutButton: ({children}: {children: import("react").ReactNode}) => children,
   useAuth: () => authState(),
   useUser: () => userState(),
 }));
+vi.mock("../submissions/submission-provider", () => ({ useSubmission: () => ({ openSubmission: vi.fn() }) }));
 
 vi.mock("../profile/use-viewer-profile", () => ({
   useViewerProfile: (userId: string | undefined) => viewerProfile(userId),
@@ -99,7 +101,7 @@ describe("PublicAuthControlsClient", () => {
       const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
 
       expect(html).toContain('href="/profile"');
-      expect(html).toContain('aria-label="Open your profile"');
+      expect(html).toContain('aria-label="Account menu"');
       expect(html).toContain("Ada Lovelace&#x27;s profile");
       expect(html).not.toContain("Sign in");
       expect(html).not.toContain("Sign up");
@@ -124,4 +126,14 @@ describe("PublicAuthControlsClient", () => {
       expect(html).toContain('href="/profile"');
     },
   );
+  it("shows sponsor preparation without creator controls for sponsor-only access", () => {
+    authState.mockReturnValue({isLoaded:true,isSignedIn:true});
+    userState.mockReturnValue({user:{id:"sponsor",imageUrl:"https://img.example/sponsor.jpg"}});
+    viewerProfile.mockReturnValue({profile:null,isLoading:false,capabilities:{viewer:false,sponsor:true,sponsorReadonly:false}});
+    const html = renderToStaticMarkup(<PublicAuthControlsClient variant="desktop" />);
+    expect(html).toContain("Sponsor preparation");
+    expect(html).not.toContain('href="/profile"');
+    expect(html).not.toContain('href="/saved"');
+    expect(html).not.toContain("Submit work");
+  });
 });

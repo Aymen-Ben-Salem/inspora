@@ -77,8 +77,8 @@ describe("database schema", () => {
     expect(claimsConfig.checks).toHaveLength(4);
     expect(postsConfig.name).toBe("posts");
     expect(postsConfig.indexes).toHaveLength(4);
-    expect(postsConfig.checks).toHaveLength(6);
-    expect(postsConfig.foreignKeys).toHaveLength(1);
+    expect(postsConfig.checks).toHaveLength(5);
+    expect(postsConfig.foreignKeys).toHaveLength(2);
     expect(mediaConfig.foreignKeys).toHaveLength(1);
     expect(mediaConfig.indexes).toHaveLength(1);
     expect(mediaConfig.checks).toHaveLength(6);
@@ -88,7 +88,7 @@ describe("database schema", () => {
     expect(savedPostsConfig.indexes).toHaveLength(4);
     expect(savedPostsConfig.checks).toHaveLength(2);
     expect(sponsorsConfig.name).toBe("sponsors");
-    expect(sponsorsConfig.checks).toHaveLength(6);
+    expect(sponsorsConfig.checks).toHaveLength(10);
     expect(sponsorsConfig.columns.map((column) => column.name)).toContain(
       "media_video_preview",
     );

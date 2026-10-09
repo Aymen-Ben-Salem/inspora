@@ -1,6 +1,6 @@
 import "server-only";
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, sponsors } from "@/db/schema";
@@ -64,6 +64,7 @@ export async function getAdminSponsor(): Promise<AdminSponsorRecord | null> {
     const rows = await database
       .select()
       .from(sponsors)
+      .where(and(isNull(sponsors.ownerUserId), eq(sponsors.campaignState, "legacy")))
       .orderBy(desc(sponsors.createdAt))
       .limit(1);
 

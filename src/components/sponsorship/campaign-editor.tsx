@@ -1,0 +1,368 @@
+"use client";
+import { useAuth } from "@clerk/nextjs";
+import { useEffect, useRef, useState } from "react";
+import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
+import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
+import type {
+  OwnedCampaign,
+  SponsorPreparation,
+  VerifiedSponsorAsset,
+  MetadataSuggestions,
+} from "@/features/sponsorship/types";
+import { CampaignPreview, type PreviewFields } from "./campaign-preview";
+import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
+const empty: PreviewFields = {
+  title: "",
+  url: "",
+  tagline: "",
+  iconId: "",
+  wordmarkId: "",
+  mediaId: "",
+  posterId: "",
+  videoPreviewId: "",
+};
+const fieldClass =
+  "focus-ring mt-2 min-h-11 w-full rounded-md border border-[#e6e6e6] bg-white px-3 py-2 text-sm";
+export function CampaignEditor({
+  authenticationEnabled = true,
+}: {
+  authenticationEnabled?: boolean;
+}) {
+  return authenticationEnabled ? (
+    <AuthenticatedCampaignEditor />
+  ) : (
+    <CampaignEditorContent isSignedIn={false} isLoaded />
+  );
+}
+function AuthenticatedCampaignEditor() {
+  const { isSignedIn, isLoaded } = useAuth();
+  return (
+    <CampaignEditorContent
+      isSignedIn={Boolean(isSignedIn)}
+      isLoaded={isLoaded}
+    />
+  );
+}
+function CampaignEditorContent({
+  isSignedIn,
+  isLoaded,
+}: {
+  isSignedIn: boolean;
+  isLoaded: boolean;
+}) {
+  const [fields, setFields] = useState(empty),
+    [assets, setAssets] = useState<VerifiedSponsorAsset[]>([]),
+    [variants, setVariants] = useState<string[]>([]);
+  const [revision, setRevision] = useState(0),
+    [expiresAt, setExpiresAt] = useState<string>(),
+    [ready, setReady] = useState(false),
+    [busy, setBusy] = useState<string>(),
+    [message, setMessage] = useState(""),
+    [failed, setFailed] = useState(false);
+  const loaded = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    let active = true;
+    void sponsorRequest<SponsorPreparation>("preparation", "POST")
+      .then((p) => {
+        if (!active) return;
+        setReady(true);
+        setExpiresAt(new Date(p.expiresAt).toISOString());
+        // Restore manual fields after verification only when no saved creative exists.
+        if (!p.campaign) {
+          try {
+            const typed = sessionStorage.getItem("inspora:sponsor-typed");
+            if (typed) setFields(JSON.parse(typed));
+            sessionStorage.removeItem("inspora:sponsor-typed");
+          } catch {}
+        }
+        if (p.campaign && loaded.current !== p.id) {
+          loaded.current = p.id;
+          const c = p.campaign.creative;
+          setFields({
+            ...empty,
+            ...c,
+            mediaId: c.mediaId ?? "",
+            posterId: c.posterId ?? "",
+            videoPreviewId: c.videoPreviewId ?? "",
+          });
+          setAssets(c.assets);
+          setVariants(c.variantIds);
+          setRevision(p.revision);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setFailed(true);
+          setMessage(error.message);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [isSignedIn, isLoaded]);
+  function update(key: keyof PreviewFields, value: string) {
+    setFields((f) => ({ ...f, [key]: value }));
+    setMessage("");
+  }
+  async function run(label: string, work: () => Promise<void>) {
+    setBusy(label);
+    setMessage("");
+    setFailed(false);
+    try {
+      await work();
+    } catch (error) {
+      setFailed(true);
+      setMessage(error instanceof Error ? error.message : "Try again.");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+  function verify() {
+    try {
+      sessionStorage.setItem("inspora:sponsor-typed", JSON.stringify(fields));
+    } catch {}
+    window.location.assign("/api/sponsorship/intent");
+  }
+  async function upload(
+    file: File,
+    kind: "media" | "icon" | "wordmark" | "poster",
+  ) {
+    await run(`Uploading ${kind}…`, async () => {
+      const result = await prepareAndUploadMedia(
+        file,
+        kind === "icon"
+          ? "sponsor-icon"
+          : kind === "wordmark"
+            ? "sponsor-wordmark"
+            : kind === "poster"
+              ? "website-poster"
+              : "sponsor-media",
+        sponsorUploadOperations(kind),
+        (status) => setBusy(`${kind}: ${status}…`),
+      );
+      setAssets((previous) => [
+        ...previous,
+        result.primary,
+        ...result.variants,
+        ...(result.poster ? [result.poster] : []),
+        ...(result.videoPreview ? [result.videoPreview] : []),
+      ]);
+      setFields((f) => ({
+        ...f,
+        [kind === "media"
+          ? "mediaId"
+          : kind === "icon"
+            ? "iconId"
+            : kind === "wordmark"
+              ? "wordmarkId"
+              : "posterId"]: result.primary.id,
+        ...(kind === "media"
+          ? {
+              posterId: result.poster?.id ?? "",
+              videoPreviewId: result.videoPreview?.id ?? "",
+            }
+          : {}),
+      }));
+      if (kind === "media") setVariants(result.variants.map((a) => a.id));
+      setMessage("Media verified privately.");
+    });
+  }
+  return (
+    <main className="mx-auto max-w-[1120px] px-4 py-10 text-[#262626] sm:px-8">
+      <div className="mb-8">
+        <a href="/sponsor" className="focus-ring text-sm text-[#767676]">
+          ← Sponsorship
+        </a>
+        <h1 className="mt-5 text-3xl font-semibold tracking-tight">
+          Prepare your campaign
+        </h1>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-[#767676]">
+          Start with your website, then review your icon, feed creative and full
+          wordmark. A saved preparation lasts 24 hours and uses no paid seat.
+        </p>
+      </div>
+      <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
+        <form
+          className="space-y-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run("Saving preparation…", async () => {
+              const c = await sponsorRequest<OwnedCampaign>(
+                "preparation",
+                "PUT",
+                {
+                  title: fields.title,
+                  url: fields.url,
+                  tagline: fields.tagline,
+                  iconId: fields.iconId,
+                  wordmarkId: fields.wordmarkId,
+                  mediaId: fields.mediaId || undefined,
+                  posterId: fields.posterId || undefined,
+                  videoPreviewId: fields.videoPreviewId || undefined,
+                  variantIds: variants,
+                  expectedRevision: revision,
+                },
+              );
+              setRevision(c.revision);
+              setMessage(
+                "Preparation saved. Payment is unavailable; your campaign remains private.",
+              );
+            });
+          }}
+        >
+          <label className="block text-sm font-medium">
+            Website destination
+            <input
+              className={fieldClass}
+              type="url"
+              required
+              maxLength={2048}
+              value={fields.url}
+              onChange={(e) => update("url", e.target.value)}
+              placeholder="https://your-product.com"
+              autoComplete="url"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={!ready || Boolean(busy) || !fields.url}
+            className="focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 text-sm disabled:opacity-40"
+            onClick={() =>
+              void run("Finding suggestions…", async () => {
+                const s = await sponsorRequest<
+                  MetadataSuggestions & { assets: VerifiedSponsorAsset[] }
+                >("metadata", "POST", { url: fields.url });
+                setFields((f) => fillEmptySponsorFields(f, s));
+                setAssets((a) => [...a, ...s.assets]);
+                setMessage(
+                  "Suggestions filled empty fields only. You can edit everything.",
+                );
+              })
+            }
+          >
+            Suggest from website (optional)
+          </button>
+          <p className="text-xs text-[#767676]">
+            Verification is required for suggestions and uploads. Manual entry
+            always works.
+          </p>
+          <label className="block text-sm font-medium">
+            Public name
+            <input
+              className={fieldClass}
+              required
+              maxLength={160}
+              value={fields.title}
+              onChange={(e) => update("title", e.target.value)}
+              placeholder="Your product"
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            Tagline (optional)
+            <input
+              className={fieldClass}
+              maxLength={300}
+              value={fields.tagline}
+              onChange={(e) => update("tagline", e.target.value)}
+            />
+          </label>
+          <fieldset
+            disabled={!ready || Boolean(busy)}
+            className="space-y-5 disabled:opacity-50"
+          >
+            <legend className="mb-3 text-sm font-medium">Owned media</legend>
+            <p className="text-xs leading-5 text-[#767676]">
+              Images: PNG, JPEG, WebP, AVIF or GIF, up to 10 MiB. Brand assets
+              and posters must be static. Videos: MP4 or WebM up to 50 MiB; 20
+              MiB recommended. SVG is not supported. A video gets a verified
+              preview and poster before saving.
+            </p>
+            {(
+              [
+                ["media", "Feed image or video (optional)"],
+                ["icon", "Compact icon"],
+                ["wordmark", "Full wordmark"],
+                ["poster", "Replace video poster (optional)"],
+              ] as const
+            ).map(([kind, label]) => (
+              <label key={kind} className="block text-sm">
+                {label}
+                <input
+                  aria-label={label}
+                  type="file"
+                  accept={
+                    kind === "media"
+                      ? "image/png,image/jpeg,image/webp,image/avif,image/gif,video/mp4,video/webm"
+                      : "image/png,image/jpeg,image/webp,image/avif"
+                  }
+                  className={`${fieldClass} file:mr-3 file:rounded file:border-0 file:bg-[#fafafa] file:px-3 file:py-1`}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void upload(file, kind);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            ))}
+            {fields.mediaId ? (
+              <button
+                className="focus-ring min-h-11 text-sm underline"
+                type="button"
+                onClick={() => {
+                  setFields((f) => ({
+                    ...f,
+                    mediaId: "",
+                    posterId: "",
+                    videoPreviewId: "",
+                  }));
+                  setVariants([]);
+                }}
+              >
+                Use brand card instead
+              </button>
+            ) : null}
+          </fieldset>
+          {!ready ? (
+            <button
+              type="button"
+              onClick={verify}
+              className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white"
+            >
+              Verify sponsor access to save
+            </button>
+          ) : (
+            <button
+              disabled={!ready || Boolean(busy)}
+              type="submit"
+              className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white disabled:opacity-40"
+            >
+              Save private preparation
+            </button>
+          )}
+          {expiresAt ? (
+            <p className="text-xs text-[#767676]">
+              Expires {new Date(expiresAt).toLocaleString()}. Saving does not
+              extend this deadline.
+            </p>
+          ) : null}
+          <p
+            role={failed ? "alert" : "status"}
+            aria-live="polite"
+            className={`min-h-6 text-sm ${failed ? "text-[#b42318]" : "text-[#767676]"}`}
+          >
+            {busy || message}
+          </p>
+          <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
+            <p className="font-medium">Payment is unavailable</p>
+            <p className="text-[#767676]">
+              No payment, paid account, public campaign or seat reservation is
+              created by this preparation.
+            </p>
+          </div>
+        </form>
+        <CampaignPreview fields={fields} assets={assets} />
+      </div>
+    </main>
+  );
+}

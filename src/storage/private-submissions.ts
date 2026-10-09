@@ -32,6 +32,7 @@ type SubmissionUploadKind = "design" | "logo";
 type InspectedImage = { width?: number; height?: number; pages?: number };
 
 type StorageDependencies = {
+  namespace?: "submissions" | "sponsorships";
   bucket: string;
   signPut(input: {
     bucket: string;
@@ -90,12 +91,12 @@ function extensionFor(contentType: string) {
   return extension;
 }
 
-function sourceKey(ownerUserId: string, uploadId: string, contentType: string) {
-  return `submissions/${ownerPrefix(ownerUserId)}/${uploadId}/source/original.${extensionFor(contentType)}`;
+function sourceKey(ownerUserId: string, uploadId: string, contentType: string, namespace = "submissions") {
+  return `${namespace}/${ownerPrefix(ownerUserId)}/${uploadId}/source/original.${extensionFor(contentType)}`;
 }
 
-function expectedStagingPrefix(ownerUserId: string, uploadId: string) {
-  return `submissions/${ownerPrefix(ownerUserId)}/${uploadId}/staging/`;
+function expectedStagingPrefix(ownerUserId: string, uploadId: string, namespace = "submissions") {
+  return `${namespace}/${ownerPrefix(ownerUserId)}/${uploadId}/staging/`;
 }
 
 export function createPrivateStagingKey(input: {
@@ -103,15 +104,16 @@ export function createPrivateStagingKey(input: {
   uploadId: string;
   contentType: string;
   nonce?: string;
+  namespace?: "submissions" | "sponsorships";
 }) {
-  return `${expectedStagingPrefix(input.ownerUserId, input.uploadId)}${input.nonce ?? randomUUID()}.${extensionFor(input.contentType)}`;
+  return `${expectedStagingPrefix(input.ownerUserId, input.uploadId, input.namespace)}${input.nonce ?? randomUUID()}.${extensionFor(input.contentType)}`;
 }
 
 function normalizedType(value: string | null | undefined) {
   return value?.split(";", 1)[0]?.trim().toLowerCase() ?? null;
 }
 
-function hasExpectedFileSignature(contentType: string, bytes: Uint8Array) {
+export function hasExpectedFileSignature(contentType: string, bytes: Uint8Array) {
   if (contentType === "image/png") {
     return [137, 80, 78, 71, 13, 10, 26, 10].every(
       (value, index) => bytes[index] === value,
@@ -181,7 +183,7 @@ export function createPrivateSubmissionStorage(dependencies: StorageDependencies
   const inspectImage = dependencies.inspectImage ?? inspectPrivateImage;
 
   function assertOwnedKey(ownerUserId: string, uploadId: string, stagingKey: string) {
-    const prefix = expectedStagingPrefix(ownerUserId, uploadId);
+    const prefix = expectedStagingPrefix(ownerUserId, uploadId, dependencies.namespace);
     if (
       !stagingKey.startsWith(prefix) ||
       !/^[0-9a-f-]{36}\.[a-z0-9]+$/i.test(stagingKey.slice(prefix.length))
@@ -222,7 +224,7 @@ export function createPrivateSubmissionStorage(dependencies: StorageDependencies
       contentType: string;
       sizeBytes: number;
     }) {
-      const stagingKey = `${expectedStagingPrefix(input.ownerUserId, input.uploadId)}${dependencies.randomUUID()}.${extensionFor(input.contentType)}`;
+      const stagingKey = `${expectedStagingPrefix(input.ownerUserId, input.uploadId, dependencies.namespace)}${dependencies.randomUUID()}.${extensionFor(input.contentType)}`;
       const uploadUrl = await dependencies.signPut({
         bucket: dependencies.bucket,
         key: stagingKey,
@@ -252,7 +254,7 @@ export function createPrivateSubmissionStorage(dependencies: StorageDependencies
       sizeBytes: number;
     }) {
       assertOwnedKey(input.ownerUserId, input.uploadId, input.stagingKey);
-      const objectKey = sourceKey(input.ownerUserId, input.uploadId, input.contentType);
+      const objectKey = sourceKey(input.ownerUserId, input.uploadId, input.contentType, dependencies.namespace);
       const alreadyFrozen = await dependencies.get({
         bucket: dependencies.bucket,
         key: objectKey,
@@ -345,7 +347,7 @@ export function createPrivateSubmissionStorage(dependencies: StorageDependencies
   };
 }
 
-function requirePrivateConfiguration() {
+export function requirePrivateConfiguration(namespace: "submissions" | "sponsorships" = "submissions") {
   const accountId = process.env.R2_ACCOUNT_ID;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
@@ -356,6 +358,7 @@ function requirePrivateConfiguration() {
   assertDataOperationEnvironment(runtimeDataEnvironmentFromValues(process.env));
   const client = createR2Client({ accountId, accessKeyId, secretAccessKey });
   return createPrivateSubmissionStorage({
+    namespace,
     bucket,
     randomUUID,
     signPut: async (input) =>
@@ -381,10 +384,14 @@ function requirePrivateConfiguration() {
         throw error;
       }
       if (!response.Body) return null;
-      return {
-        bytes: await response.Body.transformToByteArray(),
-        contentType: response.ContentType ?? null,
-      };
+      if ((response.ContentLength ?? 0) > 50 * 1024 * 1024) throw new Error("Private media exceeds the upload limit.");
+      const chunks: Uint8Array[] = []; let size = 0;
+      for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+        size += chunk.byteLength;
+        if (size > 50 * 1024 * 1024) throw new Error("Private media exceeds the upload limit.");
+        chunks.push(chunk);
+      }
+      return { bytes: Buffer.concat(chunks), contentType: response.ContentType ?? null };
     },
     putImmutable: async (input) => {
       await client.send(

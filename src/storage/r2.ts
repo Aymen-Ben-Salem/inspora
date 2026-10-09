@@ -31,6 +31,7 @@ const PREFIXES: Record<MediaUploadKind, string> = {
   "creator-avatar": "creators",
   "sponsor-media": "sponsors",
   "sponsor-icon": "sponsors",
+  "sponsor-wordmark": "sponsors",
 };
 const EXTENSIONS: Record<string, string> = {
   "image/avif": "avif",

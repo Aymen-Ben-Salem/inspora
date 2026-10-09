@@ -34,6 +34,11 @@ export const config = {
     "/profile/:path*",
     "/api/profile/:path*",
     "/api/submissions/:path*",
+    "/sponsor/start/:path*",
+    "/sponsor/access/:path*",
+    "/sponsor/verify/:path*",
+    "/api/sponsorship/:path*",
+    "/api/account/capabilities",
     // Preserve Clerk's frontend API and session-handshake route.
     "/__clerk/:path*",
   ],

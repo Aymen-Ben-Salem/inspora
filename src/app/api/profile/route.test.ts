@@ -1,16 +1,45 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const adapters = vi.hoisted(() => ({ auth: vi.fn(), ensure: vi.fn(), update: vi.fn() }));
+const adapters = vi.hoisted(() => ({
+  auth: vi.fn(),
+  ensure: vi.fn(),
+  update: vi.fn(),
+  capabilities: vi.fn(),
+}));
+vi.mock("@/features/sponsorship/authorization", () => ({
+  readAccountCapabilities: adapters.capabilities,
+}));
+vi.mock("@/features/sponsorship/onboarding", () => ({
+  SPONSOR_INTENT_COOKIE: "inspora_sponsor_flow",
+}));
 vi.mock("@clerk/nextjs/server", () => ({ auth: adapters.auth }));
-vi.mock("@/features/creators/identity", () => ({ ensureCreatorForOwner: adapters.ensure }));
-vi.mock("@/features/profiles/actions", () => ({ updateOwnProfile: adapters.update }));
+vi.mock("@/features/creators/identity", () => ({
+  ensureCreatorForOwner: adapters.ensure,
+}));
+vi.mock("@/features/profiles/actions", () => ({
+  updateOwnProfile: adapters.update,
+}));
 
 import { GET, PATCH } from "./route";
 
 beforeEach(() => {
   vi.resetAllMocks();
   adapters.auth.mockResolvedValue({ userId: "trusted-owner" });
+  adapters.capabilities.mockResolvedValue({
+    viewer: true,
+    sponsor: false,
+    sponsorReadonly: false,
+  });
   vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
+it("never bootstraps a creator for sponsor-only navigation away from the sponsor flow", async () => {
+  const capabilities = { viewer: false, sponsor: true, sponsorReadonly: false };
+  adapters.capabilities.mockResolvedValue(capabilities);
+  const response = await GET();
+  expect(await response.json()).toEqual({ sponsorOnly: true, capabilities });
+  expect(adapters.ensure).not.toHaveBeenCalled();
+  expect(response.headers.get("Cache-Control")).toContain("no-store");
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -19,7 +48,9 @@ it("uses the authenticated principal and preserves the private profile response"
   adapters.ensure.mockResolvedValue(profile);
   const response = await GET();
   expect(response.status).toBe(200);
-  expect(response.headers.get("Cache-Control")).toBe("private, no-store, max-age=0");
+  expect(response.headers.get("Cache-Control")).toBe(
+    "private, no-store, max-age=0",
+  );
   expect(await response.json()).toEqual(profile);
   expect(adapters.ensure).toHaveBeenCalledWith({ userId: "trusted-owner" });
 });
@@ -28,29 +59,56 @@ it("refuses signed-out profile entry without ensuring an identity", async () => 
   adapters.auth.mockResolvedValue({ userId: null });
   const response = await GET();
   expect(response.status).toBe(401);
-  expect(await response.json()).toEqual({ message: "Sign in to view your profile." });
+  expect(await response.json()).toEqual({
+    message: "Sign in to view your profile.",
+  });
   expect(adapters.ensure).not.toHaveBeenCalled();
 });
 
-it.each(["This account is not active.", "DATABASE_URL is not configured."])("preserves the error envelope for %s", async (message) => {
-  adapters.ensure.mockRejectedValue(new Error(message));
-  const response = await GET();
-  expect(response.status).toBe(500);
-  expect(await response.json()).toEqual({ message: "Your profile could not be loaded." });
-  expect(response.headers.get("Cache-Control")).toContain("no-store");
-});
+it.each(["This account is not active.", "DATABASE_URL is not configured."])(
+  "preserves the error envelope for %s",
+  async (message) => {
+    adapters.ensure.mockRejectedValue(new Error(message));
+    const response = await GET();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      message: "Your profile could not be loaded.",
+    });
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+  },
+);
 
 it("preserves profile edit transport errors", async () => {
-  const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: "invalid json" }));
+  const response = await PATCH(
+    new Request("https://example.com/api/profile", {
+      method: "PATCH",
+      body: "invalid json",
+    }),
+  );
   expect(response.status).toBe(400);
-  expect(await response.json()).toEqual({ ok: false, code: "invalid_input", field: "form", message: "Invalid profile request." });
+  expect(await response.json()).toEqual({
+    ok: false,
+    code: "invalid_input",
+    field: "form",
+    message: "Invalid profile request.",
+  });
   expect(adapters.update).not.toHaveBeenCalled();
 });
 
 it("preserves field errors and private headers from owner profile edits", async () => {
-  const failure = { ok: false, code: "unavailable_username", field: "username", message: "That username is unavailable." };
+  const failure = {
+    ok: false,
+    code: "unavailable_username",
+    field: "username",
+    message: "That username is unavailable.",
+  };
   adapters.update.mockResolvedValue(failure);
-  const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: JSON.stringify({ username: "reserved" }) }));
+  const response = await PATCH(
+    new Request("https://example.com/api/profile", {
+      method: "PATCH",
+      body: JSON.stringify({ username: "reserved" }),
+    }),
+  );
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual(failure);
   expect(response.headers.get("Cache-Control")).toContain("no-store");
@@ -59,8 +117,21 @@ it("preserves field errors and private headers from owner profile edits", async 
 it.each([
   ["unauthenticated", "Please log in again.", 401],
   ["invalid_input", "Sign in is a reserved name.", 400],
-])("maps %s by code independently of display copy", async (code, message, status) => {
-  adapters.update.mockResolvedValue({ ok: false, code, field: "form", message });
-  const response = await PATCH(new Request("https://example.com/api/profile", { method: "PATCH", body: "{}" }));
-  expect(response.status).toBe(status);
-});
+])(
+  "maps %s by code independently of display copy",
+  async (code, message, status) => {
+    adapters.update.mockResolvedValue({
+      ok: false,
+      code,
+      field: "form",
+      message,
+    });
+    const response = await PATCH(
+      new Request("https://example.com/api/profile", {
+        method: "PATCH",
+        body: "{}",
+      }),
+    );
+    expect(response.status).toBe(status);
+  },
+);

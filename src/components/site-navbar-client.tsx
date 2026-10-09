@@ -12,10 +12,7 @@ import {
 
 import { BrandMark } from "./brand-mark";
 import { ContactSheet } from "./contact-sheet";
-import { SaveIcon } from "./feed-save-overlay";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
-import { SITE_PRIMARY_ACTION } from "./site-navigation";
-import { useSubmission } from "./submissions/submission-provider";
 
 export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "websites";
 
@@ -49,7 +46,6 @@ export function SiteNavbarClient({
   desktopAuth: ReactNode;
   mobileAuth: ReactNode;
 }) {
-  const { openSubmission } = useSubmission();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -230,27 +226,19 @@ export function SiteNavbarClient({
                   >
                     About Us
                   </Link>
+                  <Link href={"/sponsor" as Route} role="menuitem" tabIndex={overflowOpen ? 0 : -1} onClick={() => setOverflowOpen(false)} className="focus-ring relative z-10 flex min-h-11 items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] text-[#262626] hover:bg-[#f0f0f0]">Sponsor</Link>
                 </div>
               </div>
             </nav>
 
             <div className="archive-copy-type hidden min-w-0 items-center justify-end gap-[var(--archive-header-action-gap)] font-medium leading-normal lg:flex">
-              <button
-                type="button"
-                onClick={openSubmission}
-                aria-label={SITE_PRIMARY_ACTION.label}
-                className="focus-ring size-[var(--archive-header-icon)] cursor-pointer text-[#767676] transition-colors hover:text-[#262626]"
-              >
-                <PlusIcon />
-              </button>
               <Link
-                href={"/saved" as Route}
-                prefetch={false}
-                aria-label="Saved posts"
-                aria-current={page === "saved" ? "page" : undefined}
-                className="focus-ring size-[var(--archive-card-overlay-size)] rounded-full"
-              >
-                <SaveIcon saved={page === "saved"} />
+                href={"/sponsor" as Route}
+                aria-label="Become a sponsor"
+                className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-md border border-dashed border-[#e6e6e6] text-[#767676] transition-colors hover:text-[#262626]"
+              ><span className="size-6">
+                <PlusIcon />
+              </span>
               </Link>
               {desktopAuth}
             </div>

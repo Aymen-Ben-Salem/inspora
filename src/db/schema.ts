@@ -3,6 +3,7 @@ import {
   boolean,
   bigint,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -804,12 +805,26 @@ export const sponsors = pgTable(
     iconStorageProvider: text("icon_storage_provider"),
     iconStorageKey: text("icon_storage_key"),
     isActive: boolean("is_active").default(true).notNull(),
+    ownerUserId: text("owner_user_id").references(() => sponsorIdentities.userId),
+    accountId: uuid("account_id").references(() => sponsorAccounts.id),
+    campaignState: text("campaign_state").default("legacy").notNull(),
+    internalName: text("internal_name"),
+    revision: integer("revision").default(0).notNull(),
+    wordmarkUrl: text("wordmark_url"),
+    wordmarkStorageKey: text("wordmark_storage_key"),
     createdBy: text("created_by"),
     updatedBy: text("updated_by"),
     ...timestamps,
   },
   (table) => [
     check("sponsors_title_not_blank", sql`length(trim(${table.title})) > 0`),
+    uniqueIndex("sponsors_id_owner_unique").on(table.id, table.ownerUserId),
+    uniqueIndex("sponsors_one_published_per_account").on(table.accountId).where(sql`${table.campaignState} = 'published'`),
+    check("sponsors_campaign_state_valid", sql`${table.campaignState} in ('legacy','prepared','draft','published','archived')`),
+    check("sponsors_owned_legacy_inactive", sql`(${table.ownerUserId} is null and ${table.accountId} is null and ${table.campaignState} = 'legacy') or (${table.ownerUserId} is not null and ${table.campaignState} <> 'legacy' and not ${table.isActive})`),
+    check("sponsors_revision_valid", sql`${table.revision} >= 0`),
+    check("sponsors_published_has_account", sql`${table.campaignState} <> 'published' or ${table.accountId} is not null`),
+    foreignKey({ name: "sponsors_account_owner_fk", columns: [table.accountId, table.ownerUserId], foreignColumns: [sponsorAccounts.id, sponsorAccounts.ownerUserId] }),
     check("sponsors_url_not_blank", sql`length(trim(${table.url})) > 0`),
     check("sponsors_media_type_valid", sql`${table.mediaType} in ('image', 'video')`),
     check("sponsors_media_dimensions_valid", sql`${table.mediaWidth} > 0 and ${table.mediaHeight} > 0`),
@@ -997,3 +1012,106 @@ export const creatorViewSnapshots = pgTable("creator_view_snapshots", {
   count: bigint("count", { mode: "number" }).notNull(),
   asOf: timestamp("as_of", { withTimezone: true, mode: "date" }).notNull(),
 }, (table) => [check("creator_view_snapshot_count_valid", sql`${table.count} >= 0 and ${table.count} <= 9007199254740991`)]);
+
+// Sponsor access survives unpaid preparation expiry; it grants no creator or paid entitlement.
+export const sponsorIdentities = pgTable("sponsor_identities", {
+  userId: text("user_id").primaryKey(),
+  state: text("state").default("allowed").notNull(),
+  ...timestamps,
+}, t => [check("sponsor_identities_state_valid", sql`${t.state} in ('allowed','revoked','deleting')`)]);
+
+export const sponsorAccounts = pgTable("sponsor_accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerUserId: text("owner_user_id").notNull().references(() => sponsorIdentities.userId),
+  state: text("state").notNull(),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  paidThrough: timestamp("paid_through", { withTimezone: true, mode: "date" }),
+  periodStart: timestamp("period_start", { withTimezone: true, mode: "date" }),
+  recoveryDeadline: timestamp("recovery_deadline", { withTimezone: true, mode: "date" }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+  ...timestamps,
+}, t => [
+  uniqueIndex("sponsor_accounts_owner_unique").on(t.ownerUserId),
+  uniqueIndex("sponsor_accounts_id_owner_unique").on(t.id, t.ownerUserId),
+  uniqueIndex("sponsor_accounts_subscription_unique").on(t.stripeSubscriptionId),
+  check("sponsor_accounts_state_valid", sql`${t.state} in ('active','recovery','inactive','revoked','deleting')`),
+]);
+
+export const sponsorCheckouts = pgTable("sponsor_checkouts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerUserId: text("owner_user_id").notNull().references(() => sponsorIdentities.userId),
+  campaignId: uuid("campaign_id").references(() => sponsors.id),
+  state: text("state").default("preparing").notNull(),
+  revision: integer("revision").default(0).notNull(),
+  snapshot: jsonb("snapshot").$type<import("@/features/sponsorship/types").OwnedCampaign>(),
+  expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  ...timestamps,
+}, t => [
+  uniqueIndex("sponsor_checkouts_id_owner_unique").on(t.id, t.ownerUserId),
+  uniqueIndex("sponsor_checkouts_one_open_per_owner").on(t.ownerUserId).where(sql`${t.state} in ('preparing','ready','reserved')`),
+  index("sponsor_checkouts_expiry_idx").on(t.state, t.expiresAt),
+  check("sponsor_checkouts_state_valid", sql`${t.state} in ('preparing','ready','reserved','expired','completed')`),
+  check("sponsor_checkouts_revision_valid", sql`${t.revision} >= 0`),
+  foreignKey({ name: "sponsor_checkouts_campaign_owner_fk", columns: [t.campaignId, t.ownerUserId], foreignColumns: [sponsors.id, sponsors.ownerUserId] }),
+]);
+
+export const sponsorSeats = pgTable("sponsor_seats", {
+  slot: integer("slot").primaryKey(),
+  state: text("state").default("free").notNull(),
+  accountId: uuid("account_id").references(() => sponsorAccounts.id),
+  checkoutId: uuid("checkout_id").references(() => sponsorCheckouts.id),
+  reservedUntil: timestamp("reserved_until", { withTimezone: true, mode: "date" }),
+}, t => [
+  uniqueIndex("sponsor_seats_account_unique").on(t.accountId),
+  uniqueIndex("sponsor_seats_checkout_unique").on(t.checkoutId),
+  check("sponsor_seats_slot_valid", sql`${t.slot} between 1 and 4`),
+  check("sponsor_seats_state_valid", sql`${t.state} in ('free','reserved','occupied','releasing')`),
+  check("sponsor_seats_binding_valid", sql`(${t.state} = 'free' and ${t.accountId} is null and ${t.checkoutId} is null and ${t.reservedUntil} is null) or (${t.state} = 'reserved' and ${t.checkoutId} is not null and ${t.accountId} is null and ${t.reservedUntil} is not null) or (${t.state} in ('occupied','releasing') and ${t.accountId} is not null)`),
+]);
+
+export const sponsorCampaignVersions = pgTable("sponsor_campaign_versions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id").notNull().references(() => sponsors.id),
+  ownerUserId: text("owner_user_id").notNull().references(() => sponsorIdentities.userId),
+  revision: integer("revision").notNull(),
+  creative: jsonb("creative").$type<import("@/features/sponsorship/types").CreativeSnapshot>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+}, t => [
+  uniqueIndex("sponsor_versions_campaign_revision_unique").on(t.campaignId, t.revision),
+  uniqueIndex("sponsor_versions_id_owner_unique").on(t.id, t.ownerUserId),
+  check("sponsor_versions_revision_valid", sql`${t.revision} > 0`),
+  foreignKey({ name: "sponsor_versions_campaign_owner_fk", columns: [t.campaignId, t.ownerUserId], foreignColumns: [sponsors.id, sponsors.ownerUserId] }),
+]);
+
+export const sponsorAssets = pgTable("sponsor_assets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerUserId: text("owner_user_id").notNull().references(() => sponsorIdentities.userId),
+  checkoutId: uuid("checkout_id").notNull().references(() => sponsorCheckouts.id),
+  kind: text("kind").notNull(), state: text("state").default("pending").notNull(),
+  contentType: text("content_type").notNull(), sizeBytes: integer("size_bytes").notNull(),
+  stagingKey: text("staging_key").notNull(), objectKey: text("object_key"), digest: text("digest"),
+  width: integer("width"), height: integer("height"),
+  expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  ...timestamps,
+}, t => [
+  uniqueIndex("sponsor_assets_id_owner_unique").on(t.id, t.ownerUserId),
+  uniqueIndex("sponsor_assets_staging_unique").on(t.stagingKey),
+  index("sponsor_assets_expiry_idx").on(t.state, t.expiresAt),
+  check("sponsor_assets_kind_valid", sql`${t.kind} in ('media','icon','wordmark','poster','video-preview','variant')`),
+  check("sponsor_assets_state_valid", sql`${t.state} in ('pending','verified','deleting')`),
+  check("sponsor_assets_size_valid", sql`${t.sizeBytes} > 0 and ${t.sizeBytes} <= 52428800`),
+  check("sponsor_assets_dimensions_valid", sql`(${t.width} is null and ${t.height} is null) or (${t.width} > 0 and ${t.height} > 0)`),
+  check("sponsor_assets_verified_complete", sql`${t.state} <> 'verified' or (${t.objectKey} is not null and ${t.digest} is not null and ${t.digest} ~ '^[a-f0-9]{64}$' and ${t.width} is not null and ${t.height} is not null and ${t.width} > 0 and ${t.height} > 0)`),
+  foreignKey({ name: "sponsor_assets_checkout_owner_fk", columns: [t.checkoutId, t.ownerUserId], foreignColumns: [sponsorCheckouts.id, sponsorCheckouts.ownerUserId] }),
+]);
+
+export const sponsorVersionAssets = pgTable("sponsor_version_assets", {
+  versionId: uuid("version_id").notNull().references(() => sponsorCampaignVersions.id),
+  assetId: uuid("asset_id").notNull().references(() => sponsorAssets.id),
+  ownerUserId: text("owner_user_id").notNull(),
+}, t => [
+  uniqueIndex("sponsor_version_assets_unique").on(t.versionId, t.assetId),
+  foreignKey({ name: "sponsor_version_assets_version_owner_fk", columns: [t.versionId, t.ownerUserId], foreignColumns: [sponsorCampaignVersions.id, sponsorCampaignVersions.ownerUserId] }),
+  foreignKey({ name: "sponsor_version_assets_asset_owner_fk", columns: [t.assetId, t.ownerUserId], foreignColumns: [sponsorAssets.id, sponsorAssets.ownerUserId] }),
+]);

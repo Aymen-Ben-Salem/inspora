@@ -12,7 +12,7 @@ export type AcceptedMediaMimeType = (typeof ACCEPTED_MEDIA_MIME_TYPES)[number];
 export type MediaUploadKind =
   | "post-media" | "logo-media" | "website-recording" | "website-poster"
   | "website-section" | "website-favicon" | "creator-avatar"
-  | "sponsor-media" | "sponsor-icon";
+  | "sponsor-media" | "sponsor-icon" | "sponsor-wordmark";
 
 export function isAcceptedUploadForKind(kind: MediaUploadKind, contentType: AcceptedMediaMimeType) {
   const staticImage = contentType.startsWith("image/") && contentType !== "image/gif";

@@ -27,9 +27,11 @@ export function ViewerProfileProvider({ children }: PropsWithChildren) {
       void fetch("/api/profile", { cache: "no-store", signal: request.signal })
         .then(async (response) => {
           if (!response.ok) throw new Error("Viewer profile unavailable");
-          const profile = await response.json() as CreatorProfile;
+          const payload = await response.json() as CreatorProfile | { sponsorOnly: true; capabilities: import("@/features/sponsorship/types").AccountCapabilities };
           if (active && !request.signal.aborted) {
-            setResult({ userId, profile, isLoading: false });
+            setResult("sponsorOnly" in payload
+              ? { userId, profile: null, isLoading: false, capabilities: payload.capabilities }
+              : { userId, profile: payload, isLoading: false, ...(response.headers?.get("X-Sponsor-Capability") === "true" ? { capabilities: { viewer: true, sponsor: true, sponsorReadonly: false } } : {}) });
           }
         })
         .catch(() => {

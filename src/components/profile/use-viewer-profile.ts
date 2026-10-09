@@ -9,6 +9,7 @@ export type ViewerProfileState = {
   userId?: string;
   profile: CreatorProfile | null;
   isLoading: boolean;
+  capabilities?: import("@/features/sponsorship/types").AccountCapabilities;
 };
 
 export const ViewerProfileContext = createContext<ViewerProfileState>({

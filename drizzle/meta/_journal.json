@@ -190,6 +190,13 @@
       "when": 1790523243657,
       "tag": "0026_admin_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791578186713,
+      "tag": "0027_sponsorship_preparation",
+      "breakpoints": true
     }
   ]
 }

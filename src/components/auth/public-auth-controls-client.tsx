@@ -1,11 +1,12 @@
 "use client";
 
-import { useAuth, useUser } from "@clerk/nextjs";
+import { SignOutButton, useAuth, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import type { Route } from "next";
 import Link from "next/link";
 
 import { useViewerProfile } from "../profile/use-viewer-profile";
+import { useSubmission } from "../submissions/submission-provider";
 
 export function PublicAuthControlsClient({
   variant,
@@ -14,7 +15,12 @@ export function PublicAuthControlsClient({
 }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
-  const { profile, isLoading: profileLoading } = useViewerProfile(isSignedIn ? user?.id : undefined);
+  const { openSubmission } = useSubmission();
+  const {
+    profile,
+    capabilities,
+    isLoading: profileLoading,
+  } = useViewerProfile(isSignedIn ? user?.id : undefined);
   const viewerName = profile?.name ?? user?.fullName;
 
   const content = !isLoaded ? (
@@ -27,28 +33,72 @@ export function PublicAuthControlsClient({
       }
     />
   ) : isSignedIn && user ? (
-    <Link
-      href={"/profile" as Route}
-      prefetch={false}
-      aria-label="Open your profile"
-      className={`focus-ring relative block shrink-0 overflow-hidden rounded-full border border-[#e6e6e6] ${
-        variant === "desktop"
-          ? "size-[var(--archive-user-avatar-size)]"
-          : "size-[35px]"
-      }`}
-    >
-      {profileLoading ? (
-        <span aria-hidden="true" className="absolute inset-0 bg-[#f0f0f0]" />
-      ) : (
-        <Image
-          src={profile?.avatarUrl || user.imageUrl}
-          alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
-          fill
-          sizes={variant === "desktop" ? "35px" : "35px"}
-          className="object-cover"
-        />
-      )}
-    </Link>
+    <details className="relative">
+      <summary
+        aria-label="Account menu"
+        className={`focus-ring relative block shrink-0 overflow-hidden rounded-full border border-[#e6e6e6] ${
+          variant === "desktop"
+            ? "size-[var(--archive-user-avatar-size)]"
+            : "size-[35px]"
+        }`}
+      >
+        {profileLoading ? (
+          <span aria-hidden="true" className="absolute inset-0 bg-[#f0f0f0]" />
+        ) : (
+          <Image
+            src={profile?.avatarUrl || user.imageUrl}
+            alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
+            fill
+            sizes={variant === "desktop" ? "35px" : "35px"}
+            className="object-cover"
+          />
+        )}
+      </summary>
+      <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-48 rounded-md border border-[#e6e6e6] bg-white p-1 text-sm shadow-sm">
+        {capabilities?.viewer !== false ? (
+          <>
+            <Link
+              href={"/profile" as Route}
+              prefetch={false}
+              className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
+            >
+              Profile
+            </Link>
+            <Link
+              href={"/saved" as Route}
+              prefetch={false}
+              className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
+            >
+              Saved
+            </Link>
+            <button
+              onClick={openSubmission}
+              type="button"
+              className="focus-ring flex min-h-11 w-full items-center rounded px-3 hover:bg-[#fafafa]"
+            >
+              Submit work
+            </button>
+          </>
+        ) : null}
+        {capabilities?.sponsor ? (
+          <Link
+            href={"/sponsor/start" as Route}
+            prefetch={false}
+            className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
+          >
+            Sponsor preparation
+          </Link>
+        ) : null}
+        <SignOutButton>
+          <button
+            type="button"
+            className="focus-ring flex min-h-11 w-full items-center rounded px-3 hover:bg-[#fafafa]"
+          >
+            Sign out
+          </button>
+        </SignOutButton>
+      </div>
+    </details>
   ) : (
     <Link
       href={"/sign-in" as Route}

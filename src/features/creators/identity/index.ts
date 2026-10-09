@@ -11,6 +11,7 @@ import { withWriteTransaction } from "@/db/write-client";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import type { CreatorSummary, ResolvedCreatorProfile } from "../types";
 import { creatorUsernameCandidates } from "../validation";
+import { readAccountCapabilities } from "@/features/sponsorship/authorization";
 import { mapCreatorSummary, mapPublicCreatorProfile } from "./projections";
 
 export { requestCreatorOwnershipClaimFromVerifiedX, reviewCreatorOwnershipClaim } from "./claims";
@@ -44,6 +45,9 @@ class UsernameReservationConflict extends Error {}
 export async function ensureCreatorForOwner(principal: CreatorOwnerPrincipal): Promise<CreatorSummary> {
   const ownerUserId = principal.userId;
   if (!ownerUserId?.trim()) throw new Error("Sign in to manage your creator profile.");
+  if (!(await readAccountCapabilities(ownerUserId)).viewer) {
+    throw new Error("This identity has sponsor access only.");
+  }
   const client = await clerkClient();
   const user = await client.users.getUser(ownerUserId);
   const name =

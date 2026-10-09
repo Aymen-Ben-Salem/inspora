@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 
 import { ensureCreatorForOwner } from "@/features/creators/identity";
 import { updateOwnProfile } from "@/features/profiles/actions";
+import { readAccountCapabilities } from "@/features/sponsorship/authorization";
+import { SPONSOR_INTENT_COOKIE } from "@/features/sponsorship/onboarding";
 
 const privateHeaders = {
   "Cache-Control": "private, no-store, max-age=0",
@@ -17,9 +19,26 @@ export async function GET() {
     );
   }
   try {
-    return NextResponse.json(await ensureCreatorForOwner({ userId }), {
-      headers: privateHeaders,
-    });
+    const capabilities = await readAccountCapabilities(userId);
+    if (!capabilities.viewer) {
+      const response = NextResponse.json(
+        { sponsorOnly: true, capabilities },
+        { headers: privateHeaders },
+      );
+      if (capabilities.sponsor) response.cookies.delete(SPONSOR_INTENT_COOKIE);
+      return response;
+    }
+    const response = NextResponse.json(
+      await ensureCreatorForOwner({ userId }),
+      {
+        headers: {
+          ...privateHeaders,
+          "X-Sponsor-Capability": capabilities.sponsor ? "true" : "false",
+        },
+      },
+    );
+    if (capabilities.sponsor) response.cookies.delete(SPONSOR_INTENT_COOKIE);
+    return response;
   } catch (error) {
     console.error("Owner profile lookup failed", error);
     return NextResponse.json(
@@ -35,7 +54,12 @@ export async function PATCH(request: Request) {
     input = await request.json();
   } catch {
     return NextResponse.json(
-      { ok: false, code: "invalid_input", field: "form", message: "Invalid profile request." },
+      {
+        ok: false,
+        code: "invalid_input",
+        field: "form",
+        message: "Invalid profile request.",
+      },
       { status: 400, headers: privateHeaders },
     );
   }

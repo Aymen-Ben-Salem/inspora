@@ -6,12 +6,24 @@ export function fillEmptySponsorFields<
     wordmarkId: string;
     mediaId: string;
   },
->(fields: T, suggestions: MetadataSuggestions): T {
+>(fields: T, suggestions: MetadataSuggestions, replaceAssets = false): T {
   return {
     ...fields,
     title: fields.title || suggestions.title || "",
-    iconId: fields.iconId || suggestions.iconId || "",
-    wordmarkId: fields.wordmarkId || suggestions.wordmarkId || "",
-    mediaId: fields.mediaId || suggestions.mediaId || "",
+    iconId:
+      (replaceAssets ? suggestions.iconId : fields.iconId) ||
+      fields.iconId ||
+      suggestions.iconId ||
+      "",
+    wordmarkId:
+      (replaceAssets ? suggestions.wordmarkId : fields.wordmarkId) ||
+      fields.wordmarkId ||
+      suggestions.wordmarkId ||
+      "",
+    mediaId:
+      (replaceAssets ? suggestions.mediaId : fields.mediaId) ||
+      fields.mediaId ||
+      suggestions.mediaId ||
+      "",
   };
 }

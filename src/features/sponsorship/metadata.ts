@@ -137,15 +137,27 @@ function structuredLogo(value: unknown, depth = 0): string | undefined {
     structuredLogo(node.publisher, depth + 1)
   );
 }
-function websiteWordmark(html: string, base: URL) {
+function websiteWordmark(
+  html: string,
+  base: URL,
+  options: { includeFallbacks?: boolean; includeLogoImages?: boolean } = {},
+) {
   // Explicit wordmarks take priority over a site's general organization logo.
   for (const match of html.matchAll(/<img\b[^<>]*>/gi)) {
     const a = attributes(match[0]);
-    if (/wordmark/i.test([a.alt, a.id, a.class, a.src].join(" "))) {
+    const label = [a.alt, a.id, a.class, a.src].join(" ");
+    if (
+      /wordmark/i.test(label) ||
+      (options.includeLogoImages &&
+        /logo/i.test(label) &&
+        Number(a.width) > Number(a.height) * 1.5 &&
+        Number(a.height) > 0)
+    ) {
       const url = imageUrl(a.src, base);
       if (url) return url;
     }
   }
+  if (options.includeFallbacks === false) return undefined;
   const lowerHtml = html.toLowerCase();
   let scriptEnd = 0;
   for (const match of html.matchAll(/<script\b[^<>]*>/gi)) {
@@ -180,6 +192,21 @@ function websiteWordmark(html: string, base: URL) {
       const url = imageUrl(a.src, base);
       if (url) return url;
     }
+  }
+  return undefined;
+}
+function linkedBrandPage(html: string, base: URL) {
+  for (const match of html.matchAll(/<a\b[^<>]*>/gi)) {
+    const url = imageUrl(attributes(match[0]).href, base);
+    if (!url) continue;
+    const candidate = new URL(url);
+    if (
+      candidate.origin === base.origin &&
+      /\/(?:brand|branding|brand-assets|brand-guidelines|press-kit|media-kit)\/?$/i.test(
+        candidate.pathname,
+      )
+    )
+      return candidate.href;
   }
   return undefined;
 }
@@ -234,26 +261,63 @@ export function createMetadataFetcher(deps: MetadataFetchDependencies) {
         .trim()
         .slice(0, 160);
       let ogImageUrl: string | undefined, iconUrl: string | undefined;
+      let iconPriority = 0;
       for (const match of html.matchAll(/<(?:meta|link)\b[^>]*>/gi)) {
         const a = attributes(match[0]);
         if (a.property === "og:title" && !title)
           title = a.content?.trim().slice(0, 160) ?? "";
         if ((a.property ?? a.name)?.toLowerCase() === "og:image" && !ogImageUrl)
           ogImageUrl = imageUrl(a.content, response.url);
-        if (a.rel?.split(/\s+/).includes("icon") && a.href)
-          iconUrl = imageUrl(a.href, response.url) ?? iconUrl;
+        const relations = a.rel?.toLowerCase().split(/\s+/) ?? [];
         if (
-          a.rel?.split(/\s+/).includes("apple-touch-icon") &&
-          a.href &&
-          !iconUrl
-        )
-          iconUrl = imageUrl(a.href, response.url);
+          (relations.includes("icon") ||
+            relations.includes("apple-touch-icon")) &&
+          a.href
+        ) {
+          const priority = /prefers-color-scheme\s*:\s*light/i.test(
+            a.media ?? "",
+          )
+            ? 4
+            : /prefers-color-scheme\s*:\s*dark/i.test(a.media ?? "")
+              ? 1
+              : relations.includes("icon")
+                ? 3
+                : 2;
+          const url = imageUrl(a.href, response.url);
+          if (url && priority > iconPriority) {
+            iconUrl = url;
+            iconPriority = priority;
+          }
+        }
       }
+      let wordmarkUrl = websiteWordmark(html, response.url, {
+        includeFallbacks: false,
+      });
+      const brandPage = wordmarkUrl
+        ? undefined
+        : linkedBrandPage(html, response.url);
+      if (brandPage && brandPage !== response.url.href) {
+        try {
+          const brand = await fetchPublic(brandPage, 2 * 1024 * 1024, signal);
+          if (
+            brand.url.origin === response.url.origin &&
+            brand.headers["content-type"]?.toLowerCase().startsWith("text/html")
+          )
+            wordmarkUrl = websiteWordmark(
+              new TextDecoder().decode(brand.bytes),
+              brand.url,
+              { includeFallbacks: false, includeLogoImages: true },
+            );
+        } catch {
+          // The homepage icon and OG image remain useful without a brand page.
+        }
+      }
+      wordmarkUrl ??= websiteWordmark(html, response.url);
       return {
         title: title || undefined,
         imageUrl: ogImageUrl,
         iconUrl,
-        wordmarkUrl: websiteWordmark(html, response.url),
+        wordmarkUrl,
       };
     },
   };

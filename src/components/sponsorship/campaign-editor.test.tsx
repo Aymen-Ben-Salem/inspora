@@ -20,5 +20,6 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).toContain("Navbar · compact icon");
   expect(html).toContain("Feed · image, video or brand card");
   expect(html).toContain("Detail sidebar · full wordmark");
+  expect(html).toContain("Wordmark not imported");
   expect(html).toContain("Payment is unavailable");
 });

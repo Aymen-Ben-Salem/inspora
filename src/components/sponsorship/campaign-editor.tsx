@@ -62,6 +62,7 @@ function CampaignEditorContent({
   const [fields, setFields] = useState(empty),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>([]),
     [variants, setVariants] = useState<string[]>([]);
+  const [replaceWebsiteAssets, setReplaceWebsiteAssets] = useState(false);
   const [revision, setRevision] = useState(0),
     [expiresAt, setExpiresAt] = useState<string>(),
     [ready, setReady] = useState(false),
@@ -294,19 +295,46 @@ function CampaignEditorContent({
                 const s = await sponsorRequest<
                   MetadataSuggestions & { assets: VerifiedSponsorAsset[] }
                 >("metadata", "POST", { url: fields.url }, signal);
-                setFields((f) => fillEmptySponsorFields(f, s));
+                setFields((f) => {
+                  const filled = fillEmptySponsorFields(
+                    f,
+                    s,
+                    replaceWebsiteAssets,
+                  );
+                  return filled.mediaId !== f.mediaId
+                    ? { ...filled, posterId: "", videoPreviewId: "" }
+                    : filled;
+                });
+                if (s.mediaId && (replaceWebsiteAssets || !fields.mediaId))
+                  setVariants([]);
                 setAssets((a) => [...a, ...s.assets]);
                 setMessage(
-                  "Suggestions filled empty fields only. You can edit everything.",
+                  s.missingAssets?.length
+                    ? `Website suggestions imported. Could not import: ${s.missingAssets.join(", ")}. Upload these below.`
+                    : "Website suggestions imported. Review your three placement previews.",
                 );
               })
             }
           >
             Suggest from website (optional)
           </button>
+          {fields.iconId || fields.wordmarkId || fields.mediaId ? (
+            <label className="flex items-center gap-2 text-sm text-[#767676]">
+              <input
+                type="checkbox"
+                checked={replaceWebsiteAssets}
+                disabled={!ready || Boolean(busy)}
+                onChange={(event) =>
+                  setReplaceWebsiteAssets(event.target.checked)
+                }
+              />
+              Replace current assets with website suggestions
+            </label>
+          ) : null}
           <p className="text-xs leading-5 text-[#767676]">
             Uses the website icon, its brand wordmark when available and its OG
-            image for the feed. Review the previews or upload replacements below.
+            image for the feed. Review the previews or upload replacements
+            below.
           </p>
           <label className="block text-sm font-medium">
             Public name
@@ -327,8 +355,8 @@ function CampaignEditorContent({
             <p className="text-xs leading-5 text-[#767676]">
               Images: PNG, JPEG, WebP, AVIF or GIF, up to 10 MiB. Brand assets
               and posters must be static. Videos: MP4 or WebM up to 50 MiB; 20
-              MiB recommended. SVG is not supported. A video gets a verified
-              preview and poster before saving.
+              MiB recommended. SVG uploads are not supported. A video gets a
+              verified preview and poster before saving.
             </p>
             {(
               [

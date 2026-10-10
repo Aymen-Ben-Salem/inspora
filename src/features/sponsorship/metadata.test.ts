@@ -2,6 +2,25 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createMetadataFetcher, fillEmptySponsorFields } from "./metadata";
 describe("optional public-only metadata", () => {
+  it("selects the light-background favicon and the real full logo from a linked brand page", async () => {
+    const fetcher = createMetadataFetcher({
+      resolve: async () => [{ address: "93.184.216.34", family: 4 }],
+      request: async ({ url }) => ({
+        status: 200,
+        headers: { "content-type": "text/html" },
+        bytes: Buffer.from(
+          url.pathname === "/brand"
+            ? '<img alt="Product logo" width="140" height="140" src="/symbol.svg"><img alt="Product logo" width="200" height="54" src="/real-wordmark.svg">'
+            : '<link rel="icon" media="(prefers-color-scheme: light)" href="/black.png"><link rel="icon" media="(prefers-color-scheme: dark)" href="/white.png"><meta property="og:image" content="/og.png"><script type="application/ld+json">{"@type":"Organization","logo":"/symbol.svg"}</script><header><img alt="Product logo" width="32" height="32" src="/symbol.png"></header><img alt="Customer logo" width="400" height="100" src="/wrong-customer-logo.png"><a href="/brand">Brand guidelines</a>',
+        ),
+      }),
+    });
+    expect(await fetcher.suggest("https://example.com")).toMatchObject({
+      iconUrl: "https://example.com/black.png",
+      wordmarkUrl: "https://example.com/real-wordmark.svg",
+      imageUrl: "https://example.com/og.png",
+    });
+  });
   it("accepts HTML over one MiB while rejecting pages above two MiB", async () => {
     const prefix = Buffer.from("<title>Large product homepage</title>");
     const request = vi.fn().mockResolvedValue({

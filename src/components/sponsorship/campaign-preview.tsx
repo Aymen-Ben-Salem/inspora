@@ -105,7 +105,7 @@ export function CampaignPreview({
               className="max-h-7 max-w-[160px] object-contain"
             />
           ) : (
-            <span className="text-lg font-semibold">{title}</span>
+            <span className="text-sm text-[#767676]">Wordmark not imported</span>
           )}
         </div>
       </section>

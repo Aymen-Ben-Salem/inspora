@@ -32,7 +32,7 @@ const preparation = (owner: string, saved = false) => ({
           tagline: "Private draft",
           iconId: "icon-a",
           wordmarkId: "wordmark-a",
-          variantIds: [],
+          variantIds: [] as string[],
           assets: [
             {
               id: "icon-a",
@@ -185,4 +185,58 @@ it("previews the website's three asset roles and excludes legacy taglines when s
     mediaId: "website-media",
   });
   expect(JSON.parse(saveOptions.body as string)).not.toHaveProperty("tagline");
+});
+
+it("replaces existing assets only by explicit choice and clears superseded video attachments", async () => {
+  const draft = preparation("owner-a", true);
+  draft.campaign!.creative = {
+    ...draft.campaign!.creative,
+    variantIds: ["old-variant"],
+  };
+  Object.assign(draft.campaign!.creative, {
+    mediaId: "old-video",
+    posterId: "old-poster",
+    videoPreviewId: "old-preview",
+  });
+  fetchMock.mockImplementation(async (url: string) => ({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      value: url.endsWith("/metadata")
+        ? {
+            iconId: "new-icon",
+            wordmarkId: "new-wordmark",
+            mediaId: "new-og",
+            assets: [],
+          }
+        : draft,
+    }),
+  }));
+  await act(async () => root.render(<CampaignEditor />));
+  const replace = container.querySelector<HTMLInputElement>(
+    'input[type="checkbox"]',
+  )!;
+  expect(replace.checked).toBe(false);
+  await act(async () => replace.click());
+  const suggest = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.includes("Suggest from website"),
+  )!;
+  await act(async () => suggest.click());
+  await act(async () =>
+    container
+      .querySelector("form")!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
+  const body = JSON.parse(
+    (fetchMock.mock.lastCall![1] as RequestInit).body as string,
+  );
+  expect(body).toMatchObject({
+    title: "Owner A private campaign",
+    iconId: "new-icon",
+    wordmarkId: "new-wordmark",
+    mediaId: "new-og",
+    variantIds: [],
+  });
+  expect(body).not.toHaveProperty("posterId");
+  expect(body).not.toHaveProperty("videoPreviewId");
 });

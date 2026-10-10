@@ -4,6 +4,7 @@ import { readSponsorJson } from "@/features/sponsorship/request-policy";
 import { preparationService } from "@/features/sponsorship/service";
 import { metadataFetcher } from "@/features/sponsorship/metadata";
 import { importSponsorSuggestion } from "@/features/sponsorship/media";
+import { prepareWebsiteSuggestion } from "@/features/sponsorship/suggestion-images";
 export async function POST(request: Request) {
   try {
     const preparation = await preparationService.read();
@@ -13,40 +14,50 @@ export async function POST(request: Request) {
         headers: sponsorPrivateHeaders,
       });
     const { url } = (await readSponsorJson(request)) as { url: string };
-    const signal = AbortSignal.timeout(4000);
-    const suggestions = await metadataFetcher.suggest(url, signal);
+    const suggestions = await metadataFetcher.suggest(
+      url,
+      AbortSignal.timeout(4000),
+    );
     const value: {
       title?: string;
       iconId?: string;
       wordmarkId?: string;
       mediaId?: string;
       assets: import("@/features/sponsorship/types").VerifiedSponsorAsset[];
-    } = { title: suggestions.title, assets: [] };
-    for (const [href, kind] of [
+      missingAssets: string[];
+    } = { title: suggestions.title, assets: [], missingAssets: [] };
+    const roles = [
       [suggestions.iconUrl, "icon"],
       [suggestions.imageUrl, "media"],
       [suggestions.wordmarkUrl, "wordmark"],
-    ] as const) {
-      if (!href) continue;
+    ] as const;
+    // Finish bounded website reads before private storage work. Storage must
+    // not consume the deadline for fetching later website assets.
+    const imageSignal = AbortSignal.timeout(4000);
+    const images = await Promise.allSettled(
+      roles.map(async ([href]) => {
+        if (!href) throw new Error("Website asset not found.");
+        return metadataFetcher.fetchPublic(href, 10 * 1024 * 1024, imageSignal);
+      }),
+    );
+    for (const [index, [, kind]] of roles.entries()) {
       try {
-        const image = await metadataFetcher.fetchPublic(
-          href,
-          10 * 1024 * 1024,
-          signal,
-        );
+        const fetched = images[index];
+        if (fetched.status !== "fulfilled") throw fetched.reason;
+        const image = fetched.value;
         const contentType =
           image.headers["content-type"]
             ?.split(";", 1)[0]
             ?.trim()
             .toLowerCase() ?? "";
-        if (
-          !contentType.startsWith("image/") ||
-          contentType === "image/svg+xml"
-        )
-          continue;
-        const asset = await importSponsorSuggestion(
+        const prepared = await prepareWebsiteSuggestion(
           image.bytes,
           contentType,
+          kind,
+        );
+        const asset = await importSponsorSuggestion(
+          prepared.bytes,
+          prepared.contentType,
           kind,
         );
         const field = {
@@ -57,7 +68,7 @@ export async function POST(request: Request) {
         value[field[kind]] = asset.id;
         value.assets.push(asset);
       } catch {
-        /* The sponsor can always supply their own media. */
+        value.missingAssets.push(kind === "media" ? "OG image" : kind);
       }
     }
     return NextResponse.json(

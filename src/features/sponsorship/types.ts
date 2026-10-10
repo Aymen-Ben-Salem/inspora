@@ -92,5 +92,6 @@ export type MetadataSuggestions = {
   iconId?: string;
   wordmarkId?: string;
   mediaId?: string;
+  missingAssets?: string[];
 };
 export const SPONSOR_PREPARATION_HOURS = 24;

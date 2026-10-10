@@ -8,6 +8,7 @@ export type SponsorshipResult<T> =
         | "invalid_input"
         | "conflict"
         | "expired"
+        | "capacity_full"
         | "unavailable";
       message: string;
     };
@@ -61,7 +62,7 @@ export type OwnedCampaign = {
 export type SponsorPreparation = {
   id: string;
   ownerUserId: string;
-  state: "preparing" | "ready" | "expired" | "completed";
+  state: "preparing" | "ready" | "reserved" | "expired" | "completed";
   expiresAt: Date;
   revision: number;
   campaign: OwnedCampaign | null;

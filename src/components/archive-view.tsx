@@ -11,12 +11,14 @@ export function ArchiveView({
   categories,
   view = "latest",
   sponsor,
+  sponsors,
 }: {
   page: PostPage;
   category?: PostCategory;
   categories?: string[];
   view?: PostView;
   sponsor?: ActiveSponsor | null;
+  sponsors?: ActiveSponsor[];
 }) {
   return (
     <main className="flex min-h-[100dvh] w-full max-w-full flex-col overflow-x-clip bg-white">
@@ -31,6 +33,7 @@ export function ArchiveView({
           category={category}
           view={view}
           sponsor={sponsor}
+          sponsors={sponsors}
         />
         {/* Keep the heading server-rendered and outside the feed's loading state. */}
         <h1 className="mt-auto text-center text-[length:calc(var(--archive-heading-size)_-_2px)] font-normal leading-normal tracking-[-0.02em] text-[#767676]">

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getDesignCategories } from "@/data/categories-repository";
 import { ArchiveView } from "@/components/archive-view";
 import { getPostPage } from "@/data/posts-repository";
-import { getActiveSponsor } from "@/data/sponsor-repository";
+import { getDesignSponsors } from "@/data/sponsor-repository";
 import { isPostCategory, isPostView } from "@/domain/post";
 import { SITE_NAME, SITE_OG_IMAGE } from "@/lib/seo";
 
@@ -38,9 +38,9 @@ export default async function Home({ searchParams }: HomeProps) {
   const rawView = Array.isArray(viewParam) ? viewParam[0] : viewParam;
   const view = rawView && isPostView(rawView) ? rawView : "latest";
 
-  const [page, sponsor, categories] = await Promise.all([
+  const [page, sponsors, categories] = await Promise.all([
     getPostPage({ category, view }),
-    getActiveSponsor(),
+    getDesignSponsors(),
     getDesignCategories(),
   ]);
 
@@ -50,7 +50,7 @@ export default async function Home({ searchParams }: HomeProps) {
       page={page}
       category={category}
       view={view}
-      sponsor={sponsor}
+      sponsors={sponsors}
     />
   );
 }

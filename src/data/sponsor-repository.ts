@@ -1,10 +1,18 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
+import { connection } from "next/server";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { getDatabase } from "@/db/client";
-import { sponsors } from "@/db/schema";
+import {
+  sponsorAccounts,
+  sponsorCampaignVersions,
+  sponsorIdentities,
+  sponsorSeats,
+  sponsors,
+} from "@/db/schema";
+import { sponsorshipEnabled } from "@/features/sponsorship/config";
 import type { ActiveSponsor } from "@/domain/sponsor";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
@@ -18,7 +26,8 @@ function isMissingTableError(error: unknown): boolean {
   let current = error;
   while (current instanceof Error) {
     if ("code" in current && current.code === "42P01") return true;
-    if (current.message.includes('relation "sponsors" does not exist')) return true;
+    if (current.message.includes('relation "sponsors" does not exist'))
+      return true;
     current = (current as { cause?: unknown }).cause;
   }
   return false;
@@ -73,4 +82,71 @@ export async function getActiveSponsor(): Promise<ActiveSponsor | null> {
     }
     return null;
   }
+}
+
+export async function getDesignSponsors(): Promise<ActiveSponsor[]> {
+  if (!sponsorshipEnabled()) {
+    const legacy = await getActiveSponsor();
+    return legacy ? [legacy] : [];
+  }
+  await connection();
+  const db = getDatabase();
+  if (!db) return [];
+  const now = new Date();
+  const rows = await db
+    .select({
+      campaign: sponsors,
+      paidThrough: sponsorAccounts.paidThrough,
+      versionId: sponsorCampaignVersions.id,
+    })
+    .from(sponsors)
+    .innerJoin(sponsorAccounts, eq(sponsors.accountId, sponsorAccounts.id))
+    .innerJoin(
+      sponsorIdentities,
+      eq(sponsorAccounts.ownerUserId, sponsorIdentities.userId),
+    )
+    .innerJoin(
+      sponsorSeats,
+      and(
+        eq(sponsorSeats.accountId, sponsorAccounts.id),
+        eq(sponsorSeats.state, "occupied"),
+      ),
+    )
+    .innerJoin(
+      sponsorCampaignVersions,
+      and(
+        eq(sponsorCampaignVersions.campaignId, sponsors.id),
+        eq(sponsorCampaignVersions.revision, sponsors.revision),
+      ),
+    )
+    .where(
+      and(
+        eq(sponsors.campaignState, "published"),
+        eq(sponsorAccounts.state, "active"),
+        eq(sponsorIdentities.state, "allowed"),
+        gt(sponsorAccounts.paidThrough, now),
+      ),
+    )
+    .orderBy(sponsorSeats.slot)
+    .limit(4);
+  return rows.map(({ campaign: row, paidThrough, versionId }) => ({
+    id: row.id,
+    versionId,
+    title: row.title,
+    url: row.url,
+    tagline: row.tagline ?? undefined,
+    mediaType: row.mediaType as "image" | "video",
+    mediaUrl: row.mediaUrl ?? undefined,
+    mediaPosterUrl: row.mediaPosterUrl ?? undefined,
+    mediaStorageProvider: row.mediaStorageProvider === "r2" ? "r2" : undefined,
+    mediaWidth: row.mediaWidth,
+    mediaHeight: row.mediaHeight,
+    mediaVariants: row.mediaVariants,
+    mediaVideoPreview: row.mediaVideoPreview ?? undefined,
+    mediaAlt: row.mediaAlt,
+    iconUrl: row.iconUrl ?? undefined,
+    iconStorageProvider: row.iconStorageProvider === "r2" ? "r2" : undefined,
+    paidThrough: paidThrough!.toISOString(),
+    serverTime: now.toISOString(),
+  }));
 }

@@ -8,11 +8,31 @@ import { SponsoredPostCard } from "./sponsored-post-card";
 
 export function PostFeed({
   posts,
-  sponsor,
+  sponsor: legacySponsor,
+  sponsors,
 }: {
   posts: PostCardData[];
   sponsor?: ActiveSponsor | null;
+  sponsors?: ActiveSponsor[];
 }) {
+  if (sponsors?.some((s) => s.paidThrough)) {
+    const items = [
+      ...posts.map((post) => <PostCard key={post.id} post={post} />),
+    ];
+    sponsors.forEach((s, i) =>
+      items.splice(
+        Math.min(3 + i * 4, items.length),
+        0,
+        <SponsoredPostCard key={`sponsor-${s.id}`} sponsor={s} />,
+      ),
+    );
+    return (
+      <FeedMotion itemCount={items.length}>
+        <RowFirstMasonry itemCount={items.length}>{items}</RowFirstMasonry>
+      </FeedMotion>
+    );
+  }
+  const sponsor = legacySponsor ?? sponsors?.[0];
   if (posts.length === 0 && !sponsor) {
     return (
       <div className="flex min-h-[45dvh] items-center justify-center px-6 text-center text-sm text-[#777]">
@@ -31,14 +51,28 @@ export function PostFeed({
           const items = [];
           if (sponsor && index === sponsorIndex) {
             items.push(
-              <SponsoredPostCard key={`sponsor-${sponsor.id}`} sponsor={sponsor} priority />,
+              <SponsoredPostCard
+                key={`sponsor-${sponsor.id}`}
+                sponsor={sponsor}
+                priority
+              />,
             );
           }
-          items.push(<PostCard key={post.id} post={post} priority={index < (sponsor ? 3 : 4)} />);
+          items.push(
+            <PostCard
+              key={post.id}
+              post={post}
+              priority={index < (sponsor ? 3 : 4)}
+            />,
+          );
           return items;
         })}
         {sponsor && posts.length < sponsorIndex ? (
-          <SponsoredPostCard key={`sponsor-${sponsor.id}`} sponsor={sponsor} priority />
+          <SponsoredPostCard
+            key={`sponsor-${sponsor.id}`}
+            sponsor={sponsor}
+            priority
+          />
         ) : null}
       </RowFirstMasonry>
     </FeedMotion>

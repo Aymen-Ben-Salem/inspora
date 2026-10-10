@@ -12,6 +12,7 @@ import {
 import { withWriteTransaction } from "../../db/write-client";
 import type { SubmissionResult } from "../submissions/types";
 import { attemptCleanupJob, attemptCleanupKey } from "../submissions/cleanup";
+import { invalidateDeletedSponsor, queueSponsorIdentityDeletion } from "../sponsorship/deletion";
 
 type DeletionRequest = { jobId: string; state: "pending" };
 
@@ -53,6 +54,8 @@ const productionAccountDeletionStore: AccountDeletionStore = {
         .where(eq(profileAccounts.userId, userId))
         .for("update");
       if (!account) return null;
+
+      await queueSponsorIdentityDeletion(tx, userId);
 
       const now = new Date();
       if (account.status === "active") {
@@ -105,12 +108,14 @@ const productionWebhookDeletionStore: WebhookDeletionStore = {
         .returning({ eventId: clerkWebhookReceipts.eventId });
       if (!receipt) return "duplicate";
 
+      const sponsor = await queueSponsorIdentityDeletion(tx, userId);
+
       const [account] = await tx
         .select({ userId: profileAccounts.userId })
         .from(profileAccounts)
         .where(eq(profileAccounts.userId, userId))
         .for("update");
-      if (!account) return "missing";
+      if (!account) return sponsor ? "queued" : "missing";
 
       const now = new Date();
       await tx
@@ -140,6 +145,7 @@ const productionWebhookDeletionStore: WebhookDeletionStore = {
 export async function requestAccountDeletion(userId: string) {
   const result = await requestAccountDeletionWithStore(productionAccountDeletionStore, userId);
   if (!result.ok) return result;
+  invalidateDeletedSponsor();
   const state = await attemptCleanupJob(result.value.jobId);
   return { ok: true as const, value: { ...result.value, state } };
 }
@@ -147,5 +153,6 @@ export async function requestAccountDeletion(userId: string) {
 export async function requestWebhookAccountDeletion(input: { eventId: string; userId: string }) {
   const result = await requestWebhookAccountDeletionWithStore(productionWebhookDeletionStore, input);
   if (result.state !== "missing") await attemptCleanupKey(accountCleanupKey(input.userId));
+  if (result.state !== "missing") invalidateDeletedSponsor();
   return result;
 }

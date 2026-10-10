@@ -87,13 +87,14 @@ export function PublicAuthControlsClient({
         ) : null}
         {capabilities?.sponsor ? (
           <Link
-            href={"/sponsor/start" as Route}
+            href={"/sponsor/dashboard" as Route}
             prefetch={false}
             className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
           >
-            Sponsor preparation
+            Sponsorship dashboard
           </Link>
         ) : null}
+        {capabilities?.sponsor ? <Link href={"/sponsor/dashboard#billing" as Route} prefetch={false} className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]">Billing</Link> : null}
         <SignOutButton>
           <button
             type="button"

@@ -132,7 +132,8 @@ describe("PublicAuthControlsClient", () => {
     userState.mockReturnValue({user:{id:"sponsor",imageUrl:"https://img.example/sponsor.jpg"}});
     viewerProfile.mockReturnValue({profile:null,isLoading:false,capabilities:{viewer:false,sponsor:true,sponsorReadonly:false}});
     const html = renderToStaticMarkup(<PublicAuthControlsClient variant="desktop" />);
-    expect(html).toContain("Sponsor preparation");
+    expect(html).toContain("Sponsorship dashboard");
+    expect(html).toContain('href="/sponsor/dashboard#billing"');
     expect(html).not.toContain('href="/profile"');
     expect(html).not.toContain('href="/saved"');
     expect(html).not.toContain("Submit work");

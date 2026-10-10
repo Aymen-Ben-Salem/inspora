@@ -25,11 +25,13 @@ export function InfinitePostFeed({
   category,
   view,
   sponsor,
+  sponsors,
 }: {
   initialPage: PostPage;
   category?: PostCategory;
   view: PostView;
   sponsor?: ActiveSponsor | null;
+  sponsors?: ActiveSponsor[];
 }) {
   const [posts, setPosts] = useState<PostCardData[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
@@ -102,7 +104,7 @@ export function InfinitePostFeed({
 
   return (
     <>
-      <PostFeed posts={posts} sponsor={sponsor} />
+      <PostFeed posts={posts} sponsor={sponsor} sponsors={sponsors} />
       <div
         ref={sentinelRef}
         aria-hidden={!nextCursor}

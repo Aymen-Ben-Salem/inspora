@@ -204,6 +204,20 @@
       "when": 1791586866706,
       "tag": "0028_sponsor_asset_originals",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791650469929,
+      "tag": "0029_sponsorship_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791651809934,
+      "tag": "0030_sponsor_billing_guards",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import type { ActiveSponsor } from "@/domain/sponsor";
 
 import { LoopingVideo } from "./looping-video";
 import { ResponsiveR2Image } from "./responsive-r2-image";
+import { SponsorDeadline } from "./sponsorship/sponsor-deadline";
 
 function getHostname(urlStr: string) {
   try {
@@ -27,7 +28,8 @@ export function SponsoredPostCard({
   const hostname = getHostname(sponsor.url);
 
   return (
-    <article data-feed-card className="flex flex-col -order-1 min-[460px]:order-none">
+    <SponsorDeadline paidThrough={sponsor.paidThrough} serverTime={sponsor.serverTime}>
+    <article data-feed-card className={`flex flex-col ${sponsor.paidThrough ? "" : "-order-1 min-[460px]:order-none"}`}>
       <a
         href={sponsor.url}
         target="_blank"
@@ -126,5 +128,6 @@ export function SponsoredPostCard({
         </div>
       ) : null}
     </article>
+    </SponsorDeadline>
   );
 }

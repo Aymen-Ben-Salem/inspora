@@ -6,7 +6,15 @@ import {
   runPreviewBuild,
 } from "./preview-build";
 
-beforeEach(() => vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({id:12345,api_token:"preview-token"})))));
+beforeEach(() =>
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ id: 12345, api_token: "preview-token" })),
+    ),
+  ),
+);
 afterEach(() => vi.unstubAllGlobals());
 
 const approvedPreview: EnvironmentFingerprint = {
@@ -51,6 +59,25 @@ POSTHOG_WORK_VIEWS_CUTOVER_AT=2026-09-21T12:00:00.000Z
 `;
 
 describe("guarded Preview build", () => {
+  it("does not inherit Stripe or sponsorship credentials/flags from another environment", () => {
+    const environment = resolvePreviewBuildEnvironment({
+      cwd: "C:/isolated-fixture",
+      approvedFingerprint: approvedPreview,
+      baseEnvironment: {
+        NODE_ENV: "development",
+        STRIPE_SECRET_KEY: "sk_live_must_not_win",
+        SPONSORSHIP_ENABLED: "true",
+        SPONSORSHIP_CHECKOUT_ENABLED: "true",
+      },
+      readFile: (path) =>
+        path.endsWith(".env.preview.local")
+          ? previewFixture
+          : developmentFixture,
+    });
+    expect(environment.STRIPE_SECRET_KEY).toBe("");
+    expect(environment.SPONSORSHIP_ENABLED).toBe("");
+    expect(environment.SPONSORSHIP_CHECKOUT_ENABLED).toBe("");
+  });
   it("reads only development and Preview fixtures and layers their owned values", () => {
     const reads: string[] = [];
     const environment = resolvePreviewBuildEnvironment({
@@ -74,14 +101,20 @@ describe("guarded Preview build", () => {
       "C:/isolated-fixture/.env.local",
       "C:/isolated-fixture/.env.preview.local",
     ]);
-    expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe("pk_test_fixture");
+    expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe(
+      "pk_test_fixture",
+    );
     expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("preview-token");
     expect(environment.POSTHOG_WORK_VIEWS_CUTOVER_AT).toBe(
       "2026-09-21T12:00:00.000Z",
     );
-    expect(environment.DATABASE_URL).toContain("ep-safe-pooler.example.neon.tech");
+    expect(environment.DATABASE_URL).toContain(
+      "ep-safe-pooler.example.neon.tech",
+    );
     expect(environment.R2_BUCKET_NAME).toBe("fixture-bucket");
-    expect(environment.R2_SUBMISSIONS_BUCKET_NAME).toBe("fixture-private-bucket");
+    expect(environment.R2_SUBMISSIONS_BUCKET_NAME).toBe(
+      "fixture-private-bucket",
+    );
   });
 
   it("rejects a mismatched Preview fixture before running sitemap or build", async () => {
@@ -110,7 +143,10 @@ describe("guarded Preview build", () => {
         approvedFingerprint: approvedPreview,
         readFile(path) {
           if (path.endsWith(".env.local")) {
-            return developmentFixture.replace("CLERK_SECRET_KEY=sk_test_fixture", "");
+            return developmentFixture.replace(
+              "CLERK_SECRET_KEY=sk_test_fixture",
+              "",
+            );
           }
           return previewFixture;
         },
@@ -143,23 +179,49 @@ describe("guarded Preview build", () => {
   it("does not inherit analytics when explicitly disabled in Preview", () => {
     const environment = resolvePreviewBuildEnvironment({
       cwd: "C:/isolated-fixture",
-      baseEnvironment: {NODE_ENV:"development",NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:"inherited-token",POSTHOG_PERSONAL_API_KEY:"inherited-key"},
+      baseEnvironment: {
+        NODE_ENV: "development",
+        NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: "inherited-token",
+        POSTHOG_PERSONAL_API_KEY: "inherited-key",
+      },
       approvedFingerprint: approvedPreview,
-      readFile(path) { return path.endsWith(".env.local") ? developmentFixture : previewFixture.replace(/^(?:NEXT_PUBLIC_POSTHOG|POSTHOG).*$/gm, ""); },
+      readFile(path) {
+        return path.endsWith(".env.local")
+          ? developmentFixture
+          : previewFixture.replace(/^(?:NEXT_PUBLIC_POSTHOG|POSTHOG).*$/gm, "");
+      },
     });
     expect(environment.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN).toBe("");
     expect(environment.POSTHOG_PERSONAL_API_KEY).toBe("");
     expect(environment.POSTHOG_WORK_VIEWS_CUTOVER_AT).toBe("");
   });
   it.each([
-    ["POSTHOG_PERSONAL_API_KEY=preview-read-key", "", "POSTHOG_PERSONAL_API_KEY"],
-    ["https://eu.posthog.com", "https://us.posthog.com", "same supported region"],
-  ])("rejects incomplete/mismatched Preview analytics: %s", (from, to, message) => {
-    expect(() => resolvePreviewBuildEnvironment({
-      cwd:"C:/isolated-fixture", approvedFingerprint:approvedPreview,
-      readFile(path) { return path.endsWith(".env.local") ? developmentFixture : previewFixture.replace(from,to); },
-    })).toThrow(message);
-  });
+    [
+      "POSTHOG_PERSONAL_API_KEY=preview-read-key",
+      "",
+      "POSTHOG_PERSONAL_API_KEY",
+    ],
+    [
+      "https://eu.posthog.com",
+      "https://us.posthog.com",
+      "same supported region",
+    ],
+  ])(
+    "rejects incomplete/mismatched Preview analytics: %s",
+    (from, to, message) => {
+      expect(() =>
+        resolvePreviewBuildEnvironment({
+          cwd: "C:/isolated-fixture",
+          approvedFingerprint: approvedPreview,
+          readFile(path) {
+            return path.endsWith(".env.local")
+              ? developmentFixture
+              : previewFixture.replace(from, to);
+          },
+        }),
+      ).toThrow(message);
+    },
+  );
 
   it("runs the Preview sitemap before the application build", async () => {
     const calls: string[][] = [];
@@ -168,7 +230,9 @@ describe("guarded Preview build", () => {
       cwd: "C:/isolated-fixture",
       approvedFingerprint: approvedPreview,
       readFile(path) {
-        return path.endsWith(".env.local") ? developmentFixture : previewFixture;
+        return path.endsWith(".env.local")
+          ? developmentFixture
+          : previewFixture;
       },
       async runCommand(command) {
         calls.push([command.executable, ...command.args]);
@@ -185,7 +249,9 @@ describe("guarded Preview build", () => {
       cwd: "C:/isolated-fixture",
       approvedFingerprint: approvedPreview,
       readFile(path) {
-        return path.endsWith(".env.local") ? developmentFixture : previewFixture;
+        return path.endsWith(".env.local")
+          ? developmentFixture
+          : previewFixture;
       },
     });
 

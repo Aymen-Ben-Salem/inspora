@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { parse } from "dotenv";
+import { validatePreviewSponsorshipEnvironment } from "./sponsorship-environment";
 
 import {
   APPROVED_ENVIRONMENT_FINGERPRINTS,
@@ -37,6 +38,7 @@ export function previewEnvironmentFromValues(
   } = {},
 ): PreviewEnvironment {
   const source = options.source ?? ".env.preview.local";
+  validatePreviewSponsorshipEnvironment(values);
   const environment = {
     dataEnvironment: required(values, "DATA_ENVIRONMENT"),
     databaseUrl: required(values, "DATABASE_URL"),

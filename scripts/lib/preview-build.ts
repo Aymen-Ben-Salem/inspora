@@ -3,8 +3,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { parse } from "dotenv";
+import {
+  SPONSORSHIP_CONFIGURATION_KEYS,
+  validatePreviewSponsorshipEnvironment,
+} from "./sponsorship-environment";
 
-import { ANALYTICS_CONFIGURATION_KEYS, validatePreviewAnalytics, verifyPreviewAnalyticsProject } from "../../src/analytics/preview-configuration";
+import {
+  ANALYTICS_CONFIGURATION_KEYS,
+  validatePreviewAnalytics,
+  verifyPreviewAnalyticsProject,
+} from "../../src/analytics/preview-configuration";
 
 import {
   APPROVED_ENVIRONMENT_FINGERPRINTS,
@@ -49,7 +57,11 @@ export type PreviewBuildOptions = {
   runCommand?: (command: PreviewBuildCommand) => Promise<void>;
 };
 
-function required(values: Record<string, string>, name: string, source: string) {
+function required(
+  values: Record<string, string>,
+  name: string,
+  source: string,
+) {
   const value = values[name]?.trim();
   if (!value) throw new Error(`${name} is missing from ${source}.`);
   return value;
@@ -70,7 +82,8 @@ export function resolvePreviewBuildEnvironment(
   options: Omit<PreviewBuildOptions, "runCommand"> = {},
 ) {
   const cwd = options.cwd ?? process.cwd();
-  const readFile = options.readFile ?? ((path: string) => readFileSync(path, "utf8"));
+  const readFile =
+    options.readFile ?? ((path: string) => readFileSync(path, "utf8"));
   const development = parse(readFile(resolve(cwd, ".env.local")));
   const preview = parse(readFile(resolve(cwd, ".env.preview.local")));
   const environment = { ...(options.baseEnvironment ?? process.env) };
@@ -80,20 +93,34 @@ export function resolvePreviewBuildEnvironment(
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
     ".env.local",
   );
-  const clerkSecretKey = required(development, "CLERK_SECRET_KEY", ".env.local");
+  const clerkSecretKey = required(
+    development,
+    "CLERK_SECRET_KEY",
+    ".env.local",
+  );
   if (
     !clerkPublishableKey.startsWith("pk_test_") ||
     !clerkSecretKey.startsWith("sk_test_")
   ) {
-    throw new Error("The guarded Preview build requires development Clerk keys.");
+    throw new Error(
+      "The guarded Preview build requires development Clerk keys.",
+    );
   }
   copyOwnedValues(environment, development, DEVELOPMENT_CONFIGURATION_KEYS);
   copyOwnedValues(environment, preview, PREVIEW_CONFIGURATION_KEYS);
   validatePreviewAnalytics(preview);
+  validatePreviewSponsorshipEnvironment(preview);
+  for (const key of SPONSORSHIP_CONFIGURATION_KEYS)
+    environment[key] = preview[key]?.trim() ?? "";
   // Empty strings prevent Next dotenv loading from resurrecting .env.local values.
-  for (const key of ANALYTICS_CONFIGURATION_KEYS) environment[key] = preview[key]?.trim() ?? "";
+  for (const key of ANALYTICS_CONFIGURATION_KEYS)
+    environment[key] = preview[key]?.trim() ?? "";
 
-  const blockerPath = resolve(cwd, "scripts", "block-production-environment.cjs");
+  const blockerPath = resolve(
+    cwd,
+    "scripts",
+    "block-production-environment.cjs",
+  );
   const existingNodeOptions = environment.NODE_OPTIONS?.trim();
   environment.NODE_OPTIONS = [
     existingNodeOptions,
@@ -104,7 +131,11 @@ export function resolvePreviewBuildEnvironment(
 
   assertEnvironmentFingerprint(
     {
-      dataEnvironment: required(preview, "DATA_ENVIRONMENT", ".env.preview.local"),
+      dataEnvironment: required(
+        preview,
+        "DATA_ENVIRONMENT",
+        ".env.preview.local",
+      ),
       databaseUrl: required(preview, "DATABASE_URL", ".env.preview.local"),
       databaseUrlUnpooled: required(
         preview,
@@ -145,7 +176,10 @@ export function previewBuildCommands(
     },
     {
       executable: process.execPath,
-      args: [resolve(cwd, "node_modules", "next", "dist", "bin", "next"), "build"],
+      args: [
+        resolve(cwd, "node_modules", "next", "dist", "bin", "next"),
+        "build",
+      ],
       cwd,
       environment,
     },

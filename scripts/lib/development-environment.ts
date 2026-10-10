@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { parse } from "dotenv";
+import { validatePreviewSponsorshipEnvironment } from "./sponsorship-environment";
 
 import {
   APPROVED_ENVIRONMENT_FINGERPRINTS,
@@ -41,6 +42,7 @@ export function loadDevelopmentMediaEnvironment(options: {
 
   const readFile = options.readFile ?? ((target: string) => readFileSync(target, "utf8"));
   const values = parse(readFile(path));
+  validatePreviewSponsorshipEnvironment(values);
 
   const environment = {
     dataEnvironment: required(values, "DATA_ENVIRONMENT", path),

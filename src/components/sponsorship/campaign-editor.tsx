@@ -285,7 +285,7 @@ function CampaignEditorContent({
               );
               setRevision(c.revision);
               setMessage(
-                "Preparation saved. Payment is unavailable; your campaign remains private.",
+                "Preparation saved. Open your sponsorship dashboard to continue to checkout.",
               );
             });
           }}
@@ -443,7 +443,7 @@ function CampaignEditorContent({
             {busy || message}
           </p>
           <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
-            <p className="font-medium">Payment is unavailable</p>
+            <a href="/sponsor/dashboard" className="focus-ring font-medium underline">Open sponsorship dashboard</a>
             <p className="text-[#767676]">
               No payment, paid account, public campaign or seat reservation is
               created by this preparation.

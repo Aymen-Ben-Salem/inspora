@@ -1045,10 +1045,19 @@ export const sponsorCheckouts = pgTable("sponsor_checkouts", {
   state: text("state").default("preparing").notNull(),
   revision: integer("revision").default(0).notNull(),
   snapshot: jsonb("snapshot").$type<import("@/features/sponsorship/types").OwnedCampaign>(),
+  stripeSessionId: text("stripe_session_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  priceId: text("price_id"),
+  paymentReceivedAt: timestamp("payment_received_at", { withTimezone: true, mode: "date" }),
+  paidInvoiceId: text("paid_invoice_id"),
+  releasedAt: timestamp("released_at", { withTimezone: true, mode: "date" }),
+  exceptionCode: text("exception_code"),
   expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
   ...timestamps,
 }, t => [
   uniqueIndex("sponsor_checkouts_id_owner_unique").on(t.id, t.ownerUserId),
+  uniqueIndex("sponsor_checkouts_session_unique").on(t.stripeSessionId),
+  uniqueIndex("sponsor_checkouts_subscription_unique").on(t.stripeSubscriptionId),
   uniqueIndex("sponsor_checkouts_one_open_per_owner").on(t.ownerUserId).where(sql`${t.state} in ('preparing','ready','reserved')`),
   index("sponsor_checkouts_expiry_idx").on(t.state, t.expiresAt),
   check("sponsor_checkouts_state_valid", sql`${t.state} in ('preparing','ready','reserved','expired','completed')`),
@@ -1118,4 +1127,30 @@ export const sponsorVersionAssets = pgTable("sponsor_version_assets", {
   uniqueIndex("sponsor_version_assets_unique").on(t.versionId, t.assetId),
   foreignKey({ name: "sponsor_version_assets_version_owner_fk", columns: [t.versionId, t.ownerUserId], foreignColumns: [sponsorCampaignVersions.id, sponsorCampaignVersions.ownerUserId] }),
   foreignKey({ name: "sponsor_version_assets_asset_owner_fk", columns: [t.assetId, t.ownerUserId], foreignColumns: [sponsorAssets.id, sponsorAssets.ownerUserId] }),
+]);
+
+export const sponsorBillingEvents = pgTable("sponsor_billing_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  objectId: text("object_id").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+});
+export const sponsorJobs = pgTable("sponsor_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  kind: text("kind").notNull(),
+  targetId: text("target_id").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  state: text("state").default("pending").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+  leaseUntil: timestamp("lease_until", { withTimezone: true, mode: "date" }),
+  leaseToken: uuid("lease_token"),
+  errorCode: text("error_code"),
+  ...timestamps,
+}, t => [
+  uniqueIndex("sponsor_jobs_idempotency_unique").on(t.idempotencyKey),
+  index("sponsor_jobs_ready_idx").on(t.state, t.nextAttemptAt),
+  check("sponsor_jobs_kind_valid", sql`${t.kind} in ('reconcile','event','delete_owner')`),
+  check("sponsor_jobs_state_valid", sql`${t.state} in ('pending','running','complete')`),
+  check("sponsor_jobs_attempts_valid", sql`${t.attempts} >= 0`),
 ]);

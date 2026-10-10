@@ -42,6 +42,7 @@
     "posthog-js": "1.414.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "stripe": "23.0.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

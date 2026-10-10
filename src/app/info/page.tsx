@@ -188,9 +188,11 @@ export default function InfoPage() {
                   promotion.
                 </p>
                 <p>
-                  Payment is currently unavailable. Preparation stays private
-                  and uses no seat. Campaign management and live stats become
-                  available with paid sponsorship.
+                  Preparation stays private and uses no seat. Checkout reserves
+                  an available seat for 30 minutes; verified payment activates
+                  your campaign. Cancellation preserves the paid period. A failed
+                  renewal pauses promotion at expiry and holds your seat for 72
+                  hours. Test checkout remains unavailable until configured.
                 </p>
               </div>
             </section>

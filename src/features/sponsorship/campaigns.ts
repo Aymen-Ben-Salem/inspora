@@ -58,6 +58,8 @@ export function createPreparationService(deps: {
       await tx.lockOwner(owner);
       const now = deps.now();
       let preparation = await tx.findPreparation(owner);
+      if (preparation?.state === "reserved")
+        return failure("conflict", "Checkout has pinned this preparation. Open your sponsorship dashboard to continue.");
       if (
         preparation &&
         (preparation.expiresAt <= now || preparation.state === "expired")

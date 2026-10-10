@@ -110,6 +110,18 @@ function fixture() {
   };
 }
 describe("owned unpaid sponsor preparation", () => {
+  it.each([
+    ["iconId", "Upload a compact icon before saving."],
+    ["wordmarkId", "Upload a full wordmark before saving."],
+  ])("explains a missing %s after a partial website import", async (field, message) => {
+    const f = fixture();
+    await f.service.begin();
+    expect(await f.service.save({ ...f.input, [field]: "" })).toEqual({
+      ok: false,
+      code: "invalid_input",
+      message,
+    });
+  });
   it("rejects a foreign brand asset and expired preparations without altering a saved version", async () => {
     const f = fixture();
     await f.service.begin();

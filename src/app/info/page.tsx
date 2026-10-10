@@ -31,6 +31,7 @@ const pageLinks = [
   { href: "#about", label: "About Inspora" },
   { href: "#curation", label: "Editorial and curation" },
   { href: "#attribution", label: "Attribution and ownership" },
+  { href: "#sponsorship", label: "Sponsorship policy" },
   { href: "#privacy", label: "Privacy and analytics" },
   { href: "#contact", label: "Contact and requests" },
 ] as const;
@@ -165,6 +166,31 @@ export default function InfoPage() {
                   If a creator name, project title, category, or source link is
                   incomplete or incorrect, we welcome a correction. Broken
                   source links can be reported through the same contact route.
+                </p>
+              </div>
+            </section>
+
+            <section
+              id="sponsorship"
+              aria-labelledby="sponsorship-title"
+              className="scroll-mt-8 border-t border-black/10 py-16 sm:py-20"
+            >
+              <h2
+                id="sponsorship-title"
+                className="text-[27px] font-normal leading-[1.1] tracking-[-0.035em] sm:text-[34px]"
+              >
+                Sponsorship policy
+              </h2>
+              <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
+                <p>
+                  USD 500 before applicable tax. Automatically renews every exact
+                  30 days until cancelled. For business and professional
+                  promotion.
+                </p>
+                <p>
+                  Payment is currently unavailable. Preparation stays private
+                  and uses no seat. Campaign management and live stats become
+                  available with paid sponsorship.
                 </p>
               </div>
             </section>

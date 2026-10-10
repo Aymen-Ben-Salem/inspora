@@ -88,7 +88,15 @@ export function SponsorPage({
             actively discovering new tools.
           </p>
         </div>
-        {cta}
+        <div className="flex flex-col items-center gap-2">
+          {cta}
+          <Link
+            href={"/api/sponsorship/intent" as Route}
+            className="focus-ring text-xs leading-5 text-[#767676] underline"
+          >
+            Returning sponsor? Sign in
+          </Link>
+        </div>
       </section>
       <section
         aria-label="Audience statistics"
@@ -211,22 +219,16 @@ export function SponsorPage({
             <span className="font-medium">neroodesign@gmail.com</span>
           </a>
         </div>
-        <div className="max-w-[490px] text-xs leading-5 text-[#767676]">
-          <p>
-            USD 500 before applicable tax. Automatically renews every exact 30
-            days until cancelled. For business and professional promotion.
-          </p>
-          <p className="mt-1">
-            Payment is currently unavailable. Preparation stays private and uses
-            no seat. Campaign management and live stats become available with
-            paid sponsorship.{" "}
-            <Link
-              href={"/api/sponsorship/intent" as Route}
-              className="focus-ring underline"
-            >
-              Returning sponsor? Sign in
-            </Link>
-          </p>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs leading-5 text-[#767676]">
+          <a href="/info#sponsorship" className="focus-ring underline">
+            Policy
+          </a>
+          <Link
+            href={"/api/sponsorship/intent" as Route}
+            className="focus-ring underline"
+          >
+            Returning sponsor? Sign in
+          </Link>
         </div>
       </section>
     </main>

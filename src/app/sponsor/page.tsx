@@ -9,7 +9,7 @@ import { sponsorshipWritesEnabled } from "@/features/sponsorship/config";
 export const metadata: Metadata = {
   title: "Sponsor Inspora",
   description:
-    "Prepare a private sponsorship campaign for Inspora. Four seats, USD 500 per exact 30-day period.",
+    "Prepare a private sponsorship campaign for Inspora. Four seats, USD 500 or EUR 500 per month.",
 };
 async function Offer() {
   await connection();

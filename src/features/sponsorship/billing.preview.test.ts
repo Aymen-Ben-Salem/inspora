@@ -274,6 +274,21 @@ async function fixture(title = "Paid fixture") {
   };
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it("persists the EUR monthly terms and exposes them only to the billed owner", async () => {
+    const f = await fixture("EUR monthly campaign");
+    const monthlyEnd = new Date(f.now);
+    monthlyEnd.setUTCMonth(monthlyEnd.getUTCMonth() + 1);
+    f.observation.price = { ...f.observation.price, currency: "eur", interval: "month", intervalCount: 1 };
+    f.observation.billingAnchor = f.now.getTime();
+    f.observation.invoices = [{ ...f.observation.invoices[0], currency: "eur", periodEnd: monthlyEnd.getTime() }];
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now)).toBe(true);
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.account).toMatchObject({ billingCurrency: "eur", billingInterval: "month",
+      billingIntervalCount: 1, paidThrough: monthlyEnd.toISOString() });
+  });
   it("binds private campaign history and portal customer to the signed-in owner while writes are disabled", async () => {
     const a = await fixture("Owner A campaign"),
       b = await fixture("Owner B campaign");

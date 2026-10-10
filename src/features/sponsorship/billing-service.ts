@@ -165,6 +165,9 @@ export async function readOwnSponsorDashboard() {
             recoveryDeadline: account.recoveryDeadline?.toISOString() ?? null,
             cancelAtPeriodEnd: account.cancelAtPeriodEnd,
             billingAvailable: Boolean(account.stripeCustomerId),
+            billingCurrency: account.billingCurrency,
+            billingInterval: account.billingInterval,
+            billingIntervalCount: account.billingIntervalCount,
           }
         : null,
       checkout: checkout

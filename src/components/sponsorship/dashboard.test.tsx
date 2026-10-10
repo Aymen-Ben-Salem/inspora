@@ -27,6 +27,9 @@ it("shows paid dates, finishing activation and former read-only billing", () => 
     recoveryDeadline: null,
     cancelAtPeriodEnd: true,
     billingAvailable: true,
+    billingCurrency: "usd",
+    billingInterval: "day",
+    billingIntervalCount: 30,
   };
   const html = renderToStaticMarkup(
     <SponsorDashboard
@@ -51,6 +54,18 @@ it("shows paid dates, finishing activation and former read-only billing", () => 
   );
   expect(former).toContain("read-only");
   expect(former).not.toContain("Prepare campaign");
+});
+it("shows the billed EUR monthly terms while keeping original USD 30-day terms for existing accounts", () => {
+  const account = { state: "active", paidThrough: "2026-11-10T12:00:00Z", periodStart: "2026-10-10T12:00:00Z",
+    recoveryDeadline: null, cancelAtPeriodEnd: false, billingAvailable: true,
+    billingCurrency: "eur", billingInterval: "month", billingIntervalCount: 1 };
+  const html = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, account }} />);
+  expect(html).toContain("EUR 500 before applicable tax");
+  expect(html).toContain("monthly");
+  expect(html).not.toContain("30 days");
+  const legacy = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, account: { ...account, billingCurrency: "usd", billingInterval: "day", billingIntervalCount: 30 } }} />);
+  expect(legacy).toContain("USD 500 before applicable tax");
+  expect(legacy).toContain("every 30 days");
 });
 it("disables purchase entry for a prepared owner when all four seats are held", () => {
   const html = renderToStaticMarkup(

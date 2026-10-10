@@ -74,16 +74,19 @@ function testObject(object: { livemode?: boolean }) {
 function idOf(value: string | { id: string } | null | undefined) {
   return typeof value === "string" ? value : (value?.id ?? null);
 }
-function priceView(p: Stripe.Price): SponsorPrice {
+function priceView(p: Stripe.Price, currency = p.currency): SponsorPrice {
+  const selected = p.currency_options?.[currency];
   return {
     id: p.id,
     livemode: p.livemode,
     active: p.active,
-    currency: p.currency,
-    unitAmount: p.unit_amount,
+    currency,
+    unitAmount: currency === p.currency ? p.unit_amount : (selected?.unit_amount ?? null),
     interval: p.recurring?.interval ?? null,
     intervalCount: p.recurring?.interval_count ?? null,
-    taxBehavior: p.tax_behavior ?? "unspecified",
+    taxBehavior: currency === p.currency ? (p.tax_behavior ?? "unspecified") : (selected?.tax_behavior ?? "unspecified"),
+    currencyOptions: p.currency_options ? Object.fromEntries(Object.entries(p.currency_options)
+      .map(([code, option]) => [code, { unitAmount: option.unit_amount, taxBehavior: option.tax_behavior ?? "unspecified" }])) : undefined,
   };
 }
 function sessionView(s: Stripe.Checkout.Session): CheckoutSession {
@@ -102,14 +105,16 @@ function sessionView(s: Stripe.Checkout.Session): CheckoutSession {
 export function createStripeProvider(stripe: Stripe): BillingProvider {
   return {
     async price(id) {
-      const p = priceView(await stripe.prices.retrieve(id));
+      const p = priceView(await stripe.prices.retrieve(id, { expand: ["currency_options"] }));
       validateSponsorPrice(p, id);
       return p;
     },
     async createCheckout(input) {
+      validateSponsorPrice(priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] })), input.priceId);
       const session = await stripe.checkout.sessions.create(
         {
           mode: "subscription",
+          adaptive_pricing: { enabled: false },
           client_reference_id: input.checkoutId,
           metadata: { sponsor_checkout_id: input.checkoutId },
           subscription_data: {
@@ -126,7 +131,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           custom_text: {
             submit: {
               message:
-                "Business or professional promotion. USD 500 before applicable tax, renewing every exact 30 days. Cancel future renewal in Billing.",
+                "Business or professional promotion. USD 500 or EUR 500 before applicable tax, renewing monthly. Cancel future renewal in Billing.",
             },
           },
           automatic_tax: {
@@ -182,7 +187,9 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
         sub.pause_collection
       )
         throw new Error("Unexpected sponsor subscription configuration.");
-      const price = priceView(sub.items.data[0].price);
+      const sourcePrice = await stripe.prices.retrieve(sub.items.data[0].price.id, { expand: ["currency_options"] });
+      testObject(sourcePrice);
+      const price = priceView(sourcePrice, sub.currency);
       const invoices: BillingObservation["invoices"] = [];
       // Only bounded recent invoices can advance current entitlement.
       const list = await stripe.invoices.list({
@@ -218,7 +225,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           if (!intentId) continue;
           const intent = await stripe.paymentIntents.retrieve(intentId);
           testObject(intent);
-          if (intent.status === "succeeded" && intent.currency === "usd")
+          if (intent.status === "succeeded" && intent.currency === price.currency && invoice.currency === price.currency)
             confirmed += payment.amount_paid ?? 0;
         }
         const line = recurring[0];
@@ -244,6 +251,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
         // cancel_at_period_end false. Either form stops future renewal.
         cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at != null,
         invoices,
+        billingAnchor: sub.billing_cycle_anchor * 1000,
       };
     },
     async terminate(subscriptionId) {

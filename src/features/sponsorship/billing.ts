@@ -1,4 +1,3 @@
-export const SPONSOR_PERIOD_MS = 30 * 86400000;
 export const SPONSOR_RECOVERY_MS = 72 * 3600000;
 export type SponsorPrice = {
   id: string;
@@ -9,6 +8,7 @@ export type SponsorPrice = {
   interval: string | null;
   intervalCount: number | null;
   taxBehavior: string;
+  currencyOptions?: Record<string, { unitAmount: number | null; taxBehavior: string }>;
 };
 export type PaidInvoice = {
   id: string;
@@ -29,6 +29,7 @@ export type BillingObservation = {
   status: string;
   cancelAtPeriodEnd: boolean;
   invoices: PaidInvoice[];
+  billingAnchor?: number;
 };
 export type BillingDecision = {
   state: "active" | "recovery" | "inactive" | "pending";
@@ -44,19 +45,40 @@ export function validateSponsorPrice(
   expectedId: string,
   requireActive = true,
 ) {
+  const monthly = price.interval === "month" && price.intervalCount === 1;
+  // Existing pinned USD subscriptions keep their original terms. This path
+  // cannot start a new checkout with the retired 30-day price.
+  const legacy = !requireActive && price.currency === "usd" &&
+    price.interval === "day" && price.intervalCount === 30;
   if (
     price.livemode ||
     price.id !== expectedId ||
     (requireActive && !price.active) ||
-    price.currency !== "usd" ||
+    !["usd", "eur"].includes(price.currency) ||
     price.unitAmount !== 50000 ||
-    price.interval !== "day" ||
-    price.intervalCount !== 30 ||
+    (!monthly && !legacy) ||
+    (requireActive && (price.currency !== "usd" ||
+      !price.currencyOptions || Object.keys(price.currencyOptions).length !== 2 ||
+      ["usd", "eur"].some(currency => price.currencyOptions?.[currency]?.unitAmount !== 50000 ||
+        price.currencyOptions?.[currency]?.taxBehavior !== "exclusive"))) ||
     price.taxBehavior !== "exclusive"
   )
     throw new Error(
-      "A test-mode USD 500 price recurring every exact 30 days is required.",
+      "A test-mode USD 500 or EUR 500 monthly price is required.",
     );
+}
+function validPaidPeriod(invoice: PaidInvoice, observation: BillingObservation) {
+  if (observation.price.interval === "day")
+    return invoice.periodEnd - invoice.periodStart === 30 * 86400000;
+  if (!Number.isFinite(observation.billingAnchor)) return false;
+  const anchor = new Date(observation.billingAnchor!), start = new Date(invoice.periodStart);
+  const anchored = (month: number) => {
+    const lastDay = new Date(Date.UTC(start.getUTCFullYear(), month + 1, 0)).getUTCDate();
+    return Date.UTC(start.getUTCFullYear(), month, Math.min(anchor.getUTCDate(), lastDay),
+      anchor.getUTCHours(), anchor.getUTCMinutes(), anchor.getUTCSeconds(), anchor.getUTCMilliseconds());
+  };
+  return invoice.periodStart === anchored(start.getUTCMonth()) &&
+    invoice.periodEnd === anchored(start.getUTCMonth() + 1);
 }
 // Current provider reads determine entitlement. Event timestamps never advance it.
 export function billingDecision(
@@ -72,9 +94,9 @@ export function billingDecision(
     (i) =>
       i.paid &&
       i.amountPaid >= 50000 &&
-      i.currency === "usd" &&
+      i.currency === observation.price.currency &&
       i.priceId === expectedPrice &&
-      i.periodEnd - i.periodStart === SPONSOR_PERIOD_MS &&
+      validPaidPeriod(i, observation) &&
       i.periodStart <= now,
   );
   let paidThrough = previous.paidThrough,

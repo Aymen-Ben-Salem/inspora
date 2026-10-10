@@ -1,0 +1,4 @@
+ALTER TABLE "sponsor_accounts" ADD COLUMN "billing_currency" text DEFAULT 'usd' NOT NULL;--> statement-breakpoint
+ALTER TABLE "sponsor_accounts" ADD COLUMN "billing_interval" text DEFAULT 'day' NOT NULL;--> statement-breakpoint
+ALTER TABLE "sponsor_accounts" ADD COLUMN "billing_interval_count" integer DEFAULT 30 NOT NULL;--> statement-breakpoint
+ALTER TABLE "sponsor_accounts" ADD CONSTRAINT "sponsor_accounts_billing_terms_valid" CHECK (("sponsor_accounts"."billing_currency" in ('usd','eur') and "sponsor_accounts"."billing_interval" = 'month' and "sponsor_accounts"."billing_interval_count" = 1) or ("sponsor_accounts"."billing_currency" = 'usd' and "sponsor_accounts"."billing_interval" = 'day' and "sponsor_accounts"."billing_interval_count" = 30));

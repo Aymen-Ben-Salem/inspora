@@ -218,6 +218,13 @@
       "when": 1791651809934,
       "tag": "0030_sponsor_billing_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791667563657,
+      "tag": "0031_sponsor_monthly_billing",
+      "breakpoints": true
     }
   ]
 }

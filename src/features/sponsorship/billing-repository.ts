@@ -266,6 +266,9 @@ export async function reconcileSponsorCheckout(
         ? new Date(decision.recoveryDeadline)
         : null,
       cancelAtPeriodEnd: observation.cancelAtPeriodEnd,
+      billingCurrency: observation.price.currency,
+      billingInterval: observation.price.interval!,
+      billingIntervalCount: observation.price.intervalCount!,
       updatedAt: now,
     };
     if (!ownedAccount) {

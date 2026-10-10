@@ -38,6 +38,21 @@ const paid: BillingObservation = {
   ],
 };
 describe("verified sponsor billing", () => {
+  it.each([
+    ["usd", Date.UTC(2026, 0, 31), Date.UTC(2026, 1, 28), Date.UTC(2026, 0, 31)],
+    ["eur", Date.UTC(2026, 1, 28), Date.UTC(2026, 2, 31), Date.UTC(2026, 0, 31)],
+    ["eur", Date.UTC(2028, 0, 31), Date.UTC(2028, 1, 29), Date.UTC(2028, 0, 31)],
+    ["usd", Date.UTC(2026, 3, 10), Date.UTC(2026, 4, 10), Date.UTC(2026, 3, 10)],
+  ])("grants the Stripe calendar month in %s including short months", (currency, periodStart, periodEnd, billingAnchor) => {
+    const monthly = {
+      ...paid,
+      billingAnchor,
+      price: { ...price, currency, interval: "month", intervalCount: 1 },
+      invoices: [{ ...paid.invoices[0], currency, periodStart, periodEnd }],
+    };
+    expect(billingDecision(monthly, { paidThrough: null, periodStart: null }, periodStart + 1000, price.id))
+      .toMatchObject({ state: "active", periodStart, paidThrough: periodEnd });
+  });
   it("reconciles successive paid renewals after missed receipts without changing their anchor", () => {
     const day30 = 30 * 86400000;
     const invoices = [
@@ -84,19 +99,44 @@ describe("verified sponsor billing", () => {
       ),
     ).toMatchObject({ state: "pending", paidThrough: null });
   });
-  it("rejects live, wrong-price, monthly and wrong-amount billing", () => {
+  it("rejects live, wrong-price, unsupported currencies and wrong-amount billing", () => {
     for (const change of [
       { livemode: true },
       { id: "price_other" },
-      { interval: "month", intervalCount: 1 },
+      { interval: "week", intervalCount: 1 },
       { unitAmount: 49999 },
-      { currency: "eur" },
+      { currency: "gbp" },
       { taxBehavior: "inclusive" },
     ]) {
       expect(() =>
-        validateSponsorPrice({ ...price, ...change }, price.id),
+        validateSponsorPrice({ ...price, ...change }, price.id, false),
       ).toThrow();
     }
+  });
+  it("starts only the monthly USD/EUR price and preserves retired USD terms for reconciliation", () => {
+    expect(() => validateSponsorPrice(price, price.id)).toThrow();
+    expect(() => validateSponsorPrice(price, price.id, false)).not.toThrow();
+    const monthly = { ...price, interval: "month", intervalCount: 1,
+      currencyOptions: { usd: { unitAmount: 50000, taxBehavior: "exclusive" }, eur: { unitAmount: 50000, taxBehavior: "exclusive" } } };
+    expect(() => validateSponsorPrice(monthly, price.id)).not.toThrow();
+    for (const currencyOptions of [undefined, { eur: { unitAmount: 49900, taxBehavior: "exclusive" } },
+      { ...monthly.currencyOptions, gbp: { unitAmount: 50000, taxBehavior: "exclusive" } }])
+      expect(() => validateSponsorPrice({ ...monthly, currencyOptions }, price.id)).toThrow();
+  });
+  it("rejects mixed invoice currencies and a malformed calendar-month end", () => {
+    const monthly = { ...paid, billingAnchor: start, price: { ...price, interval: "month", intervalCount: 1 },
+      invoices: [{ ...paid.invoices[0], periodEnd: Date.UTC(2026, 10, 10) }] };
+    for (const change of [{ currency: "eur" }, { periodEnd: Date.UTC(2026, 10, 10) - 1 }])
+      expect(billingDecision({ ...monthly, invoices: [{ ...monthly.invoices[0], ...change }] },
+        { paidThrough: null, periodStart: null }, start, price.id).state).toBe("pending");
+  });
+  it("recovers a February renewal in EUR without shifting the January 31 anchor", () => {
+    const february = Date.UTC(2026, 1, 28), march = Date.UTC(2026, 2, 31);
+    const monthly = { ...paid, billingAnchor: Date.UTC(2026, 0, 31),
+      price: { ...price, currency: "eur", interval: "month", intervalCount: 1 },
+      invoices: [{ ...paid.invoices[0], currency: "eur", periodStart: february, periodEnd: march, paidAt: february + 48 * 3600000 }] };
+    expect(billingDecision(monthly, { paidThrough: february, periodStart: Date.UTC(2026, 0, 31) },
+      february + 48 * 3600000, price.id)).toMatchObject({ state: "active", periodStart: february, paidThrough: march });
   });
   it("preserves cancellation until expiry and holds failed renewal exactly 72 hours", () => {
     const previous = { paidThrough: end, periodStart: start };

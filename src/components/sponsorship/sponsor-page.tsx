@@ -208,6 +208,10 @@ export function SponsorPage({
               / a month
             </span>
           </p>
+          <p className="text-sm leading-5 text-[#767676]">€500/month for euro billing.</p>
+          <p className="max-w-[320px] text-xs leading-5 text-[#767676]">
+            Before applicable tax. Renews monthly until cancelled.
+          </p>
         </div>
         <div className="flex flex-col items-center gap-3">
           {cta}

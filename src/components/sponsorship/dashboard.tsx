@@ -190,7 +190,8 @@ export function SponsorDashboard({
         >
           <h2 className="text-lg font-medium">Billing</h2>
           <p className="mt-2 text-sm text-[#767676]">
-            USD 500 before applicable tax · every exact 30 days
+            {account ? `${account.billingCurrency.toUpperCase()} 500 before applicable tax · ${account.billingInterval === "month" ? "monthly" : "every 30 days"}`
+              : "USD 500 or EUR 500 before applicable tax · monthly"}
           </p>
           {account ? (
             <>

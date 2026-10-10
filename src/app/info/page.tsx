@@ -183,8 +183,8 @@ export default function InfoPage() {
               </h2>
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
-                  USD 500 before applicable tax. Automatically renews every exact
-                  30 days until cancelled. For business and professional
+                  USD 500 or EUR 500 per month before applicable tax. Automatically
+                  renews monthly until cancelled. For business and professional
                   promotion.
                 </p>
                 <p>

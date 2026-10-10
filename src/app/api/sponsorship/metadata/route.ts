@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { sponsorPrivateHeaders } from "@/features/sponsorship/config";
 import { readSponsorJson } from "@/features/sponsorship/request-policy";
 import { preparationService } from "@/features/sponsorship/service";
-import { metadataFetcher } from "@/features/sponsorship/metadata";
+import {
+  metadataFetcher,
+  SPONSOR_METADATA_TIMEOUT_MS,
+} from "@/features/sponsorship/metadata";
 import { importSponsorSuggestion } from "@/features/sponsorship/media";
 import { prepareWebsiteSuggestion } from "@/features/sponsorship/suggestion-images";
 export async function POST(request: Request) {
@@ -16,7 +19,7 @@ export async function POST(request: Request) {
     const { url } = (await readSponsorJson(request)) as { url: string };
     const suggestions = await metadataFetcher.suggest(
       url,
-      AbortSignal.timeout(4000),
+      AbortSignal.timeout(SPONSOR_METADATA_TIMEOUT_MS),
     );
     const value: {
       title?: string;

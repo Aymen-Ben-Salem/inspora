@@ -10,7 +10,8 @@ const adapters = vi.hoisted(() => ({
 vi.mock("@/features/sponsorship/service", () => ({
   preparationService: { read: adapters.read },
 }));
-vi.mock("@/features/sponsorship/metadata", () => ({
+vi.mock("@/features/sponsorship/metadata", async (original) => ({
+  ...(await original<typeof import("@/features/sponsorship/metadata")>()),
   metadataFetcher: {
     suggest: adapters.suggest,
     fetchPublic: adapters.fetchPublic,
@@ -136,4 +137,32 @@ it("fetches the OG image before private icon storage consumes the website deadli
   expect((await (await POST(request())).json()).value.mediaId).toBe(
     "owned-media",
   );
+});
+it("keeps suggestions available while a valid homepage takes eight seconds", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(AbortSignal, "timeout").mockImplementation((duration) => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), duration);
+    return controller.signal;
+  });
+  adapters.suggest.mockImplementation(
+    (_url: string, signal: AbortSignal) =>
+      new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new Error("Timed out")), {
+          once: true,
+        });
+        setTimeout(() => resolve({ title: "Slow product website" }), 8000);
+      }),
+  );
+  try {
+    const result = POST(request()).then((response) => response.json());
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).toMatchObject({
+      ok: true,
+      value: { title: "Slow product website" },
+    });
+  } finally {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  }
 });

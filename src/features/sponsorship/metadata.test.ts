@@ -2,6 +2,47 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createMetadataFetcher, fillEmptySponsorFields } from "./metadata";
 describe("optional public-only metadata", () => {
+  it("accepts a bounded slow homepage and its optional brand page", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((duration) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), duration);
+      return controller.signal;
+    });
+    try {
+      const fetcher = createMetadataFetcher({
+        resolve: async () => [{ address: "93.184.216.34", family: 4 }],
+        request: async ({ url }) => {
+          await new Promise((resolve) =>
+            setTimeout(resolve, url.pathname === "/brand" ? 4000 : 8000),
+          );
+          return {
+            status: 200,
+            headers: { "content-type": "text/html" },
+            bytes: Buffer.from(
+              url.pathname === "/brand"
+                ? '<img alt="Product logo" width="200" height="54" src="/wordmark.svg">'
+                : '<title>Slow website</title><a href="/brand">Brand guidelines</a>',
+            ),
+          };
+        },
+      });
+      const result = fetcher.suggest("https://example.com").then(
+        (value) => ({ value }),
+        (error: unknown) => ({ error }),
+      );
+      await vi.advanceTimersByTimeAsync(12000);
+      expect(await result).toMatchObject({
+        value: {
+          title: "Slow website",
+          wordmarkUrl: "https://example.com/wordmark.svg",
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
+  });
   it("selects the light-background favicon and the real full logo from a linked brand page", async () => {
     const fetcher = createMetadataFetcher({
       resolve: async () => [{ address: "93.184.216.34", family: 4 }],

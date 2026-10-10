@@ -4,6 +4,10 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { BlockList, isIP } from "node:net";
 
+// A near-limit HTML page and its brand page can exceed four seconds on a slow
+// connection. Share this bounded budget across their validated network reads.
+export const SPONSOR_METADATA_TIMEOUT_MS = 15000;
+
 type Address = { address: string; family: number };
 type Response = {
   status: number;
@@ -248,7 +252,10 @@ export function createMetadataFetcher(deps: MetadataFetchDependencies) {
   }
   return {
     fetchPublic,
-    async suggest(raw: string, signal = AbortSignal.timeout(4000)) {
+    async suggest(
+      raw: string,
+      signal = AbortSignal.timeout(SPONSOR_METADATA_TIMEOUT_MS),
+    ) {
       const response = await fetchPublic(raw, 2 * 1024 * 1024, signal);
       if (
         !response.headers["content-type"]?.toLowerCase().startsWith("text/html")

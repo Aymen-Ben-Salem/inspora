@@ -27,7 +27,7 @@ export function MobileSignInLink() {
         event.preventDefault();
         navigate(() => router.push("/sign-in" as Route, { scroll: false }));
       }}
-      className={`focus-ring ${mobileNavigationItemClass} text-[#777] transition-colors hover:text-[#262626]`}
+      className={`focus-ring ${mobileNavigationItemClass} text-[#777] underline decoration-[#b0b0b0] underline-offset-4 transition-colors hover:text-[#262626] hover:decoration-[#262626]`}
     >
       Sign in
     </Link>

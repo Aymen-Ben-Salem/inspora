@@ -65,7 +65,7 @@ it("rejects compact icons as wordmarks and keeps OG image bytes intact", async (
     ),
   ).toEqual(png);
 });
-it("keeps official white artwork visible and parses only passive inline fill declarations", async () => {
+it("darkens white artwork without a background and preserves its transparency", async () => {
   const image = await prepareWebsiteSuggestion(
     drawing('<path d="M20 10H180V40H20Z" style="fill:#fff"/>'),
     "image/svg+xml",
@@ -75,10 +75,10 @@ it("keeps official white artwork visible and parses only passive inline fill dec
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  expect([...data.subarray(0, 4)]).toEqual([38, 38, 38, 255]);
+  expect(data[3]).toBe(0);
   const middle =
     (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * 4;
-  expect([...data.subarray(middle, middle + 4)]).toEqual([255, 255, 255, 255]);
+  expect([...data.subarray(middle, middle + 4)]).toEqual([38, 38, 38, 255]);
   await expect(
     prepareWebsiteSuggestion(
       drawing('<path d="M0 0H200V50Z" style="fill:url(file:///secret)"/>'),
@@ -86,4 +86,65 @@ it("keeps official white artwork visible and parses only passive inline fill dec
       "wordmark",
     ),
   ).rejects.toThrow();
+});
+it("preserves every alpha value when darkening a transparent white raster wordmark", async () => {
+  const source = Buffer.from([
+    255, 255, 255, 0, 255, 255, 255, 80, 255, 255, 255, 160, 255, 255, 255, 255,
+  ]);
+  const png = await sharp(source, { raw: { width: 4, height: 1, channels: 4 } })
+    .png()
+    .toBuffer();
+  const image = await prepareWebsiteSuggestion(png, "image/png", "wordmark");
+  const data = await sharp(image.bytes).ensureAlpha().raw().toBuffer();
+  expect([...data].filter((_, index) => index % 4 === 3)).toEqual([
+    0, 80, 160, 255,
+  ]);
+  expect([...data.subarray(12, 16)]).toEqual([38, 38, 38, 255]);
+});
+it("darkens grayscale PNG wordmarks while preserving their alpha", async () => {
+  const source = Buffer.from([
+    255, 255, 255, 0, 255, 255, 255, 80, 255, 255, 255, 160, 255, 255, 255, 255,
+  ]);
+  const png = await sharp(source, { raw: { width: 4, height: 1, channels: 4 } })
+    .greyscale()
+    .toColourspace("b-w")
+    .png()
+    .toBuffer();
+  expect((await sharp(png).metadata()).channels).toBe(2);
+  const image = await prepareWebsiteSuggestion(png, "image/png", "wordmark");
+  const data = await sharp(image.bytes)
+    .toColourspace("srgb")
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+  expect([...data].filter((_, index) => index % 4 === 3)).toEqual([
+    0, 80, 160, 255,
+  ]);
+  expect([...data.subarray(12, 16)]).toEqual([38, 38, 38, 255]);
+});
+it("keeps colored and opaque raster artwork untouched", async () => {
+  for (const color of ["#0099ff", "#ffffff"]) {
+    const png = await sharp({
+      create: { width: 200, height: 50, channels: 4, background: color },
+    })
+      .png()
+      .toBuffer();
+    expect(
+      Buffer.from(
+        (await prepareWebsiteSuggestion(png, "image/png", "wordmark")).bytes,
+      ),
+    ).toEqual(png);
+  }
+  const image = await prepareWebsiteSuggestion(
+    drawing('<path d="M20 10H180V40H20Z" fill="#0099ff"/>'),
+    "image/svg+xml",
+    "wordmark",
+  );
+  const { data, info } = await sharp(image.bytes)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const center =
+    (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * 4;
+  expect([...data.subarray(center, center + 4)]).toEqual([0, 153, 255, 255]);
 });

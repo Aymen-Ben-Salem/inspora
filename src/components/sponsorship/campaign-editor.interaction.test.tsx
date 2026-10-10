@@ -10,7 +10,16 @@ const state = vi.hoisted(() => ({
     userId: "owner-a" as string | null,
   },
 }));
-vi.mock("@clerk/nextjs", () => ({ useAuth: () => state.auth }));
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => state.auth,
+  SignOutButton: ({
+    children,
+    redirectUrl,
+  }: {
+    children: import("react").ReactNode;
+    redirectUrl: string;
+  }) => <span data-sign-out-redirect={redirectUrl}>{children}</span>,
+}));
 vi.mock("@/features/media/prepare-and-upload", () => ({
   prepareAndUploadMedia: vi.fn(),
 }));
@@ -74,6 +83,9 @@ const nameInput = () =>
 it("clears an owner's private campaign when switching to another owner or signing out", async () => {
   await act(async () => root.render(<CampaignEditor />));
   expect(nameInput().value).toBe("Owner A private campaign");
+  expect(
+    container.querySelector('[data-sign-out-redirect="/sponsor"]')?.textContent,
+  ).toBe("Sign out");
   state.auth = { isLoaded: true, isSignedIn: true, userId: "owner-b" };
   await act(async () => root.render(<CampaignEditor />));
   expect(nameInput().value).toBe("");
@@ -83,6 +95,7 @@ it("clears an owner's private campaign when switching to another owner or signin
   await act(async () => root.render(<CampaignEditor />));
   expect(container.textContent).toContain("Verify sponsor access to save");
   expect(container.textContent).not.toContain("Save private preparation");
+  expect(container.textContent).not.toContain("Sign out");
 });
 
 it("cancels a pending save when its authenticated owner changes", async () => {

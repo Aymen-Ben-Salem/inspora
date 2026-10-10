@@ -1,6 +1,6 @@
 "use client";
-import { useAuth } from "@clerk/nextjs";
-import { useEffect, useRef, useState } from "react";
+import { SignOutButton, useAuth } from "@clerk/nextjs";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
 import type {
@@ -47,6 +47,18 @@ function AuthenticatedCampaignEditor() {
       isSignedIn={Boolean(isSignedIn && userId)}
       isLoaded={isLoaded}
       ownerUserId={isSignedIn ? (userId ?? undefined) : undefined}
+      signOutControl={
+        isLoaded && isSignedIn && userId ? (
+          <SignOutButton redirectUrl="/sponsor">
+            <button
+              type="button"
+              className="focus-ring min-h-11 text-sm text-[#767676] underline underline-offset-4 hover:text-[#262626]"
+            >
+              Sign out
+            </button>
+          </SignOutButton>
+        ) : undefined
+      }
     />
   );
 }
@@ -54,10 +66,12 @@ function CampaignEditorContent({
   isSignedIn,
   isLoaded,
   ownerUserId,
+  signOutControl,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
   ownerUserId?: string;
+  signOutControl?: ReactNode;
 }) {
   const [fields, setFields] = useState(empty),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>([]),
@@ -218,9 +232,12 @@ function CampaignEditorContent({
   return (
     <main className="mx-auto max-w-[1120px] px-4 py-10 text-[#262626] sm:px-8">
       <div className="mb-8">
-        <a href="/sponsor" className="focus-ring text-sm text-[#767676]">
-          ← Sponsorship
-        </a>
+        <div className="flex items-center justify-between gap-4">
+          <a href="/sponsor" className="focus-ring text-sm text-[#767676]">
+            ← Sponsorship
+          </a>
+          {signOutControl}
+        </div>
         <h1 className="mt-5 text-3xl font-semibold tracking-tight">
           Prepare your campaign
         </h1>

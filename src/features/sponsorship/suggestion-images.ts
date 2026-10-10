@@ -196,6 +196,7 @@ export async function prepareWebsiteSuggestion(
   contentType: string,
   kind: "icon" | "wordmark" | "media",
 ) {
+  const vector = contentType === "image/svg+xml";
   if (contentType === "image/svg+xml") {
     if (kind === "media")
       throw new Error("The website OG image must be a supported raster image.");
@@ -203,28 +204,42 @@ export async function prepareWebsiteSuggestion(
       .timeout({ seconds: 2 })
       .png()
       .toBuffer();
-    const pixels = await sharp(bytes).ensureAlpha().raw().toBuffer();
-    let visible = 0,
-      white = 0;
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (pixels[i + 3] < 32) continue;
-      visible++;
-      if (pixels[i] > 245 && pixels[i + 1] > 245 && pixels[i + 2] > 245)
-        white++;
-    }
-    // Preserve white-only official artwork and provide its dark-background
-    // context in the derived PNG, rather than changing the logo's ink.
-    if (!visible)
-      throw new Error("The website SVG contains no visible artwork.");
-    if (visible && white / visible > 0.98)
-      bytes = await sharp(bytes)
-        .flatten({ background: "#262626" })
-        .png()
-        .toBuffer();
     contentType = "image/png";
   }
   const dimensions = await inspectSponsorMedia(bytes, contentType, kind);
   if (kind === "wordmark" && dimensions.width <= dimensions.height * 1.5)
     throw new Error("The website logo is an icon, not a full wordmark.");
+  if (kind !== "media" && dimensions.width * dimensions.height <= 4_000_000) {
+    const pixels = await sharp(bytes, { limitInputPixels: 4_000_000 })
+      .ensureAlpha()
+      .timeout({ seconds: 2 })
+      .raw()
+      .toBuffer();
+    let visible = 0,
+      white = 0,
+      transparent = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i + 3] < 32) {
+        transparent++;
+        continue;
+      }
+      visible++;
+      if (pixels[i] > 245 && pixels[i + 1] > 245 && pixels[i + 2] > 245)
+        white++;
+    }
+    // Darken only uniformly white artwork. Preserve the alpha channel and all
+    // edges; an opaque raster cannot reveal which pixels are its background.
+    if (!visible)
+      throw new Error("The website SVG contains no visible artwork.");
+    if (white === visible && (vector || transparent)) {
+      bytes = await sharp(bytes)
+        .ensureAlpha()
+        .linear(0, 38)
+        .timeout({ seconds: 2 })
+        .png()
+        .toBuffer();
+      contentType = "image/png";
+    }
+  }
   return { bytes, contentType };
 }

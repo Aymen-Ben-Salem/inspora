@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { SITE_NAV_ITEMS } from "./site-navigation";
 import { MobileNavigationActionContext } from "./mobile-navigation-actions";
+import { mobileNavigationHeadingClass, mobileNavigationItemClass } from "./mobile-navigation-styles";
 
 const browseItems = SITE_NAV_ITEMS.filter(
   (item) => item.kind === "link" && item.href !== "/info",
@@ -13,9 +14,6 @@ const browseItems = SITE_NAV_ITEMS.filter(
 const infoItem = SITE_NAV_ITEMS.find(
   (item) => item.kind === "link" && item.href === "/info",
 );
-
-const menuItemTypography =
-  "block py-0.5 text-[17px] font-normal leading-[1.45] tracking-[-0.012em]";
 
 export function MobileNavigationOverlay({
   closing,
@@ -75,7 +73,7 @@ export function MobileNavigationOverlay({
         <section aria-labelledby="mobile-nav-browse" className="pt-14">
           <h2
             id="mobile-nav-browse"
-            className="text-[15px] font-normal leading-none tracking-[-0.01em] text-[#b0b0b0]"
+            className={mobileNavigationHeadingClass}
           >
             Browse
           </h2>
@@ -87,7 +85,7 @@ export function MobileNavigationOverlay({
                 href={item.href as Route}
                 aria-current={item.href === activeHref ? "page" : undefined}
                 onClick={onClose}
-                className={`focus-ring py-0.5 text-[17px] font-normal leading-[1.45] tracking-[-0.012em] transition-colors ${
+                className={`focus-ring ${mobileNavigationItemClass} transition-colors ${
                   item.href === activeHref
                     ? "text-[#262626]"
                     : "text-[#777] hover:text-[#262626]"
@@ -102,7 +100,7 @@ export function MobileNavigationOverlay({
         <section aria-labelledby="mobile-nav-inspora" className="mt-6">
           <h2
             id="mobile-nav-inspora"
-            className="text-[15px] font-normal leading-none tracking-[-0.01em] text-[#b0b0b0]"
+            className={mobileNavigationHeadingClass}
           >
             Inspora
           </h2>
@@ -116,7 +114,7 @@ export function MobileNavigationOverlay({
                   activeHref === "/info" ? "text-[#262626]" : "text-[#777]"
                 }`}
               >
-                <span className={menuItemTypography}>
+                <span className={mobileNavigationItemClass}>
                   {infoItem.label}
                 </span>
               </Link>
@@ -129,7 +127,7 @@ export function MobileNavigationOverlay({
               }}
               className="focus-ring appearance-none border-0 bg-transparent p-0 text-left text-[#777] transition-colors hover:text-[#262626]"
             >
-              <span className={menuItemTypography}>Contact</span>
+              <span className={mobileNavigationItemClass}>Contact</span>
             </button>
           </div>
         </section>
@@ -137,7 +135,19 @@ export function MobileNavigationOverlay({
         <MobileNavigationActionContext.Provider value={onAction}>
           {auth}
         </MobileNavigationActionContext.Provider>
-        <section aria-labelledby="mobile-nav-sponsors" className="mt-6"><h2 id="mobile-nav-sponsors" className="text-[15px] text-[#b0b0b0]">Sponsorship</h2><Link href={"/sponsor" as Route} onClick={onClose} className="focus-ring mt-2 flex min-h-11 items-center text-[17px] text-[#262626]">Become a sponsor +</Link></section>
+        <section aria-labelledby="mobile-nav-sponsors" className="mt-6">
+          <h2 id="mobile-nav-sponsors" className={mobileNavigationHeadingClass}>Sponsorship</h2>
+          <div className="mt-2 flex flex-col items-start">
+            <Link
+              href={"/sponsor" as Route}
+              onClick={onClose}
+              aria-current={activeHref === "/sponsor" ? "page" : undefined}
+              className={`focus-ring ${mobileNavigationItemClass} transition-colors ${activeHref === "/sponsor" ? "text-[#262626]" : "text-[#777] hover:text-[#262626]"}`}
+            >
+              Become a sponsor +
+            </Link>
+          </div>
+        </section>
       </nav>
     </div>
   );

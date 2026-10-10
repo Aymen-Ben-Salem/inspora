@@ -2,7 +2,11 @@
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-const { openSubmission } = vi.hoisted(() => ({ openSubmission: vi.fn() }));
+const { openSubmission, push } = vi.hoisted(() => ({
+  openSubmission: vi.fn(),
+  push: vi.fn(),
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true }),
   useUser: () => ({
@@ -18,9 +22,53 @@ vi.mock("../submissions/submission-provider", () => ({
 }));
 import { SiteNavbarClient } from "../site-navbar-client";
 import { PublicAuthControlsClient } from "./public-auth-controls-client";
+import { MobileSignInLink } from "./mobile-sign-in-link";
 afterEach(() => {
   openSubmission.mockReset();
+  push.mockReset();
   vi.unstubAllGlobals();
+});
+it("dismisses mobile navigation before following the sign-in link", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <SiteNavbarClient
+          desktopAuth={null}
+          mobileAuth={<MobileSignInLink />}
+        />,
+      ),
+    );
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Open navigation"]')!
+        .click(),
+    );
+    const overlay = container.querySelector('[aria-label="Site navigation"]')!;
+    const link =
+      overlay.querySelector<HTMLAnchorElement>('a[href="/sign-in"]')!;
+    expect(link).not.toBeNull();
+    await act(async () =>
+      link.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }),
+      ),
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(overlay.getAttribute("data-state")).toBe("closing");
+    await act(async () =>
+      overlay.dispatchEvent(new Event("animationend", { bubbles: true })),
+    );
+    expect(
+      container.querySelector('[aria-label="Site navigation"]'),
+    ).toBeNull();
+    expect(push).toHaveBeenCalledWith("/sign-in", { scroll: false });
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
 });
 it("keeps Design inactive on sponsorship in desktop and mobile navigation", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

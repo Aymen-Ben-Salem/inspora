@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const { isConfigured, renderClientControls } = vi.hoisted(() => ({
   isConfigured: vi.fn(),
@@ -35,7 +36,8 @@ describe("PublicAuthControls", () => {
 
       expect(html).toContain('href="/sign-in"');
       expect(html).toContain("Sign in");
-      expect(html).not.toContain("Account");
+      if (variant === "mobile") expect(html).toContain("Account");
+      else expect(html).not.toContain("Account");
     },
   );
 

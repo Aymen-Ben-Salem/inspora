@@ -9,6 +9,8 @@ import { useContext } from "react";
 import { useViewerProfile } from "../profile/use-viewer-profile";
 import { useSubmission } from "../submissions/submission-provider";
 import { MobileNavigationActionContext } from "../mobile-navigation-actions";
+import { mobileNavigationHeadingClass } from "../mobile-navigation-styles";
+import { MobileSignInLink } from "./mobile-sign-in-link";
 
 export function PublicAuthControlsClient({
   variant,
@@ -57,7 +59,7 @@ export function PublicAuthControlsClient({
           />
         )}
       </summary>
-      <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-48 rounded-md border border-[#e6e6e6] bg-white p-1 text-sm shadow-sm">
+      <div className={`absolute ${variant === "mobile" ? "left-0" : "right-0"} top-[calc(100%+8px)] z-50 w-48 rounded-md border border-[#e6e6e6] bg-white p-1 text-sm shadow-sm`}>
         {capabilities?.viewer !== false ? (
           <>
             <Link
@@ -102,16 +104,12 @@ export function PublicAuthControlsClient({
         </SignOutButton>
       </div>
     </details>
-  ) : (
+  ) : variant === "mobile" ? <MobileSignInLink /> : (
     <Link
       href={"/sign-in" as Route}
       prefetch={false}
       scroll={false}
-      className={
-        variant === "desktop"
-          ? "archive-copy-type focus-ring inline-flex h-[var(--archive-sign-in-height)] w-[var(--archive-sign-in-width)] cursor-pointer items-center justify-center bg-[#262626] px-[var(--archive-sign-in-pad-x)] py-[var(--archive-sign-in-pad-y)] font-medium tracking-[0.2px] text-white shadow-[0_1px_1px_#e6e6e6] transition-colors hover:bg-black"
-          : "focus-ring inline-flex min-h-10 cursor-pointer items-center justify-center bg-[#262626] px-4 text-[15px] text-white transition-colors hover:bg-black"
-      }
+      className="archive-copy-type focus-ring inline-flex h-[var(--archive-sign-in-height)] w-[var(--archive-sign-in-width)] cursor-pointer items-center justify-center bg-[#262626] px-[var(--archive-sign-in-pad-x)] py-[var(--archive-sign-in-pad-y)] font-medium tracking-[0.2px] text-white shadow-[0_1px_1px_#e6e6e6] transition-colors hover:bg-black"
     >
       Sign in
     </Link>
@@ -119,10 +117,10 @@ export function PublicAuthControlsClient({
 
   return variant === "mobile" ? (
     <section aria-labelledby="mobile-nav-account" className="mt-6">
-      <h2 id="mobile-nav-account" className="mb-2 text-[15px] text-[#666]">
+      <h2 id="mobile-nav-account" className={mobileNavigationHeadingClass}>
         Account
       </h2>
-      {content}
+      <div className="mt-2 flex flex-col items-start">{content}</div>
     </section>
   ) : (
     content

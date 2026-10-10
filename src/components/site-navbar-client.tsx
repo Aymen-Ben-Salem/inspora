@@ -14,7 +14,7 @@ import { BrandMark } from "./brand-mark";
 import { ContactSheet } from "./contact-sheet";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 
-export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "websites";
+export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "sponsor" | "websites";
 
 const archiveInk = "#262626";
 const archiveMuted = "#767676";
@@ -333,6 +333,8 @@ export function SiteNavbarClient({
                 ? "/websites"
                 : page === "saved"
                   ? "/saved"
+                : page === "sponsor"
+                  ? "/sponsor"
                 : page === "info"
                   ? "/info"
                   : "/"

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { SiteNavbar } from "@/components/site-navbar";
 import { SponsorPage } from "@/components/sponsorship/sponsor-page";
+import { SponsorPageSkeleton } from "@/components/sponsorship/sponsor-page-skeleton";
 import { readSeatAvailability } from "@/features/sponsorship/repository";
 import { sponsorshipWritesEnabled } from "@/features/sponsorship/config";
 export const metadata: Metadata = {
@@ -22,8 +23,8 @@ async function Offer() {
 export default function Page() {
   return (
     <>
-      <SiteNavbar />
-      <Suspense fallback={<SponsorPage availability={null} enabled={false} />}>
+      <SiteNavbar page="sponsor" />
+      <Suspense fallback={<SponsorPageSkeleton />}>
         <Offer />
       </Suspense>
     </>

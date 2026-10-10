@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <>
-      <SiteNavbar />
+      <SiteNavbar page="sponsor" />
       <CampaignEditor authenticationEnabled={isClerkConfigured()} />
     </>
   );

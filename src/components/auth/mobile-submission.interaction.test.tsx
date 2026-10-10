@@ -22,6 +22,49 @@ afterEach(() => {
   openSubmission.mockReset();
   vi.unstubAllGlobals();
 });
+it("keeps Design inactive on sponsorship in desktop and mobile navigation", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(<SiteNavbarClient desktopAuth={null} mobileAuth={null} />),
+    );
+    expect(
+      container
+        .querySelector('[aria-label="Primary navigation"] a[href="/"]')
+        ?.getAttribute("aria-current"),
+    ).toBe("page");
+    await act(async () =>
+      root.render(
+        <SiteNavbarClient
+          page="sponsor"
+          desktopAuth={null}
+          mobileAuth={null}
+        />,
+      ),
+    );
+    expect(
+      container.querySelector(
+        '[aria-label="Primary navigation"] [aria-current="page"]',
+      ),
+    ).toBeNull();
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Open navigation"]')!
+        .click(),
+    );
+    expect(
+      container
+        .querySelector('[aria-label="Mobile navigation"] a[href="/"]')
+        ?.getAttribute("aria-current"),
+    ).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});
 it("dismisses mobile navigation before opening the viewer's submission dialog", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");

@@ -14,7 +14,7 @@ function LoadingPage({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-function NavbarSkeleton() {
+export function NavbarSkeleton({ desktopAuthOnly = false }: { desktopAuthOnly?: boolean } = {}) {
   return (
     <div className="archive-frame py-[var(--archive-header-pad-y)]">
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
@@ -23,7 +23,7 @@ function NavbarSkeleton() {
           {[0, 1, 2].map((index) => <Block key={index} className="h-4 w-20" />)}
         </div>
         <div className="col-start-3 flex items-center justify-end gap-3">
-          <Block className="h-[var(--archive-sign-in-height)] w-[var(--archive-sign-in-width)]" />
+          <Block className={`h-[var(--archive-sign-in-height)] w-[var(--archive-sign-in-width)] ${desktopAuthOnly ? "hidden lg:block" : ""}`} />
           <Block className="size-10 lg:hidden" />
         </div>
       </div>

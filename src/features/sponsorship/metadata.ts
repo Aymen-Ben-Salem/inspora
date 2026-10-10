@@ -138,7 +138,7 @@ export function createMetadataFetcher(deps: MetadataFetchDependencies) {
   return {
     fetchPublic,
     async suggest(raw: string, signal = AbortSignal.timeout(4000)) {
-      const response = await fetchPublic(raw, 1024 * 1024, signal);
+      const response = await fetchPublic(raw, 2 * 1024 * 1024, signal);
       if (
         !response.headers["content-type"]?.toLowerCase().startsWith("text/html")
       )

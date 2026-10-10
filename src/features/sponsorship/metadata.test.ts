@@ -2,6 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createMetadataFetcher, fillEmptySponsorFields } from "./metadata";
 describe("optional public-only metadata", () => {
+  it("accepts HTML over one MiB while rejecting pages above two MiB", async () => {
+    const prefix = Buffer.from("<title>Large product homepage</title>");
+    const request = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: { "content-type": "text/html" },
+      bytes: Buffer.concat([prefix, Buffer.alloc(1324320 - prefix.length, 32)]),
+    });
+    const fetcher = createMetadataFetcher({
+      resolve: async () => [{ address: "93.184.216.34", family: 4 }],
+      request,
+    });
+    expect(await fetcher.suggest("https://example.com")).toMatchObject({
+      title: "Large product homepage",
+    });
+    request.mockResolvedValue({
+      status: 200,
+      headers: { "content-type": "text/html" },
+      bytes: Buffer.alloc(2 * 1024 * 1024 + 1),
+    });
+    await expect(fetcher.suggest("https://example.com")).rejects.toThrow("too large");
+  });
   it("pins a public address, follows bounded public redirects and preserves manual edits", async () => {
     const request = vi.fn().mockResolvedValue({
       status: 200,
@@ -21,7 +42,7 @@ describe("optional public-only metadata", () => {
     expect(request.mock.calls[0][0]).toMatchObject({
       address: "93.184.216.34",
       family: 4,
-      maxBytes: 1048576,
+      maxBytes: 2 * 1024 * 1024,
     });
     expect(
       fillEmptySponsorFields(

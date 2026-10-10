@@ -234,6 +234,21 @@ function CampaignEditorContent({
           wordmark. A saved preparation lasts 24 hours and uses no paid seat.
         </p>
       </div>
+      {!ready ? (
+        <div className="mb-8 space-y-3 rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4">
+          <p className="text-sm leading-6 text-[#767676]">
+            Verify your email to use website suggestions, upload assets and save
+            your private preparation. You can enter details before verifying.
+          </p>
+          <button
+            type="button"
+            onClick={verify}
+            className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white"
+          >
+            Verify sponsor access to save
+          </button>
+        </div>
+      ) : null}
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <form
           className="space-y-6"
@@ -296,10 +311,6 @@ function CampaignEditorContent({
           >
             Suggest from website (optional)
           </button>
-          <p className="text-xs text-[#767676]">
-            Verification is required for suggestions and uploads. Manual entry
-            always works.
-          </p>
           <label className="block text-sm font-medium">
             Public name
             <input
@@ -376,15 +387,7 @@ function CampaignEditorContent({
               </button>
             ) : null}
           </fieldset>
-          {!ready ? (
-            <button
-              type="button"
-              onClick={verify}
-              className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white"
-            >
-              Verify sponsor access to save
-            </button>
-          ) : (
+          {ready ? (
             <button
               disabled={!ready || Boolean(busy)}
               type="submit"
@@ -392,7 +395,7 @@ function CampaignEditorContent({
             >
               Save private preparation
             </button>
-          )}
+          ) : null}
           {expiresAt ? (
             <p className="text-xs text-[#767676]">
               Expires {new Date(expiresAt).toLocaleString()}. Saving does not

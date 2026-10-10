@@ -99,6 +99,90 @@ function attributes(tag: string) {
     result[match[1].toLowerCase()] = decode(match[2] ?? match[3] ?? match[4]);
   return result;
 }
+function imageUrl(raw: unknown, base: URL) {
+  if (typeof raw !== "string" || !raw.trim()) return undefined;
+  try {
+    return safeUrl(new URL(raw.trim(), base).href).href;
+  } catch {
+    return undefined;
+  }
+}
+function structuredLogo(value: unknown, depth = 0): string | undefined {
+  if (!value || typeof value !== "object" || depth > 4) return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const logo = structuredLogo(item, depth + 1);
+      if (logo) return logo;
+    }
+    return undefined;
+  }
+  const node = value as Record<string, unknown>;
+  const types = Array.isArray(node["@type"]) ? node["@type"] : [node["@type"]];
+  if (
+    types.some((type) =>
+      ["Organization", "Corporation", "Brand", "WebSite"].includes(
+        String(type),
+      ),
+    )
+  ) {
+    if (typeof node.logo === "string") return node.logo;
+    if (node.logo && typeof node.logo === "object") {
+      const logo = node.logo as Record<string, unknown>;
+      const url = logo.contentUrl ?? logo.url;
+      if (typeof url === "string") return url;
+    }
+  }
+  return (
+    structuredLogo(node["@graph"], depth + 1) ??
+    structuredLogo(node.publisher, depth + 1)
+  );
+}
+function websiteWordmark(html: string, base: URL) {
+  // Explicit wordmarks take priority over a site's general organization logo.
+  for (const match of html.matchAll(/<img\b[^<>]*>/gi)) {
+    const a = attributes(match[0]);
+    if (/wordmark/i.test([a.alt, a.id, a.class, a.src].join(" "))) {
+      const url = imageUrl(a.src, base);
+      if (url) return url;
+    }
+  }
+  const lowerHtml = html.toLowerCase();
+  let scriptEnd = 0;
+  for (const match of html.matchAll(/<script\b[^<>]*>/gi)) {
+    if (match.index < scriptEnd) continue;
+    const start = match.index + match[0].length;
+    const end = lowerHtml.indexOf("</script>", start);
+    if (end === -1) break;
+    scriptEnd = end + "</script>".length;
+    if (attributes(match[0]).type?.toLowerCase() !== "application/ld+json")
+      continue;
+    try {
+      const url = imageUrl(
+        structuredLogo(JSON.parse(html.slice(start, end))),
+        base,
+      );
+      if (url) return url;
+    } catch {
+      // Invalid optional structured data must not discard the icon or OG image.
+    }
+  }
+  const headerStart = /<header\b[^<>]*>/i.exec(html);
+  const headerEnd = headerStart
+    ? lowerHtml.indexOf("</header>", headerStart.index + headerStart[0].length)
+    : -1;
+  const header =
+    headerStart && headerEnd !== -1
+      ? html.slice(headerStart.index + headerStart[0].length, headerEnd)
+      : "";
+  for (const match of header.matchAll(/<img\b[^<>]*>/gi)) {
+    const a = attributes(match[0]);
+    if (/logo/i.test([a.alt, a.id, a.class, a.src].join(" "))) {
+      const url = imageUrl(a.src, base);
+      if (url) return url;
+    }
+  }
+  return undefined;
+}
 export function createMetadataFetcher(deps: MetadataFetchDependencies) {
   async function fetchPublic(
     raw: string,
@@ -149,17 +233,28 @@ export function createMetadataFetcher(deps: MetadataFetchDependencies) {
       )
         .trim()
         .slice(0, 160);
-      let imageUrl: string | undefined, iconUrl: string | undefined;
+      let ogImageUrl: string | undefined, iconUrl: string | undefined;
       for (const match of html.matchAll(/<(?:meta|link)\b[^>]*>/gi)) {
         const a = attributes(match[0]);
         if (a.property === "og:title" && !title)
           title = a.content?.trim().slice(0, 160) ?? "";
-        if (a.property === "og:image" && a.content)
-          imageUrl = new URL(a.content, response.url).href;
+        if ((a.property ?? a.name)?.toLowerCase() === "og:image" && !ogImageUrl)
+          ogImageUrl = imageUrl(a.content, response.url);
         if (a.rel?.split(/\s+/).includes("icon") && a.href)
-          iconUrl = new URL(a.href, response.url).href;
+          iconUrl = imageUrl(a.href, response.url) ?? iconUrl;
+        if (
+          a.rel?.split(/\s+/).includes("apple-touch-icon") &&
+          a.href &&
+          !iconUrl
+        )
+          iconUrl = imageUrl(a.href, response.url);
       }
-      return { title: title || undefined, imageUrl, iconUrl };
+      return {
+        title: title || undefined,
+        imageUrl: ogImageUrl,
+        iconUrl,
+        wordmarkUrl: websiteWordmark(html, response.url),
+      };
     },
   };
 }

@@ -14,7 +14,6 @@ import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
 const empty: PreviewFields = {
   title: "",
   url: "",
-  tagline: "",
   iconId: "",
   wordmarkId: "",
   mediaId: "",
@@ -109,10 +108,6 @@ function CampaignEditorContent({
                   : "",
               url:
                 typeof typed.url === "string" ? typed.url.slice(0, 2048) : "",
-              tagline:
-                typeof typed.tagline === "string"
-                  ? typed.tagline.slice(0, 300)
-                  : "",
             });
         } catch {}
         if (p.campaign && loaded.current !== p.id) {
@@ -173,7 +168,6 @@ function CampaignEditorContent({
           ownerUserId: ownerUserId ?? null,
           title: fields.title,
           url: fields.url,
-          tagline: fields.tagline,
         }),
       );
     } catch {}
@@ -261,7 +255,6 @@ function CampaignEditorContent({
                 {
                   title: fields.title,
                   url: fields.url,
-                  tagline: fields.tagline,
                   iconId: fields.iconId,
                   wordmarkId: fields.wordmarkId,
                   mediaId: fields.mediaId || undefined,
@@ -311,6 +304,10 @@ function CampaignEditorContent({
           >
             Suggest from website (optional)
           </button>
+          <p className="text-xs leading-5 text-[#767676]">
+            Uses the website icon, its brand wordmark when available and its OG
+            image for the feed. Review the previews or upload replacements below.
+          </p>
           <label className="block text-sm font-medium">
             Public name
             <input
@@ -320,15 +317,6 @@ function CampaignEditorContent({
               value={fields.title}
               onChange={(e) => update("title", e.target.value)}
               placeholder="Your product"
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            Tagline (optional)
-            <input
-              className={fieldClass}
-              maxLength={300}
-              value={fields.tagline}
-              onChange={(e) => update("tagline", e.target.value)}
             />
           </label>
           <fieldset

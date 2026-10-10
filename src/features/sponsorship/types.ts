@@ -90,6 +90,7 @@ export type AccountCapabilities = {
 export type MetadataSuggestions = {
   title?: string;
   iconId?: string;
+  wordmarkId?: string;
   mediaId?: string;
 };
 export const SPONSOR_PREPARATION_HOURS = 24;

@@ -18,12 +18,14 @@ export async function POST(request: Request) {
     const value: {
       title?: string;
       iconId?: string;
+      wordmarkId?: string;
       mediaId?: string;
       assets: import("@/features/sponsorship/types").VerifiedSponsorAsset[];
     } = { title: suggestions.title, assets: [] };
     for (const [href, kind] of [
       [suggestions.iconUrl, "icon"],
       [suggestions.imageUrl, "media"],
+      [suggestions.wordmarkUrl, "wordmark"],
     ] as const) {
       if (!href) continue;
       try {
@@ -47,7 +49,12 @@ export async function POST(request: Request) {
           contentType,
           kind,
         );
-        value[kind === "icon" ? "iconId" : "mediaId"] = asset.id;
+        const field = {
+          icon: "iconId",
+          wordmark: "wordmarkId",
+          media: "mediaId",
+        } as const;
+        value[field[kind]] = asset.id;
         value.assets.push(asset);
       } catch {
         /* The sponsor can always supply their own media. */

@@ -4,7 +4,6 @@ import type { VerifiedSponsorAsset } from "@/features/sponsorship/types";
 export type PreviewFields = {
   title: string;
   url: string;
-  tagline: string;
   iconId: string;
   wordmarkId: string;
   mediaId: string;
@@ -69,7 +68,6 @@ export function CampaignPreview({
             id: "private-preview",
             title,
             url,
-            tagline: fields.tagline,
             mediaType: media?.contentType.startsWith("video/")
               ? "video"
               : "image",

@@ -137,3 +137,52 @@ it("restores anonymous manual typing after sponsor verification", async () => {
   expect(nameInput().value).toBe("Typed before verification");
   expect(sessionStorage.getItem("inspora:sponsor-typed")).toBeNull();
 });
+
+it("previews the website's three asset roles and excludes legacy taglines when saving", async () => {
+  const draft = preparation("owner-a", true);
+  draft.campaign!.creative.iconId = "";
+  draft.campaign!.creative.wordmarkId = "";
+  const assets = ["icon", "wordmark", "media"].map((kind) => ({
+    id: `website-${kind}`,
+    kind,
+    contentType: "image/png",
+    width: 600,
+    height: 300,
+    url: `/api/sponsorship/assets/website-${kind}`,
+  }));
+  fetchMock.mockImplementation(async (url: string) => ({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      value: url.endsWith("/metadata")
+        ? {
+            iconId: "website-icon",
+            wordmarkId: "website-wordmark",
+            mediaId: "website-media",
+            assets,
+          }
+        : draft,
+    }),
+  }));
+  await act(async () => root.render(<CampaignEditor />));
+  expect(container.textContent).not.toContain("Tagline");
+  expect(container.textContent).not.toContain("Private draft");
+  const suggest = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.includes("Suggest from website"),
+  )!;
+  await act(async () => suggest.click());
+  for (const asset of assets) expect(container.innerHTML).toContain(asset.url);
+  expect(nameInput().value).toBe("Owner A private campaign");
+  await act(async () =>
+    container
+      .querySelector("form")!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
+  const saveOptions = fetchMock.mock.lastCall![1] as RequestInit;
+  expect(JSON.parse(saveOptions.body as string)).toMatchObject({
+    iconId: "website-icon",
+    wordmarkId: "website-wordmark",
+    mediaId: "website-media",
+  });
+  expect(JSON.parse(saveOptions.body as string)).not.toHaveProperty("tagline");
+});

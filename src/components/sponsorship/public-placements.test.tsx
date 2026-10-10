@@ -86,9 +86,14 @@ it.each([0, 1, 2, 3, 4])(
     expect(
       container.querySelectorAll('[data-sponsor-placement="detail"]'),
     ).toHaveLength(count);
-    expect(container.querySelectorAll('[aria-hidden="true"] a')).toHaveLength(
-      0,
+    const clones = container.querySelectorAll<HTMLAnchorElement>(
+      ".sponsor-wordmark-clones a",
     );
+    expect(clones.length).toBe(count ? count * 2 : 0);
+    for (const clone of clones) {
+      expect(clone.tabIndex).toBe(-1);
+      expect(clone.href).toMatch(/^https:\/\/[a-d]\.example\.com\/$/);
+    }
     expect(
       container.querySelectorAll(".sponsor-wordmark-clones [data-campaign-id]"),
     ).toHaveLength(0);

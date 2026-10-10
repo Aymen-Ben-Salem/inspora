@@ -82,7 +82,14 @@ export function SponsorMarquee() {
               className="sponsor-wordmarks sponsor-wordmark-clones"
             >
               {sponsors.map((s) => (
-                <span key={s.id} className="flex shrink-0 items-center">
+                <a
+                  key={s.id}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  tabIndex={-1}
+                  className="flex shrink-0 items-center"
+                >
                   <Image
                     src={s.wordmarkUrl!}
                     alt=""
@@ -91,7 +98,7 @@ export function SponsorMarquee() {
                     unoptimized
                     className="max-h-7 w-auto max-w-[160px] object-contain"
                   />
-                </span>
+                </a>
               ))}
             </div>
           ))}

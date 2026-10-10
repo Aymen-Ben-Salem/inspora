@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import type { readOwnSponsorDashboard } from "@/features/sponsorship/billing-service";
@@ -24,8 +24,14 @@ export function SponsorDashboard({
 }) {
   const [data, setData] = useState(initial),
     [busy, setBusy] = useState(false),
+    [refreshing, setRefreshing] = useState(false),
     [message, setMessage] = useState("");
+  const refreshInFlight = useRef(false);
   const refresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    setMessage("");
     try {
       const r = await fetch("/api/sponsorship/dashboard", {
         cache: "no-store",
@@ -34,11 +40,14 @@ export function SponsorDashboard({
       if (!r.ok || !body.ok)
         throw new Error(body.message ?? "Sponsorship unavailable.");
       setData(body.value);
-      setMessage("");
+      setMessage("Billing updated.");
     } catch {
       setMessage(
         "Your latest billing state could not be loaded. Try refreshing.",
       );
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
     }
   }, []);
   const finishing =
@@ -88,13 +97,20 @@ export function SponsorDashboard({
         </div>
         <button
           type="button"
-          className={button}
-          disabled={busy}
+          className={`${button} inline-flex items-center gap-2 cursor-pointer transition-colors hover:border-[#cfcfcf] hover:bg-[#fafafa] active:bg-[#f0f0f0] disabled:cursor-not-allowed`}
+          disabled={busy || refreshing}
+          aria-busy={refreshing}
           onClick={() => {
             void refresh();
           }}
         >
-          Refresh
+          {refreshing ? (
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-4 animate-spin motion-reduce:animate-none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" className="opacity-25" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          ) : null}
+          {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
       <p
@@ -203,7 +219,7 @@ export function SponsorDashboard({
               <button
                 className={`${button} mt-8 bg-[#262626] text-white`}
                 type="button"
-                disabled={busy || !account.billingAvailable}
+                disabled={busy || refreshing || !account.billingAvailable}
                 onClick={() => {
                   void open("portal");
                 }}
@@ -224,6 +240,7 @@ export function SponsorDashboard({
                 type="button"
                 disabled={
                   busy ||
+                  refreshing ||
                   !data.checkoutEnabled ||
                   !data.capacityAvailable ||
                   !data.checkout ||

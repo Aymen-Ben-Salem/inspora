@@ -240,7 +240,9 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
         livemode: sub.livemode,
         price,
         status: sub.status,
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        // The portal can schedule the same end using cancel_at while leaving
+        // cancel_at_period_end false. Either form stops future renewal.
+        cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at != null,
         invoices,
       };
     },

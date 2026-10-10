@@ -84,8 +84,8 @@ export function SponsorPage({
             Put your product on more creative radars.
           </h1>
           <p className="max-w-[416px] text-base font-medium leading-[19px] tracking-[-0.32px] text-[#767676]">
-            Boost your visibility, build credibility, and reach creatives
-            actively discovering new tools.
+            Boost your visibility, build credibility, and reach thousands of
+            creatives actively discovering new tools.
           </p>
         </div>
         <div className="flex flex-col items-center gap-2">
@@ -123,10 +123,10 @@ export function SponsorPage({
       </section>
       <section className="flex w-full flex-col items-center gap-6">
         <p className="max-w-[662px] text-center text-base leading-5 tracking-[-0.32px] text-[#767676]">
-          Your brand gets a randomized spot in our design feeds, a dedicated
-          presence beside opened work, and visibility in the header across
-          Inspora. <span className="text-[#262626]">Three placements</span>{" "}
-          designed to keep your product{" "}
+          Your brand gets a spot in our design feeds, a dedicated presence
+          beside every opened post, and visibility in the header across Inspora.{" "}
+          <span className="text-[#262626]">Three placements</span> designed to
+          keep your product{" "}
           <span className="text-[#262626]">in front of creators</span> while
           they browse and discover.
         </p>
@@ -205,7 +205,7 @@ export function SponsorPage({
           <p className="flex items-end gap-[6px] font-bold leading-[normal]">
             <span className="h-[39px] text-[40px] tracking-[-0.8px]">500$</span>
             <span className="text-base tracking-[-0.32px] text-[#767676]">
-              / 30 days
+              / a month
             </span>
           </p>
         </div>

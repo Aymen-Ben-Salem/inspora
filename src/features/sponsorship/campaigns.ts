@@ -1,3 +1,4 @@
+import { resolveSponsorCreative } from "./creative";
 import { campaignInputSchema } from "./validation";
 import {
   SPONSOR_PREPARATION_HOURS,
@@ -95,68 +96,11 @@ export function createPreparationService(deps: {
           parsed.error.issues[0]?.message ?? "Check your campaign fields.",
         );
       return withPreparation(false, async (tx, p, now) => {
-        const { expectedRevision, ...fields } = parsed.data;
-        if (p.revision !== expectedRevision)
-          return failure(
-            "conflict",
-            "Your preparation changed. Reload before saving.",
-          );
-        const attachments = [
-          [fields.iconId, "icon"],
-          [fields.wordmarkId, "wordmark"],
-          [fields.mediaId, "media"],
-          [fields.posterId, "poster"],
-          [fields.videoPreviewId, "video-preview"],
-          ...fields.variantIds.map((id) => [id, "variant"]),
-        ];
-        const assets: VerifiedSponsorAsset[] = [];
-        for (const [id, kind] of attachments) {
-          if (!id) continue;
-          const asset = await tx.findOwnedAsset(p.ownerUserId, id, p.id, now);
-          if (!asset || asset.kind !== kind)
-            return failure(
-              "forbidden",
-              "Use verified assets from your own current preparation.",
-            );
-          assets.push(asset);
-          if (asset.sourceAssetId) {
-            const source = await tx.findOwnedAsset(
-              p.ownerUserId,
-              asset.sourceAssetId,
-              p.id,
-              now,
-            );
-            if (!source || source.kind !== "original" || source.sourceAssetId)
-              return failure(
-                "forbidden",
-                "Use a verified original from your own current preparation.",
-              );
-            if (!assets.some((a) => a.id === source.id)) assets.push(source);
-          }
-        }
-        const media = assets.find((a) => a.id === fields.mediaId);
-        if (
-          media?.contentType.startsWith("video/") &&
-          (!fields.posterId || !fields.videoPreviewId)
-        )
-          return failure(
-            "invalid_input",
-            "Video requires a verified poster and preview.",
-          );
-        if (
-          !media?.contentType.startsWith("video/") &&
-          (fields.posterId || fields.videoPreviewId)
-        )
-          return failure(
-            "invalid_input",
-            "Poster and video preview require a video.",
-          );
-        if (!media && fields.variantIds.length)
-          return failure("invalid_input", "Image variants require feed media.");
-        return {
-          ok: true,
-          value: await tx.freezeCampaign(p, { ...fields, assets }),
-        };
+        if (p.revision !== parsed.data.expectedRevision)
+          return failure("conflict", "Your preparation changed. Reload before saving.");
+        const creative = await resolveSponsorCreative(parsed.data, id => tx.findOwnedAsset(p.ownerUserId, id, p.id, now));
+        if (!creative.ok) return creative;
+        return { ok: true, value: await tx.freezeCampaign(p, creative.value) };
       });
     },
   };

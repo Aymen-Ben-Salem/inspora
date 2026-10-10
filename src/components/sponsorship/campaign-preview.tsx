@@ -13,9 +13,11 @@ export type PreviewFields = {
 export function CampaignPreview({
   fields,
   assets,
+  paid = false,
 }: {
   fields: PreviewFields;
   assets: VerifiedSponsorAsset[];
+  paid?: boolean;
 }) {
   const asset = (id: string) => assets.find((a) => a.id === id);
   const icon = asset(fields.iconId),
@@ -33,7 +35,7 @@ export function CampaignPreview({
       <div>
         <h2 className="text-lg font-medium">Your three placements</h2>
         <p className="mt-1 text-sm text-[#767676]">
-          Private preview. Nothing is public or paid.
+          {paid ? "Preview your saved creative or proposed changes across the site." : "Private preview. Nothing is public or paid."}
         </p>
       </div>
       <section className="rounded-md border border-[#e6e6e6] p-4">

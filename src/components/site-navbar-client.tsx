@@ -13,6 +13,7 @@ import {
 import { BrandMark } from "./brand-mark";
 import { ContactSheet } from "./contact-sheet";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
+import { SponsorIcons } from "./sponsorship/sponsor-icons";
 
 export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "sponsor" | "websites";
 
@@ -253,6 +254,7 @@ export function SiteNavbarClient({
             </nav>
 
             <div className="archive-copy-type hidden min-w-0 items-center justify-end gap-[var(--archive-header-action-gap)] font-medium leading-normal lg:flex">
+              <SponsorIcons />
               <Link
                 href={"/sponsor" as Route}
                 aria-label="Become a sponsor"
@@ -265,7 +267,7 @@ export function SiteNavbarClient({
             </div>
 
             <div className="col-start-3 flex items-center justify-end gap-2 lg:hidden">
-              {desktopAuth}
+              <Link href={"/sponsor" as Route} aria-label="Become a sponsor" className="focus-ring flex size-10 items-center justify-center rounded-md border border-dashed border-[#e6e6e6] text-[#767676]"><span className="size-5"><PlusIcon /></span></Link>
               <button
                 type="button"
                 aria-label={

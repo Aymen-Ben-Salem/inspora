@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { verifiedSponsorOwner } from "./authorization";
 import { sponsorshipWritesEnabled } from "./config";
 import {
@@ -144,7 +144,7 @@ export async function readOwnSponsorDashboard() {
         state: sponsors.campaignState,
       })
       .from(sponsors)
-      .where(eq(sponsors.ownerUserId, owner));
+      .where(and(eq(sponsors.ownerUserId, owner), isNull(sponsors.deletedAt)));
     const seats = await tx.select().from(sponsorSeats);
     const capacityAvailable =
       seats.length === 4 &&

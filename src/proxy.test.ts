@@ -42,6 +42,9 @@ describe("Clerk proxy routing", () => {
     "/api/saved-posts/feed",
     "/profile",
     "/profile?modal=edit",
+    "/sponsor/campaigns",
+    "/sponsor/campaigns/new",
+    "/sponsor/campaigns/11111111-1111-4111-8111-111111111111",
     "/api/profile",
     "/api/submissions/11111111-1111-4111-8111-111111111111/media",
   ])("runs Clerk for %s", (pathname) => {

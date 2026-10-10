@@ -812,6 +812,7 @@ export const sponsors = pgTable(
     revision: integer("revision").default(0).notNull(),
     wordmarkUrl: text("wordmark_url"),
     wordmarkStorageKey: text("wordmark_storage_key"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
     createdBy: text("created_by"),
     updatedBy: text("updated_by"),
     ...timestamps,

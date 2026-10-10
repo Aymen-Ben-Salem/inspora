@@ -61,6 +61,7 @@ import {
 import type { BillingObservation } from "./billing";
 import type { BillingProvider } from "./stripe-client";
 import type { SponsorPromoter } from "./public-media";
+import { createPaidCampaignService } from "./paid-campaigns";
 const owners: string[] = [];
 const events: string[] = [];
 afterEach(async () => {
@@ -274,6 +275,25 @@ async function fixture(title = "Paid fixture") {
   };
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it("preserves a sponsor's campaign switch during later billing reconciliation", async () => {
+    const f = await fixture();
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    access.owner = f.owner;
+    const service = createPaidCampaignService({ owner: async () => f.owner, now: () => f.now, promote: f.promote });
+    const list = await service.list();
+    if (!list.ok) throw Error("list missing");
+    const initial = list.value.campaigns[0];
+    const { assets: _assets, ...fields } = initial.creative;
+    void _assets;
+    const draft = await service.save(null, { ...fields, title: "New creative", url: "https://new.example.com", expectedRevision: 0 });
+    if (!draft.ok) throw Error(draft.message);
+    await service.publish(draft.value.id, draft.value.revision);
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    expect((await getDesignSponsors()).filter(s => [draft.value.id, initial.id].includes(s.id))).toMatchObject([{ id: draft.value.id, title: "New creative", url: "https://new.example.com" }]);
+  });
   it("persists the EUR monthly terms and exposes them only to the billed owner", async () => {
     const f = await fixture("EUR monthly campaign");
     const monthlyEnd = new Date(f.now);

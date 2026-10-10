@@ -100,6 +100,7 @@ export function LogoDetailDialog({
         </DetailMotion>
 
         <DetailSidebarLayout
+          appIcon={logo.kind === "icon"}
           newsletterSource="logo-detail"
           navigation={
             <DetailSidebarNavigation

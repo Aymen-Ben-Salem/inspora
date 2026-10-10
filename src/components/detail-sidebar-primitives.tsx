@@ -9,6 +9,7 @@ import { CreatorAvatar, creatorProfileHref } from "./creator-avatar";
 import { FeedSaveButton } from "./feed-save-overlay";
 import { NewsletterForm } from "./newsletter-form";
 import { RelativeAddedTime } from "./relative-added-time";
+import { SponsorMarquee } from "./sponsorship/sponsor-marquee";
 
 type DetailCreatorData = {
   avatarStorageProvider?: MediaStorageProvider;
@@ -28,11 +29,13 @@ export function DetailSidebarLayout({
   mode = "overlay",
   navigation,
   newsletterSource,
+  appIcon = false,
 }: {
   children: ReactNode;
   mode?: "overlay" | "page";
   navigation: ReactNode;
   newsletterSource: "logo-detail" | "post-detail" | "website-detail";
+  appIcon?: boolean;
 }) {
   const overlay = mode === "overlay";
 
@@ -55,12 +58,12 @@ export function DetailSidebarLayout({
           </div>
         </div>
 
-        <div className="detail-fit-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8">
+        {appIcon ? <div className="detail-fit-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8">
           <NewsletterForm source={newsletterSource} />
           <p className="text-center text-[11px] leading-[1.3] tracking-[-0.02px] text-[#767676]">
             Subscribe to a weekly email
           </p>
-        </div>
+        </div> : <SponsorMarquee />}
       </div>
     </aside>
   );

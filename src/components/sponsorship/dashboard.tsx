@@ -113,6 +113,7 @@ export function SponsorDashboard({
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
+      {account ? <nav aria-label="Sponsorship" className="mt-6 flex gap-6 border-b border-[#f0f0f0] pb-4 text-sm"><a className="focus-ring" href="/sponsor/dashboard" aria-current="page">Overview</a><Link prefetch={false} className="focus-ring" href={"/sponsor/campaigns" as Route}>Campaigns</Link><a className="focus-ring" href="#billing">Billing</a></nav> : null}
       <p
         role="status"
         aria-live="polite"

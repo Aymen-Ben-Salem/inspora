@@ -29,7 +29,7 @@ export function SponsoredPostCard({
 
   return (
     <SponsorDeadline paidThrough={sponsor.paidThrough} serverTime={sponsor.serverTime}>
-    <article data-feed-card className={`flex flex-col ${sponsor.paidThrough ? "" : "-order-1 min-[460px]:order-none"}`}>
+    <article data-feed-card data-sponsor-placement="feed" data-campaign-id={sponsor.id} data-version-id={sponsor.versionId} className="flex flex-col">
       <a
         href={sponsor.url}
         target="_blank"

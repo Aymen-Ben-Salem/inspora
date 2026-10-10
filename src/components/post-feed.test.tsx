@@ -24,6 +24,12 @@ const paid: ActiveSponsor[] = ["A", "B", "C", "D"].map((id) => ({
   paidThrough: "2026-11-09T12:00:00Z",
   serverTime: "2026-10-10T12:00:00Z",
 }));
+it("includes the legacy singleton with exactly three ordinary designs", () => {
+  const sponsor = { ...paid[0], paidThrough: undefined, serverTime: undefined };
+  const posts = ["0","1","2"].map(id => ({id}) as PostCardData);
+  const html = renderToStaticMarkup(<PostFeed posts={posts} sponsor={sponsor} />);
+  expect(html.match(/aria-label="Sponsored: Sponsor A"/g)).toHaveLength(1);
+});
 it.each([0, 3, 8])(
   "shows each paid campaign once with %i ordinary designs while preserving their order",
   (count) => {

@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { SITE_NAV_ITEMS } from "./site-navigation";
 import { MobileNavigationActionContext } from "./mobile-navigation-actions";
 import { mobileNavigationHeadingClass, mobileNavigationItemClass } from "./mobile-navigation-styles";
+import { SponsorIcons } from "./sponsorship/sponsor-icons";
 
 const browseItems = SITE_NAV_ITEMS.filter(
   (item) => item.kind === "link" && item.href !== "/info",
@@ -138,6 +139,7 @@ export function MobileNavigationOverlay({
         <section aria-labelledby="mobile-nav-sponsors" className="mt-6">
           <h2 id="mobile-nav-sponsors" className={mobileNavigationHeadingClass}>Sponsorship</h2>
           <div className="mt-2 flex flex-col items-start">
+            <SponsorIcons />
             <Link
               href={"/sponsor" as Route}
               onClick={onClose}

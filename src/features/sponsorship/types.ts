@@ -55,7 +55,7 @@ export type OwnedCampaign = {
   checkoutId: string;
   versionId: string;
   revision: number;
-  state: "prepared";
+  state: "prepared" | "draft" | "published" | "archived";
   expiresAt: string;
   creative: CreativeSnapshot;
 };

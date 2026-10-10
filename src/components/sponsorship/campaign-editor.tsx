@@ -1,5 +1,7 @@
 "use client";
 import { SignOutButton, useAuth } from "@clerk/nextjs";
+import Link from "next/link";
+import type { Route } from "next";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
@@ -28,18 +30,21 @@ const uploadRoles = {
   wordmark: { kind: "sponsor-wordmark", field: "wordmarkId" },
   poster: { kind: "website-poster", field: "posterId" },
 } as const;
+export type PaidEditorMode = { campaign?: OwnedCampaign; readonly: boolean };
 export function CampaignEditor({
   authenticationEnabled = true,
+  paid,
 }: {
   authenticationEnabled?: boolean;
+  paid?: PaidEditorMode;
 }) {
   return authenticationEnabled ? (
-    <AuthenticatedCampaignEditor />
+    <AuthenticatedCampaignEditor paid={paid} />
   ) : (
-    <CampaignEditorContent isSignedIn={false} isLoaded />
+    <CampaignEditorContent isSignedIn={false} isLoaded paid={paid} />
   );
 }
-function AuthenticatedCampaignEditor() {
+function AuthenticatedCampaignEditor({ paid }: { paid?: PaidEditorMode }) {
   const { isSignedIn, isLoaded, userId } = useAuth();
   return (
     <CampaignEditorContent
@@ -47,6 +52,7 @@ function AuthenticatedCampaignEditor() {
       isSignedIn={Boolean(isSignedIn && userId)}
       isLoaded={isLoaded}
       ownerUserId={isSignedIn ? (userId ?? undefined) : undefined}
+      paid={paid}
       signOutControl={
         isLoaded && isSignedIn && userId ? (
           <SignOutButton redirectUrl="/sponsor">
@@ -67,19 +73,23 @@ function CampaignEditorContent({
   isLoaded,
   ownerUserId,
   signOutControl,
+  paid,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
   ownerUserId?: string;
   signOutControl?: ReactNode;
+  paid?: PaidEditorMode;
 }) {
-  const [fields, setFields] = useState(empty),
-    [assets, setAssets] = useState<VerifiedSponsorAsset[]>([]),
-    [variants, setVariants] = useState<string[]>([]);
+  const initial = paid?.campaign?.creative;
+  const [fields, setFields] = useState<PreviewFields>(() => ({ ...empty, ...initial, mediaId: initial?.mediaId ?? "", posterId: initial?.posterId ?? "", videoPreviewId: initial?.videoPreviewId ?? "" })),
+    [assets, setAssets] = useState<VerifiedSponsorAsset[]>(initial?.assets ?? []),
+    [variants, setVariants] = useState<string[]>(initial?.variantIds ?? []),
+    [campaignId, setCampaignId] = useState(paid?.campaign?.id);
   const [replaceWebsiteAssets, setReplaceWebsiteAssets] = useState(false);
-  const [revision, setRevision] = useState(0),
+  const [revision, setRevision] = useState(paid?.campaign?.revision ?? 0),
     [expiresAt, setExpiresAt] = useState<string>(),
-    [ready, setReady] = useState(false),
+    [ready, setReady] = useState(Boolean(paid)),
     [busy, setBusy] = useState<string>(),
     [message, setMessage] = useState(""),
     [failed, setFailed] = useState(false);
@@ -92,7 +102,7 @@ function CampaignEditorContent({
     };
   }, []);
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) return;
+    if (!isLoaded || !isSignedIn || paid) return;
     let active = true;
     const controller = new AbortController();
     void sponsorRequest<SponsorPreparation>(
@@ -150,7 +160,7 @@ function CampaignEditorContent({
       active = false;
       controller.abort();
     };
-  }, [isSignedIn, isLoaded, ownerUserId]);
+  }, [isSignedIn, isLoaded, ownerUserId, paid]);
   function update(key: keyof PreviewFields, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
     setMessage("");
@@ -239,11 +249,10 @@ function CampaignEditorContent({
           {signOutControl}
         </div>
         <h1 className="mt-5 text-3xl font-semibold tracking-tight">
-          Prepare your campaign
+          {paid ? paid.readonly ? "Campaign history" : paid.campaign ? "Edit campaign" : "Create campaign" : "Prepare your campaign"}
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-6 text-[#767676]">
-          Start with your website, then review your icon, feed creative and full
-          wordmark. A saved preparation lasts 24 hours and uses no paid seat.
+          {paid ? paid.readonly ? "Your past creative remains available to view. Campaign history is read-only." : "Review all three placements. Save changes applies a complete public edit immediately; Cancel leaves the saved campaign intact." : "Start with your website, then review your icon, feed creative and full wordmark. A saved preparation lasts 24 hours and uses no paid seat."}
         </p>
       </div>
       {!ready ? (
@@ -266,10 +275,11 @@ function CampaignEditorContent({
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            void run("Saving preparation…", async (signal) => {
+            if (paid?.readonly) return;
+            void run(paid ? "Saving changes…" : "Saving preparation…", async (signal) => {
               const c = await sponsorRequest<OwnedCampaign>(
-                "preparation",
-                "PUT",
+                paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
+                paid && !campaignId ? "POST" : "PUT",
                 {
                   title: fields.title,
                   url: fields.url,
@@ -284,8 +294,12 @@ function CampaignEditorContent({
                 signal,
               );
               setRevision(c.revision);
+              if (paid) {
+                setCampaignId(c.id);
+                window.dispatchEvent(new Event("sponsorship-changed"));
+              }
               setMessage(
-                "Preparation saved. Open your sponsorship dashboard to continue to checkout.",
+                paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Open your sponsorship dashboard to continue to checkout.",
               );
             });
           }}
@@ -295,6 +309,7 @@ function CampaignEditorContent({
             <input
               className={fieldClass}
               type="url"
+              disabled={paid?.readonly || Boolean(busy)}
               required
               maxLength={2048}
               value={fields.url}
@@ -305,7 +320,7 @@ function CampaignEditorContent({
           </label>
           <button
             type="button"
-            disabled={!ready || Boolean(busy) || !fields.url}
+            disabled={!ready || Boolean(busy) || !fields.url || paid?.readonly}
             className="focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 text-sm disabled:opacity-40"
             onClick={() =>
               void run("Finding suggestions…", async (signal) => {
@@ -359,13 +374,14 @@ function CampaignEditorContent({
               className={fieldClass}
               required
               maxLength={160}
+              disabled={paid?.readonly || Boolean(busy)}
               value={fields.title}
               onChange={(e) => update("title", e.target.value)}
               placeholder="Your product"
             />
           </label>
           <fieldset
-            disabled={!ready || Boolean(busy)}
+            disabled={!ready || Boolean(busy) || paid?.readonly}
             className="space-y-5 disabled:opacity-50"
           >
             <legend className="mb-3 text-sm font-medium">Owned media</legend>
@@ -420,13 +436,13 @@ function CampaignEditorContent({
               </button>
             ) : null}
           </fieldset>
-          {ready ? (
+          {ready && !paid?.readonly ? (
             <button
               disabled={!ready || Boolean(busy)}
               type="submit"
               className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white disabled:opacity-40"
             >
-              Save private preparation
+              {paid ? "Save changes" : "Save private preparation"}
             </button>
           ) : null}
           {expiresAt ? (
@@ -442,15 +458,15 @@ function CampaignEditorContent({
           >
             {busy || message}
           </p>
-          <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
+          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={false} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
             <a href="/sponsor/dashboard" className="focus-ring font-medium underline">Open sponsorship dashboard</a>
             <p className="text-[#767676]">
               No payment, paid account, public campaign or seat reservation is
               created by this preparation.
             </p>
-          </div>
+          </div>}
         </form>
-        <CampaignPreview fields={fields} assets={assets} />
+        <CampaignPreview fields={fields} assets={assets} paid={Boolean(paid)} />
       </div>
     </main>
   );

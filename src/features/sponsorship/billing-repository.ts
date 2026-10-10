@@ -1,3 +1,4 @@
+import { sponsorPublicCreative } from "./public-creative";
 import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
@@ -347,7 +348,9 @@ export async function reconcileSponsorCheckout(
         ),
       );
     if (!campaign) throw new Error("Pinned campaign unavailable.");
-    if (campaign.campaignState === "published") return true;
+    // Once activation has bound this campaign to the paid account, creative
+    // selection belongs to the campaign service. Renewal must never undo a switch.
+    if (campaign.accountId === account.id) return true;
     const creative = p.snapshot.creative;
     const uploads = await tx
       .select()
@@ -375,20 +378,7 @@ export async function reconcileSponsorCheckout(
         creative,
         uploads: uploads as SponsorUpload[],
       });
-      const asset = (id: string | undefined) =>
-        promoted.find((a) => a.id === id);
-      const verified = (id: string | undefined) =>
-        creative.assets.find((a) => a.id === id);
-      if (
-        !asset(creative.iconId) ||
-        !asset(creative.wordmarkId) ||
-        creative.assets.some((a) => a.kind !== "original" && !asset(a.id))
-      )
-        throw new Error("Incomplete public sponsor media.");
-      const media = asset(creative.mediaId),
-        source = verified(creative.mediaId),
-        preview = asset(creative.videoPreviewId),
-        previewSource = verified(creative.videoPreviewId);
+      const fields = sponsorPublicCreative(creative, promoted);
       await tx
         .update(sponsors)
         .set({ campaignState: "archived" })
@@ -403,44 +393,7 @@ export async function reconcileSponsorCheckout(
         .set({
           accountId: account.id,
           campaignState: "published",
-          title: creative.title,
-          url: creative.url,
-          tagline: creative.tagline,
-          mediaType: source?.contentType.startsWith("video/")
-            ? "video"
-            : "image",
-          mediaUrl: media?.url ?? null,
-          mediaStorageKey: media?.key ?? null,
-          mediaStorageProvider: media ? "r2" : null,
-          mediaWidth: source?.width ?? 1200,
-          mediaHeight: source?.height ?? 800,
-          mediaPosterUrl: asset(creative.posterId)?.url ?? null,
-          mediaPosterStorageKey: asset(creative.posterId)?.key ?? null,
-          iconUrl: asset(creative.iconId)!.url,
-          iconStorageKey: asset(creative.iconId)!.key,
-          iconStorageProvider: "r2",
-          wordmarkUrl: asset(creative.wordmarkId)!.url,
-          wordmarkStorageKey: asset(creative.wordmarkId)!.key,
-          mediaAlt: creative.title,
-          mediaVariants: creative.variantIds.map((id) => ({
-            url: asset(id)!.url,
-            storageKey: asset(id)!.key,
-            width: verified(id)!.width,
-            height: verified(id)!.height,
-            bytes: verified(id)!.sizeBytes,
-            format: "webp" as const,
-          })),
-          mediaVideoPreview:
-            preview && previewSource
-              ? {
-                  url: preview.url,
-                  storageKey: preview.key,
-                  width: previewSource.width,
-                  height: previewSource.height,
-                  bytes: previewSource.sizeBytes,
-                  format: "mp4",
-                }
-              : null,
+          ...fields,
           updatedAt: now,
         })
         .where(eq(sponsors.id, campaign.id));

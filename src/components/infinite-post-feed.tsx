@@ -104,7 +104,7 @@ export function InfinitePostFeed({
 
   return (
     <>
-      <PostFeed posts={posts} sponsor={sponsor} sponsors={sponsors} />
+      <PostFeed posts={posts} sponsor={sponsor} sponsors={sponsors} hasMore={Boolean(nextCursor)} />
       <div
         ref={sentinelRef}
         aria-hidden={!nextCursor}

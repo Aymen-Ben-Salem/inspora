@@ -38,6 +38,7 @@ export const config = {
     "/sponsor/access/:path*",
     "/sponsor/verify/:path*",
     "/sponsor/dashboard/:path*",
+    "/sponsor/campaigns/:path*",
     "/api/admin/sponsorship/:path*",
     "/api/sponsorship/:path*",
     "/api/account/capabilities",

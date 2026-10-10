@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNull, isNotNull, sql } from "drizzle-orm";
 import { connection } from "next/server";
 import { cacheLife, cacheTag } from "next/cache";
 
@@ -84,7 +84,7 @@ export async function getActiveSponsor(): Promise<ActiveSponsor | null> {
   }
 }
 
-export async function getDesignSponsors(): Promise<ActiveSponsor[]> {
+export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
   if (!sponsorshipEnabled()) {
     const legacy = await getActiveSponsor();
     return legacy ? [legacy] : [];
@@ -122,6 +122,10 @@ export async function getDesignSponsors(): Promise<ActiveSponsor[]> {
     .where(
       and(
         eq(sponsors.campaignState, "published"),
+        isNull(sponsors.deletedAt),
+        isNotNull(sponsors.iconUrl),
+        isNotNull(sponsors.wordmarkUrl),
+        sql`(${sponsors.mediaUrl} is null or (${sponsors.mediaType} <> 'video' or (${sponsors.mediaPosterUrl} is not null and ${sponsors.mediaVideoPreview} is not null)))`,
         eq(sponsorAccounts.state, "active"),
         eq(sponsorIdentities.state, "allowed"),
         gt(sponsorAccounts.paidThrough, now),
@@ -146,7 +150,11 @@ export async function getDesignSponsors(): Promise<ActiveSponsor[]> {
     mediaAlt: row.mediaAlt,
     iconUrl: row.iconUrl ?? undefined,
     iconStorageProvider: row.iconStorageProvider === "r2" ? "r2" : undefined,
+    wordmarkUrl: row.wordmarkUrl ?? undefined,
     paidThrough: paidThrough!.toISOString(),
     serverTime: now.toISOString(),
   }));
 }
+
+// Keep the ticket02 and Design callers on the shared eligibility query.
+export const getDesignSponsors = getActiveSponsors;

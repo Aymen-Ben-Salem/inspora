@@ -225,6 +225,13 @@
       "when": 1791667563657,
       "tag": "0031_sponsor_monthly_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791669854586,
+      "tag": "0032_sponsor_campaign_deletion",
+      "breakpoints": true
     }
   ]
 }

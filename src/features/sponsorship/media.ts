@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { sponsorAssets } from "@/db/schema";
+import { sponsorAccounts, sponsorAssets, sponsorCheckouts } from "@/db/schema";
 import {
   privateSponsorStorage,
   createSponsorStagingKey,
@@ -49,6 +49,7 @@ async function withOwnMedia<T>(
     userId: string;
     tx: import("@/db/write-client").WriteTx;
     p: import("./types").SponsorPreparation;
+    paid: boolean;
   }) => Promise<T>,
 ) {
   if (write && !sponsorshipWritesEnabled())
@@ -57,14 +58,20 @@ async function withOwnMedia<T>(
   if (!userId) throw new Error("Verify sponsor access before uploading.");
   return withSponsorWrite(async (tx) => {
     await lockSponsorOwner(tx, userId, write ? "write" : "read");
-    const p = await preparationTransaction(tx).findPreparation(userId);
+    const [account] = await tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, userId));
+    let p = await preparationTransaction(tx).findPreparation(userId);
+    if (account) {
+      const [completed] = await tx.select().from(sponsorCheckouts).where(and(eq(sponsorCheckouts.ownerUserId, userId), eq(sponsorCheckouts.state, "completed"))).limit(1);
+      if (!completed) throw new Error("Paid upload context unavailable.");
+      p = { id: completed.id, ownerUserId: userId, state: "preparing", revision: 0, campaign: null, expiresAt: new Date(Date.now() + 86400000) };
+    }
     if (
       !p ||
       !["preparing", "ready"].includes(p.state) ||
       p.expiresAt <= new Date()
     )
       throw new Error("Your preparation expired. Start a new preparation.");
-    return work({ userId, tx, p });
+    return work({ userId, tx, p, paid: Boolean(account) });
   });
 }
 export async function beginSponsorUpload(raw: unknown) {
@@ -81,7 +88,7 @@ export async function beginSponsorUpload(raw: unknown) {
     throw new Error("Use a supported static raster image.");
   if (input.kind === "video-preview" && input.contentType !== "video/mp4")
     throw new Error("Video previews must be MP4.");
-  return withOwnMedia(true, async ({ userId, tx, p }) => {
+  return withOwnMedia(true, async ({ userId, tx, p, paid }) => {
     if (input.sourceAssetId) {
       const source = await findOwnUpload(tx, userId, input.sourceAssetId);
       if (
@@ -90,14 +97,14 @@ export async function beginSponsorUpload(raw: unknown) {
         source.kind !== "original" ||
         source.state !== "verified" ||
         source.checkoutId !== p.id ||
-        source.expiresAt <= new Date()
+        (!paid && source.expiresAt <= new Date())
       )
         throw new Error(
           "Use a verified original from your own current preparation.",
         );
     }
     const count = await tx.execute(
-      sql`select count(*)::int as count from sponsor_assets where checkout_id = ${p.id}`,
+      sql`select count(*)::int as count from sponsor_assets where checkout_id = ${p.id} and (${!paid} or not exists (select 1 from sponsor_version_assets where asset_id = sponsor_assets.id))`,
     );
     if (Number(count.rows[0]?.count) >= 40)
       throw new Error(
@@ -215,14 +222,14 @@ export async function importSponsorSuggestion(
 }
 export async function readOwnSponsorAsset(id: string) {
   z.uuid().parse(id);
-  return withOwnMedia(false, async ({ userId, tx, p }) => {
+  return withOwnMedia(false, async ({ userId, tx, p, paid }) => {
     const row = await findOwnUpload(tx, userId, id);
     if (
       !row ||
-      row.checkoutId !== p.id ||
+      (!paid && row.checkoutId !== p.id) ||
       row.state !== "verified" ||
       !row.objectKey ||
-      row.expiresAt <= new Date()
+      (!paid && row.expiresAt <= new Date())
     )
       return null;
     return privateSponsorStorage().read(row.objectKey);

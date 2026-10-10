@@ -12,7 +12,8 @@ import {
   uniqueArchiveValues,
   type ArchiveFilterOption,
 } from "../archive-filter-menu";
-import { FeedMotion } from "../feed-motion";
+import { SponsorFeed } from "../sponsorship/sponsor-feed";
+import { usePublicSponsors } from "../sponsorship/public-sponsors";
 import { ViewFilter } from "../view-filter";
 import { WebsiteCard } from "./website-card";
 import { WebsiteDetailDialog } from "./website-detail-dialog";
@@ -27,6 +28,7 @@ export function WebsiteArchive({
   view: PostView;
 }) {
   const [query, setQuery] = useState("");
+  const { sponsors } = usePublicSponsors();
   const [selections, setSelections] = useState<Record<FilterKey, string[]>>({
     categories: [],
     themes: [],
@@ -107,13 +109,9 @@ export function WebsiteArchive({
             </div>
           </div>
 
-          {filtered.length > 0 ? (
+          {filtered.length > 0 || sponsors.length > 0 ? (
             <div className="mt-[var(--archive-feed-gap)]">
-              <FeedMotion itemCount={filtered.length}>
-                <div className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-[35px] xl:gap-y-10">
-                  {filtered.map((website) => <WebsiteCard key={website.id} website={website} onSelect={selectWebsite} />)}
-                </div>
-              </FeedMotion>
+              <SponsorFeed key={JSON.stringify([query,selections,view])} layout="websites" ordinary={filtered.map(website => ({ id: website.id, node: <WebsiteCard key={website.id} website={website} onSelect={selectWebsite} /> }))} />
             </div>
           ) : (
             <div className="mt-10 flex min-h-64 flex-col items-center justify-center border border-[#e6e6e6] bg-[#fafafa] px-6 text-center">

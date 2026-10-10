@@ -45,4 +45,4 @@ export type ActiveSponsor = Pick<
   | "mediaAlt"
   | "iconUrl"
   | "iconStorageProvider"
-> & { paidThrough?: string; serverTime?: string; versionId?: string };
+> & { paidThrough?: string; serverTime?: string; versionId?: string; wordmarkUrl?: string };

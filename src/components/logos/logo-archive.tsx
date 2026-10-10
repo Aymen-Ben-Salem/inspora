@@ -11,7 +11,8 @@ import {
 } from "../archive-filter-menu";
 
 import { FeedMotion } from "../feed-motion";
-import { RowFirstMasonry } from "../row-first-masonry";
+import { SponsorFeed } from "../sponsorship/sponsor-feed";
+import { usePublicSponsors } from "../sponsorship/public-sponsors";
 import { LogoCard } from "./logo-card";
 import { LogoDetailDialog } from "./logo-detail-dialog";
 
@@ -25,6 +26,7 @@ export function LogoArchive({
   initialSlug?: string;
 }) {
   const [query, setQuery] = useState("");
+  const { sponsors } = usePublicSponsors();
   const [kind, setKind] = useState<LogoKind>(
     logos.find((logo) => logo.slug === initialSlug)?.kind ?? "logo",
   );
@@ -155,7 +157,7 @@ export function LogoArchive({
             </div>
           </div>
 
-          {filtered.length > 0 ? (
+          {filtered.length > 0 || (kind === "logo" && sponsors.length > 0) ? (
             <div className="mt-[var(--archive-feed-gap)]">
               {kind === "icon" ? (
                 <FeedMotion itemCount={filtered.length}>
@@ -166,13 +168,7 @@ export function LogoArchive({
                   </div>
                 </FeedMotion>
               ) : (
-                <FeedMotion itemCount={filtered.length}>
-                  <RowFirstMasonry itemCount={filtered.length}>
-                    {filtered.map((logo) => (
-                      <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} />
-                    ))}
-                  </RowFirstMasonry>
-                </FeedMotion>
+                <SponsorFeed key={JSON.stringify([query,selections,kind])} ordinary={filtered.map(logo => ({ id: logo.id, node: <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} /> }))} />
               )}
             </div>
           ) : (

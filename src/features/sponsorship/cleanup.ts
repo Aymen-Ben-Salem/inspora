@@ -148,5 +148,28 @@ export async function cleanupExpiredSponsorPreparations(now = new Date()) {
       removed++;
     }
   }
+  removed += await cleanupExpiredPaidUploads(now);
   return { expired: expired.length, removed };
+}
+
+async function cleanupExpiredPaidUploads(now: Date) {
+  const candidates = await getDatabase()!.select({ id: sponsorAssets.id, owner: sponsorAssets.ownerUserId }).from(sponsorAssets).where(and(
+    lte(sponsorAssets.expiresAt, now),
+    sql`exists (select 1 from sponsor_checkouts where id = ${sponsorAssets.checkoutId} and state = 'completed')`,
+    sql`not exists (select 1 from sponsor_version_assets where asset_id = ${sponsorAssets.id})`,
+  )).orderBy(sql`case when ${sponsorAssets.kind} = 'original' then 1 else 0 end`).limit(25);
+  let removed = 0;
+  for (const candidate of candidates) {
+    const deleted = await withSponsorWrite(async tx => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${"sponsorship:" + candidate.owner},0))`);
+      const [asset] = await tx.select().from(sponsorAssets).where(and(eq(sponsorAssets.id, candidate.id), lte(sponsorAssets.expiresAt,now), sql`not exists (select 1 from sponsor_version_assets where asset_id = ${sponsorAssets.id})`, sql`not exists (select 1 from sponsor_assets child where child.source_asset_id = ${sponsorAssets.id})`));
+      if (!asset) return false;
+      const storage = privateSponsorStorage();
+      for (const key of new Set([asset.stagingKey, asset.objectKey ?? asset.stagingKey.replace(/\/staging\/[^/]+\.([a-z0-9]+)$/, "/source/original.$1")])) await storage.delete(key);
+      await tx.delete(sponsorAssets).where(eq(sponsorAssets.id, asset.id));
+      return true;
+    });
+    if (deleted) removed++;
+  }
+  return removed;
 }

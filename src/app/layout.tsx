@@ -6,6 +6,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { FeedPlaybackProvider } from "@/components/looping-video";
 import { PostTransitionProvider } from "@/components/post-transition-provider";
+import { PublicSponsorsProvider } from "@/components/sponsorship/public-sponsors";
 import {
   buildWebsiteStructuredData,
   serializeJsonLd,
@@ -89,8 +90,10 @@ export default function RootLayout({
         <AuthProvider>
           <FeedPlaybackProvider>
             <PostTransitionProvider>
+              <PublicSponsorsProvider>
               {children}
               {modal}
+              </PublicSponsorsProvider>
             </PostTransitionProvider>
           </FeedPlaybackProvider>
         </AuthProvider>

@@ -19,6 +19,7 @@ import { reconcileSponsorCheckout } from "./billing-repository";
 import type { BillingProvider } from "./stripe-client";
 import { privateSponsorStorage } from "@/storage/private-sponsor-assets";
 import { deleteSponsorPublicKeys } from "./public-media";
+import { createSponsorPublicAssetKey } from "./public-media-key";
 export async function queueSponsorIdentityDeletion(
   tx: WriteTx,
   userId: string,
@@ -100,10 +101,12 @@ export async function cleanupDeletedSponsorOwner(
       const keys = versions.flatMap((v) =>
         v.creative.assets
           .filter((a) => a.kind !== "original")
-          .map((a) => {
-            const ext = a.contentType.split("/")[1].replace("jpeg", "jpg");
-            return `sponsorships/${account.id}/${v.campaignId}/${v.id}/${a.id}.${ext}`;
-          }),
+          .map((asset) => createSponsorPublicAssetKey({
+            accountId: account.id,
+            campaignId: v.campaignId,
+            versionId: v.id,
+            asset,
+          })),
       );
       await deleteSponsorPublicKeys(account.id, keys);
     }

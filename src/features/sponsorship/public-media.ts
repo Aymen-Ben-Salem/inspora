@@ -9,6 +9,7 @@ import { createR2Client } from "@/storage/r2-client";
 import { getR2PublicUrl } from "@/storage/r2";
 import { privateSponsorStorage } from "@/storage/private-sponsor-assets";
 import type { CreativeSnapshot, SponsorUpload } from "./types";
+import { createSponsorPublicAssetKey } from "./public-media-key";
 export type PublicSponsorAsset = { id: string; key: string; url: string };
 export type SponsorPromoter = (input: {
   accountId: string;
@@ -52,8 +53,12 @@ export const promoteSponsorMedia: SponsorPromoter = async (input) => {
         createHash("sha256").update(stored.bytes).digest("hex") !== asset.digest
       )
         throw new Error("Sponsor media digest mismatch.");
-      const ext = upload.objectKey.split(".").pop();
-      const key = `sponsorships/${input.accountId}/${input.campaignId}/${input.versionId}/${asset.id}.${ext}`;
+      const key = createSponsorPublicAssetKey({
+        accountId: input.accountId,
+        campaignId: input.campaignId,
+        versionId: input.versionId,
+        asset,
+      });
       const url = getR2PublicUrl(key); // Also validates the approved environment before writing.
       try {
         await client.send(

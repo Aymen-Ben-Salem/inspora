@@ -6,6 +6,7 @@ vi.mock("server-only", () => ({}));
 import { privateSponsorStorage } from "@/storage/private-sponsor-assets";
 import { createR2Client } from "@/storage/r2-client";
 import { deleteSponsorPublicKeys, promoteSponsorMedia } from "./public-media";
+import { createSponsorPublicAssetKey } from "./public-media-key";
 import type {
   CreativeSnapshot,
   SponsorUpload,
@@ -28,17 +29,18 @@ it("promotes and retries actual preview immutable derivatives while retaining or
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   });
   try {
-    for (const kind of ["original", "icon", "wordmark"] as const) {
+    for (const kind of ["original", "icon", "wordmark", "media"] as const) {
+      const jpeg = kind === "media";
       const id = randomUUID(),
         bytes = await sharp({
           create: { width: 64, height: 32, channels: 4, background: "green" },
         })
-          .png()
+          .toFormat(jpeg ? "jpeg" : "png")
           .toBuffer();
       const prepared = await storage.prepare({
         ownerUserId: owner,
         uploadId: id,
-        contentType: "image/png",
+        contentType: jpeg ? "image/jpeg" : "image/png",
         sizeBytes: bytes.length,
       });
       privateKeys.push(prepared.stagingKey);
@@ -54,7 +56,7 @@ it("promotes and retries actual preview immutable derivatives while retaining or
         uploadId: id,
         stagingKey: prepared.stagingKey,
         kind: "logo",
-        contentType: "image/png",
+        contentType: jpeg ? "image/jpeg" : "image/png",
         sizeBytes: bytes.length,
       });
       privateKeys.push(frozen.objectKey);
@@ -66,7 +68,7 @@ it("promotes and retries actual preview immutable derivatives while retaining or
         checkoutId,
         kind,
         state: "verified",
-        contentType: "image/png",
+        contentType: jpeg ? "image/jpeg" : "image/png",
         sizeBytes: bytes.length,
         stagingKey: prepared.stagingKey,
         objectKey: frozen.objectKey,
@@ -78,7 +80,7 @@ it("promotes and retries actual preview immutable derivatives while retaining or
       assets.push({
         id,
         kind,
-        contentType: "image/png",
+        contentType: jpeg ? "image/jpeg" : "image/png",
         sizeBytes: bytes.length,
         width: 64,
         height: 32,
@@ -86,7 +88,7 @@ it("promotes and retries actual preview immutable derivatives while retaining or
         url: `/api/sponsorship/assets/${id}`,
       });
       publicKeys.push(
-        `sponsorships/${accountId}/${campaignId}/${versionId}/${id}.png`,
+        `sponsorships/${accountId}/${campaignId}/${versionId}/${id}.${jpeg ? "jpg" : "png"}`,
       );
     }
     const creative: CreativeSnapshot = {
@@ -95,13 +97,19 @@ it("promotes and retries actual preview immutable derivatives while retaining or
       tagline: "",
       iconId: assets[1].id,
       wordmarkId: assets[2].id,
+      mediaId: assets[3].id,
       variantIds: [],
       assets,
     };
     const input = { accountId, campaignId, versionId, creative, uploads };
     const first = await promoteSponsorMedia(input),
       retried = await promoteSponsorMedia(input);
-    expect(first.map((a) => a.id)).toEqual([assets[1].id, assets[2].id]);
+    publicKeys.push(...first.map(a => a.key));
+    expect(first.map((a) => a.id)).toEqual([assets[1].id, assets[2].id, assets[3].id]);
+    const cleanupKeys = creative.assets.filter(a => a.kind !== "original")
+      .map(asset => createSponsorPublicAssetKey({ accountId, campaignId, versionId, asset }));
+    expect(first.map(a => a.key)).toEqual(cleanupKeys);
+    expect(first[2].key).toBe(`sponsorships/${accountId}/${campaignId}/${versionId}/${assets[3].id}.jpg`);
     expect(retried).toEqual(first);
     await expect(
       client.send(
@@ -129,6 +137,10 @@ it("promotes and retries actual preview immutable derivatives while retaining or
     await expect(promoteSponsorMedia(corrupted)).rejects.toThrow(
       "digest mismatch",
     );
+    await deleteSponsorPublicKeys(accountId, cleanupKeys);
+    for (const key of cleanupKeys)
+      await expect(client.send(new HeadObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key })))
+        .rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
   } finally {
     client.destroy();
     await deleteSponsorPublicKeys(accountId, publicKeys);

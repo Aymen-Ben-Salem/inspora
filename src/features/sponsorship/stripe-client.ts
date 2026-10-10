@@ -272,12 +272,8 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           const intent = await stripe.paymentIntents.retrieve(intentId);
           testObject(intent);
           if (intent.status === "processing") return false;
-          if (!["succeeded", "canceled"].includes(intent.status))
-            await stripe.paymentIntents.cancel(
-              intent.id,
-              {},
-              { idempotencyKey: `sponsor-stop-intent:${intent.id}` },
-            );
+          // Invoice-owned intents cannot be cancelled directly. Delete/void
+          // their unpaid invoice below, then verify collection is settled.
         }
         if (invoice.status === "draft") await stripe.invoices.del(invoice.id);
         else if (

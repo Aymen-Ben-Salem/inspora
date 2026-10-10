@@ -47,3 +47,31 @@ it.each([
     cancelAtPeriodEnd: expected,
   });
 });
+
+it.each([
+  ["requires_payment_method", true],
+  ["processing", false],
+])("settles invoice-owned %s payments before allowing seat release", async (status, safe) => {
+  let invoiceState = "open";
+  const fetcher = async (url: RequestInfo | URL, options?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/v1/subscriptions/sub_test")
+      return Response.json({ id: "sub_test", livemode: false, status: options?.method === "DELETE" ? "canceled" : "active" });
+    if (path === "/v1/invoices")
+      return Response.json({ object: "list", data: [{ id: "in_test", livemode: false, status: invoiceState }], has_more: false });
+    if (path === "/v1/invoice_payments")
+      return Response.json({ object: "list", data: [{ id: "inpay_test", livemode: false, payment: { payment_intent: "pi_test" } }], has_more: false });
+    if (path === "/v1/payment_intents/pi_test")
+      return Response.json({ id: "pi_test", livemode: false, status });
+    if (path === "/v1/payment_intents/pi_test/cancel")
+      return Response.json({ error: { type: "invalid_request_error", message: "You cannot cancel PaymentIntents created by invoices. Try voiding the invoice instead." } }, { status: 400 });
+    if (path === "/v1/invoices/in_test/void") {
+      if (status === "processing") throw Error("A processing invoice must remain held.");
+      invoiceState = "void";
+      return Response.json({ id: "in_test", livemode: false, status: invoiceState });
+    }
+    throw Error("Unexpected Stripe fixture request.");
+  };
+  const stripe = new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 });
+  expect(await createStripeProvider(stripe).terminate("sub_test")).toBe(safe);
+});

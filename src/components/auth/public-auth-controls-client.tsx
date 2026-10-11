@@ -59,7 +59,6 @@ export function PublicAuthControlsClient({
         ...(capabilities?.sponsor ? [
           { label: "Account security", href: "/sponsor/security" as Route },
           { label: "Sponsorship dashboard", href: "/sponsor/dashboard" as Route },
-          { label: "Billing", href: "/sponsor/dashboard#billing" as Route },
         ] : []),
         { label: "Sign out", wrap: (button) => <SignOutButton>{button}</SignOutButton> },
       ] satisfies NavbarMenuItem[]}

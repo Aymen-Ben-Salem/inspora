@@ -14,9 +14,9 @@ import type { SponsorSecurityState } from "@/features/sponsorship/security-state
 import { SponsorLoading } from "./sponsor-loading";
 
 const buttonClass =
-  "focus-ring min-h-11 rounded-md bg-[#262626] px-5 py-3 text-sm text-white disabled:opacity-50";
+  "focus-ring min-h-11 cursor-pointer rounded-md bg-[#262626] px-5 py-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50";
 const linkClass =
-  "focus-ring text-sm text-[#767676] underline underline-offset-4 hover:text-[#262626]";
+  "focus-ring cursor-pointer text-sm text-[#767676] underline underline-offset-4 hover:text-[#262626] disabled:cursor-not-allowed";
 type Phase =
   | "checking"
   | "setup"
@@ -140,6 +140,28 @@ function SecuritySetup() {
     setCodes(result.codes);
     setSavedCodes(false);
     setPhase("recovery");
+  }
+  function downloadRecoveryCodes() {
+    const text = [
+      "Inspora recovery codes",
+      "Keep these codes safe. Each code can be used once.",
+      "",
+      ...codes,
+      "",
+    ].join("\n");
+    const url = URL.createObjectURL(
+      new Blob([text], { type: "text/plain;charset=utf-8" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "inspora-recovery-codes.txt";
+    document.body.appendChild(anchor);
+    try {
+      anchor.click();
+    } finally {
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
   }
   async function continueToSponsor() {
     await session?.getToken({ skipCache: true });
@@ -295,9 +317,18 @@ function SecuritySetup() {
                     <li key={value}>{value}</li>
                   ))}
                 </ul>
-                <label className="flex gap-3 text-sm">
+                <button
+                  type="button"
+                  className={linkClass}
+                  disabled={busy}
+                  onClick={downloadRecoveryCodes}
+                >
+                  Download recovery codes (.txt)
+                </button>
+                <label className="flex cursor-pointer gap-3 text-sm">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     checked={savedCodes}
                     onChange={(event) => setSavedCodes(event.target.checked)}
                   />

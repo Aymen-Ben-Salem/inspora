@@ -170,7 +170,7 @@ describe("PublicAuthControlsClient", () => {
         <PublicAuthControlsClient variant={variant} />,
       );
       expect(html).toContain("Sponsorship dashboard");
-      expect(html).toContain('href="/sponsor/dashboard#billing"');
+      expect(html).not.toContain('href="/sponsor/dashboard#billing"');
       expect(html).toContain('href="/profile"');
       expect(html).toContain('href="/saved"');
       expect(html).toContain("Submit work");

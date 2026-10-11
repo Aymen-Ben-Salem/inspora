@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 };
 export default function Page() {
   return (
-    <main className="p-8 text-[#262626]">
+    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-10 text-[#262626]">
       <SponsorVerification />
     </main>
   );

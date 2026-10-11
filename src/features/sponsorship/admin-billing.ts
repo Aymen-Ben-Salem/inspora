@@ -73,20 +73,20 @@ export async function administerSponsorBilling(
       // never an automatic Stripe refund or restoration of access.
       if (
         p.exceptionCode !== "late_payment_refund_review" ||
-        !p.stripeSubscriptionId
+        !(p.billingMode === "one_time" ? p.stripeSessionId : p.stripeSubscriptionId)
       )
         throw new Error("No late-payment exception is available to resolve.");
-      const current = await (provider ?? sponsorBillingProvider()).observe(
-        p.stripeSubscriptionId,
-      );
+      const billing = provider ?? sponsorBillingProvider();
+      const current = p.billingMode === "one_time" ? await billing.observePayment(p.stripeSessionId!) : await billing.observe(p.stripeSubscriptionId!);
       if (
         current.checkoutId !== p.id ||
         current.subscriptionId !== p.stripeSubscriptionId ||
+        (current.billingMode ?? "subscription") !== p.billingMode ||
         current.livemode
       )
         throw new Error("Payment resolution binding mismatch.");
       const latest = current.invoices
-        .filter((i) => i.paid)
+        .filter((i) => i.paid || i.refunded)
         .sort((a, b) => b.periodEnd - a.periodEnd)[0];
       if (!latest) throw new Error("Payment exception invoice unavailable.");
       await tx

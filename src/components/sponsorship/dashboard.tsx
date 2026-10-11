@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
+import { useSearchParams } from "next/navigation";
+import { PurchaseOptions } from "./purchase-options";
+import { isSponsorBillingMode, type SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 import type { readOwnSponsorDashboard } from "@/features/sponsorship/billing-service";
 export type SponsorDashboardData = NonNullable<
   Awaited<ReturnType<typeof readOwnSponsorDashboard>>
@@ -19,14 +22,32 @@ const button =
   "focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 py-2 text-sm disabled:opacity-40";
 export function SponsorDashboard({
   initial,
+  initialMode = "one_time",
 }: {
   initial: SponsorDashboardData;
+  initialMode?: SponsorBillingMode;
 }) {
+  const params = useSearchParams();
+  const queryMode = params.get("billing");
+  const choice = isSponsorBillingMode(queryMode) ? queryMode : initialMode;
+  function setChoice(mode: SponsorBillingMode) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("billing", mode);
+    // Next integrates native history updates with useSearchParams, without a
+    // new server request for this local review choice.
+    window.history.replaceState(null, "", url);
+  }
   const [data, setData] = useState(initial),
     [busy, setBusy] = useState(false),
     [refreshing, setRefreshing] = useState(false),
     [message, setMessage] = useState("");
   const refreshInFlight = useRef(false);
+  const [previousInitial, setPreviousInitial] = useState(initial);
+  if (initial !== previousInitial) {
+    setPreviousInitial(initial);
+    setData(initial);
+  }
+  const billingMode = data.checkout?.state === "reserved" ? data.checkout.billingMode : choice;
   const refresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -68,7 +89,7 @@ export function SponsorDashboard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          kind === "checkout" ? { checkoutId: data.checkout?.id } : {},
+          kind === "checkout" ? { checkoutId: data.checkout?.id, billingMode } : {},
         ),
       });
       const result = await r.json();
@@ -170,11 +191,11 @@ export function SponsorDashboard({
           {account ? (
             <div className="mt-6 flex flex-wrap gap-3">
               {!readonly ? (
-                <Link prefetch={false} href={"/sponsor/campaigns/new" as Route} className={`${button} inline-flex items-center bg-[#262626] text-white`}>
+                <Link prefetch={true} href={"/sponsor/campaigns/new" as Route} className={`${button} inline-flex items-center bg-[#262626] text-white`}>
                   Create campaign
                 </Link>
               ) : null}
-              <Link prefetch={false} href={"/sponsor/campaigns" as Route} className={`${button} inline-flex items-center`}>
+              <Link prefetch={true} href={"/sponsor/campaigns" as Route} className={`${button} inline-flex items-center`}>
                 View all campaigns
               </Link>
             </div>
@@ -192,7 +213,7 @@ export function SponsorDashboard({
                       <p className="break-words">{c.title}</p>
                       <p className="mt-1 text-xs text-[#767676]">{c.state === "published" ? "Published" : c.state === "archived" ? "Previous" : c.state === "draft" ? "Private draft" : "Prepared"}</p>
                     </div>
-                    {account ? <Link prefetch={false} href={`/sponsor/campaigns/${c.id}` as Route} className="focus-ring inline-flex min-h-11 shrink-0 items-center text-sm underline underline-offset-4">
+                    {account ? <Link prefetch={true} href={`/sponsor/campaigns/${c.id}` as Route} className="focus-ring inline-flex min-h-11 shrink-0 items-center text-sm underline underline-offset-4">
                       {readonly ? "View campaign" : "Edit campaign"}
                     </Link> : null}
                   </li>
@@ -207,8 +228,8 @@ export function SponsorDashboard({
         >
           <h2 className="text-lg font-medium">Billing</h2>
           <p className="mt-2 text-sm text-[#767676]">
-            {account ? `${account.billingCurrency.toUpperCase()} 500 before applicable tax · ${account.billingInterval === "month" ? "monthly" : "every 30 days"}`
-              : "USD 500 or EUR 500 before applicable tax · monthly"}
+            {account ? `${account.billingCurrency.toUpperCase()} 500 before applicable tax · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}`
+              : "Choose how you’d like to pay."}
           </p>
           {account ? (
             <>
@@ -218,10 +239,10 @@ export function SponsorDashboard({
                 <dt className="text-[#767676]">Paid through</dt>
                 <dd>{date(account.paidThrough)}</dd>
                 <dt className="text-[#767676]">
-                  {account.cancelAtPeriodEnd ? "Cancellation" : "Renewal"}
+                  {account.billingMode === "one_time" ? "End date" : account.cancelAtPeriodEnd ? "Cancellation" : "Renewal"}
                 </dt>
                 <dd>
-                  {account.cancelAtPeriodEnd
+                  {account.billingMode === "one_time" ? `Ends ${date(account.paidThrough)}` : account.cancelAtPeriodEnd
                     ? `Ends ${date(account.paidThrough)}`
                     : account.state === "inactive"
                       ? "Stopped"
@@ -245,14 +266,13 @@ export function SponsorDashboard({
                 Manage billing
               </button>
               <p className="mt-4 text-sm leading-6 text-[#767676]">
-                View invoices, update your payment method or cancel future
-                renewal. Cancellation preserves your paid period. A failed
-                renewal pauses promotion at expiry and holds your seat for 72
-                hours.
+                {account.billingMode === "one_time" ? "View your invoice in Billing. Your sponsorship ends at the end of the paid calendar month, with no automatic renewal." : "View invoices, update your payment method or cancel future renewal. Cancellation preserves your paid period. A failed renewal pauses promotion at expiry and holds your seat for 72 hours."}
               </p>
             </>
           ) : (
             <>
+              <div className="mt-6"><PurchaseOptions value={billingMode} onChange={setChoice} disabled={busy || refreshing || data.checkout?.state === "reserved"} /></div>
+              {data.checkout?.state === "reserved" ? <p className="mt-3 text-xs text-[#767676]">This checkout’s payment choice is reserved. Finish it or wait for it to expire before changing terms.</p> : null}
               <button
                 className={`${button} mt-8 bg-[#262626] text-white`}
                 type="button"

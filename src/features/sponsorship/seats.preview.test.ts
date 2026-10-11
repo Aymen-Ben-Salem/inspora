@@ -53,13 +53,17 @@ describe("atomic sponsor seat checkout boundary", () => {
       ),
     ).rejects.toThrow();
   });
-  it("reserves only four of five concurrent owned preparations and pins each snapshot", async () => {
+  it("reserves only available structural seats and preserves existing held seats while pinning each snapshot", async () => {
     const now = new Date();
     const raceOwners: string[] = [];
+    let freeCount = 0;
+    let heldSeats: typeof sponsorSeats.$inferSelect[] = [];
     await withSponsorWrite(async (tx) => {
       const seats = await tx.select().from(sponsorSeats);
-      if (seats.some((s) => s.state !== "free"))
-        throw new Error("Disposable race rehearsal requires four free slots.");
+      expect(seats).toHaveLength(4);
+      freeCount = seats.filter(s => s.state === "free").length;
+      heldSeats = seats.filter(s => s.state !== "free");
+      if (!freeCount) throw new Error("Disposable race rehearsal requires an available slot.");
       for (let i = 0; i < 5; i++) {
         const owner = `seat-fixture-${randomUUID()}`,
           id = randomUUID(),
@@ -111,21 +115,27 @@ describe("atomic sponsor seat checkout boundary", () => {
         reserveSponsorSeat(raceOwners[i], id, "price_fixture", now),
       ),
     );
-    expect(results.filter((r) => r.ok)).toHaveLength(4);
-    expect(results.filter((r) => !r.ok)).toMatchObject([
-      { code: "capacity_full" },
-    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(freeCount);
+    const full = results.filter((r) => !r.ok);
+    expect(full).toHaveLength(5 - freeCount);
+    expect(full.every(r => !r.ok && r.code === "capacity_full")).toBe(true);
+    const currentSeats = await withSponsorWrite(tx => tx.select().from(sponsorSeats));
+    expect(currentSeats.filter(s => heldSeats.some(held => held.slot === s.slot))).toEqual(heldSeats);
     const first = results.findIndex((r) => r.ok);
     const repeated = await reserveSponsorSeat(
       raceOwners[first],
       ids[first],
-      "price_changed",
+      "price_fixture",
       now,
     );
     expect(repeated).toMatchObject({
       ok: true,
       value: { priceId: "price_fixture" },
     });
+    expect(await reserveSponsorSeat(raceOwners[first], ids[first], "price_fixture", now, "one_time"))
+      .toMatchObject({ ok: false, code: "conflict" });
+    expect(await reserveSponsorSeat(raceOwners[first], ids[first], "price_changed", now))
+      .toMatchObject({ ok: false, code: "conflict" });
     const foreign = await reserveSponsorSeat(
       raceOwners[(first + 1) % 5],
       ids[first],

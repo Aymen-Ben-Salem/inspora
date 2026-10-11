@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { SiteNavbar } from "@/components/site-navbar";
 import { CampaignEditor } from "@/components/sponsorship/campaign-editor";
+import { SponsorLoading } from "@/components/sponsorship/sponsor-loading";
+import { SponsorOwnerBoundary } from "@/components/sponsorship/sponsor-owner-boundary";
 import { paidCampaignService } from "@/features/sponsorship/campaign-service";
 export const metadata: Metadata = {
   title: "Edit your campaign",
@@ -23,16 +25,16 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
     );
   if (id === "new") {
     if (list.value.readonly) notFound();
-    return <CampaignEditor paid={{ readonly: false }} />;
+    return <SponsorOwnerBoundary key={list.value.ownerUserId} ownerUserId={list.value.ownerUserId}><CampaignEditor paid={{ readonly: false }} /></SponsorOwnerBoundary>;
   }
   if (!z.uuid().safeParse(id).success) notFound();
   const campaign = list.value.campaigns.find((c) => c.id === id);
   if (!campaign) notFound();
   return (
-    <CampaignEditor
+    <SponsorOwnerBoundary key={list.value.ownerUserId} ownerUserId={list.value.ownerUserId}><CampaignEditor
       key={id}
       paid={{ campaign, readonly: list.value.readonly }}
-    />
+    /></SponsorOwnerBoundary>
   );
 }
 export default function Page(props: { params: Promise<{ id: string }> }) {
@@ -41,9 +43,7 @@ export default function Page(props: { params: Promise<{ id: string }> }) {
       <SiteNavbar page="sponsor" />
       <Suspense
         fallback={
-          <p role="status" className="p-8 text-sm">
-            Loading campaign…
-          </p>
+          <SponsorLoading label="Loading campaign…" />
         }
       >
         <Content {...props} />

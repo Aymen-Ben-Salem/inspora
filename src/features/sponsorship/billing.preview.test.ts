@@ -62,6 +62,7 @@ import type { BillingObservation } from "./billing";
 import type { BillingProvider } from "./stripe-client";
 import type { SponsorPromoter } from "./public-media";
 import { createPaidCampaignService } from "./paid-campaigns";
+import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
 const owners: string[] = [];
 const events: string[] = [];
 afterEach(async () => {
@@ -133,10 +134,11 @@ afterEach(async () => {
   owners.length = 0;
   events.length = 0;
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   access.owner = null;
   access.portal.mockClear();
 });
-async function fixture(title = "Paid fixture") {
+async function fixture(title = "Paid fixture", billingMode: SponsorBillingMode = "subscription") {
   const owner = `billing-fixture-${randomUUID()}`,
     now = new Date(),
     end = new Date(now.getTime() + 30 * 86400000);
@@ -227,6 +229,7 @@ async function fixture(title = "Paid fixture") {
       url: "https://checkout.stripe.com/fixture",
       expiresAt: input.expiresAt,
       subscriptionId: null,
+      billingMode,
     }),
     session: async () => ({
       id: `cs_${id}`,
@@ -234,7 +237,8 @@ async function fixture(title = "Paid fixture") {
       status: completed ? "complete" : "open",
       url: null,
       expiresAt: now.getTime() + 1805000,
-      subscriptionId: completed ? subId : null,
+      subscriptionId: completed && billingMode === "subscription" ? subId : null,
+      billingMode,
     }),
     expireSession: async () => ({
       id: `cs_${id}`,
@@ -242,13 +246,24 @@ async function fixture(title = "Paid fixture") {
       status: completed ? "complete" : "expired",
       url: null,
       expiresAt: now.getTime(),
-      subscriptionId: completed ? subId : null,
+      subscriptionId: completed && billingMode === "subscription" ? subId : null,
+      billingMode,
     }),
     observe: async () => observation,
+    observePayment: async () => completed ? observation : { ...observation, invoices: [], status: "pending" },
+    settlePayment: async () => safe,
     terminate: async () => safe,
     portal: async () => "https://billing.stripe.com/fixture",
     eventTarget: async () => id,
   };
+  if (billingMode === "one_time") {
+    observation.billingMode = billingMode;
+    observation.subscriptionId = null;
+    observation.price = { ...observation.price, interval: null, intervalCount: null };
+    observation.status = "succeeded";
+    observation.cancelAtPeriodEnd = true;
+    observation.invoices[0].periodEnd = calendarMonthEnd(now.getTime());
+  }
   const promote: SponsorPromoter = async (input) =>
     input.creative.assets
       .filter((a) => a.kind !== "original")
@@ -275,6 +290,91 @@ async function fixture(title = "Paid fixture") {
   };
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it("publishes a single payment once, pins its mode, and releases its seat at calendar expiry", async () => {
+    const f = await fixture("Single payment", "one_time");
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    expect(await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, "one_time")).toMatchObject({ ok: true });
+    expect(await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, "subscription")).toMatchObject({ ok: false, code: "conflict" });
+    await expect(withSponsorWrite(tx => tx.update(sponsorCheckouts).set({ billingMode: "subscription" }).where(eq(sponsorCheckouts.id, f.id)))).rejects.toThrow();
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now)).toBe(true);
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now)).toBe(true);
+    access.owner = f.owner;
+    const end = new Date(calendarMonthEnd(f.now.getTime()));
+    expect((await readOwnSponsorDashboard())?.account).toMatchObject({ state: "active", billingMode: "one_time", paidThrough: end.toISOString(), recoveryDeadline: null });
+    expect((await getDesignSponsors()).some(s => s.title === "Single payment")).toBe(true);
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, end)).toBe(true);
+    expect((await readOwnSponsorDashboard())?.account).toMatchObject({ state: "inactive", recoveryDeadline: null });
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorSeats).where(eq(sponsorSeats.checkoutId, f.id))))).toHaveLength(0);
+    expect((await getDesignSponsors()).some(s => s.title === "Single payment")).toBe(false);
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, end)).toBe(true);
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("inactive");
+    // Simulate a later, independently verified purchase for this same account.
+    // Inactive history remains read-only in the UI; this probes replay isolation.
+    const nextId = randomUUID(), nextEnd = new Date(calendarMonthEnd(end.getTime()));
+    await withSponsorWrite(async tx => {
+      const [old] = await tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id, f.id));
+      const [account] = await tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, f.owner));
+      const [free] = await tx.select().from(sponsorSeats).where(eq(sponsorSeats.state, "free"));
+      await tx.insert(sponsorCheckouts).values({ ownerUserId: f.owner, id: nextId, state: "completed", billingMode: "one_time",
+        snapshot: old.snapshot, campaignId: old.campaignId, priceId: "price_fixture", stripeSessionId: `cs_${nextId}`, expiresAt: nextEnd });
+      await tx.update(sponsorAccounts).set({ state: "active", periodStart: end, paidThrough: nextEnd }).where(eq(sponsorAccounts.id, account.id));
+      await tx.update(sponsorSeats).set({ state: "occupied", accountId: account.id, checkoutId: nextId }).where(eq(sponsorSeats.slot, free.slot));
+    });
+    const before = await readOwnSponsorDashboard();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, end);
+    expect((await readOwnSponsorDashboard())?.account).toEqual(before?.account);
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorSeats).where(eq(sponsorSeats.checkoutId, nextId))))[0].state).toBe("occupied");
+  });
+  it("rejects another owner's single payment and holds a processing payment until safe settlement", async () => {
+    const a = await fixture("One-time owner A", "one_time"), b = await fixture("One-time owner B", "one_time");
+    vi.spyOn(Date, "now").mockReturnValue(a.now.getTime());
+    await reserveSponsorSeat(a.owner, a.id, "price_fixture", new Date(), "one_time");
+    await ensureSponsorCheckoutSession(a.id, a.provider);
+    a.complete(); b.complete();
+    await expect(reconcileSponsorCheckout(a.id, { ...a.provider, observePayment: b.provider.observePayment }, a.promote, a.now)).rejects.toThrow("ownership");
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, a.owner))))).toHaveLength(0);
+    const pending = { ...a.provider, observePayment: async () => ({ ...a.observation, invoices: [], status: "processing" }) };
+    a.collection(false);
+    expect(await reconcileSponsorCheckout(a.id, pending, a.promote, a.end)).toBe(false);
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorSeats).where(eq(sponsorSeats.checkoutId, a.id))))[0].state).toBe("reserved");
+    a.collection(true);
+    expect(await reconcileSponsorCheckout(a.id, pending, a.promote, a.end)).toBe(true);
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorSeats).where(eq(sponsorSeats.checkoutId, a.id))))).toHaveLength(0);
+  });
+  it("requires audited resolution for a released single payment without restoring access", async () => {
+    const f = await fixture("Late single payment", "one_time");
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, "one_time");
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.end)).toBe(true);
+    f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.end);
+    const read = async () => (await withSponsorWrite(tx => tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id, f.id))))[0];
+    expect((await read()).exceptionCode).toBe("late_payment_refund_review");
+    f.observation.invoices[0] = { ...f.observation.invoices[0], id: "refund:in_initial", paid: false, refunded: true };
+    await administerSponsorBilling("resolve_exception", f.id, f.provider);
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.end);
+    expect((await read()).exceptionCode).toBeNull();
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, f.owner))))).toHaveLength(0);
+  });
+  it("withdraws refunded single-payment promotion and keeps its audited resolution on replay", async () => {
+    const f = await fixture("Refunded single payment", "one_time");
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, "one_time");
+    await ensureSponsorCheckoutSession(f.id, f.provider); f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    f.observation.invoices[0] = { ...f.observation.invoices[0], id: "refund:in_initial", paid: false, refunded: true };
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("inactive");
+    expect((await getDesignSponsors()).some(s => s.title === "Refunded single payment")).toBe(false);
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorSeats).where(eq(sponsorSeats.checkoutId, f.id))))).toHaveLength(0);
+    await administerSponsorBilling("resolve_exception", f.id, f.provider);
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    expect((await withSponsorWrite(tx => tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id, f.id))))[0].exceptionCode).toBeNull();
+  });
   it("preserves a sponsor's campaign switch during later billing reconciliation", async () => {
     const f = await fixture();
     await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);

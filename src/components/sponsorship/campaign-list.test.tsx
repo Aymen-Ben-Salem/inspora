@@ -4,8 +4,23 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { CampaignList } from "./campaign-list";
 import type { OwnedCampaign } from "@/features/sponsorship/types";
+const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation, usePathname: () => "/sponsor/campaigns" }));
 const creative = { title:"Current",url:"https://current.example.com",tagline:"",iconId:"i",wordmarkId:"w",variantIds:[],assets:[] };
 const campaigns: OwnedCampaign[] = [{id:"current",checkoutId:"",versionId:"v1",revision:2,state:"published",expiresAt:"",creative},{id:"next",checkoutId:"",versionId:"v2",revision:1,state:"draft",expiresAt:"",creative:{...creative,title:"Next creative"}}];
+it("invalidates visited sponsorship pages after confirming a campaign replacement", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const next = campaigns.map((campaign) => ({ ...campaign, state: campaign.id === "next" ? "published" : "archived" }));
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, value: { campaigns: next, readonly: false } })));
+  const container = document.createElement("div"), root = createRoot(container);
+  try {
+    await act(async () => root.render(<CampaignList initial={{ campaigns, readonly: false }} />));
+    await act(async () => Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Make public")!.click());
+    await act(async () => Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Confirm replacement")!.click());
+    expect(container.textContent).toContain("Campaign is public");
+    expect(navigation.refresh).toHaveBeenCalledOnce();
+  } finally { await act(async () => root.unmount()); navigation.refresh.mockReset(); vi.unstubAllGlobals(); }
+});
 it("names both creatives before replacing the public campaign and does not publish on Cancel", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
   const container=document.createElement("div"),root=createRoot(container);

@@ -18,15 +18,17 @@ import {
   sponsors,
 } from "@/db/schema";
 import type { SponsorshipResult } from "./types";
-export function sponsorCheckoutEnabled() {
+import type { SponsorBillingMode } from "./purchase-mode";
+export function sponsorCheckoutEnabled(mode: SponsorBillingMode = "subscription") {
   return (
     sponsorshipWritesEnabled() &&
     process.env.SPONSORSHIP_CHECKOUT_ENABLED === "true" &&
-    stripeCheckoutConfigured()
+    stripeCheckoutConfigured(mode)
   );
 }
 export async function startSponsorCheckout(
   checkoutId: string,
+  billingMode: SponsorBillingMode,
 ): Promise<SponsorshipResult<{ url: string }>> {
   const owner = await verifiedSponsorOwner("write");
   if (!owner)
@@ -35,7 +37,7 @@ export async function startSponsorCheckout(
       code: "unauthenticated",
       message: "Verify sponsor access before checkout.",
     };
-  if (!sponsorCheckoutEnabled())
+  if (!sponsorCheckoutEnabled(billingMode))
     return {
       ok: false,
       code: "unavailable",
@@ -65,9 +67,9 @@ export async function startSponsorCheckout(
     };
   await runSponsorMaintenance();
   const provider = sponsorBillingProvider(),
-    priceId = process.env.STRIPE_SPONSOR_PRICE_ID!;
-  await provider.price(priceId);
-  const reserved = await reserveSponsorSeat(owner, checkoutId, priceId);
+    priceId = (billingMode === "one_time" ? process.env.STRIPE_SPONSOR_ONE_TIME_PRICE_ID : process.env.STRIPE_SPONSOR_PRICE_ID)!;
+  await provider.price(priceId, billingMode);
+  const reserved = await reserveSponsorSeat(owner, checkoutId, priceId, new Date(), billingMode);
   if (!reserved.ok) return reserved;
   return {
     ok: true,
@@ -157,6 +159,7 @@ export async function readOwnSponsorDashboard() {
             s.reservedUntil > new Date()),
       );
     return {
+      ownerUserId: owner,
       account: account
         ? {
             state: account.state,
@@ -166,6 +169,7 @@ export async function readOwnSponsorDashboard() {
             cancelAtPeriodEnd: account.cancelAtPeriodEnd,
             billingAvailable: Boolean(account.stripeCustomerId),
             billingCurrency: account.billingCurrency,
+            billingMode: account.billingMode,
             billingInterval: account.billingInterval,
             billingIntervalCount: account.billingIntervalCount,
           }
@@ -174,12 +178,13 @@ export async function readOwnSponsorDashboard() {
         ? {
             id: checkout.id,
             state: checkout.state,
+            billingMode: checkout.billingMode,
             paymentReceived: Boolean(checkout.paymentReceivedAt),
             exceptionCode: checkout.exceptionCode,
           }
         : null,
       campaigns,
-      checkoutEnabled: sponsorCheckoutEnabled(),
+      checkoutEnabled: sponsorCheckoutEnabled() && sponsorCheckoutEnabled("one_time"),
       capacityAvailable,
     };
   });

@@ -1,5 +1,5 @@
-import { SponsorPageSkeleton } from "@/components/sponsorship/sponsor-page-skeleton";
+import { SponsorLoading } from "@/components/sponsorship/sponsor-loading";
 
 export default function Loading() {
-  return <SponsorPageSkeleton withNavbar />;
+  return <SponsorLoading withNavbar />;
 }

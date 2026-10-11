@@ -7,6 +7,8 @@ vi.mock("@clerk/nextjs", () => ({
   SignOutButton: ({ children }: { children: React.ReactNode }) => children,
 }));
 const uploads = vi.hoisted(() => ({ prepare: vi.fn() }));
+const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation, usePathname: () => "/sponsor/campaigns" }));
 vi.mock("@/features/media/prepare-and-upload", () => ({
   prepareAndUploadMedia: uploads.prepare,
 }));
@@ -39,6 +41,35 @@ const campaign: OwnedCampaign = {
     assets: [],
   },
 };
+it("returns a new paid campaign to its sponsorship dashboard", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div"), root = createRoot(container);
+  try {
+    await act(async () => root.render(<CampaignEditor paid={{ readonly: false }} />));
+    expect(container.querySelector('a[href="/sponsor/dashboard"]')?.textContent).toContain("Back to dashboard");
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
+it("accepts a dropped asset while another role uploads", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  uploads.prepare.mockImplementation(() => new Promise(() => {}));
+  const container = document.createElement("div"), root = createRoot(container);
+  try {
+    await act(async () => root.render(<CampaignEditor paid={{ campaign, readonly: false }} />));
+    await selectFile(container.querySelector<HTMLInputElement>('input[aria-label="Compact icon"]')!);
+    const file = new File(["wordmark"], "wordmark.png", { type: "image/png" });
+    const drop = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", { value: { files: [file] } });
+    await act(async () => container.querySelector('input[aria-label="Full wordmark"]')!.closest("label")!.dispatchEvent(drop));
+    expect(uploads.prepare).toHaveBeenCalledWith(file, "sponsor-wordmark", expect.anything(), expect.any(Function), expect.any(Function));
+  } finally {
+    await act(async () => root.unmount());
+    uploads.prepare.mockReset();
+    vi.unstubAllGlobals();
+  }
+});
 it("loads a paid version without opening preparation and saves a complete optimistic edit; Cancel has no write", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const fetch = vi.fn(async () => ({
@@ -76,6 +107,7 @@ it("loads a paid version without opening preparation and saves a complete optimi
       }),
     );
     expect(container.textContent).toContain("Public changes saved");
+    expect(navigation.refresh).toHaveBeenCalledOnce();
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();

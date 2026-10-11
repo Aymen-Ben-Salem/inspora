@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SiteNavbar } from "@/components/site-navbar";
 import { CampaignList } from "@/components/sponsorship/campaign-list";
+import { SponsorLoading } from "@/components/sponsorship/sponsor-loading";
+import { SponsorOwnerBoundary } from "@/components/sponsorship/sponsor-owner-boundary";
 import { paidCampaignService } from "@/features/sponsorship/campaign-service";
 export const metadata: Metadata = {
   title: "Your campaigns",
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
 async function Content() {
   const result = await paidCampaignService.list();
   return result.ok ? (
-    <CampaignList initial={result.value} />
+    <SponsorOwnerBoundary key={result.value.ownerUserId} ownerUserId={result.value.ownerUserId}><CampaignList initial={result.value} /></SponsorOwnerBoundary>
   ) : (
     <main className="mx-auto max-w-[1120px] px-4 py-16">
       <h1 className="text-3xl">Private campaigns</h1>
@@ -30,9 +32,7 @@ export default function Page() {
       <SiteNavbar page="sponsor" />
       <Suspense
         fallback={
-          <p role="status" className="p-8 text-sm">
-            Loading campaigns…
-          </p>
+          <SponsorLoading label="Loading campaigns…" />
         }
       >
         <Content />

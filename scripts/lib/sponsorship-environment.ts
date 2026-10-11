@@ -5,6 +5,7 @@ export const SPONSORSHIP_CONFIGURATION_KEYS = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
   "STRIPE_SPONSOR_PRICE_ID",
+  "STRIPE_SPONSOR_ONE_TIME_PRICE_ID",
   "STRIPE_SPONSOR_PORTAL_CONFIGURATION_ID",
   "STRIPE_SPONSOR_AUTOMATIC_TAX",
   "CRON_SECRET",
@@ -24,6 +25,8 @@ export function validatePreviewSponsorshipEnvironment(
   )
     throw new Error("Stripe webhook secret format is invalid.");
   if (values.SPONSORSHIP_CHECKOUT_ENABLED !== "true") return;
+  if (values.STRIPE_SPONSOR_ONE_TIME_PRICE_ID && !values.STRIPE_SPONSOR_ONE_TIME_PRICE_ID.startsWith("price_"))
+    throw new Error("Preview one-time price configuration is invalid.");
   for (const name of [
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",

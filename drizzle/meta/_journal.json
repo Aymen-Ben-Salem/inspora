@@ -232,6 +232,13 @@
       "when": 1791669854586,
       "tag": "0032_sponsor_campaign_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791741182713,
+      "tag": "0033_sponsor_one_time",
+      "breakpoints": true
     }
   ]
 }

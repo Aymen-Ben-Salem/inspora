@@ -2,6 +2,7 @@
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
@@ -13,6 +14,10 @@ import type {
 } from "@/features/sponsorship/types";
 import { CampaignPreview, type PreviewFields } from "./campaign-preview";
 import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
+import { CampaignUpload } from "./campaign-upload";
+import { SponsorLoading } from "./sponsor-loading";
+import { PurchaseOptions } from "./purchase-options";
+import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
   title: "",
   url: "",
@@ -70,6 +75,8 @@ function CampaignEditorContent({
   paid?: PaidEditorMode;
 }) {
   const initial = paid?.campaign?.creative;
+  const router = useRouter();
+  const [billingMode, setBillingMode] = useState<SponsorBillingMode>("one_time");
   const [fields, setFields] = useState<PreviewFields>(() => ({ ...empty, ...initial, mediaId: initial?.mediaId ?? "", posterId: initial?.posterId ?? "", videoPreviewId: initial?.videoPreviewId ?? "" })),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>(initial?.assets ?? []),
     [variants, setVariants] = useState<string[]>(initial?.variantIds ?? []),
@@ -271,15 +278,16 @@ function CampaignEditorContent({
       pending.current.delete(controller);
     }
   }
+  if (!isLoaded || (isSignedIn && !paid && !ready && !failed)) return <SponsorLoading label="Loading campaign…" />;
   return (
-    <main className="mx-auto max-w-[1120px] px-4 py-10 text-[#262626] sm:px-8">
-      <div className="mb-8">
+    <main className="mx-auto max-w-[1120px] px-4 pb-20 pt-6 text-[#262626] sm:px-8 sm:pt-10">
+      <div className="mb-10 border-b border-[#e6e6e6] pb-8">
         <div className="flex items-center justify-between gap-4">
-          <a href="/sponsor" className="focus-ring text-sm text-[#767676]">
-            ← Sponsorship
-          </a>
+          <Link href={(paid || (ready && isSignedIn) ? "/sponsor/dashboard" : "/sponsor") as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center text-sm text-[#767676]">
+            {paid || (ready && isSignedIn) ? "← Back to dashboard" : "← Sponsorship"}
+          </Link>
         </div>
-        <h1 className="mt-5 text-3xl font-semibold tracking-tight">
+        <h1 className="mt-4 text-[32px] font-medium tracking-[-0.03em]">
           {paid ? paid.readonly ? "Campaign history" : paid.campaign ? "Edit campaign" : "Create campaign" : "Prepare your campaign"}
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-6 text-[#767676]">
@@ -328,6 +336,7 @@ function CampaignEditorContent({
               if (paid) {
                 setCampaignId(c.id);
                 window.dispatchEvent(new Event("sponsorship-changed"));
+                router.refresh();
               }
               setMessage(
                 paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Open your sponsorship dashboard to continue to checkout.",
@@ -335,6 +344,11 @@ function CampaignEditorContent({
             });
           }}
         >
+          <div><h2 className="text-lg font-medium">Campaign details</h2><p className="mt-2 text-sm leading-6 text-[#767676]">Your public name and the website visitors will open.</p></div>
+          <label className="block text-sm font-medium">
+            Public name
+            <input className={fieldClass} required maxLength={160} disabled={paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
+          </label>
           <label className="block text-sm font-medium">
             Website destination
             <input
@@ -399,29 +413,18 @@ function CampaignEditorContent({
             image for the feed. Review the previews or upload replacements
             below.
           </p>
-          <label className="block text-sm font-medium">
-            Public name
-            <input
-              className={fieldClass}
-              required
-              maxLength={160}
-              disabled={paid?.readonly || Boolean(busy)}
-              value={fields.title}
-              onChange={(e) => update("title", e.target.value)}
-              placeholder="Your product"
-            />
-          </label>
           <fieldset
             disabled={!ready || Boolean(busy) || paid?.readonly}
-            className="space-y-5 disabled:opacity-50"
+            className="grid gap-4 border-t border-[#e6e6e6] pt-8 disabled:opacity-50 sm:grid-cols-2"
           >
-            <legend className="mb-3 text-sm font-medium">Owned media</legend>
-            <p className="text-xs leading-5 text-[#767676]">
+            <legend className="sr-only">Creative assets</legend>
+            <div className="sm:col-span-2"><h2 className="text-lg font-medium">Creative assets</h2>
+            <p className="mt-2 text-xs leading-5 text-[#767676]">
               Images: PNG, JPEG, WebP, AVIF or GIF, up to 10 MiB. Brand assets
               and posters must be static. Videos: MP4 or WebM up to 50 MiB; 20
               MiB recommended. SVG uploads are not supported. A video gets a
               verified preview and poster before saving.
-            </p>
+            </p></div>
             {(
               [
                 ["media", "Feed image or video (optional)"],
@@ -430,30 +433,24 @@ function CampaignEditorContent({
                 ["poster", "Replace video poster (optional)"],
               ] as const
             ).map(([kind, label]) => (
-              <label key={kind} className="block text-sm">
-                {label}
-                <input
-                  aria-label={label}
-                  type="file"
-                  disabled={uploads[kind]?.busy}
+              <div key={kind} className={kind === "media" || kind === "poster" ? "sm:col-span-2" : ""}>
+                <CampaignUpload
+                  label={label}
+                  disabled={!ready || Boolean(busy) || paid?.readonly}
+                  busy={uploads[kind]?.busy}
+                  message={uploads[kind]?.message}
+                  failed={uploads[kind]?.failed}
+                  asset={assets.find((asset) => asset.id === fields[uploadRoles[kind].field])}
+                  large={kind === "media"}
+                  hint={kind === "media" ? "PNG, JPG, WebP, AVIF or GIF · 10 MiB max. MP4 or WebM · 50 MiB max." : kind === "icon" ? "Static image · 10 MiB max. Shown beside the profile in the navbar." : kind === "wordmark" ? "Static image · 10 MiB max. Your full brand name in the detail sidebar." : "Static image · 10 MiB max. Optional replacement for a video's poster."}
                   accept={
                     kind === "media"
                       ? "image/png,image/jpeg,image/webp,image/avif,image/gif,video/mp4,video/webm"
                       : "image/png,image/jpeg,image/webp,image/avif"
                   }
-                  className={`${fieldClass} file:mr-3 file:rounded file:border-0 file:bg-[#fafafa] file:px-3 file:py-1`}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void upload(file, kind);
-                    e.target.value = "";
-                  }}
+                  onUpload={(file) => { void upload(file, kind); }}
                 />
-                {uploads[kind] ? (
-                  <span role={uploads[kind]?.failed ? "alert" : "status"} aria-live="polite" className={`mt-2 block text-xs ${uploads[kind]?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
-                    {uploads[kind]?.message}
-                  </span>
-                ) : null}
-              </label>
+              </div>
             ))}
             {fields.mediaId ? (
               <button
@@ -474,6 +471,7 @@ function CampaignEditorContent({
               </button>
             ) : null}
           </fieldset>
+          {!paid ? <PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} /> : null}
           {ready && !paid?.readonly ? (
             <button
               disabled={!ready || Boolean(busy) || uploading}
@@ -496,8 +494,8 @@ function CampaignEditorContent({
           >
             {busy || message}
           </p>
-          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={false} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
-            <a href="/sponsor/dashboard" className="focus-ring font-medium underline">Open sponsorship dashboard</a>
+          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
+            <Link prefetch={true} href={`/sponsor/dashboard?billing=${billingMode}` as Route} className="focus-ring font-medium underline">Open sponsorship dashboard</Link>
             <p className="text-[#767676]">
               No payment, paid account, public campaign or seat reservation is
               created by this preparation.

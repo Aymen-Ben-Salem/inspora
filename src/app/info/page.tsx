@@ -183,14 +183,16 @@ export default function InfoPage() {
               </h2>
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
-                  USD 500 or EUR 500 per month before applicable tax. Automatically
-                  renews monthly until cancelled. For business and professional
-                  promotion.
+                  USD 500 or EUR 500 before applicable tax. One-time covers one
+                  calendar month from verified payment, with no automatic renewal.
+                  Monthly renews every calendar month until cancelled and must be
+                  selected explicitly. For business and professional promotion.
                 </p>
                 <p>
                   Preparation stays private and uses no seat. Checkout reserves
                   an available seat for 30 minutes; verified payment activates
-                  your campaign. Cancellation preserves the paid period. A failed
+                  your campaign. One-time ends and releases its seat at expiry.
+                  Monthly cancellation preserves the paid period; a failed monthly
                   renewal pauses promotion at expiry and holds your seat for 72
                   hours. Test checkout remains unavailable until configured.
                 </p>

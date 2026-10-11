@@ -3,6 +3,71 @@ import { expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createStripeProvider } from "./stripe-client";
 
+it.each([
+  ["usd", "valid"], ["eur", "valid"], ["usd", "wrong_checkout"], ["usd", "wrong_customer"],
+  ["usd", "wrong_currency"], ["usd", "partial_amount"], ["usd", "uncaptured"], ["usd", "live_charge"],
+  ["usd", "discount"], ["usd", "processing"], ["usd", "refunded"],
+])("creates and verifies a single %s payment (%s)", async (currency, scenario) => {
+  const price = { id: "price_once", livemode: false, active: true, currency: "usd", unit_amount: 50000, recurring: null, tax_behavior: "exclusive",
+    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: 50000, tax_behavior: "exclusive" } } };
+  const session = { id: "cs_once", livemode: false, mode: "payment", status: "complete", payment_status: "paid", subscription: null,
+    client_reference_id: "checkout_once", metadata: { sponsor_checkout_id: "checkout_once" }, expires_at: 1800000000,
+    currency, amount_subtotal: 50000, amount_total: 55000, total_details: { amount_tax: 5000, amount_discount: 0 }, customer: "cus_once", payment_intent: "pi_once" };
+  const intent = { id: "pi_once", livemode: false, status: "succeeded", currency,
+    amount: 55000, amount_received: 55000, customer: "cus_once", latest_charge: "ch_once", metadata: { sponsor_checkout_id: "checkout_once" } };
+  const charge = { id: "ch_once", livemode: false, status: "succeeded", paid: true, captured: true,
+    amount: 55000, amount_captured: 55000, amount_refunded: 0, currency, customer: "cus_once", payment_intent: "pi_once", created: 1769868916 };
+  if (scenario === "wrong_checkout") intent.metadata.sponsor_checkout_id = "another_owner";
+  if (scenario === "wrong_customer") intent.customer = "another_customer";
+  if (scenario === "wrong_currency") intent.currency = "eur";
+  if (scenario === "partial_amount") intent.amount_received = 49999;
+  if (scenario === "uncaptured") charge.captured = false;
+  if (scenario === "live_charge") charge.livemode = true;
+  if (scenario === "discount") session.total_details.amount_discount = 100;
+  if (scenario === "processing") intent.status = "processing";
+  if (scenario === "refunded") charge.amount_refunded = 55000;
+  const fetcher = async (url: RequestInfo | URL, options?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/v1/prices/price_once") return Response.json(price);
+    if (path === "/v1/checkout/sessions") {
+      const body = new URLSearchParams(String(options?.body));
+      expect(body.get("mode")).toBe("payment");
+      expect(body.has("subscription_data[metadata][sponsor_checkout_id]")).toBe(false);
+      expect(body.get("payment_intent_data[metadata][sponsor_checkout_id]")).toBe("checkout_once");
+      expect(body.get("invoice_creation[enabled]")).toBe("true");
+      return Response.json({ ...session, status: "open", url: "https://checkout.stripe.com/test" });
+    }
+    if (path === "/v1/checkout/sessions/cs_once") return Response.json(session);
+    if (path === "/v1/checkout/sessions/cs_once/line_items") return Response.json({ object: "list", has_more: false,
+      data: [{ quantity: 1, price, currency, amount_subtotal: 50000, amount_discount: 0 }] });
+    if (path === "/v1/payment_intents/pi_once") return Response.json(intent);
+    if (path === "/v1/charges/ch_once") return Response.json(charge);
+    throw Error("Unexpected single-payment request: " + path);
+  };
+  const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
+  await provider.createCheckout({ checkoutId: "checkout_once", priceId: price.id, key: "once", expiresAt: 1800000000000, billingMode: "one_time" });
+  if (scenario === "valid") expect(await provider.observePayment("cs_once")).toMatchObject({ billingMode: "one_time", subscriptionId: null, price: { currency },
+    invoices: [{ paid: true, periodStart: 1769868916000, periodEnd: 1772288116000 }] });
+  else if (scenario === "processing") expect((await provider.observePayment("cs_once")).invoices).toHaveLength(0);
+  else if (scenario === "refunded") expect((await provider.observePayment("cs_once")).invoices)
+    .toMatchObject([{ id: "refund:pi_once", paid: false, refunded: true }]);
+  else await expect(provider.observePayment("cs_once")).rejects.toThrow();
+});
+
+it.each([["processing", false], ["requires_action", true]])("settles a single %s payment before seat reuse", async (status, safe) => {
+  const cancel = vi.fn();
+  const fetcher = async (url: RequestInfo | URL) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/v1/checkout/sessions/cs_once") return Response.json({ id: "cs_once", livemode: false, mode: "payment", status: "expired", client_reference_id: "checkout_once", payment_intent: "pi_once" });
+    if (path === "/v1/payment_intents/pi_once") return Response.json({ id: "pi_once", livemode: false, status, metadata: { sponsor_checkout_id: "checkout_once" } });
+    if (path === "/v1/payment_intents/pi_once/cancel") { cancel(); return Response.json({ id: "pi_once", livemode: false, status: "canceled" }); }
+    throw Error("Unexpected settlement request");
+  };
+  const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
+  expect(await provider.settlePayment("cs_once")).toBe(safe);
+  expect(cancel).toHaveBeenCalledTimes(safe ? 1 : 0);
+});
+
 it.each(["usd", "eur"])("verifies a full monthly payment in the subscription's %s currency", async currency => {
   const price = { id: "price_monthly", livemode: false, active: true, currency: "usd", unit_amount: 50000,
     recurring: { interval: "month", interval_count: 1 }, tax_behavior: "exclusive",

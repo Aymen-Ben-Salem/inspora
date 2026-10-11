@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
     userId: "owner-a" as string | null,
   },
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/sponsor/start" }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => state.auth,
   SignOutButton: ({
@@ -47,6 +48,7 @@ const preparation = (owner: string, saved = false) => ({
               id: "icon-a",
               kind: "icon",
               url: "/api/sponsorship/assets/icon-a",
+              contentType: "image/png", sizeBytes: 12, width: 64, height: 64, digest: "a".repeat(64),
             },
           ],
         },

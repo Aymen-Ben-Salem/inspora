@@ -1032,6 +1032,7 @@ export const sponsorAccounts = pgTable("sponsor_accounts", {
   recoveryDeadline: timestamp("recovery_deadline", { withTimezone: true, mode: "date" }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
   billingCurrency: text("billing_currency").default("usd").notNull(),
+  billingMode: text("billing_mode").$type<import("@/features/sponsorship/purchase-mode").SponsorBillingMode>().default("subscription").notNull(),
   billingInterval: text("billing_interval").default("day").notNull(),
   billingIntervalCount: integer("billing_interval_count").default(30).notNull(),
   ...timestamps,
@@ -1040,6 +1041,7 @@ export const sponsorAccounts = pgTable("sponsor_accounts", {
   uniqueIndex("sponsor_accounts_id_owner_unique").on(t.id, t.ownerUserId),
   uniqueIndex("sponsor_accounts_subscription_unique").on(t.stripeSubscriptionId),
   check("sponsor_accounts_state_valid", sql`${t.state} in ('active','recovery','inactive','revoked','deleting')`),
+  check("sponsor_accounts_billing_mode_valid", sql`${t.billingMode} in ('one_time','subscription')`),
   check("sponsor_accounts_billing_terms_valid", sql`(${t.billingCurrency} in ('usd','eur') and ${t.billingInterval} = 'month' and ${t.billingIntervalCount} = 1) or (${t.billingCurrency} = 'usd' and ${t.billingInterval} = 'day' and ${t.billingIntervalCount} = 30)`),
 ]);
 
@@ -1053,6 +1055,7 @@ export const sponsorCheckouts = pgTable("sponsor_checkouts", {
   stripeSessionId: text("stripe_session_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   priceId: text("price_id"),
+  billingMode: text("billing_mode").$type<import("@/features/sponsorship/purchase-mode").SponsorBillingMode>().default("subscription").notNull(),
   paymentReceivedAt: timestamp("payment_received_at", { withTimezone: true, mode: "date" }),
   paidInvoiceId: text("paid_invoice_id"),
   releasedAt: timestamp("released_at", { withTimezone: true, mode: "date" }),
@@ -1066,6 +1069,7 @@ export const sponsorCheckouts = pgTable("sponsor_checkouts", {
   uniqueIndex("sponsor_checkouts_one_open_per_owner").on(t.ownerUserId).where(sql`${t.state} in ('preparing','ready','reserved')`),
   index("sponsor_checkouts_expiry_idx").on(t.state, t.expiresAt),
   check("sponsor_checkouts_state_valid", sql`${t.state} in ('preparing','ready','reserved','expired','completed')`),
+  check("sponsor_checkouts_billing_mode_valid", sql`${t.billingMode} in ('one_time','subscription')`),
   check("sponsor_checkouts_revision_valid", sql`${t.revision} >= 0`),
   foreignKey({ name: "sponsor_checkouts_campaign_owner_fk", columns: [t.campaignId, t.ownerUserId], foreignColumns: [sponsors.id, sponsors.ownerUserId] }),
 ]);

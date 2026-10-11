@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/sponsor/start" }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: false }),
   SignOutButton: ({ children }: { children: import("react").ReactNode }) => children,
@@ -23,6 +24,6 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).toContain("Feed · image, video or brand card");
   expect(html).toContain("Detail sidebar · full wordmark");
   expect(html).toContain("Wordmark not imported");
-  expect(html).toContain('href="/sponsor/dashboard"');
+  expect(html).toContain('href="/sponsor/dashboard?billing=one_time"');
   expect(html).toContain("Open sponsorship dashboard");
 });

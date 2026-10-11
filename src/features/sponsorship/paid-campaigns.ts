@@ -24,7 +24,7 @@ import type {
   SponsorUpload,
   SponsorshipResult,
 } from "./types";
-type CampaignList = { campaigns: OwnedCampaign[]; readonly: boolean };
+type CampaignList = { ownerUserId: string; campaigns: OwnedCampaign[]; readonly: boolean };
 const denied = (
   code: "forbidden" | "conflict" | "invalid_input",
   message: string,
@@ -188,6 +188,7 @@ export function createPaidCampaignService(deps: {
           value: {
             campaigns: await Promise.all(rows.map((row) => view(tx, row))),
             readonly: account.state === "inactive",
+            ownerUserId: owner,
           },
         };
       }),

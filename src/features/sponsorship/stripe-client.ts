@@ -6,6 +6,7 @@ import {
   type SponsorPrice,
 } from "./billing";
 import { validatePreviewSponsorshipEnvironment } from "../../../scripts/lib/sponsorship-environment";
+import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
 
 export type CheckoutSession = {
   id: string;
@@ -14,14 +15,16 @@ export type CheckoutSession = {
   subscriptionId: string | null;
   checkoutId: string;
   expiresAt: number;
+  billingMode: SponsorBillingMode;
 };
 export type BillingProvider = {
-  price(id: string): Promise<SponsorPrice>;
+  price(id: string, billingMode?: SponsorBillingMode): Promise<SponsorPrice>;
   createCheckout(input: {
     checkoutId: string;
     priceId: string;
     key: string;
     expiresAt: number;
+    billingMode?: SponsorBillingMode;
   }): Promise<CheckoutSession>;
   session(id: string): Promise<CheckoutSession>;
   findCheckout(
@@ -30,6 +33,8 @@ export type BillingProvider = {
   ): Promise<CheckoutSession | null>;
   expireSession(id: string): Promise<CheckoutSession>;
   observe(subscriptionId: string): Promise<BillingObservation>;
+  observePayment(sessionId: string): Promise<BillingObservation>;
+  settlePayment(sessionId: string): Promise<boolean>;
   terminate(subscriptionId: string): Promise<boolean>;
   portal(customerId: string): Promise<string>;
   eventTarget(eventType: string, objectId: string): Promise<string | null>;
@@ -40,7 +45,7 @@ export function stripeClient() {
     throw new Error("Stripe test configuration is unavailable.");
   return new Stripe(key, { maxNetworkRetries: 2, timeout: 10000 });
 }
-export function stripeCheckoutConfigured() {
+export function stripeCheckoutConfigured(billingMode: SponsorBillingMode = "subscription") {
   try {
     validatePreviewSponsorshipEnvironment(process.env);
   } catch {
@@ -48,7 +53,7 @@ export function stripeCheckoutConfigured() {
   }
   return Boolean(
     process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_") &&
-    process.env.STRIPE_SPONSOR_PRICE_ID?.startsWith("price_") &&
+    (billingMode === "one_time" ? process.env.STRIPE_SPONSOR_ONE_TIME_PRICE_ID : process.env.STRIPE_SPONSOR_PRICE_ID)?.startsWith("price_") &&
     process.env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_") &&
     process.env.STRIPE_SPONSOR_PORTAL_CONFIGURATION_ID?.startsWith("bpc_"),
   );
@@ -91,8 +96,8 @@ function priceView(p: Stripe.Price, currency = p.currency): SponsorPrice {
 }
 function sessionView(s: Stripe.Checkout.Session): CheckoutSession {
   testObject(s);
-  if (s.mode !== "subscription")
-    throw new Error("A subscription checkout is required.");
+  if (!["subscription", "payment"].includes(s.mode))
+    throw new Error("A sponsor payment checkout is required.");
   return {
     id: s.id,
     status: s.status,
@@ -100,26 +105,31 @@ function sessionView(s: Stripe.Checkout.Session): CheckoutSession {
     subscriptionId: idOf(s.subscription),
     checkoutId: s.client_reference_id ?? "",
     expiresAt: s.expires_at * 1000,
+    billingMode: s.mode === "payment" ? "one_time" : "subscription",
   };
 }
 export function createStripeProvider(stripe: Stripe): BillingProvider {
   return {
-    async price(id) {
+    async price(id, billingMode = "subscription") {
       const p = priceView(await stripe.prices.retrieve(id, { expand: ["currency_options"] }));
-      validateSponsorPrice(p, id);
+      validateSponsorPrice(p, id, true, billingMode);
       return p;
     },
     async createCheckout(input) {
-      validateSponsorPrice(priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] })), input.priceId);
+      const once = input.billingMode === "one_time";
+      validateSponsorPrice(priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] })), input.priceId, true, input.billingMode);
       const session = await stripe.checkout.sessions.create(
         {
-          mode: "subscription",
+          mode: once ? "payment" : "subscription",
           adaptive_pricing: { enabled: false },
           client_reference_id: input.checkoutId,
           metadata: { sponsor_checkout_id: input.checkoutId },
-          subscription_data: {
+          ...(once ? { customer_creation: "always" as const,
+            invoice_creation: { enabled: true, invoice_data: { metadata: { sponsor_checkout_id: input.checkoutId } } },
+            payment_intent_data: { metadata: { sponsor_checkout_id: input.checkoutId } },
+          } : { subscription_data: {
             metadata: { sponsor_checkout_id: input.checkoutId },
-          },
+          } }),
           line_items: [{ price: input.priceId, quantity: 1 }],
           allowed_payment_method_types: ["card"],
           billing_address_collection: "required",
@@ -131,7 +141,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           custom_text: {
             submit: {
               message:
-                "Business or professional promotion. USD 500 or EUR 500 before applicable tax, renewing monthly. Cancel future renewal in Billing.",
+                once ? "Business or professional promotion. USD 500 or EUR 500 before applicable tax for one calendar month. Single payment, no automatic renewal." : "Business or professional promotion. USD 500 or EUR 500 before applicable tax, renewing monthly. Cancel future renewal in Billing.",
             },
           },
           automatic_tax: {
@@ -176,6 +186,70 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       return s.status === "open"
         ? sessionView(await stripe.checkout.sessions.expire(id))
         : sessionView(s);
+    },
+    async observePayment(sessionId) {
+      const s = await stripe.checkout.sessions.retrieve(sessionId);
+      testObject(s);
+      if (s.mode !== "payment" || s.subscription || !s.client_reference_id ||
+        s.metadata?.sponsor_checkout_id !== s.client_reference_id)
+        throw new Error("Single-payment checkout binding mismatch.");
+      const lines = await stripe.checkout.sessions.listLineItems(s.id, { limit: 100 });
+      const line = lines.data[0];
+      if (lines.has_more || lines.data.length !== 1 || line.quantity !== 1 || !line.price ||
+        line.amount_subtotal !== 50000 || line.amount_discount || s.amount_subtotal !== 50000 ||
+        s.total_details?.amount_discount || !s.currency || line.currency !== s.currency ||
+        s.amount_total !== 50000 + (s.total_details?.amount_tax ?? 0))
+        throw new Error("Unexpected single-payment amount or line items.");
+      const source = await stripe.prices.retrieve(line.price.id, { expand: ["currency_options"] });
+      const price = priceView(source, s.currency);
+      validateSponsorPrice(price, line.price.id, false, "one_time");
+      const result: BillingObservation = { billingMode: "one_time", subscriptionId: null,
+        checkoutId: s.client_reference_id, customerId: idOf(s.customer) ?? "", livemode: false,
+        price, status: "pending", cancelAtPeriodEnd: true, invoices: [] };
+      const intentId = idOf(s.payment_intent);
+      if (!intentId) {
+        if (s.payment_status === "paid") throw new Error("Verified payment intent required.");
+        return result;
+      }
+      const intent = await stripe.paymentIntents.retrieve(intentId);
+      testObject(intent);
+      if (intent.metadata.sponsor_checkout_id !== s.client_reference_id || intent.currency !== s.currency ||
+        intent.amount !== s.amount_total || idOf(intent.customer) !== idOf(s.customer))
+        throw new Error("Single-payment intent binding mismatch.");
+      result.status = intent.status;
+      if (intent.status === "succeeded" && (s.status !== "complete" || s.payment_status !== "paid"))
+        throw new Error("Payment completion still needs reconciliation.");
+      if (s.status !== "complete" || s.payment_status !== "paid" || intent.status !== "succeeded") return result;
+      if (!result.customerId || intent.amount_received !== s.amount_total || !idOf(intent.latest_charge))
+        throw new Error("Full single payment required.");
+      const charge = await stripe.charges.retrieve(idOf(intent.latest_charge)!);
+      testObject(charge);
+      if (charge.status !== "succeeded" || !charge.paid || !charge.captured || charge.amount !== s.amount_total ||
+        charge.amount_captured !== s.amount_total || charge.currency !== s.currency ||
+        idOf(charge.payment_intent) !== intent.id || idOf(charge.customer) !== result.customerId)
+        throw new Error("Verified captured single payment required.");
+      const start = charge.created * 1000;
+      const refunded = charge.amount_refunded > 0;
+      // Keep a verified refund receipt for audited resolution and replay checks.
+      // It never qualifies as a paid invoice that grants entitlement.
+      result.invoices = [{ id: refunded ? `refund:${intent.id}` : intent.id, paid: !refunded, refunded, amountPaid: intent.amount_received, currency: s.currency,
+        priceId: source.id, periodStart: start, periodEnd: calendarMonthEnd(start), paidAt: start }];
+      return result;
+    },
+    async settlePayment(sessionId) {
+      const s = await stripe.checkout.sessions.retrieve(sessionId);
+      testObject(s);
+      if (s.mode !== "payment" || s.status === "open") return false;
+      const intentId = idOf(s.payment_intent);
+      if (!intentId) return s.status === "expired";
+      const intent = await stripe.paymentIntents.retrieve(intentId);
+      testObject(intent);
+      if (intent.metadata.sponsor_checkout_id !== s.client_reference_id) throw new Error("Payment binding mismatch.");
+      if (intent.status === "processing") return false;
+      if (["succeeded", "canceled"].includes(intent.status)) return true;
+      const canceled = await stripe.paymentIntents.cancel(intent.id, {}, { idempotencyKey: `sponsor-stop-payment:${intent.id}` });
+      testObject(canceled);
+      return canceled.status === "canceled";
     },
     async observe(subscriptionId) {
       const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -339,6 +413,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       else if (type.startsWith("invoice.")) {
         const invoice = await stripe.invoices.retrieve(objectId);
         testObject(invoice);
+        if (invoice.metadata?.sponsor_checkout_id) return invoice.metadata.sponsor_checkout_id;
         subscriptionId = idOf(
           invoice.parent?.subscription_details?.subscription,
         );

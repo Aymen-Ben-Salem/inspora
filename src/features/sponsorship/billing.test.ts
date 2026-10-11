@@ -38,6 +38,16 @@ const paid: BillingObservation = {
   ],
 };
 describe("verified sponsor billing", () => {
+  it("expires a single payment at one calendar month without renewal recovery", () => {
+    const monthEnd = Date.UTC(2026, 10, 10);
+    const once = { ...paid, billingMode: "one_time" as const, subscriptionId: null,
+      price: { ...price, interval: null, intervalCount: null },
+      invoices: [{ ...paid.invoices[0], periodEnd: monthEnd }] };
+    expect(billingDecision(once, { paidThrough: null, periodStart: null }, start, price.id))
+      .toMatchObject({ state: "active", paidThrough: monthEnd });
+    expect(billingDecision(once, { paidThrough: monthEnd, periodStart: start }, monthEnd, price.id))
+      .toMatchObject({ state: "inactive", terminate: true, recoveryDeadline: null });
+  });
   it.each([
     ["usd", Date.UTC(2026, 0, 31), Date.UTC(2026, 1, 28), Date.UTC(2026, 0, 31)],
     ["eur", Date.UTC(2026, 1, 28), Date.UTC(2026, 2, 31), Date.UTC(2026, 0, 31)],

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { OwnedCampaign } from "@/features/sponsorship/types";
 import { sponsorRequest } from "./upload-operations";
@@ -12,6 +13,7 @@ export function CampaignList({
 }: {
   initial: { campaigns: OwnedCampaign[]; readonly: boolean };
 }) {
+  const router = useRouter();
   const [data, setData] = useState(initial),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
@@ -20,6 +22,11 @@ export function CampaignList({
     campaign: OwnedCampaign;
   }>();
   const current = data.campaigns.find((c) => c.state === "published");
+  const [previousInitial, setPreviousInitial] = useState(initial);
+  if (initial !== previousInitial) {
+    setPreviousInitial(initial);
+    setData(initial);
+  }
   async function apply() {
     if (!confirm || data.readonly || busy) return;
     setBusy(true);
@@ -33,6 +40,7 @@ export function CampaignList({
       );
       setData(await sponsorRequest("campaigns", "GET"));
       window.dispatchEvent(new Event("sponsorship-changed"));
+      router.refresh();
       setConfirm(undefined);
       setMessage(
         kind === "publish"
@@ -60,7 +68,7 @@ export function CampaignList({
         </div>
         {!data.readonly && (
           <Link
-            prefetch={false}
+            prefetch={true}
             className={`${button} bg-[#262626] text-white`}
             href={"/sponsor/campaigns/new" as Route}
           >
@@ -68,7 +76,7 @@ export function CampaignList({
           </Link>
         )}
       </div>
-      <Link prefetch={false} href={"/sponsor/dashboard" as Route} className="focus-ring mt-6 inline-flex min-h-11 items-center text-sm text-[#767676] underline underline-offset-4">
+      <Link prefetch={true} href={"/sponsor/dashboard" as Route} className="focus-ring mt-6 inline-flex min-h-11 items-center text-sm text-[#767676] underline underline-offset-4">
         Back to your sponsorship
       </Link>
       <p className="mt-6 text-sm leading-6 text-[#767676]">
@@ -101,7 +109,7 @@ export function CampaignList({
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link
-                  prefetch={false}
+                  prefetch={true}
                   href={`/sponsor/campaigns/${c.id}` as Route}
                   className={button}
                 >

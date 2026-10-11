@@ -1,11 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 import { SponsorDashboard, type SponsorDashboardData } from "./dashboard";
 const initial: SponsorDashboardData = {
+  ownerUserId: "owner",
   account: null,
   checkout: {
     id: "checkout",
     state: "reserved",
+    billingMode: "subscription",
     paymentReceived: false,
     exceptionCode: null,
   },
@@ -28,6 +31,7 @@ it("shows paid dates, finishing activation and former read-only billing", () => 
     cancelAtPeriodEnd: true,
     billingAvailable: true,
     billingCurrency: "usd",
+    billingMode: "subscription" as const,
     billingInterval: "day",
     billingIntervalCount: 30,
   };
@@ -58,7 +62,7 @@ it("shows paid dates, finishing activation and former read-only billing", () => 
 it("shows the billed EUR monthly terms while keeping original USD 30-day terms for existing accounts", () => {
   const account = { state: "active", paidThrough: "2026-11-10T12:00:00Z", periodStart: "2026-10-10T12:00:00Z",
     recoveryDeadline: null, cancelAtPeriodEnd: false, billingAvailable: true,
-    billingCurrency: "eur", billingInterval: "month", billingIntervalCount: 1 };
+    billingCurrency: "eur", billingMode: "subscription" as const, billingInterval: "month", billingIntervalCount: 1 };
   const html = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, account }} />);
   expect(html).toContain("EUR 500 before applicable tax");
   expect(html).toContain("monthly");

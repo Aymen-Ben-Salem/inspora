@@ -5,7 +5,7 @@ import { sponsorApiResponse } from "@/features/sponsorship/api-response";
 export async function POST(request: Request) {
   return sponsorApiResponse(async () => {
     const parsed = z
-      .object({ checkoutId: z.uuid() })
+      .object({ checkoutId: z.uuid(), billingMode: z.enum(["one_time", "subscription"]) })
       .strict()
       .safeParse(await readSponsorJson(request));
     if (!parsed.success)
@@ -14,6 +14,6 @@ export async function POST(request: Request) {
         code: "invalid_input",
         message: "An owned preparation is required.",
       };
-    return startSponsorCheckout(parsed.data.checkoutId);
+    return startSponsorCheckout(parsed.data.checkoutId, parsed.data.billingMode);
   });
 }

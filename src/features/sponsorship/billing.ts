@@ -1,3 +1,4 @@
+import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
 export const SPONSOR_RECOVERY_MS = 72 * 3600000;
 export type SponsorPrice = {
   id: string;
@@ -19,9 +20,11 @@ export type PaidInvoice = {
   periodStart: number;
   periodEnd: number;
   paidAt?: number;
+  refunded?: boolean;
 };
 export type BillingObservation = {
-  subscriptionId: string;
+  subscriptionId: string | null;
+  billingMode?: SponsorBillingMode;
   customerId: string;
   checkoutId: string;
   livemode: boolean;
@@ -44,8 +47,10 @@ export function validateSponsorPrice(
   price: SponsorPrice,
   expectedId: string,
   requireActive = true,
+  billingMode: SponsorBillingMode = "subscription",
 ) {
   const monthly = price.interval === "month" && price.intervalCount === 1;
+  const once = price.interval === null && price.intervalCount === null;
   // Existing pinned USD subscriptions keep their original terms. This path
   // cannot start a new checkout with the retired 30-day price.
   const legacy = !requireActive && price.currency === "usd" &&
@@ -56,7 +61,7 @@ export function validateSponsorPrice(
     (requireActive && !price.active) ||
     !["usd", "eur"].includes(price.currency) ||
     price.unitAmount !== 50000 ||
-    (!monthly && !legacy) ||
+    (billingMode === "one_time" ? !once : (!monthly && !legacy)) ||
     (requireActive && (price.currency !== "usd" ||
       !price.currencyOptions || Object.keys(price.currencyOptions).length !== 2 ||
       ["usd", "eur"].some(currency => price.currencyOptions?.[currency]?.unitAmount !== 50000 ||
@@ -64,10 +69,12 @@ export function validateSponsorPrice(
     price.taxBehavior !== "exclusive"
   )
     throw new Error(
-      "A test-mode USD 500 or EUR 500 monthly price is required.",
+      "A test-mode USD 500 or EUR 500 price with matching payment terms is required.",
     );
 }
 function validPaidPeriod(invoice: PaidInvoice, observation: BillingObservation) {
+  if (observation.billingMode === "one_time")
+    return invoice.periodEnd === calendarMonthEnd(invoice.periodStart);
   if (observation.price.interval === "day")
     return invoice.periodEnd - invoice.periodStart === 30 * 86400000;
   if (!Number.isFinite(observation.billingAnchor)) return false;
@@ -87,7 +94,7 @@ export function billingDecision(
   now: number,
   expectedPrice: string,
 ): BillingDecision {
-  validateSponsorPrice(observation.price, expectedPrice, false);
+  validateSponsorPrice(observation.price, expectedPrice, false, observation.billingMode);
   if (observation.livemode)
     throw new Error("Live billing is unavailable in preview.");
   const valid = observation.invoices.filter(
@@ -99,6 +106,20 @@ export function billingDecision(
       validPaidPeriod(i, observation) &&
       i.periodStart <= now,
   );
+  if (observation.billingMode === "one_time") {
+    if (observation.subscriptionId || valid.length > 1) throw new Error("Unexpected single-payment billing.");
+    const invoice = valid[0];
+    const refunded = observation.invoices.find(i => i.refunded && i.priceId === expectedPrice &&
+      i.currency === observation.price.currency && validPaidPeriod(i, observation));
+    if (refunded) return { state: "inactive", paidThrough: previous.paidThrough ?? refunded.periodEnd,
+      periodStart: previous.periodStart ?? refunded.periodStart, invoiceId: null, recoveryDeadline: null, terminate: true };
+    if (invoice && previous.paidThrough && (invoice.periodEnd !== previous.paidThrough || invoice.periodStart !== previous.periodStart))
+      throw new Error("A single payment cannot change its paid period.");
+    const paidThrough = invoice?.periodEnd ?? previous.paidThrough;
+    return { state: !paidThrough ? "pending" : paidThrough > now ? "active" : "inactive",
+      paidThrough, periodStart: invoice?.periodStart ?? previous.periodStart,
+      invoiceId: invoice?.id ?? null, recoveryDeadline: null, terminate: Boolean(paidThrough && paidThrough <= now) };
+  }
   let paidThrough = previous.paidThrough,
     periodStart = previous.periodStart,
     invoiceId: string | null = null;

@@ -4,6 +4,7 @@ import { sponsorAccounts, sponsorCheckouts, sponsorSeats } from "@/db/schema";
 import { lockSponsorOwner, withSponsorWrite } from "./repository";
 import { queueSponsorJob } from "./jobs-store";
 import type { SponsorshipResult } from "./types";
+import type { SponsorBillingMode } from "./purchase-mode";
 export type ReservedCheckout = typeof sponsorCheckouts.$inferSelect & {
   reservedUntil: Date;
 };
@@ -13,6 +14,7 @@ export async function reserveSponsorSeat(
   checkoutId: string,
   priceId: string,
   now = new Date(),
+  billingMode: SponsorBillingMode = "subscription",
 ): Promise<SponsorshipResult<ReservedCheckout>> {
   return withSponsorWrite(async (tx) => {
     await lockSponsorOwner(tx, owner);
@@ -61,11 +63,14 @@ export async function reserveSponsorSeat(
       existing?.state === "reserved" &&
       existing.reservedUntil &&
       existing.reservedUntil > now
-    )
+    ) {
+      if (p.billingMode !== billingMode || p.priceId !== priceId)
+        return { ok: false, code: "conflict", message: "This checkout already has reserved payment terms." };
       return {
         ok: true,
         value: { ...p, reservedUntil: existing.reservedUntil },
       };
+    }
     if (p.state !== "ready" || p.expiresAt <= now)
       return {
         ok: false,
@@ -93,7 +98,7 @@ export async function reserveSponsorSeat(
       .where(eq(sponsorSeats.slot, free.slot));
     const [pinned] = await tx
       .update(sponsorCheckouts)
-      .set({ state: "reserved", priceId })
+      .set({ state: "reserved", priceId, billingMode })
       .where(eq(sponsorCheckouts.id, p.id))
       .returning();
     await queueSponsorJob(tx, "reconcile", p.id, `checkout:${p.id}`);

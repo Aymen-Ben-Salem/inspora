@@ -6,6 +6,7 @@ import { beginSponsorPreparation } from "@/features/sponsorship/service";
 import { readSponsorAccountForOwner } from "@/features/sponsorship/repository";
 import { sponsorPrivateHeaders } from "@/features/sponsorship/config";
 import { SPONSOR_INTENT_COOKIE } from "@/features/sponsorship/onboarding";
+import { readSponsorSecurity } from "@/features/sponsorship/security";
 export async function GET(request: Request) {
   try {
     if (!isClerkConfigured())
@@ -15,6 +16,8 @@ export async function GET(request: Request) {
       return NextResponse.redirect(
         new URL("/api/sponsorship/intent", request.url),
       );
+    if ((await readSponsorSecurity()).state !== "ready")
+      return NextResponse.redirect(new URL("/sponsor/security", request.url), { headers: sponsorPrivateHeaders });
     const capabilities = await readAccountCapabilities(userId);
     const account = await readSponsorAccountForOwner(userId);
     const returning = Boolean(

@@ -24,7 +24,7 @@ it("preserves signed sponsor intent at the first callback when the feature is di
   vi.stubEnv("SPONSORSHIP_ENABLED", "false");
   try {
     expect(await readAccountCapabilities("verified-owner")).toMatchObject({
-      viewer: false,
+      viewer: true,
       sponsor: true,
     });
     expect(adapters.bind).toHaveBeenCalledWith("verified-owner");

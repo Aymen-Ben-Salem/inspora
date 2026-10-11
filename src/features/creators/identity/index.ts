@@ -46,7 +46,7 @@ export async function ensureCreatorForOwner(principal: CreatorOwnerPrincipal): P
   const ownerUserId = principal.userId;
   if (!ownerUserId?.trim()) throw new Error("Sign in to manage your creator profile.");
   if (!(await readAccountCapabilities(ownerUserId)).viewer) {
-    throw new Error("This identity has sponsor access only.");
+    throw new Error("This account is not active.");
   }
   const client = await clerkClient();
   const user = await client.users.getUser(ownerUserId);

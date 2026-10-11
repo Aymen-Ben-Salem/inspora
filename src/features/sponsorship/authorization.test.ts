@@ -1,21 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { accountCapabilities } from "./capabilities";
 describe("server-owned capabilities", () => {
-  it("keeps sponsor-only identity separate after preparation expiry and navigation away", () => {
+  it("gives sponsors ordinary account features before and after paid access expires", () => {
     expect(
       accountCapabilities({
         profile: null,
         identity: "allowed",
         account: null,
       }),
-    ).toEqual({ viewer: false, sponsor: true, sponsorReadonly: false });
+    ).toEqual({ viewer: true, sponsor: true, sponsorReadonly: false });
     expect(
       accountCapabilities({
         profile: null,
         identity: "allowed",
         account: "inactive",
       }),
-    ).toEqual({ viewer: false, sponsor: true, sponsorReadonly: true });
+    ).toEqual({ viewer: true, sponsor: true, sponsorReadonly: true });
+  });
+  it("does not reactivate a suspended or deleting ordinary profile through sponsorship", () => {
+    for (const profile of ["suspended", "deleting", "deleted"]) {
+      expect(
+        accountCapabilities({ profile, identity: "allowed", account: "active" })
+          .viewer,
+      ).toBe(false);
+    }
   });
   it("retains ordinary and dual-capability behavior and denies revoked sponsor access", () => {
     expect(
@@ -36,5 +44,12 @@ describe("server-owned capabilities", () => {
         account: "active",
       }).sponsor,
     ).toBe(false);
+    expect(
+      accountCapabilities({
+        profile: null,
+        identity: "revoked",
+        account: "active",
+      }).viewer,
+    ).toBe(true);
   });
 });

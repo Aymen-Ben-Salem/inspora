@@ -9,11 +9,14 @@ const { authState, userState, viewerProfile } = vi.hoisted(() => ({
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  SignOutButton: ({children}: {children: import("react").ReactNode}) => children,
+  SignOutButton: ({ children }: { children: import("react").ReactNode }) =>
+    children,
   useAuth: () => authState(),
   useUser: () => userState(),
 }));
-vi.mock("../submissions/submission-provider", () => ({ useSubmission: () => ({ openSubmission: vi.fn() }) }));
+vi.mock("../submissions/submission-provider", () => ({
+  useSubmission: () => ({ openSubmission: vi.fn() }),
+}));
 
 vi.mock("../profile/use-viewer-profile", () => ({
   useViewerProfile: (userId: string | undefined) => viewerProfile(userId),
@@ -29,9 +32,13 @@ describe("PublicAuthControlsClient", () => {
     "does not flash the Clerk avatar while the saved photo loads on %s",
     (variant) => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: true });
-      userState.mockReturnValue({ user: { id: "viewer-a", imageUrl: "https://img.example/clerk.jpg" } });
+      userState.mockReturnValue({
+        user: { id: "viewer-a", imageUrl: "https://img.example/clerk.jpg" },
+      });
       viewerProfile.mockReturnValue({ profile: null, isLoading: true });
-      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
       expect(html).not.toContain("clerk.jpg");
       expect(html).toContain('href="/profile"');
     },
@@ -49,7 +56,9 @@ describe("PublicAuthControlsClient", () => {
       authState.mockReturnValue({ isLoaded: false, isSignedIn: undefined });
       userState.mockReturnValue({ user: null });
 
-      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
 
       expect(html).not.toContain("Sign in");
       expect(html).not.toContain("Sign up");
@@ -64,7 +73,9 @@ describe("PublicAuthControlsClient", () => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: false });
       userState.mockReturnValue({ user: null });
 
-      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
 
       expect(html).toContain("Sign in");
       expect(html).toContain('href="/sign-in"');
@@ -83,7 +94,9 @@ describe("PublicAuthControlsClient", () => {
       });
       userState.mockReturnValue({ user: null });
 
-      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
 
       expect(html).toContain("Sign in");
       expect(html).not.toContain("Sign up");
@@ -96,10 +109,15 @@ describe("PublicAuthControlsClient", () => {
     (variant) => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: true });
       userState.mockReturnValue({
-        user: { fullName: "Ada Lovelace", imageUrl: "https://img.example/ada.jpg" },
+        user: {
+          fullName: "Ada Lovelace",
+          imageUrl: "https://img.example/ada.jpg",
+        },
       });
 
-      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
 
       expect(html).toContain('href="/profile"');
       expect(html).toContain('aria-label="Account menu"');
@@ -114,28 +132,48 @@ describe("PublicAuthControlsClient", () => {
     (variant) => {
       authState.mockReturnValue({ isLoaded: true, isSignedIn: true });
       userState.mockReturnValue({
-        user: { id: "viewer-a", fullName: "Clerk name", imageUrl: "https://img.example/clerk.jpg" },
+        user: {
+          id: "viewer-a",
+          fullName: "Clerk name",
+          imageUrl: "https://img.example/clerk.jpg",
+        },
       });
       viewerProfile.mockReturnValue({
-        profile: { name: "Saved name", avatarUrl: "https://img.example/saved.jpg" },
+        profile: {
+          name: "Saved name",
+          avatarUrl: "https://img.example/saved.jpg",
+        },
         isLoading: false,
       });
-      const html = renderToStaticMarkup(<PublicAuthControlsClient variant={variant} />);
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
       expect(html).toContain("saved.jpg");
       expect(html).not.toContain("clerk.jpg");
       expect(viewerProfile).toHaveBeenCalledWith("viewer-a");
       expect(html).toContain('href="/profile"');
     },
   );
-  it("shows sponsor preparation without creator controls for sponsor-only access", () => {
-    authState.mockReturnValue({isLoaded:true,isSignedIn:true});
-    userState.mockReturnValue({user:{id:"sponsor",imageUrl:"https://img.example/sponsor.jpg"}});
-    viewerProfile.mockReturnValue({profile:null,isLoading:false,capabilities:{viewer:false,sponsor:true,sponsorReadonly:false}});
-    const html = renderToStaticMarkup(<PublicAuthControlsClient variant="desktop" />);
-    expect(html).toContain("Sponsorship dashboard");
-    expect(html).toContain('href="/sponsor/dashboard#billing"');
-    expect(html).not.toContain('href="/profile"');
-    expect(html).not.toContain('href="/saved"');
-    expect(html).not.toContain("Submit work");
-  });
+  it.each(["desktop" as const, "mobile" as const])(
+    "keeps ordinary controls alongside sponsorship tools on %s",
+    (variant) => {
+      authState.mockReturnValue({ isLoaded: true, isSignedIn: true });
+      userState.mockReturnValue({
+        user: { id: "sponsor", imageUrl: "https://img.example/sponsor.jpg" },
+      });
+      viewerProfile.mockReturnValue({
+        profile: null,
+        isLoading: false,
+        capabilities: { viewer: true, sponsor: true, sponsorReadonly: false },
+      });
+      const html = renderToStaticMarkup(
+        <PublicAuthControlsClient variant={variant} />,
+      );
+      expect(html).toContain("Sponsorship dashboard");
+      expect(html).toContain('href="/sponsor/dashboard#billing"');
+      expect(html).toContain('href="/profile"');
+      expect(html).toContain('href="/saved"');
+      expect(html).toContain("Submit work");
+    },
+  );
 });

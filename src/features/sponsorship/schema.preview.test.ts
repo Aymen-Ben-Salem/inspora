@@ -26,10 +26,11 @@ const fixtures = vi.hoisted(() => ({
   deleted: [] as string[],
 }));
 vi.mock("@clerk/nextjs/server", () => ({
-  auth: async () => ({ userId: fixtures.owner }),
+    auth: async () => ({ userId: fixtures.owner, sessionClaims: { fva: [0, 0] } }),
   clerkClient: async () => ({
     users: {
       getUser: async () => ({
+        totpEnabled: true,
         primaryEmailAddress: {
           verification: { status: "verified" },
           emailAddress: "sponsor-fixture@example.invalid",
@@ -217,20 +218,18 @@ describe("ticket 01 on guarded disposable preview database", () => {
       withSponsorWrite((tx) => tx.insert(sponsorSeats).values({ slot: 5 })),
     ).rejects.toThrow();
   });
-  it("binds sponsor-only access and blocks creator bootstrap even with the feature off", async () => {
+  it("gives a sponsor one ordinary profile even with the sponsorship feature off", async () => {
     expect(await readAccountCapabilities(owners[0])).toEqual({
-      viewer: false,
+      viewer: true,
       sponsor: true,
       sponsorReadonly: false,
     });
-    await expect(ensureCreatorForOwner({ userId: owners[0] })).rejects.toThrow(
-      "sponsor access only",
-    );
+    const profile = await ensureCreatorForOwner({ userId: owners[0] });
     vi.stubEnv("SPONSORSHIP_ENABLED", "false");
     try {
-      await expect(
-        ensureCreatorForOwner({ userId: owners[0] }),
-      ).rejects.toThrow("sponsor access only");
+      expect((await ensureCreatorForOwner({ userId: owners[0] })).id).toBe(
+        profile.id,
+      );
     } finally {
       vi.stubEnv("SPONSORSHIP_ENABLED", "true");
     }
@@ -240,13 +239,13 @@ describe("ticket 01 on guarded disposable preview database", () => {
           .select()
           .from(profileAccounts)
           .where(inArray(profileAccounts.userId, owners.slice(0, 2))),
-      ).toEqual([]);
+      ).toHaveLength(1);
       expect(
         await tx
           .select()
           .from(creators)
           .where(inArray(creators.ownerUserId, owners.slice(0, 2))),
-      ).toEqual([]);
+      ).toMatchObject([{ id: profile.id, ownerUserId: owners[0] }]);
       expect(
         await tx
           .select()

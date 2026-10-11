@@ -33,12 +33,30 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-it("never bootstraps a creator for sponsor-only navigation away from the sponsor flow", async () => {
+it("does not bootstrap an inactive ordinary profile through sponsor access", async () => {
   const capabilities = { viewer: false, sponsor: true, sponsorReadonly: false };
   adapters.capabilities.mockResolvedValue(capabilities);
   const response = await GET();
   expect(await response.json()).toEqual({ sponsorOnly: true, capabilities });
   expect(adapters.ensure).not.toHaveBeenCalled();
+  expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+it("bootstraps the sponsor's ordinary profile without losing sponsorship tools", async () => {
+  const profile = {
+    id: "sponsor-profile",
+    name: "Sponsor",
+    username: "sponsor",
+  };
+  adapters.capabilities.mockResolvedValue({
+    viewer: true,
+    sponsor: true,
+    sponsorReadonly: false,
+  });
+  adapters.ensure.mockResolvedValue(profile);
+  const response = await GET();
+  expect(await response.json()).toEqual(profile);
+  expect(adapters.ensure).toHaveBeenCalledWith({ userId: "trusted-owner" });
+  expect(response.headers.get("X-Sponsor-Capability")).toBe("true");
   expect(response.headers.get("Cache-Control")).toContain("no-store");
 });
 afterEach(() => vi.restoreAllMocks());

@@ -30,6 +30,9 @@ vi.mock("@/storage/r2", async (importOriginal) => ({
   deleteR2StorageKeys: mocks.deleteKeys,
 }));
 vi.mock("./account-lifecycle", () => ({ requestAccountDeletion: mocks.deletion }));
+const security = vi.hoisted(() => ({ capabilities: vi.fn(), state: vi.fn() }));
+vi.mock("@/features/sponsorship/authorization", () => ({ readAccountCapabilities: security.capabilities }));
+vi.mock("@/features/sponsorship/security", () => ({ readSponsorSecurity: security.state }));
 
 import { requestOwnAccountDeletion, updateOwnProfile, completeOwnAvatarUpload, discardOwnAvatarUpload, createOwnAvatarUploadSignature } from "./actions";
 import { ProfileMutationError } from "@/features/creators/identity";
@@ -37,11 +40,27 @@ import { ProfileMutationError } from "@/features/creators/identity";
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.auth.mockResolvedValue({ userId: "trusted-owner" });
+  security.capabilities.mockResolvedValue({ viewer: true, sponsor: false });
+  security.state.mockResolvedValue({ state: "ready" });
   mocks.verify.mockResolvedValue({ storageKey: "creators/new.webp", url: "https://media.example/creators/new.webp" });
   mocks.deleteKeys.mockResolvedValue(undefined);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
+it("does not let sponsor deletion downgrade to email-only authentication after MFA removal", async () => {
+  mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => true });
+  security.capabilities.mockResolvedValue({ viewer: true, sponsor: true });
+  security.state.mockResolvedValue({ state: "setup_required" });
+  expect(await requestOwnAccountDeletion()).toMatchObject({ ok: false, code: "forbidden" });
+  expect(mocks.deletion).not.toHaveBeenCalled();
+});
+it("retains normal deletion for a sponsor with verified MFA", async () => {
+  mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => true });
+  security.capabilities.mockResolvedValue({ viewer: true, sponsor: true });
+  mocks.deletion.mockResolvedValue({ ok: true });
+  expect(await requestOwnAccountDeletion()).toEqual({ ok: true });
+  expect(mocks.deletion).toHaveBeenCalledWith("trusted-owner");
+});
 
 it("allows the profile API to refresh caches after committed profile entry and edits", async () => {
   mocks.update.mockImplementation(async () => { expect(mocks.revalidateTag).not.toHaveBeenCalled(); });

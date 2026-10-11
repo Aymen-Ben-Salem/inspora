@@ -297,8 +297,9 @@ function CampaignEditorContent({
       {!ready ? (
         <div className="mb-8 space-y-3 rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4">
           <p className="text-sm leading-6 text-[#767676]">
-            Verify your email to use website suggestions, upload assets and save
-            your private preparation. You can enter details before verifying.
+            Verify your email and secure your account with authenticator 2FA to
+            use website suggestions, upload assets and save your private
+            preparation. You can enter details before verifying.
           </p>
           <button
             type="button"

@@ -57,6 +57,7 @@ export function PublicAuthControlsClient({
           { label: "Submit work", onSelect: () => navigate(openSubmission) },
         ] : []),
         ...(capabilities?.sponsor ? [
+          { label: "Account security", href: "/sponsor/security" as Route },
           { label: "Sponsorship dashboard", href: "/sponsor/dashboard" as Route },
           { label: "Billing", href: "/sponsor/dashboard#billing" as Route },
         ] : []),

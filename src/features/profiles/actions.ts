@@ -29,6 +29,8 @@ import { requestAccountDeletion } from "./account-lifecycle";
 import { profileAccounts } from "@/db/schema";
 import { requireDatabase } from "@/db/client";
 import { eq } from "drizzle-orm";
+import { readAccountCapabilities } from "@/features/sponsorship/authorization";
+import { readSponsorSecurity } from "@/features/sponsorship/security";
 
 const avatarRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
@@ -149,6 +151,8 @@ export async function requestOwnAccountDeletion() {
     return reverificationError("strict");
   }
   try {
+    if ((await readAccountCapabilities(authentication.userId)).sponsor && (await readSponsorSecurity()).state !== "ready")
+      return { ok: false as const, code: "forbidden" as const, message: "Verify authenticator 2FA in Account security before deleting your sponsor account." };
     return await requestAccountDeletion(authentication.userId);
   } catch (error) {
     console.error("Account deletion request failed", error);

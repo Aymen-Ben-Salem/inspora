@@ -1,5 +1,4 @@
 import "server-only";
-import { auth, clerkClient } from "@clerk/nextjs/server";
 import { isClerkConfigured } from "@/auth/config";
 import { sponsorshipEnabled, sponsorshipWritesEnabled } from "./config";
 import { accountCapabilities, sponsorAccountCanWrite } from "./capabilities";
@@ -10,16 +9,14 @@ import {
 } from "./repository";
 import { hasSponsorIntent } from "./onboarding";
 import type { AccountCapabilities, SponsorActor } from "./types";
+import { readSponsorSecurity } from "./security";
 
 export async function verifiedSponsorOwner(
   mode: "read" | "write" = "read",
 ): Promise<string | null> {
   if (!isClerkConfigured() || !sponsorshipEnabled()) return null;
-  const { userId } = await auth();
-  if (!userId) return null;
-  const user = await (await clerkClient()).users.getUser(userId);
-  if (user.primaryEmailAddress?.verification?.status !== "verified")
-    return null;
+  const { userId, state } = await readSponsorSecurity();
+  if (!userId || state !== "ready") return null;
   const identity = await readIdentityCapabilities(userId);
   const capabilities = accountCapabilities(identity);
   return capabilities.sponsor &&
@@ -48,19 +45,12 @@ export async function readAccountCapabilities(
   }
   const intent = await hasSponsorIntent(userId);
   if (intent && !state.identity) {
-    // Bind the signed intent before any creator bootstrap. Authentication is still
+    // Bind the signed intent alongside ordinary profile access. Authentication is still
     // independently required; this cookie never grants upload/payment access.
     await bindSponsorIdentity(userId);
     state = { ...state, identity: "allowed" };
   }
-  const capabilities = accountCapabilities(state);
-  // Ordinary new-member bootstrap is retained unless sponsor intent/capability exists.
-  return {
-    ...capabilities,
-    viewer:
-      capabilities.viewer ||
-      (!state.identity && !state.account && !intent && !state.profile),
-  };
+  return accountCapabilities(state);
 }
 export async function requireSponsorActor(
   mode: "read" | "write",

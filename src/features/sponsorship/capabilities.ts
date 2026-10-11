@@ -11,7 +11,9 @@ export function accountCapabilities(input: {
     ["revoked", "deleting"].includes(input.identity ?? "") ||
     ["revoked", "deleting"].includes(input.account ?? "");
   return {
-    viewer: input.profile === "active",
+    // Sponsorship adds permissions to an ordinary account. Missing profiles are
+    // bootstrapped by the existing owner flow; suspended/deleting ones stay denied.
+    viewer: input.profile === null || input.profile === "active",
     sponsor:
       !denied && (input.identity === "allowed" || input.account !== null),
     sponsorReadonly: !denied && input.account === "inactive",

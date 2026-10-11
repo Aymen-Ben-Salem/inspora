@@ -83,9 +83,7 @@ const nameInput = () =>
 it("clears an owner's private campaign when switching to another owner or signing out", async () => {
   await act(async () => root.render(<CampaignEditor />));
   expect(nameInput().value).toBe("Owner A private campaign");
-  expect(
-    container.querySelector('[data-sign-out-redirect="/sponsor"]')?.textContent,
-  ).toBe("Sign out");
+  expect(container.textContent).not.toContain("Sign out");
   state.auth = { isLoaded: true, isSignedIn: true, userId: "owner-b" };
   await act(async () => root.render(<CampaignEditor />));
   expect(nameInput().value).toBe("");

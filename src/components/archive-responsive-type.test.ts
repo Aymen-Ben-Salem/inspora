@@ -14,8 +14,9 @@ const archiveControlFiles: Array<[string, string[]]> = [
   ],
   [
     "src/components/site-navbar-client.tsx",
-    ["archive-copy-type", "archive-menu-type"],
+    ["archive-copy-type"],
   ],
+  ["src/components/navbar-menu.tsx", ["archive-menu-type"]],
   ["src/components/view-filter.tsx", ["archive-control-type"]],
   ["src/components/websites/website-archive.tsx", ["archive-search-type"]],
 ];
@@ -45,15 +46,15 @@ describe("archive responsive typography", () => {
       "utf8",
     );
 
-    for (const [className, variable] of [
+    for (const [className, variable, fallback = ""] of [
       ["archive-copy-type", "archive-copy-size"],
       ["archive-control-type", "archive-control-size"],
-      ["archive-menu-type", "archive-menu-size"],
+      ["archive-menu-type", "archive-menu-size", ", 14px"],
       ["archive-search-type", "archive-search-size"],
       ["archive-switch-type", "archive-switch-size"],
     ]) {
       expect(styles).toContain(
-        `.${className} {\n  font-size: var(--${variable});\n}`,
+        `.${className} {\n  font-size: var(--${variable}${fallback});\n}`,
       );
     }
   });

@@ -68,25 +68,9 @@ export function CampaignList({
           </Link>
         )}
       </div>
-      <nav
-        aria-label="Sponsorship"
-        className="mt-6 flex gap-6 border-b border-[#f0f0f0] pb-4 text-sm"
-      >
-        <a className="focus-ring" href="/sponsor/dashboard">
-          Overview
-        </a>
-        <Link
-          prefetch={false}
-          className="focus-ring font-medium"
-          href={"/sponsor/campaigns" as Route}
-          aria-current="page"
-        >
-          Campaigns
-        </Link>
-        <a className="focus-ring" href="/sponsor/dashboard#billing">
-          Billing
-        </a>
-      </nav>
+      <Link prefetch={false} href={"/sponsor/dashboard" as Route} className="focus-ring mt-6 inline-flex min-h-11 items-center text-sm text-[#767676] underline underline-offset-4">
+        Back to your sponsorship
+      </Link>
       <p className="mt-6 text-sm leading-6 text-[#767676]">
         {data.readonly
           ? "Your campaign history is read-only. Your past creative stays available to view."

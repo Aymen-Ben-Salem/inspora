@@ -1,8 +1,8 @@
 "use client";
-import { SignOutButton, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
 import type {
@@ -30,6 +30,8 @@ const uploadRoles = {
   wordmark: { kind: "sponsor-wordmark", field: "wordmarkId" },
   poster: { kind: "website-poster", field: "posterId" },
 } as const;
+type UploadRole = keyof typeof uploadRoles;
+type UploadState = { busy: boolean; message: string; failed: boolean };
 export type PaidEditorMode = { campaign?: OwnedCampaign; readonly: boolean };
 export function CampaignEditor({
   authenticationEnabled = true,
@@ -53,18 +55,6 @@ function AuthenticatedCampaignEditor({ paid }: { paid?: PaidEditorMode }) {
       isLoaded={isLoaded}
       ownerUserId={isSignedIn ? (userId ?? undefined) : undefined}
       paid={paid}
-      signOutControl={
-        isLoaded && isSignedIn && userId ? (
-          <SignOutButton redirectUrl="/sponsor">
-            <button
-              type="button"
-              className="focus-ring min-h-11 text-sm text-[#767676] underline underline-offset-4 hover:text-[#262626]"
-            >
-              Sign out
-            </button>
-          </SignOutButton>
-        ) : undefined
-      }
     />
   );
 }
@@ -72,13 +62,11 @@ function CampaignEditorContent({
   isSignedIn,
   isLoaded,
   ownerUserId,
-  signOutControl,
   paid,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
   ownerUserId?: string;
-  signOutControl?: ReactNode;
   paid?: PaidEditorMode;
 }) {
   const initial = paid?.campaign?.creative;
@@ -95,6 +83,12 @@ function CampaignEditorContent({
     [failed, setFailed] = useState(false);
   const loaded = useRef<string | undefined>(undefined);
   const pending = useRef(new Set<AbortController>());
+  const activeUploads = useRef(new Set<UploadRole>());
+  const manualPosterRevision = useRef(0);
+  const [uploads, setUploads] = useState<
+    Partial<Record<UploadRole, UploadState>>
+  >({});
+  const uploading = Object.values(uploads).some((upload) => upload.busy);
   useEffect(() => {
     const controllers = pending.current;
     return () => {
@@ -169,6 +163,7 @@ function CampaignEditorContent({
     label: string,
     work: (signal: AbortSignal) => Promise<void>,
   ) {
+    if (busy || activeUploads.current.size) return;
     const controller = new AbortController();
     pending.current.add(controller);
     setBusy(label);
@@ -198,16 +193,31 @@ function CampaignEditorContent({
     } catch {}
     window.location.assign("/api/sponsorship/intent");
   }
-  async function upload(
-    file: File,
-    kind: "media" | "icon" | "wordmark" | "poster",
-  ) {
-    await run(`Uploading ${kind}…`, async (signal) => {
+  async function upload(file: File, kind: UploadRole) {
+    if (busy || paid?.readonly || activeUploads.current.has(kind)) return;
+    const controller = new AbortController(),
+      signal = controller.signal;
+    const posterRevision = manualPosterRevision.current;
+    activeUploads.current.add(kind);
+    pending.current.add(controller);
+    setMessage("");
+    setFailed(false);
+    setUploads((previous) => ({
+      ...previous,
+      [kind]: { busy: true, failed: false, message: `Uploading ${kind}…` },
+    }));
+    try {
       const result = await prepareAndUploadMedia(
         file,
         uploadRoles[kind].kind,
         sponsorUploadOperations(kind, signal),
-        (status) => setBusy(`${kind}: ${status}…`),
+        (status) => {
+          if (!signal.aborted)
+            setUploads((previous) => ({
+              ...previous,
+              [kind]: { busy: true, failed: false, message: `${status}…` },
+            }));
+        },
         (controller) => {
           if (signal.aborted) controller.abort();
           else
@@ -217,6 +227,7 @@ function CampaignEditorContent({
         },
       );
       signal.throwIfAborted();
+      if (kind === "poster") manualPosterRevision.current++;
       setAssets((previous) => [
         ...previous,
         result.original,
@@ -230,14 +241,35 @@ function CampaignEditorContent({
         [uploadRoles[kind].field]: result.primary.id,
         ...(kind === "media"
           ? {
-              posterId: result.poster?.id ?? "",
+              // A manual poster that finishes during this upload wins over
+              // the generated poster, regardless of completion order.
+              posterId:
+                manualPosterRevision.current === posterRevision
+                  ? result.poster?.id ?? ""
+                  : f.posterId,
               videoPreviewId: result.videoPreview?.id ?? "",
             }
           : {}),
       }));
       if (kind === "media") setVariants(result.variants.map((a) => a.id));
-      setMessage("Media verified privately.");
-    });
+      setUploads((previous) => ({
+        ...previous,
+        [kind]: { busy: false, failed: false, message: "Verified privately." },
+      }));
+    } catch (error) {
+      if (!signal.aborted)
+        setUploads((previous) => ({
+          ...previous,
+          [kind]: {
+            busy: false,
+            failed: true,
+            message: error instanceof Error ? error.message : "Try again.",
+          },
+        }));
+    } finally {
+      activeUploads.current.delete(kind);
+      pending.current.delete(controller);
+    }
   }
   return (
     <main className="mx-auto max-w-[1120px] px-4 py-10 text-[#262626] sm:px-8">
@@ -246,7 +278,6 @@ function CampaignEditorContent({
           <a href="/sponsor" className="focus-ring text-sm text-[#767676]">
             ← Sponsorship
           </a>
-          {signOutControl}
         </div>
         <h1 className="mt-5 text-3xl font-semibold tracking-tight">
           {paid ? paid.readonly ? "Campaign history" : paid.campaign ? "Edit campaign" : "Create campaign" : "Prepare your campaign"}
@@ -275,7 +306,7 @@ function CampaignEditorContent({
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            if (paid?.readonly) return;
+            if (paid?.readonly || activeUploads.current.size) return;
             void run(paid ? "Saving changes…" : "Saving preparation…", async (signal) => {
               const c = await sponsorRequest<OwnedCampaign>(
                 paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
@@ -320,7 +351,7 @@ function CampaignEditorContent({
           </label>
           <button
             type="button"
-            disabled={!ready || Boolean(busy) || !fields.url || paid?.readonly}
+            disabled={!ready || Boolean(busy) || uploading || !fields.url || paid?.readonly}
             className="focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 text-sm disabled:opacity-40"
             onClick={() =>
               void run("Finding suggestions…", async (signal) => {
@@ -355,7 +386,7 @@ function CampaignEditorContent({
               <input
                 type="checkbox"
                 checked={replaceWebsiteAssets}
-                disabled={!ready || Boolean(busy)}
+                disabled={!ready || Boolean(busy) || uploading}
                 onChange={(event) =>
                   setReplaceWebsiteAssets(event.target.checked)
                 }
@@ -404,6 +435,7 @@ function CampaignEditorContent({
                 <input
                   aria-label={label}
                   type="file"
+                  disabled={uploads[kind]?.busy}
                   accept={
                     kind === "media"
                       ? "image/png,image/jpeg,image/webp,image/avif,image/gif,video/mp4,video/webm"
@@ -416,12 +448,18 @@ function CampaignEditorContent({
                     e.target.value = "";
                   }}
                 />
+                {uploads[kind] ? (
+                  <span role={uploads[kind]?.failed ? "alert" : "status"} aria-live="polite" className={`mt-2 block text-xs ${uploads[kind]?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
+                    {uploads[kind]?.message}
+                  </span>
+                ) : null}
               </label>
             ))}
             {fields.mediaId ? (
               <button
                 className="focus-ring min-h-11 text-sm underline"
                 type="button"
+                disabled={uploads.media?.busy || uploads.poster?.busy}
                 onClick={() => {
                   setFields((f) => ({
                     ...f,
@@ -438,7 +476,7 @@ function CampaignEditorContent({
           </fieldset>
           {ready && !paid?.readonly ? (
             <button
-              disabled={!ready || Boolean(busy)}
+              disabled={!ready || Boolean(busy) || uploading}
               type="submit"
               className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white disabled:opacity-40"
             >

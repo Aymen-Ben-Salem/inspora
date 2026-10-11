@@ -113,7 +113,6 @@ export function SponsorDashboard({
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
-      {account ? <nav aria-label="Sponsorship" className="mt-6 flex gap-6 border-b border-[#f0f0f0] pb-4 text-sm"><a className="focus-ring" href="/sponsor/dashboard" aria-current="page">Overview</a><Link prefetch={false} className="focus-ring" href={"/sponsor/campaigns" as Route}>Campaigns</Link><a className="focus-ring" href="#billing">Billing</a></nav> : null}
       <p
         role="status"
         aria-live="polite"
@@ -168,17 +167,34 @@ export function SponsorDashboard({
               Prepare campaign
             </Link>
           ) : null}
+          {account ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              {!readonly ? (
+                <Link prefetch={false} href={"/sponsor/campaigns/new" as Route} className={`${button} inline-flex items-center bg-[#262626] text-white`}>
+                  Create campaign
+                </Link>
+              ) : null}
+              <Link prefetch={false} href={"/sponsor/campaigns" as Route} className={`${button} inline-flex items-center`}>
+                View all campaigns
+              </Link>
+            </div>
+          ) : null}
           {data.campaigns.length ? (
             <div className="mt-8 border-t border-[#e6e6e6] pt-4">
-              <h3 className="text-sm text-[#767676]">Campaign history</h3>
+              <h3 className="text-sm text-[#767676]">{account ? "Your campaigns" : "Campaign history"}</h3>
               <ul className="mt-3 space-y-3">
                 {data.campaigns.map((c) => (
                   <li
                     key={c.id}
                     className="flex flex-wrap justify-between gap-2 text-sm"
                   >
-                    <span>{c.title}</span>
-                    <span className="text-[#767676]">{c.state}</span>
+                    <div className="min-w-0">
+                      <p className="break-words">{c.title}</p>
+                      <p className="mt-1 text-xs text-[#767676]">{c.state === "published" ? "Published" : c.state === "archived" ? "Previous" : c.state === "draft" ? "Private draft" : "Prepared"}</p>
+                    </div>
+                    {account ? <Link prefetch={false} href={`/sponsor/campaigns/${c.id}` as Route} className="focus-ring inline-flex min-h-11 shrink-0 items-center text-sm underline underline-offset-4">
+                      {readonly ? "View campaign" : "Edit campaign"}
+                    </Link> : null}
                   </li>
                 ))}
               </ul>

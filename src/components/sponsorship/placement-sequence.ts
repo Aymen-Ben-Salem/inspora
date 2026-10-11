@@ -21,16 +21,8 @@ export function buildPlacementSequence(input: {
   const columns = Math.max(1, input.columns),
     random = randomFor(input.seed);
   const sponsors = [...new Set(input.sponsors)].slice(0, 4);
-  const combinations: number[][] = [];
-  function choose(rows: number[], next: number) {
-    if (rows.length === sponsors.length) {
-      combinations.push(rows);
-      return;
-    }
-    for (let row = next; row <= 8; row++) choose([...rows, row], row + 2);
-  }
-  choose([], 2);
-  const rows = combinations[Math.floor(random() * combinations.length)] ?? [];
+  const firstRow = random() < 0.5 ? 1 : 2;
+  const rows = sponsors.map((_, i) => firstRow + i);
   const columnOrder = Array.from({ length: columns }, (_, i) => i);
   for (let i = columns - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));

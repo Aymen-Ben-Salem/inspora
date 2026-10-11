@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { buildPlacementSequence } from "./placement-sequence";
 const sponsors = ["a", "b", "c", "d"];
-it("uses separated desktop rows two through eight and actual randomized columns", () => {
+it("starts sponsors in the first or second desktop row and uses successive early rows with randomized columns", () => {
   const ordinaryIds = Array.from({ length: 50 }, (_, i) => String(i));
   const result = buildPlacementSequence({
     ordinaryIds,
@@ -12,7 +12,9 @@ it("uses separated desktop rows two through eight and actual randomized columns"
   const positions = result.items.flatMap((item, i) =>
     item.kind === "sponsor" ? [i] : [],
   );
-  expect(positions.map((i) => Math.floor(i / 3) + 1)).toEqual([2, 4, 6, 8]);
+  const rows = positions.map((i) => Math.floor(i / 3) + 1);
+  expect([1, 2]).toContain(rows[0]);
+  expect(rows).toEqual(rows[0] === 1 ? [1, 2, 3, 4] : [2, 3, 4, 5]);
   expect(new Set(positions.map((i) => i % 3)).size).toBe(3);
   expect(
     result.items.filter((i) => i.kind === "ordinary").map((i) => i.id),

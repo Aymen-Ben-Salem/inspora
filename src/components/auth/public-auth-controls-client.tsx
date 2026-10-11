@@ -11,6 +11,7 @@ import { useSubmission } from "../submissions/submission-provider";
 import { MobileNavigationActionContext } from "../mobile-navigation-actions";
 import { mobileNavigationHeadingClass } from "../mobile-navigation-styles";
 import { MobileSignInLink } from "./mobile-sign-in-link";
+import { NavbarMenu, type NavbarMenuItem } from "../navbar-menu";
 
 export function PublicAuthControlsClient({
   variant,
@@ -38,73 +39,30 @@ export function PublicAuthControlsClient({
       }
     />
   ) : isSignedIn && user ? (
-    <details className="relative">
-      <summary
-        aria-label="Account menu"
-        className={`focus-ring relative block shrink-0 overflow-hidden rounded-full border border-[#e6e6e6] ${
-          variant === "desktop"
-            ? "size-[var(--archive-user-avatar-size)]"
-            : "size-[35px]"
-        }`}
-      >
-        {profileLoading ? (
-          <span aria-hidden="true" className="absolute inset-0 bg-[#f0f0f0]" />
-        ) : (
-          <Image
-            src={profile?.avatarUrl || user.imageUrl}
-            alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
-            fill
-            sizes={variant === "desktop" ? "35px" : "35px"}
-            className="object-cover"
-          />
-        )}
-      </summary>
-      <div className={`absolute ${variant === "mobile" ? "left-0" : "right-0"} top-[calc(100%+8px)] z-50 w-48 rounded-md border border-[#e6e6e6] bg-white p-1 text-sm shadow-sm`}>
-        {capabilities?.viewer !== false ? (
-          <>
-            <Link
-              href={"/profile" as Route}
-              prefetch={false}
-              className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
-            >
-              Profile
-            </Link>
-            <Link
-              href={"/saved" as Route}
-              prefetch={false}
-              className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
-            >
-              Saved
-            </Link>
-            <button
-              onClick={() => navigate(openSubmission)}
-              type="button"
-              className="focus-ring flex min-h-11 w-full items-center rounded px-3 hover:bg-[#fafafa]"
-            >
-              Submit work
-            </button>
-          </>
-        ) : null}
-        {capabilities?.sponsor ? (
-          <Link
-            href={"/sponsor/dashboard" as Route}
-            prefetch={false}
-            className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]"
-          >
-            Sponsorship dashboard
-          </Link>
-        ) : null}
-        {capabilities?.sponsor ? <Link href={"/sponsor/dashboard#billing" as Route} prefetch={false} className="focus-ring flex min-h-11 items-center rounded px-3 hover:bg-[#fafafa]">Billing</Link> : null}
-        <SignOutButton>
-          <button
-            type="button"
-            className="focus-ring flex min-h-11 w-full items-center rounded px-3 hover:bg-[#fafafa]"
-          >
-            Sign out
-          </button>
-        </SignOutButton>
-      </div>
-    </details>
+    <NavbarMenu
+      key={user.id}
+      label="Account menu"
+      triggerClassName={`relative block shrink-0 overflow-hidden rounded-full border border-[#e6e6e6] ${variant === "desktop" ? "size-[var(--archive-user-avatar-size)]" : "size-[35px]"}`}
+      menuClassName={`w-56 ${variant === "mobile" ? "left-0" : "right-0"}`}
+      trigger={profileLoading ? (
+        <span aria-hidden="true" className="absolute inset-0 bg-[#f0f0f0]" />
+      ) : (
+        <Image src={profile?.avatarUrl || user.imageUrl} alt={viewerName ? `${viewerName}'s profile` : "Your profile"}
+          fill sizes="35px" className="object-cover" />
+      )}
+      items={[
+        ...(capabilities?.viewer !== false ? [
+          { label: "Profile", href: "/profile" as Route },
+          { label: "Saved", href: "/saved" as Route },
+          { label: "Submit work", onSelect: () => navigate(openSubmission) },
+        ] : []),
+        ...(capabilities?.sponsor ? [
+          { label: "Sponsorship dashboard", href: "/sponsor/dashboard" as Route },
+          { label: "Billing", href: "/sponsor/dashboard#billing" as Route },
+        ] : []),
+        { label: "Sign out", wrap: (button) => <SignOutButton>{button}</SignOutButton> },
+      ] satisfies NavbarMenuItem[]}
+    />
   ) : variant === "mobile" ? <MobileSignInLink /> : (
     <Link
       href={"/sign-in" as Route}

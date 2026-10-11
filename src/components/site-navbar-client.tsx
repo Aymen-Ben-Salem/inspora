@@ -14,6 +14,7 @@ import { BrandMark } from "./brand-mark";
 import { ContactSheet } from "./contact-sheet";
 import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SponsorIcons } from "./sponsorship/sponsor-icons";
+import { NavbarMenu } from "./navbar-menu";
 
 export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "sponsor" | "websites";
 
@@ -50,13 +51,7 @@ export function SiteNavbarClient({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const [overflowPreview, setOverflowPreview] = useState<
-    "contact" | "about" | "sponsor" | null
-  >(null);
-  const overflowRef = useRef<HTMLDivElement>(null);
   const mobileActionRef = useRef<(() => void) | null>(null);
-  const highlightedOverflowItem = overflowPreview ?? "contact";
 
   const closeContact = useCallback(() => setContactOpen(false), []);
   const closeMobileMenu = useCallback(() => setMobileMenuClosing(true), []);
@@ -77,31 +72,6 @@ export function SiteNavbarClient({
       document.documentElement.style.overflow = previousOverflow;
     };
   }, [closeMobileMenu, mobileMenuOpen]);
-
-  useEffect(() => {
-    if (!overflowOpen) return;
-
-    function closeOnOutsidePress(event: PointerEvent) {
-      if (!overflowRef.current?.contains(event.target as Node)) {
-        setOverflowOpen(false);
-        setOverflowPreview(null);
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOverflowOpen(false);
-        setOverflowPreview(null);
-      }
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsidePress);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePress);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [overflowOpen]);
 
   return (
     <>
@@ -147,110 +117,20 @@ export function SiteNavbarClient({
                 </Link>
               ))}
 
-              <div ref={overflowRef} className="relative">
-                <button
-                  type="button"
-                  aria-label="More navigation"
-                  aria-haspopup="menu"
-                  aria-expanded={overflowOpen}
-                  onClick={() => {
-                    if (overflowOpen) setOverflowPreview(null);
-                    setOverflowOpen((open) => !open);
-                  }}
-                  className={
-                    "focus-ring flex h-[var(--archive-nav-height)] w-[var(--archive-overflow-width)] cursor-pointer items-center justify-center rounded-full text-[#767676] transition-colors hover:bg-[#fafafa] hover:text-[#262626] " +
-                    (overflowOpen || page === "info"
-                      ? "bg-[#fafafa] text-[#262626]"
-                      : "")
-                  }
-                >
-                  <span className="size-[var(--archive-overflow-icon)]">
-                    <EllipsisIcon />
-                  </span>
-                </button>
-
-                <div
-                  role="menu"
-                  aria-hidden={!overflowOpen}
-                  onMouseLeave={() => setOverflowPreview(null)}
-                  className={
-                    "archive-menu-type absolute left-1/2 top-[calc(100%+var(--archive-menu-offset))] z-50 w-[var(--archive-menu-width)] -translate-x-1/2 overflow-hidden rounded-[var(--archive-menu-radius)] bg-[#fafafa] p-[var(--archive-menu-padding)] tracking-[0.2px] transition-[opacity,transform,visibility] duration-150 " +
-                    (overflowOpen
-                      ? "visible translate-y-0 opacity-100"
-                      : "invisible pointer-events-none -translate-y-1 opacity-0")
-                  }
-                >
-                  <span
-                    aria-hidden="true"
-                    className={
-                      "pointer-events-none absolute inset-x-[var(--archive-menu-padding)] top-[var(--archive-menu-padding)] h-[var(--archive-menu-item-height)] rounded-[var(--archive-menu-radius)] bg-[#f0f0f0] transition-transform duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none " +
-                      (highlightedOverflowItem === "about"
-                        ? "translate-y-[var(--archive-menu-item-height)]"
-                        : highlightedOverflowItem === "sponsor"
-                          ? "translate-y-[calc(var(--archive-menu-item-height)*2)]"
-                          : "translate-y-0")
-                    }
-                  />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    tabIndex={overflowOpen ? 0 : -1}
-                    onFocus={() => setOverflowPreview("contact")}
-                    onMouseEnter={() => setOverflowPreview("contact")}
-                    onClick={() => {
-                      setOverflowOpen(false);
-                      setOverflowPreview(null);
-                      setContactOpen(true);
-                    }}
-                    className={
-                      "focus-ring relative z-10 flex h-[var(--archive-menu-item-height)] w-full cursor-pointer items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] text-left transition-colors " +
-                      (highlightedOverflowItem === "contact"
-                        ? "text-[#262626]"
-                        : "text-[rgba(38,38,38,0.8)]")
-                    }
-                  >
-                    Contact
-                  </button>
-                  <Link
-                    href="/info"
-                    role="menuitem"
-                    tabIndex={overflowOpen ? 0 : -1}
-                    onFocus={() => setOverflowPreview("about")}
-                    onMouseEnter={() => setOverflowPreview("about")}
-                    onClick={() => {
-                      setOverflowOpen(false);
-                      setOverflowPreview(null);
-                    }}
-                    className={
-                      "focus-ring relative z-10 flex h-[var(--archive-menu-item-height)] w-full items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] transition-colors " +
-                      (highlightedOverflowItem === "about"
-                        ? "text-[#262626]"
-                        : "text-[rgba(38,38,38,0.8)]")
-                    }
-                  >
-                    About Us
-                  </Link>
-                  <Link
-                    href={"/sponsor" as Route}
-                    role="menuitem"
-                    tabIndex={overflowOpen ? 0 : -1}
-                    onFocus={() => setOverflowPreview("sponsor")}
-                    onMouseEnter={() => setOverflowPreview("sponsor")}
-                    onClick={() => {
-                      setOverflowOpen(false);
-                      setOverflowPreview(null);
-                    }}
-                    className={
-                      "focus-ring relative z-10 flex h-[var(--archive-menu-item-height)] w-full items-center rounded-[var(--archive-menu-radius)] px-[var(--archive-menu-item-x)] transition-colors " +
-                      (highlightedOverflowItem === "sponsor"
-                        ? "text-[#262626]"
-                        : "text-[rgba(38,38,38,0.8)]")
-                    }
-                  >
-                    Sponsor
-                  </Link>
-                </div>
-              </div>
+              <NavbarMenu
+                label="More navigation"
+                trigger={<span className="size-[var(--archive-overflow-icon)]"><EllipsisIcon /></span>}
+                triggerClassName={(open) =>
+                  "flex h-[var(--archive-nav-height)] w-[var(--archive-overflow-width)] items-center justify-center rounded-full text-[#767676] transition-colors hover:bg-[#fafafa] hover:text-[#262626] " +
+                  (open || page === "info" ? "bg-[#fafafa] text-[#262626]" : "")
+                }
+                menuClassName="left-1/2 w-[var(--archive-menu-width)] -translate-x-1/2"
+                items={[
+                  { label: "Contact", onSelect: () => setContactOpen(true) },
+                  { label: "About Us", href: "/info" },
+                  { label: "Sponsor", href: "/sponsor" as Route },
+                ]}
+              />
             </nav>
 
             <div className="archive-copy-type hidden min-w-0 items-center justify-end gap-[var(--archive-header-action-gap)] font-medium leading-normal lg:flex">
@@ -258,7 +138,7 @@ export function SiteNavbarClient({
               <Link
                 href={"/sponsor" as Route}
                 aria-label="Become a sponsor"
-                className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-md border border-dashed border-[#e6e6e6] text-[#767676] transition-colors hover:text-[#262626]"
+                className="focus-ring flex size-[35px] shrink-0 items-center justify-center rounded-md border border-dashed border-[#e6e6e6] text-[#767676] transition-colors hover:text-[#262626]"
               ><span className="size-6">
                 <PlusIcon />
               </span>

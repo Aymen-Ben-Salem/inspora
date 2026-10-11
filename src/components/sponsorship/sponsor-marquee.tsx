@@ -63,6 +63,14 @@ export function SponsorMarquee() {
                 rel="noopener noreferrer"
                 aria-label={`Sponsored: ${s.title}`}
                 className="focus-ring flex shrink-0 items-center"
+                onFocus={(event) => {
+                  if (event.currentTarget.matches(":focus-visible"))
+                    event.currentTarget.scrollIntoView({
+                      behavior: "instant",
+                      block: "nearest",
+                      inline: "nearest",
+                    });
+                }}
               >
                 <Image
                   src={s.wordmarkUrl!}

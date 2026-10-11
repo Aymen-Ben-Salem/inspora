@@ -12,6 +12,7 @@ import { reconcileSponsorCheckout } from "./billing-repository";
 import { sponsorBillingProvider, type BillingProvider } from "./stripe-client";
 import { cleanupExpiredSponsorPreparations } from "./cleanup";
 import { cleanupDeletedSponsorOwner } from "./deletion";
+import { runAnalyticsMaintenance } from "@/analytics/first-party/maintenance";
 export function sponsorMaintenanceAuthorized(
   header: string | null,
   secret = process.env.CRON_SECRET,
@@ -149,5 +150,14 @@ export async function runSponsorMaintenance(now = new Date()) {
   });
   const jobs = await drainSponsorJobs();
   const preparations = await cleanupExpiredSponsorPreparations(now);
-  return { ...jobs, preparations };
+  // Separate failures keep billing reconciliation successful and preserve raw
+  // analytics until summaries have completed. No unhandled collector payloads.
+  let analytics = "complete";
+  try {
+    const result = await runAnalyticsMaintenance(now);
+    if (!result.pruned) analytics = "pending";
+  } catch {
+    analytics = "pending";
+  }
+  return { ...jobs, preparations, analytics };
 }

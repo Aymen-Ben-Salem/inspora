@@ -18,6 +18,7 @@ import {
 } from "@/analytics/posthog-data";
 import { AudienceTechnologyCard, TrafficChart } from "./analytics-tabs";
 import { LiveVisitorsCard } from "./live-visitors-card";
+import { AdminAnalyticsSources } from "@/components/sponsorship/admin-analytics";
 
 type AnalyticsPageProps = {
   searchParams: Promise<{ days?: string | string[] }>;
@@ -43,13 +44,16 @@ function formatRangeLabel(range: AnalyticsRange) {
 function SetupState() {
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-6 sm:p-8">
-      <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Setup needed</p>
+      <p className="text-xs uppercase tracking-[0.16em] text-[#777]">
+        Setup needed
+      </p>
       <h2 className="mt-2 text-2xl font-medium tracking-[-0.04em]">
         Connect the PostHog Query API.
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-[#666]">
-        Public tracking can run with the project token alone. This private admin view also
-        needs a server-only, read-scoped personal API key and the PostHog project ID.
+        Public tracking can run with the project token alone. This private admin
+        view also needs a server-only, read-scoped personal API key and the
+        PostHog project ID.
       </p>
       <div className="mt-6 overflow-x-auto rounded-xl bg-[#f5f5f2] p-4 font-mono text-xs leading-6 text-[#444]">
         POSTHOG_PERSONAL_API_KEY
@@ -65,13 +69,15 @@ function SetupState() {
 function UnavailableState() {
   return (
     <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8">
-      <p className="text-xs uppercase tracking-[0.16em] text-amber-800">Temporarily unavailable</p>
+      <p className="text-xs uppercase tracking-[0.16em] text-amber-800">
+        Temporarily unavailable
+      </p>
       <h2 className="mt-2 text-2xl font-medium tracking-[-0.04em]">
         PostHog could not return analytics.
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-amber-900/75">
-        Check that the project ID is correct, the API host matches your PostHog region,
-        and the personal API key has query read access.
+        Check that the project ID is correct, the API host matches your PostHog
+        region, and the personal API key has query read access.
       </p>
     </section>
   );
@@ -208,10 +214,16 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
 
   return (
     <section className="rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-      <h2 className="text-2xl font-medium tracking-[-0.04em]">Most opened posts</h2>
-      <p className="mt-1 text-xs text-[#888]">Content drawing the most attention</p>
+      <h2 className="text-2xl font-medium tracking-[-0.04em]">
+        Most opened posts
+      </h2>
+      <p className="mt-1 text-xs text-[#888]">
+        Content drawing the most attention
+      </p>
       {analytics.topPosts.length === 0 ? (
-        <p className="py-16 text-center text-sm text-[#888]">Post opens will appear here.</p>
+        <p className="py-16 text-center text-sm text-[#888]">
+          Post opens will appear here.
+        </p>
       ) : (
         <ol className="mt-6 divide-y divide-black/10">
           {analytics.topPosts.map((post, index) => (
@@ -219,10 +231,14 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
               <span
                 aria-hidden="true"
                 className="absolute inset-y-2 left-0 rounded-md bg-[#f1f1ee]"
-                style={{ width: `${Math.max(4, (post.opens / maximum) * 100)}%` }}
+                style={{
+                  width: `${Math.max(4, (post.opens / maximum) * 100)}%`,
+                }}
               />
               <div className="relative flex min-w-0 items-center gap-3 px-3">
-                <span className="w-5 shrink-0 text-xs text-[#999]">{index + 1}</span>
+                <span className="w-5 shrink-0 text-xs text-[#999]">
+                  {index + 1}
+                </span>
                 {post.slug ? (
                   <Link
                     href={`/posts/${post.slug}` as Route}
@@ -232,7 +248,9 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
                     {post.title}
                   </Link>
                 ) : (
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{post.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {post.title}
+                  </span>
                 )}
                 <span className="shrink-0 text-sm tabular-nums text-[#666]">
                   {exactNumber.format(post.opens)}
@@ -267,14 +285,21 @@ function RankedBreakdown({
       ) : (
         <ol className="mt-6 divide-y divide-black/10">
           {items.map((item, index) => (
-            <li key={`${item.label}-${index}`} className="relative overflow-hidden py-4">
+            <li
+              key={`${item.label}-${index}`}
+              className="relative overflow-hidden py-4"
+            >
               <span
                 aria-hidden="true"
                 className="absolute inset-y-2 left-0 rounded-md bg-[#f1f1ee]"
-                style={{ width: `${Math.max(4, (item.visitors / maximum) * 100)}%` }}
+                style={{
+                  width: `${Math.max(4, (item.visitors / maximum) * 100)}%`,
+                }}
               />
               <div className="relative flex min-w-0 items-center gap-3 px-3">
-                <span className="w-5 shrink-0 text-xs text-[#999]">{index + 1}</span>
+                <span className="w-5 shrink-0 text-xs text-[#999]">
+                  {index + 1}
+                </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
                   {item.label}
                 </span>
@@ -282,7 +307,8 @@ function RankedBreakdown({
                   className="shrink-0 text-xs tabular-nums text-[#777]"
                   title={`${exactNumber.format(item.visitors)} ${visitorUnit}, ${exactNumber.format(item.pageviews)} pageviews`}
                 >
-                  {compactNumber.format(item.visitors)} {visitorUnit} · {compactNumber.format(item.pageviews)} views
+                  {compactNumber.format(item.visitors)} {visitorUnit} ·{" "}
+                  {compactNumber.format(item.pageviews)} views
                 </span>
               </div>
             </li>
@@ -315,7 +341,13 @@ function PostHogToolLinks({ tools }: { tools: PostHogTool[] }) {
             fill="none"
             className="size-3.5 transition-transform duration-200 group-hover:translate-x-px group-hover:-translate-y-px"
           >
-            <path d="M6 14 14 6m0 0H8m6 0v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M6 14 14 6m0 0H8m6 0v6"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </a>
       ))}
@@ -323,7 +355,9 @@ function PostHogToolLinks({ tools }: { tools: PostHogTool[] }) {
   );
 }
 
-export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
+export default async function AnalyticsPage({
+  searchParams,
+}: AnalyticsPageProps) {
   const { days } = await searchParams;
   const range = parseRange(days);
   const visitorUnit = "visitors";
@@ -356,18 +390,27 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     <div className="grid gap-6 sm:gap-7">
       <header className="flex flex-wrap items-end justify-between gap-6 border-b border-black/10 pb-6 sm:pb-7">
         <div>
-          <h1 className="text-4xl font-medium tracking-[-0.055em] sm:text-5xl">Analytics</h1>
-          <p className="mt-2 text-sm text-[#777]">Public traffic and content engagement.</p>
+          <h1 className="text-4xl font-medium tracking-[-0.055em] sm:text-5xl">
+            Analytics
+          </h1>
+          <p className="mt-2 text-sm text-[#777]">
+            Public traffic and content engagement.
+          </p>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <nav aria-label="Analytics date range" className="flex rounded-full bg-[#e5e5e1] p-1">
+          <nav
+            aria-label="Analytics date range"
+            className="flex rounded-full bg-[#e5e5e1] p-1"
+          >
             {ANALYTICS_RANGES.map((option) => (
               <Link
                 key={option}
                 href={`/admin/analytics?days=${option}` as Route}
                 aria-current={range === option ? "page" : undefined}
                 className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
-                  range === option ? "bg-white text-black shadow-sm" : "text-[#666] hover:text-black"
+                  range === option
+                    ? "bg-white text-black shadow-sm"
+                    : "text-[#666] hover:text-black"
                 }`}
               >
                 {formatRangeLabel(option)}
@@ -378,6 +421,21 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </div>
       </header>
 
+      <AdminAnalyticsSources
+        range={
+          range === 7
+            ? "7d"
+            : range === "today" || range === "yesterday"
+              ? "1d"
+              : "30d"
+        }
+      />
+      <h2 className="text-2xl font-medium">PostHog</h2>
+      <p className="text-sm text-[#777]">
+        Separately measured audience. Cookieless identifiers reset daily and can
+        count returning visitors again across days; these figures do not supply
+        sponsor period reach or CTR.
+      </p>
       {!isPostHogAdminConfigured() ? <SetupState /> : null}
       {failed ? <UnavailableState /> : null}
       {analytics ? (
@@ -395,24 +453,39 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <AudienceMetricCard
                 label="Unique visitors"
                 value={analytics.summary.uniqueVisitors}
-                detail="Distinct browsers in the selected period"
+                detail="Distinct source identifiers; cookieless IDs reset daily"
                 title={`${exactNumber.format(analytics.summary.uniqueVisitors)} unique browsers`}
               />
             </div>
             <div className="grid gap-px border-t border-black/10 bg-black/10 sm:grid-cols-2 xl:grid-cols-5">
-              <MetricCard label="Pageviews" value={analytics.summary.pageviews} />
+              <MetricCard
+                label="Pageviews"
+                value={analytics.summary.pageviews}
+              />
               <MetricCard
                 label="Avg. visit duration"
                 value={analytics.summary.averageVisitDurationSeconds}
                 format="duration"
               />
-              <MetricCard label="Post opens" value={analytics.summary.postOpens} />
-              <MetricCard label="Source clicks" value={analytics.summary.sourceClicks} />
-              <MetricCard label="Subscribers" value={analytics.summary.subscriptions} />
+              <MetricCard
+                label="Post opens"
+                value={analytics.summary.postOpens}
+              />
+              <MetricCard
+                label="Source clicks"
+                value={analytics.summary.sourceClicks}
+              />
+              <MetricCard
+                label="Subscribers"
+                value={analytics.summary.subscriptions}
+              />
             </div>
           </section>
           <TrafficChart daily={analytics.daily} range={analytics.range} />
-          <HourlyActivityChart analytics={analytics} visitorUnit={visitorUnit} />
+          <HourlyActivityChart
+            analytics={analytics}
+            visitorUnit={visitorUnit}
+          />
           <div className="grid gap-7 xl:grid-cols-2">
             <TopPosts analytics={analytics} />
             <RankedBreakdown
@@ -428,9 +501,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             />
           </div>
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4 text-[11px] leading-5 text-[#888]">
-            <p>Anonymous browser reach · No person profiles, heatmaps, or session replay</p>
             <p>
-              Cached for five minutes · Updated {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(analytics.generatedAt))}
+              Anonymous browser reach · No person profiles, heatmaps, or session
+              replay
+            </p>
+            <p>
+              Cached for five minutes · Updated{" "}
+              {new Intl.DateTimeFormat("en", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(analytics.generatedAt))}
             </p>
           </footer>
         </>

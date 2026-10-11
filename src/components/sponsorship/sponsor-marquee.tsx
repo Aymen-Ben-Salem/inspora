@@ -92,6 +92,9 @@ export function SponsorMarquee() {
               {sponsors.map((s) => (
                 <a
                   key={s.id}
+                  data-sponsor-copy
+                  data-campaign-id={s.id}
+                  data-version-id={s.versionId}
                   href={s.url}
                   target="_blank"
                   rel="noopener noreferrer"

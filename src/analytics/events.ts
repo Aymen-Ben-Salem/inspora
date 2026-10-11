@@ -30,6 +30,7 @@ export type AnalyticsEventProperties = {
     post_title: string;
   };
   [ANALYTICS_EVENTS.workOpened]: {
+    work_session_key?: string;
     work_id: string;
     work_kind: "design" | "logo" | "website";
   };

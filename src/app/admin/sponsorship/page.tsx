@@ -1,5 +1,6 @@
 import { readSponsorBillingAdministration } from "@/features/sponsorship/admin-billing";
 import { AdminBillingControls } from "@/components/sponsorship/admin-billing-controls";
+import { AdminSponsorAnalytics } from "@/components/sponsorship/admin-analytics";
 export default async function Page() {
   const data = await readSponsorBillingAdministration();
   return (
@@ -62,6 +63,15 @@ export default async function Page() {
           </li>
         ))}
       </ul>
+      <h2 className="mt-10 text-xl">Sponsor performance</h2>
+      {data.accounts.slice(0, 100).map((account) => (
+        <div key={account.id}>
+          <p className="mt-6 break-all text-sm">
+            Account {account.id} · {account.state}
+          </p>
+          <AdminSponsorAnalytics accountId={account.id} />
+        </div>
+      ))}
     </main>
   );
 }

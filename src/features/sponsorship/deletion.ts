@@ -1,4 +1,10 @@
 import "server-only";
+import {
+  analyticsEvents,
+  analyticsOccurrences,
+  analyticsReports,
+  sponsorDeliveryIntervals,
+} from "@/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import {
@@ -101,12 +107,14 @@ export async function cleanupDeletedSponsorOwner(
       const keys = versions.flatMap((v) =>
         v.creative.assets
           .filter((a) => a.kind !== "original")
-          .map((asset) => createSponsorPublicAssetKey({
-            accountId: account.id,
-            campaignId: v.campaignId,
-            versionId: v.id,
-            asset,
-          })),
+          .map((asset) =>
+            createSponsorPublicAssetKey({
+              accountId: account.id,
+              campaignId: v.campaignId,
+              versionId: v.id,
+              asset,
+            }),
+          ),
       );
       await deleteSponsorPublicKeys(account.id, keys);
     }
@@ -124,6 +132,32 @@ export async function cleanupDeletedSponsorOwner(
           ),
       ]))
         await privateSponsorStorage().delete(key);
+    if (versions.length) {
+      const campaignIds = [
+        ...new Set(versions.map((version) => version.campaignId)),
+      ];
+      const events = await tx
+        .select({ id: analyticsEvents.occurrenceId })
+        .from(analyticsEvents)
+        .where(inArray(analyticsEvents.campaignId, campaignIds));
+      if (events.length)
+        await tx.delete(analyticsOccurrences).where(
+          inArray(
+            analyticsOccurrences.occurrenceId,
+            events.map((event) => event.id),
+          ),
+        );
+      await tx
+        .delete(analyticsEvents)
+        .where(inArray(analyticsEvents.campaignId, campaignIds));
+      await tx
+        .delete(sponsorDeliveryIntervals)
+        .where(inArray(sponsorDeliveryIntervals.campaignId, campaignIds));
+      if (account)
+        await tx
+          .delete(analyticsReports)
+          .where(eq(analyticsReports.scope, account.id));
+    }
     if (versions.length)
       await tx.delete(sponsorVersionAssets).where(
         and(

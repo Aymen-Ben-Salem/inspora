@@ -1,21 +1,43 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 
 import { getDatabase } from "@/db/client";
 
-const snapshots = vi.hoisted(() => new Map<string, { fingerprint: string; count: number; asOf: string }>());
+const snapshots = vi.hoisted(
+  () => new Map<string, { fingerprint: string; count: number; asOf: string }>(),
+);
 vi.mock("./view-snapshots", () => ({
   readViewSnapshot: vi.fn(async (key: string, fingerprint: string) => {
     const snapshot = snapshots.get(key);
-    return snapshot?.fingerprint === fingerprint ? { count: snapshot.count, asOf: snapshot.asOf } : null;
+    return snapshot?.fingerprint === fingerprint
+      ? { count: snapshot.count, asOf: snapshot.asOf }
+      : null;
   }),
-  writeViewSnapshot: vi.fn(async (key: string, fingerprint: string, result: {count:number;asOf:string}) => {
-    snapshots.set(key, {fingerprint, count:result.count, asOf:result.asOf});
-  }),
+  writeViewSnapshot: vi.fn(
+    async (
+      key: string,
+      fingerprint: string,
+      result: { count: number; asOf: string },
+    ) => {
+      snapshots.set(key, {
+        fingerprint,
+        count: result.count,
+        asOf: result.asOf,
+      });
+    },
+  ),
 }));
 beforeEach(() => snapshots.clear());
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-vi.mock("@/db/client", () => ({ getDatabase: vi.fn(() => null), requireDatabase: vi.fn(() => { const db = getDatabase(); if (!db) throw new Error("DATABASE_URL is not configured."); return db; }) }));
+vi.mock("@/db/client", () => ({
+  getDatabase: vi.fn(() => null),
+  requireDatabase: vi.fn(() => {
+    const db = getDatabase();
+    if (!db) throw new Error("DATABASE_URL is not configured.");
+    return db;
+  }),
+}));
 vi.mock("@/data/posts-repository", () => ({
   PUBLISHED_POSTS_CACHE_TAG: "published-posts",
 }));
@@ -60,9 +82,55 @@ afterEach(() => {
   delete process.env.POSTHOG_PERSONAL_API_KEY;
   delete process.env.POSTHOG_PROJECT_ID;
   delete process.env.POSTHOG_WORK_VIEWS_CUTOVER_AT;
+  delete process.env.POSTHOG_WORK_SESSION_CUTOVER_AT;
+});
+
+it("retains pre-session-cutover snapshots with the same provider and eligibility boundary", async () => {
+  configurePreviewAnalytics();
+  process.env.POSTHOG_WORK_SESSION_CUTOVER_AT = "2026-10-11T12:00:00Z";
+  vi.mocked(getDatabase).mockReturnValue({
+    execute: vi
+      .fn()
+      .mockResolvedValue({ rows: [{ kind: "logo", id: logoId }] }),
+  } as never);
+  const hash = (value: unknown) =>
+    createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  const scope = hash([
+    process.env.DATA_ENVIRONMENT,
+    process.env.DATABASE_URL,
+    process.env.POSTHOG_API_HOST,
+    process.env.POSTHOG_PROJECT_ID,
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    process.env.POSTHOG_WORK_VIEWS_CUTOVER_AT,
+  ]);
+  snapshots.set(hash([scope, creatorId]), {
+    fingerprint: hash({ design: [], logo: [logoId], website: [] }),
+    count: 17,
+    asOf: "2026-10-01T00:00:00Z",
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockRejectedValue(new Error("provider unavailable")),
+  );
+  expect(await getCreatorViews(creatorId)).toEqual({
+    status: "available",
+    count: 17,
+    asOf: "2026-10-01T00:00:00Z",
+  });
 });
 
 describe("creator views query", () => {
+  it("uses the approved explicit memory-session cutover with historical and old-tab SDK fallback", () => {
+    const request = buildCreatorViewsQuery(
+      { design: [designId], logo: [logoId], website: [websiteId] },
+      "2026-09-21T12:00:00Z",
+      "2026-10-11T12:00:00Z",
+    );
+    expect(request.query).toContain("properties.work_session_key");
+    expect(request.query).toContain("concat('memory:'");
+    expect(request.query).toContain("toString(properties.$session_id)");
+    expect(request.values?.session_cutover_at).toBe("2026-10-11T12:00:00Z");
+  });
   it("unions legacy Design history with unified events before exact session/work deduplication", () => {
     const request = buildCreatorViewsQuery(
       {
@@ -74,10 +142,18 @@ describe("creator views query", () => {
     );
 
     expect(request.query).toContain("UNION ALL");
-    expect(request.query).toContain("timestamp < parseDateTimeBestEffort({cutover_at})");
-    expect(request.query).toContain("timestamp >= parseDateTimeBestEffort({cutover_at})");
-    expect(request.query).toContain("uniqExact(work_kind, work_id, session_id)");
-    expect(request.query).toContain("notEmpty(toString(properties.$session_id))");
+    expect(request.query).toContain(
+      "timestamp < parseDateTimeBestEffort({cutover_at})",
+    );
+    expect(request.query).toContain(
+      "timestamp >= parseDateTimeBestEffort({cutover_at})",
+    );
+    expect(request.query).toContain(
+      "uniqExact(work_kind, work_id, session_id)",
+    );
+    expect(request.query).toContain(
+      "notEmpty(toString(properties.$session_id))",
+    );
     expect(request.query).not.toContain("properties.creator_id");
     expect(request.values).toMatchObject({
       legacy_event: "post opened",
@@ -92,7 +168,9 @@ describe("creator views query", () => {
   it("parses the controlled aggregate fixture value instead of recounting events in JavaScript", () => {
     expect(parseCreatorViewsRows([[3]])).toBe(3);
     expect(() => parseCreatorViewsRows([])).toThrow("unexpected");
-    expect(() => parseCreatorViewsRows([["not-a-count"]])).toThrow("unexpected");
+    expect(() => parseCreatorViewsRows([["not-a-count"]])).toThrow(
+      "unexpected",
+    );
   });
 
   it("sends eligible work IDs as PostHog values and returns the aggregate", async () => {
@@ -124,7 +202,9 @@ describe("creator views query", () => {
       logo_ids: [logoId],
       website_ids: [websiteId],
     });
-    expect(body.query.query).toContain("uniqExact(work_kind, work_id, session_id)");
+    expect(body.query.query).toContain(
+      "uniqExact(work_kind, work_id, session_id)",
+    );
   });
 
   it("keeps a previous successful value when the provider refresh fails", async () => {
@@ -160,7 +240,10 @@ describe("creator views query", () => {
         rows: [{ kind: "design", id: designId }],
       }),
     } as never);
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("provider unavailable")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("provider unavailable")),
+    );
 
     await expect(getCreatorViews(freshCreatorId)).resolves.toEqual({
       status: "unavailable",
@@ -168,110 +251,208 @@ describe("creator views query", () => {
   });
 });
 
- it("does not restore archived or reassigned credit during provider failure", async () => {
-    configurePreviewAnalytics();
-    const execute = vi.fn().mockResolvedValue({ rows: [{kind: "design", id: designId}] });
-    vi.mocked(getDatabase).mockReturnValue({execute} as never);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({results: [[7]]}))));
-    expect(await getCreatorViews(creatorId)).toMatchObject({count:7});
-    execute.mockResolvedValue({rows:[{kind:"logo",id:logoId}]});
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    expect(await getCreatorViews(creatorId)).toEqual({status:"unavailable"});
-  });
- it("fails closed when current eligibility cannot be established", async () => {
-    configurePreviewAnalytics();
-    vi.mocked(getDatabase).mockReturnValue({execute:vi.fn().mockRejectedValue(new Error("database offline"))} as never);
-    expect(await getCreatorViews(creatorId)).toEqual({status:"unavailable"});
-  });
+it("does not restore archived or reassigned credit during provider failure", async () => {
+  configurePreviewAnalytics();
+  const execute = vi
+    .fn()
+    .mockResolvedValue({ rows: [{ kind: "design", id: designId }] });
+  vi.mocked(getDatabase).mockReturnValue({ execute } as never);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[7]] }))),
+  );
+  expect(await getCreatorViews(creatorId)).toMatchObject({ count: 7 });
+  execute.mockResolvedValue({ rows: [{ kind: "logo", id: logoId }] });
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+  expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
+});
+it("fails closed when current eligibility cannot be established", async () => {
+  configurePreviewAnalytics();
+  vi.mocked(getDatabase).mockReturnValue({
+    execute: vi.fn().mockRejectedValue(new Error("database offline")),
+  } as never);
+  expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
+});
 
 it("loads a shared snapshot after a module cold start and preserves its timestamp", async () => {
   configurePreviewAnalytics();
-  vi.mocked(getDatabase).mockReturnValue({execute:vi.fn().mockResolvedValue({rows:[{kind:"design",id:designId}]})} as never);
-  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({results:[[9]]}))));
+  vi.mocked(getDatabase).mockReturnValue({
+    execute: vi
+      .fn()
+      .mockResolvedValue({ rows: [{ kind: "design", id: designId }] }),
+  } as never);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[9]] }))),
+  );
   const success = await getCreatorViews(creatorId);
   vi.resetModules();
-  vi.stubGlobal("fetch",vi.fn().mockRejectedValue(new Error("offline")));
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
   const freshWorker = await import("./creator-views");
   expect(await freshWorker.getCreatorViews(creatorId)).toEqual(success);
   process.env.POSTHOG_PROJECT_ID = "other-project";
-  expect(await freshWorker.getCreatorViews(creatorId)).toEqual({status:"unavailable"});
+  expect(await freshWorker.getCreatorViews(creatorId)).toEqual({
+    status: "unavailable",
+  });
 });
 it("rejects malformed counts and recovers without treating them as zero", async () => {
   configurePreviewAnalytics();
-  vi.mocked(getDatabase).mockReturnValue({execute:vi.fn().mockResolvedValue({rows:[{kind:"design",id:designId}]})} as never);
-  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({results:[[null]]}))));
-  expect(await getCreatorViews(creatorId)).toEqual({status:"unavailable"});
-  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({results:[[4]]}))));
-  expect(await getCreatorViews(creatorId)).toMatchObject({status:"available",count:4});
+  vi.mocked(getDatabase).mockReturnValue({
+    execute: vi
+      .fn()
+      .mockResolvedValue({ rows: [{ kind: "design", id: designId }] }),
+  } as never);
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ results: [[null]] }))),
+  );
+  expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[4]] }))),
+  );
+  expect(await getCreatorViews(creatorId)).toMatchObject({
+    status: "available",
+    count: 4,
+  });
 });
 it("rejects unexpected aggregate shapes", () => {
-  for (const rows of [[], [[1],[2]], [[1,2]], [[-1]], [[1.5]], [[null]]]) expect(() => parseCreatorViewsRows(rows)).toThrow();
+  for (const rows of [[], [[1], [2]], [[1, 2]], [[-1]], [[1.5]], [[null]]])
+    expect(() => parseCreatorViewsRows(rows)).toThrow();
 });
 it("returns genuine zero for an empty eligible list without querying the provider", async () => {
   configurePreviewAnalytics();
-  vi.mocked(getDatabase).mockReturnValue({execute:vi.fn().mockResolvedValue({rows:[]})} as never);
-  const provider = vi.fn(); vi.stubGlobal("fetch",provider);
-  expect(await getCreatorViews(creatorId)).toMatchObject({status:"available",count:0});
+  vi.mocked(getDatabase).mockReturnValue({
+    execute: vi.fn().mockResolvedValue({ rows: [] }),
+  } as never);
+  const provider = vi.fn();
+  vi.stubGlobal("fetch", provider);
+  expect(await getCreatorViews(creatorId)).toMatchObject({
+    status: "available",
+    count: 0,
+  });
   expect(provider).not.toHaveBeenCalled();
 });
 
-it.each(["success", "fallback"] as const)("rechecks fresh identities after provider %s and rejects changed eligibility", async mode => {
-  configurePreviewAnalytics();
-  const execute = vi.fn().mockResolvedValue({ rows: [{ kind: "design", id: designId }] });
-  vi.mocked(getDatabase).mockReturnValue({ execute } as never);
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[8]] }))));
-  const initial = await getCreatorViews(creatorId);
-  expect(initial).toMatchObject({ status: "available", count: 8 });
-  execute.mockClear();
-  execute.mockResolvedValueOnce({ rows: [{ kind: "design", id: designId }] })
-    .mockResolvedValueOnce({ rows: [{ kind: "website", id: websiteId }] });
-  vi.stubGlobal("fetch", mode === "fallback"
-    ? vi.fn().mockRejectedValue(new Error("offline"))
-    : vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[10]] }))));
-  expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
-  expect(execute).toHaveBeenCalledTimes(2);
-});
-it.each(["success", "fallback"] as const)("returns unavailable when the second identity read fails after %s", async mode => {
-  configurePreviewAnalytics();
-  const execute = vi.fn().mockResolvedValue({ rows: [{ kind: "logo", id: logoId }] });
-  vi.mocked(getDatabase).mockReturnValue({ execute } as never);
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[8]] }))));
-  expect(await getCreatorViews(creatorId)).toMatchObject({ status: "available", count: 8 });
-  execute.mockClear();
-  execute.mockResolvedValueOnce({ rows: [{ kind: "logo", id: logoId }] }).mockRejectedValueOnce(new Error("eligibility unavailable"));
-  vi.stubGlobal("fetch", mode === "fallback"
-    ? vi.fn().mockRejectedValue(new Error("offline"))
-    : vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[10]] }))));
-  expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
-  expect(execute).toHaveBeenCalledTimes(2);
-});
+it.each(["success", "fallback"] as const)(
+  "rechecks fresh identities after provider %s and rejects changed eligibility",
+  async (mode) => {
+    configurePreviewAnalytics();
+    const execute = vi
+      .fn()
+      .mockResolvedValue({ rows: [{ kind: "design", id: designId }] });
+    vi.mocked(getDatabase).mockReturnValue({ execute } as never);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ results: [[8]] }))),
+    );
+    const initial = await getCreatorViews(creatorId);
+    expect(initial).toMatchObject({ status: "available", count: 8 });
+    execute.mockClear();
+    execute
+      .mockResolvedValueOnce({ rows: [{ kind: "design", id: designId }] })
+      .mockResolvedValueOnce({ rows: [{ kind: "website", id: websiteId }] });
+    vi.stubGlobal(
+      "fetch",
+      mode === "fallback"
+        ? vi.fn().mockRejectedValue(new Error("offline"))
+        : vi
+            .fn()
+            .mockResolvedValue(
+              new Response(JSON.stringify({ results: [[10]] })),
+            ),
+    );
+    expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
+    expect(execute).toHaveBeenCalledTimes(2);
+  },
+);
+it.each(["success", "fallback"] as const)(
+  "returns unavailable when the second identity read fails after %s",
+  async (mode) => {
+    configurePreviewAnalytics();
+    const execute = vi
+      .fn()
+      .mockResolvedValue({ rows: [{ kind: "logo", id: logoId }] });
+    vi.mocked(getDatabase).mockReturnValue({ execute } as never);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ results: [[8]] }))),
+    );
+    expect(await getCreatorViews(creatorId)).toMatchObject({
+      status: "available",
+      count: 8,
+    });
+    execute.mockClear();
+    execute
+      .mockResolvedValueOnce({ rows: [{ kind: "logo", id: logoId }] })
+      .mockRejectedValueOnce(new Error("eligibility unavailable"));
+    vi.stubGlobal(
+      "fetch",
+      mode === "fallback"
+        ? vi.fn().mockRejectedValue(new Error("offline"))
+        : vi
+            .fn()
+            .mockResolvedValue(
+              new Response(JSON.stringify({ results: [[10]] })),
+            ),
+    );
+    expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
+    expect(execute).toHaveBeenCalledTimes(2);
+  },
+);
 it("sorts and deduplicates kind-qualified identities to preserve snapshot fingerprints", async () => {
   configurePreviewAnalytics();
-  const execute = vi.fn().mockResolvedValue({ rows: [
-    { kind: "logo", id: designId }, { kind: "design", id: websiteId }, { kind: "design", id: designId },
-  ] });
+  const execute = vi.fn().mockResolvedValue({
+    rows: [
+      { kind: "logo", id: designId },
+      { kind: "design", id: websiteId },
+      { kind: "design", id: designId },
+    ],
+  });
   vi.mocked(getDatabase).mockReturnValue({ execute } as never);
-  const provider = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[9]] })));
+  const provider = vi
+    .fn()
+    .mockResolvedValue(new Response(JSON.stringify({ results: [[9]] })));
   vi.stubGlobal("fetch", provider);
   const first = await getCreatorViews(creatorId);
   expect(first).toMatchObject({ status: "available", count: 9 });
   const body = JSON.parse(String(provider.mock.calls[0][1].body));
-  expect(body.query.values).toMatchObject({ design_ids: [designId, websiteId].sort(), logo_ids: [designId], website_ids: [] });
-  execute.mockResolvedValue({ rows: [
-    { kind: "design", id: designId }, { kind: "design", id: websiteId },
-    { kind: "logo", id: designId }, { kind: "design", id: designId },
-  ] });
+  expect(body.query.values).toMatchObject({
+    design_ids: [designId, websiteId].sort(),
+    logo_ids: [designId],
+    website_ids: [],
+  });
+  execute.mockResolvedValue({
+    rows: [
+      { kind: "design", id: designId },
+      { kind: "design", id: websiteId },
+      { kind: "logo", id: designId },
+      { kind: "design", id: designId },
+    ],
+  });
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
   expect(await getCreatorViews(creatorId)).toEqual(first);
 });
 it("does not use an old snapshot when the first fresh identity read fails", async () => {
   configurePreviewAnalytics();
-  const execute = vi.fn().mockResolvedValue({ rows: [{ kind: "design", id: designId }] });
+  const execute = vi
+    .fn()
+    .mockResolvedValue({ rows: [{ kind: "design", id: designId }] });
   vi.mocked(getDatabase).mockReturnValue({ execute } as never);
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[5]] }))));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [[5]] }))),
+  );
   expect(await getCreatorViews(creatorId)).toMatchObject({ count: 5 });
   execute.mockRejectedValue(new Error("database offline"));
-  const provider = vi.fn(); vi.stubGlobal("fetch", provider);
+  const provider = vi.fn();
+  vi.stubGlobal("fetch", provider);
   expect(await getCreatorViews(creatorId)).toEqual({ status: "unavailable" });
   expect(provider).not.toHaveBeenCalled();
 });

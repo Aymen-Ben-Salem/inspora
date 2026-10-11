@@ -4,7 +4,11 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useSearchParams } from "next/navigation";
 import { PurchaseOptions } from "./purchase-options";
-import { isSponsorBillingMode, type SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
+import { AnalyticsOverview } from "./analytics-overview";
+import {
+  isSponsorBillingMode,
+  type SponsorBillingMode,
+} from "@/features/sponsorship/purchase-mode";
 import type { readOwnSponsorDashboard } from "@/features/sponsorship/billing-service";
 export type SponsorDashboardData = NonNullable<
   Awaited<ReturnType<typeof readOwnSponsorDashboard>>
@@ -47,7 +51,8 @@ export function SponsorDashboard({
     setPreviousInitial(initial);
     setData(initial);
   }
-  const billingMode = data.checkout?.state === "reserved" ? data.checkout.billingMode : choice;
+  const billingMode =
+    data.checkout?.state === "reserved" ? data.checkout.billingMode : choice;
   const refresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -89,7 +94,9 @@ export function SponsorDashboard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          kind === "checkout" ? { checkoutId: data.checkout?.id, billingMode } : {},
+          kind === "checkout"
+            ? { checkoutId: data.checkout?.id, billingMode }
+            : {},
         ),
       });
       const result = await r.json();
@@ -126,9 +133,26 @@ export function SponsorDashboard({
           }}
         >
           {refreshing ? (
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-4 animate-spin motion-reduce:animate-none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" className="opacity-25" />
-              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="size-4 animate-spin motion-reduce:animate-none"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="opacity-25"
+              />
+              <path
+                d="M21 12a9 9 0 0 0-9-9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
           ) : null}
           {refreshing ? "Refreshing…" : "Refresh"}
@@ -148,9 +172,10 @@ export function SponsorDashboard({
               : account?.state === "recovery"
                 ? "Your paid period has ended. Promotion is paused while payment recovers."
                 : account
-                  ? "Your billing and current campaign."
+                  ? "Your delivery, audience and billing."
                   : "Your preparation is private until payment is verified."}
       </p>
+      {account ? <AnalyticsOverview key={data.ownerUserId} /> : null}
       <div className="mt-8 grid gap-6 md:grid-cols-[1.2fr_1fr]">
         <section className="rounded-lg border border-[#e6e6e6] p-6">
           <h2 className="text-lg font-medium">Current campaign</h2>
@@ -191,18 +216,28 @@ export function SponsorDashboard({
           {account ? (
             <div className="mt-6 flex flex-wrap gap-3">
               {!readonly ? (
-                <Link prefetch={true} href={"/sponsor/campaigns/new" as Route} className={`${button} inline-flex items-center bg-[#262626] text-white`}>
+                <Link
+                  prefetch={true}
+                  href={"/sponsor/campaigns/new" as Route}
+                  className={`${button} inline-flex items-center bg-[#262626] text-white`}
+                >
                   Create campaign
                 </Link>
               ) : null}
-              <Link prefetch={true} href={"/sponsor/campaigns" as Route} className={`${button} inline-flex items-center`}>
+              <Link
+                prefetch={true}
+                href={"/sponsor/campaigns" as Route}
+                className={`${button} inline-flex items-center`}
+              >
                 View all campaigns
               </Link>
             </div>
           ) : null}
           {data.campaigns.length ? (
             <div className="mt-8 border-t border-[#e6e6e6] pt-4">
-              <h3 className="text-sm text-[#767676]">{account ? "Your campaigns" : "Campaign history"}</h3>
+              <h3 className="text-sm text-[#767676]">
+                {account ? "Your campaigns" : "Campaign history"}
+              </h3>
               <ul className="mt-3 space-y-3">
                 {data.campaigns.map((c) => (
                   <li
@@ -211,11 +246,25 @@ export function SponsorDashboard({
                   >
                     <div className="min-w-0">
                       <p className="break-words">{c.title}</p>
-                      <p className="mt-1 text-xs text-[#767676]">{c.state === "published" ? "Published" : c.state === "archived" ? "Previous" : c.state === "draft" ? "Private draft" : "Prepared"}</p>
+                      <p className="mt-1 text-xs text-[#767676]">
+                        {c.state === "published"
+                          ? "Published"
+                          : c.state === "archived"
+                            ? "Previous"
+                            : c.state === "draft"
+                              ? "Private draft"
+                              : "Prepared"}
+                      </p>
                     </div>
-                    {account ? <Link prefetch={true} href={`/sponsor/campaigns/${c.id}` as Route} className="focus-ring inline-flex min-h-11 shrink-0 items-center text-sm underline underline-offset-4">
-                      {readonly ? "View campaign" : "Edit campaign"}
-                    </Link> : null}
+                    {account ? (
+                      <Link
+                        prefetch={true}
+                        href={`/sponsor/campaigns/${c.id}` as Route}
+                        className="focus-ring inline-flex min-h-11 shrink-0 items-center text-sm underline underline-offset-4"
+                      >
+                        {readonly ? "View campaign" : "Edit campaign"}
+                      </Link>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -228,7 +277,8 @@ export function SponsorDashboard({
         >
           <h2 className="text-lg font-medium">Billing</h2>
           <p className="mt-2 text-sm text-[#767676]">
-            {account ? `${account.billingCurrency.toUpperCase()} 500 before applicable tax · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}`
+            {account
+              ? `${account.billingCurrency.toUpperCase()} 500 before applicable tax · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}`
               : "Choose how you’d like to pay."}
           </p>
           {account ? (
@@ -239,14 +289,20 @@ export function SponsorDashboard({
                 <dt className="text-[#767676]">Paid through</dt>
                 <dd>{date(account.paidThrough)}</dd>
                 <dt className="text-[#767676]">
-                  {account.billingMode === "one_time" ? "End date" : account.cancelAtPeriodEnd ? "Cancellation" : "Renewal"}
+                  {account.billingMode === "one_time"
+                    ? "End date"
+                    : account.cancelAtPeriodEnd
+                      ? "Cancellation"
+                      : "Renewal"}
                 </dt>
                 <dd>
-                  {account.billingMode === "one_time" ? `Ends ${date(account.paidThrough)}` : account.cancelAtPeriodEnd
+                  {account.billingMode === "one_time"
                     ? `Ends ${date(account.paidThrough)}`
-                    : account.state === "inactive"
-                      ? "Stopped"
-                      : date(account.paidThrough)}
+                    : account.cancelAtPeriodEnd
+                      ? `Ends ${date(account.paidThrough)}`
+                      : account.state === "inactive"
+                        ? "Stopped"
+                        : date(account.paidThrough)}
                 </dd>
                 {account.recoveryDeadline ? (
                   <>
@@ -266,13 +322,28 @@ export function SponsorDashboard({
                 Manage billing
               </button>
               <p className="mt-4 text-sm leading-6 text-[#767676]">
-                {account.billingMode === "one_time" ? "View your invoice in Billing. Your sponsorship ends at the end of the paid calendar month, with no automatic renewal." : "View invoices, update your payment method or cancel future renewal. Cancellation preserves your paid period. A failed renewal pauses promotion at expiry and holds your seat for 72 hours."}
+                {account.billingMode === "one_time"
+                  ? "View your invoice in Billing. Your sponsorship ends at the end of the paid calendar month, with no automatic renewal."
+                  : "View invoices, update your payment method or cancel future renewal. Cancellation preserves your paid period. A failed renewal pauses promotion at expiry and holds your seat for 72 hours."}
               </p>
             </>
           ) : (
             <>
-              <div className="mt-6"><PurchaseOptions value={billingMode} onChange={setChoice} disabled={busy || refreshing || data.checkout?.state === "reserved"} /></div>
-              {data.checkout?.state === "reserved" ? <p className="mt-3 text-xs text-[#767676]">This checkout’s payment choice is reserved. Finish it or wait for it to expire before changing terms.</p> : null}
+              <div className="mt-6">
+                <PurchaseOptions
+                  value={billingMode}
+                  onChange={setChoice}
+                  disabled={
+                    busy || refreshing || data.checkout?.state === "reserved"
+                  }
+                />
+              </div>
+              {data.checkout?.state === "reserved" ? (
+                <p className="mt-3 text-xs text-[#767676]">
+                  This checkout’s payment choice is reserved. Finish it or wait
+                  for it to expire before changing terms.
+                </p>
+              ) : null}
               <button
                 className={`${button} mt-8 bg-[#262626] text-white`}
                 type="button"

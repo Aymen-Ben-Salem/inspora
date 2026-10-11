@@ -52,10 +52,13 @@ function parseEligibleWorkRows(rows: unknown[]): EligibleWorkIds {
   const eligible = emptyEligibleWorkIds();
 
   for (const value of rows) {
-    if (!value || typeof value !== "object") throw new Error("Invalid eligibility result.");
+    if (!value || typeof value !== "object")
+      throw new Error("Invalid eligibility result.");
     const row = value as Partial<EligibleWorkRow>;
     if (
-      (row.kind !== "design" && row.kind !== "logo" && row.kind !== "website") ||
+      (row.kind !== "design" &&
+        row.kind !== "logo" &&
+        row.kind !== "website") ||
       !workIdSchema.safeParse(row.id).success
     ) {
       throw new Error("Invalid eligibility result.");
@@ -70,7 +73,9 @@ function parseEligibleWorkRows(rows: unknown[]): EligibleWorkIds {
 }
 
 export async function getEligibleCreatorWorkIds(creatorId: string) {
-  return parseEligibleWorkRows(await readWorkIdentities({ scope: { kind: "creator", creatorId } }));
+  return parseEligibleWorkRows(
+    await readWorkIdentities({ scope: { kind: "creator", creatorId } }),
+  );
 }
 
 function configuredCutover() {
@@ -84,7 +89,11 @@ function configuredCutover() {
 export function buildCreatorViewsQuery(
   eligible: EligibleWorkIds,
   cutoverAt: string,
+  sessionCutoverAt?: string,
 ): HogQlQueryRequest {
+  const sessionExpression = sessionCutoverAt
+    ? `if(timestamp >= parseDateTimeBestEffort({session_cutover_at}) AND notEmpty(toString(properties.work_session_key)), concat('memory:',toString(properties.work_session_key)), toString(properties.$session_id))`
+    : `toString(properties.$session_id)`;
   return {
     name: "Inspora creator published-work views",
     query: `SELECT uniqExact(work_kind, work_id, session_id) AS views
@@ -92,21 +101,21 @@ export function buildCreatorViewsQuery(
         SELECT
           'design' AS work_kind,
           toString(properties.post_id) AS work_id,
-          toString(properties.$session_id) AS session_id
+          ${sessionExpression} AS session_id
         FROM events
         WHERE event = {legacy_event}
           AND timestamp < parseDateTimeBestEffort({cutover_at})
           AND toString(properties.post_id) IN {design_ids}
-          AND notEmpty(toString(properties.$session_id))
+          AND notEmpty(${sessionExpression})
         UNION ALL
         SELECT
           toString(properties.work_kind) AS work_kind,
           toString(properties.work_id) AS work_id,
-          toString(properties.$session_id) AS session_id
+          ${sessionExpression} AS session_id
         FROM events
         WHERE event = {unified_event}
           AND timestamp >= parseDateTimeBestEffort({cutover_at})
-          AND notEmpty(toString(properties.$session_id))
+          AND notEmpty(${sessionExpression})
           AND (
             (toString(properties.work_kind) = 'design'
               AND toString(properties.work_id) IN {design_ids})
@@ -120,6 +129,7 @@ export function buildCreatorViewsQuery(
       legacy_event: ANALYTICS_EVENTS.postOpened,
       unified_event: ANALYTICS_EVENTS.workOpened,
       cutover_at: cutoverAt,
+      ...(sessionCutoverAt ? { session_cutover_at: sessionCutoverAt } : {}),
       design_ids: eligible.design,
       logo_ids: eligible.logo,
       website_ids: eligible.website,
@@ -128,7 +138,8 @@ export function buildCreatorViewsQuery(
 }
 
 export function parseCreatorViewsRows(rows: unknown[][]) {
-  if (rows.length !== 1 || rows[0]?.length !== 1) throw new Error("PostHog returned an unexpected creator views aggregate.");
+  if (rows.length !== 1 || rows[0]?.length !== 1)
+    throw new Error("PostHog returned an unexpected creator views aggregate.");
   const value = rows[0]?.[0];
   const count =
     typeof value === "number"
@@ -142,7 +153,12 @@ export function parseCreatorViewsRows(rows: unknown[][]) {
   return count;
 }
 
-async function getCachedCreatorViews(eligible: EligibleWorkIds, cutover: string, scope: string) {
+async function getCachedCreatorViews(
+  eligible: EligibleWorkIds,
+  cutover: string,
+  scope: string,
+  sessionCutover?: string,
+) {
   "use cache";
 
   cacheLife(CREATOR_VIEWS_CACHE_LIFE);
@@ -154,7 +170,8 @@ async function getCachedCreatorViews(eligible: EligibleWorkIds, cutover: string,
   );
 
   const configuration = getPostHogConfiguration();
-  if (!configuration) throw new Error("PostHog creator views are not configured.");
+  if (!configuration)
+    throw new Error("PostHog creator views are not configured.");
   if (!scope) throw new Error("Missing analytics scope.");
   const hasEligibleWork = Object.values(eligible).some((ids) => ids.length > 0);
   if (!hasEligibleWork) {
@@ -167,7 +184,7 @@ async function getCachedCreatorViews(eligible: EligibleWorkIds, cutover: string,
 
   const rows = await runHogQlQuery(
     configuration,
-    buildCreatorViewsQuery(eligible, cutover),
+    buildCreatorViewsQuery(eligible, cutover, sessionCutover),
   );
   return {
     status: "available",
@@ -188,24 +205,55 @@ export async function getCreatorViews(
     const environment = process.env.DATA_ENVIRONMENT;
     if (!configuration || !environment) return { status: "unavailable" };
     const cutover = configuredCutover();
-    const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-    const scope = hash([environment, process.env.DATABASE_URL, configuration.apiHost,
-      configuration.projectId, process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN, cutover]);
+    const sessionCutover = process.env.POSTHOG_WORK_SESSION_CUTOVER_AT;
+    if (
+      sessionCutover &&
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(sessionCutover)
+    )
+      return { status: "unavailable" };
+    const hash = (value: unknown) =>
+      createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    const legacyBoundary = [
+      environment,
+      process.env.DATABASE_URL,
+      configuration.apiHost,
+      configuration.projectId,
+      process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+      cutover,
+    ];
+    const legacyScope = hash(legacyBoundary);
+    const scope = sessionCutover
+      ? hash([...legacyBoundary, sessionCutover])
+      : legacyScope;
     const key = hash([scope, creatorId]);
     const eligible = await getEligibleCreatorWorkIds(creatorId);
     const fingerprint = hash(eligible);
     let result: CreatorViewsResult;
     try {
-      result = await getCachedCreatorViews(eligible, cutover, scope);
+      result = await getCachedCreatorViews(
+        eligible,
+        cutover,
+        scope,
+        sessionCutover,
+      );
     } catch {
-      const snapshot = await readViewSnapshot(key, fingerprint);
-      result = snapshot ? { status: "available", ...snapshot } : { status: "unavailable" };
-      if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint) return { status: "unavailable" };
+      const snapshot =
+        (await readViewSnapshot(key, fingerprint)) ??
+        (sessionCutover
+          ? await readViewSnapshot(hash([legacyScope, creatorId]), fingerprint)
+          : null);
+      result = snapshot
+        ? { status: "available", ...snapshot }
+        : { status: "unavailable" };
+      if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint)
+        return { status: "unavailable" };
       return result;
     }
-    if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint) return { status: "unavailable" };
+    if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint)
+      return { status: "unavailable" };
     // A snapshot-store outage must not erase a valid provider response.
-    if (result.status === "available") await writeViewSnapshot(key, fingerprint, result).catch(() => {});
+    if (result.status === "available")
+      await writeViewSnapshot(key, fingerprint, result).catch(() => {});
     return result;
   } catch {
     return { status: "unavailable" };

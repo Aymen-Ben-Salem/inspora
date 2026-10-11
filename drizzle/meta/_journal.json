@@ -239,6 +239,20 @@
       "when": 1791741182713,
       "tag": "0033_sponsor_one_time",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791750904146,
+      "tag": "0034_analytics_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791753001705,
+      "tag": "0035_analytics_abuse_bounds",
+      "breakpoints": true
     }
   ]
 }

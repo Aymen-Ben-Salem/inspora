@@ -7,6 +7,8 @@ import { AuthProvider } from "@/components/auth-provider";
 import { FeedPlaybackProvider } from "@/components/looping-video";
 import { PostTransitionProvider } from "@/components/post-transition-provider";
 import { PublicSponsorsProvider } from "@/components/sponsorship/public-sponsors";
+import { PlacementAnalytics } from "@/components/sponsorship/placement-analytics";
+import { Suspense } from "react";
 import {
   buildWebsiteStructuredData,
   serializeJsonLd,
@@ -91,8 +93,11 @@ export default function RootLayout({
           <FeedPlaybackProvider>
             <PostTransitionProvider>
               <PublicSponsorsProvider>
-              {children}
-              {modal}
+                <Suspense fallback={null}>
+                  <PlacementAnalytics />
+                </Suspense>
+                {children}
+                {modal}
               </PublicSponsorsProvider>
             </PostTransitionProvider>
           </FeedPlaybackProvider>

@@ -1163,3 +1163,145 @@ export const sponsorJobs = pgTable("sponsor_jobs", {
   check("sponsor_jobs_state_valid", sql`${t.state} in ('pending','running','complete')`),
   check("sponsor_jobs_attempts_valid", sql`${t.attempts} >= 0`),
 ]);
+
+export const analyticsIdentityEpochs = pgTable("analytics_identity_epochs", {
+  month: text("month").primaryKey(),
+  encryptedSecret: text("encrypted_secret").notNull(),
+  destroyAt: timestamp("destroy_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+});
+export const analyticsEvents = pgTable(
+  "analytics_events",
+  {
+    occurrenceId: uuid("occurrence_id").primaryKey(),
+    dedupKey: text("dedup_key"),
+    kind: text("kind").notNull(),
+    pageId: uuid("page_id").notNull(),
+    campaignId: uuid("campaign_id").references(() => sponsors.id),
+    versionId: uuid("version_id").references(() => sponsorCampaignVersions.id),
+    placement: text("placement"),
+    milestone: integer("milestone"),
+    occurredAt: timestamp("occurred_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    visitorKey: text("visitor_key"),
+    countryCode: text("country_code"),
+    device: text("device").notNull(),
+    referrerDomain: text("referrer_domain"),
+  },
+  (t) => [
+    uniqueIndex("analytics_events_dedup_unique").on(t.dedupKey),
+    index("analytics_events_campaign_time_idx").on(t.campaignId, t.occurredAt),
+    index("analytics_events_time_idx").on(t.occurredAt),
+    index("analytics_events_visitor_accepted_idx").on(
+      t.visitorKey,
+      t.acceptedAt,
+    ),
+    check(
+      "analytics_events_kind_valid",
+      sql`${t.kind} in ('site_page_view','sponsor_impression','sponsor_click','sponsor_preview_started','sponsor_preview_view','sponsor_preview_progress')`,
+    ),
+    check(
+      "analytics_events_binding_valid",
+      sql`(${t.kind} = 'site_page_view' and ${t.campaignId} is null and ${t.versionId} is null and ${t.placement} is null) or (${t.kind} <> 'site_page_view' and ${t.campaignId} is not null and ${t.versionId} is not null and ${t.placement} in ('header','feed','detail'))`,
+    ),
+    check(
+      "analytics_events_device_valid",
+      sql`${t.device} in ('desktop','mobile','tablet','unknown')`,
+    ),
+    check(
+      "analytics_events_milestone_valid",
+      sql`(${t.kind} = 'sponsor_preview_progress' and ${t.milestone} in (25,50,75,100)) or (${t.kind} <> 'sponsor_preview_progress' and ${t.milestone} is null)`,
+    ),
+  ],
+);
+export const analyticsOccurrences = pgTable("analytics_occurrences", {
+  occurrenceId: uuid("occurrence_id").primaryKey(),
+  fingerprint: text("fingerprint").notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" })
+    .defaultNow()
+    .notNull(),
+});
+export const analyticsRateBuckets = pgTable("analytics_rate_buckets", {
+  key: text("key").primaryKey(),
+  events: integer("events").notNull(),
+  receipts: integer("receipts").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+}, t => [index("analytics_rate_buckets_expiry_idx").on(t.expiresAt)]);
+export const analyticsReports = pgTable("analytics_reports", {
+  key: text("key").primaryKey(),
+  scope: text("scope").notNull(),
+  filter: jsonb("filter").$type<Record<string, unknown>>().notNull(),
+  data: jsonb("data")
+    .$type<import("@/analytics/first-party/query").MetricsReport>()
+    .notNull(),
+  asOf: timestamp("as_of", { withTimezone: true, mode: "date" }).notNull(),
+  refreshAt: timestamp("refresh_at", { withTimezone: true, mode: "date" }),
+  expiresAt: timestamp("expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+});
+export const sponsorDeliveryPeriods = pgTable(
+  "sponsor_delivery_periods",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => sponsorAccounts.id),
+    paymentId: text("payment_id").notNull(),
+    startAt: timestamp("start_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    endAt: timestamp("end_at", { withTimezone: true, mode: "date" }).notNull(),
+    baseAmount: integer("base_amount").notNull(),
+    currency: text("currency").notNull(),
+  },
+  (t) => [
+    uniqueIndex("sponsor_delivery_period_payment_unique").on(t.paymentId),
+    check(
+      "sponsor_delivery_period_valid",
+      sql`${t.endAt} > ${t.startAt} and ${t.baseAmount} >= 0 and ${t.currency} in ('usd','eur')`,
+    ),
+  ],
+);
+export const sponsorDeliveryIntervals = pgTable(
+  "sponsor_delivery_intervals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => sponsorAccounts.id),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => sponsors.id),
+    versionId: uuid("version_id")
+      .notNull()
+      .references(() => sponsorCampaignVersions.id),
+    startAt: timestamp("start_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    endAt: timestamp("end_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    index("sponsor_delivery_intervals_account_time_idx").on(
+      t.accountId,
+      t.startAt,
+    ),
+    uniqueIndex("sponsor_delivery_one_open_unique")
+      .on(t.accountId)
+      .where(sql`${t.endAt} is null`),
+    check(
+      "sponsor_delivery_interval_valid",
+      sql`${t.endAt} is null or ${t.endAt} >= ${t.startAt}`,
+    ),
+  ],
+);

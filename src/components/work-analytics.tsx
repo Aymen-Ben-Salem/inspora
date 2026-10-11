@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { captureAnalyticsEvent } from "@/analytics/client";
 import { ANALYTICS_EVENTS } from "@/analytics/events";
 import { isPrivateAnalyticsPath } from "@/analytics/privacy";
+import { getWorkSessionKey } from "@/analytics/work-session";
 
 export type WorkAnalyticsKind = "design" | "logo" | "website";
 
@@ -46,6 +47,7 @@ export function WorkAnalytics({
     captureAnalyticsEvent(ANALYTICS_EVENTS.workOpened, {
       work_id: workId,
       work_kind: workKind,
+      work_session_key: getWorkSessionKey(),
     });
   }, [workId, workKind]);
 

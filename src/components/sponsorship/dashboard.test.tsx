@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
 import { SponsorDashboard, type SponsorDashboardData } from "./dashboard";
 const initial: SponsorDashboardData = {
   ownerUserId: "owner",
@@ -60,14 +62,37 @@ it("shows paid dates, finishing activation and former read-only billing", () => 
   expect(former).not.toContain("Prepare campaign");
 });
 it("shows the billed EUR monthly terms while keeping original USD 30-day terms for existing accounts", () => {
-  const account = { state: "active", paidThrough: "2026-11-10T12:00:00Z", periodStart: "2026-10-10T12:00:00Z",
-    recoveryDeadline: null, cancelAtPeriodEnd: false, billingAvailable: true,
-    billingCurrency: "eur", billingMode: "subscription" as const, billingInterval: "month", billingIntervalCount: 1 };
-  const html = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, account }} />);
+  const account = {
+    state: "active",
+    paidThrough: "2026-11-10T12:00:00Z",
+    periodStart: "2026-10-10T12:00:00Z",
+    recoveryDeadline: null,
+    cancelAtPeriodEnd: false,
+    billingAvailable: true,
+    billingCurrency: "eur",
+    billingMode: "subscription" as const,
+    billingInterval: "month",
+    billingIntervalCount: 1,
+  };
+  const html = renderToStaticMarkup(
+    <SponsorDashboard initial={{ ...initial, account }} />,
+  );
   expect(html).toContain("EUR 500 before applicable tax");
   expect(html).toContain("monthly");
-  expect(html).not.toContain("30 days");
-  const legacy = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, account: { ...account, billingCurrency: "usd", billingInterval: "day", billingIntervalCount: 30 } }} />);
+  expect(html.slice(html.indexOf('id="billing"'))).not.toContain("30 days");
+  const legacy = renderToStaticMarkup(
+    <SponsorDashboard
+      initial={{
+        ...initial,
+        account: {
+          ...account,
+          billingCurrency: "usd",
+          billingInterval: "day",
+          billingIntervalCount: 30,
+        },
+      }}
+    />,
+  );
   expect(legacy).toContain("USD 500 before applicable tax");
   expect(legacy).toContain("every 30 days");
 });

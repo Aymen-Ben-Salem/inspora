@@ -8,6 +8,7 @@ import {
   sponsorCheckouts,
   sponsorIdentities,
   sponsorSeats,
+  sponsorDeliveryPeriods,
   sponsors,
 } from "@/db/schema";
 import type { WriteTx } from "@/db/write-client";
@@ -117,7 +118,8 @@ export async function ensureSponsorCheckoutSession(
       !session ||
       session.status !== "open" ||
       !session.url ||
-      session.checkoutId !== p.id || session.billingMode !== p.billingMode
+      session.checkoutId !== p.id ||
+      session.billingMode !== p.billingMode
     )
       throw new Error("Checkout is no longer open. Check your dashboard.");
     return session.url;
@@ -195,8 +197,14 @@ export async function reconcileSponsorCheckout(
       .update(sponsorCheckouts)
       .set({ stripeSubscriptionId: current.subscriptionId })
       .where(eq(sponsorCheckouts.id, p.id));
-    const readBilling = () => once ? provider.observePayment(current.id) : provider.observe(current.subscriptionId!);
-    const stopCollection = () => once ? provider.settlePayment(current.id) : provider.terminate(current.subscriptionId!);
+    const readBilling = () =>
+      once
+        ? provider.observePayment(current.id)
+        : provider.observe(current.subscriptionId!);
+    const stopCollection = () =>
+      once
+        ? provider.settlePayment(current.id)
+        : provider.terminate(current.subscriptionId!);
     const observation = await readBilling();
     if (
       observation.checkoutId !== p.id ||
@@ -206,10 +214,40 @@ export async function reconcileSponsorCheckout(
       throw new Error("Subscription ownership mismatch.");
     validateSponsorPrice(observation.price, p.priceId, false, p.billingMode);
     const ownedAccount =
-      account && (once ? account.billingMode === "one_time" && seat?.accountId === account.id && seat.checkoutId === p.id
-        : account.stripeSubscriptionId === current.subscriptionId) ? account : null;
-    if (ownedAccount && ownedAccount.stripeCustomerId !== observation.customerId)
+      account &&
+      (once
+        ? account.billingMode === "one_time" &&
+          seat?.accountId === account.id &&
+          seat.checkoutId === p.id
+        : account.stripeSubscriptionId === current.subscriptionId)
+        ? account
+        : null;
+    if (
+      ownedAccount &&
+      ownedAccount.stripeCustomerId !== observation.customerId
+    )
       throw new Error("Billing customer ownership mismatch.");
+    // Refund observations can end reconciliation before the entitlement update.
+    // One-time provider observations prefix the original payment ID with refund:.
+    if (account)
+      for (const invoice of observation.invoices.filter(
+        (i) => i.refunded && i.priceId === p.priceId,
+      )) {
+        const paymentId = invoice.id.replace(/^refund:/, "");
+        if (once && paymentId !== p.paidInvoiceId) continue;
+        // The verified checkout + recorded payment identifies historical spend;
+        // a later seat or subscription must not be changed by this adjustment.
+        await tx
+          .update(sponsorDeliveryPeriods)
+          .set({ baseAmount: 0 })
+          .where(
+            and(
+              eq(sponsorDeliveryPeriods.accountId, account.id),
+              eq(sponsorDeliveryPeriods.paymentId, paymentId),
+              eq(sponsorDeliveryPeriods.currency, invoice.currency),
+            ),
+          );
+      }
     const previous = {
       paidThrough: ownedAccount?.paidThrough?.getTime() ?? null,
       periodStart: ownedAccount?.periodStart?.getTime() ?? null,
@@ -220,7 +258,7 @@ export async function reconcileSponsorCheckout(
       now.getTime(),
       p.priceId,
     );
-    const refunded = once && observation.invoices.some(i => i.refunded);
+    const refunded = once && observation.invoices.some((i) => i.refunded);
     if (
       denied ||
       p.releasedAt ||
@@ -237,7 +275,9 @@ export async function reconcileSponsorCheckout(
           .set({ exceptionCode: "late_payment_refund_review" })
           .where(eq(sponsorCheckouts.id, p.id));
       if (refunded && ownedAccount && !denied) {
-        await tx.update(sponsorAccounts).set({ state: "inactive", recoveryDeadline: null, updatedAt: now })
+        await tx
+          .update(sponsorAccounts)
+          .set({ state: "inactive", recoveryDeadline: null, updatedAt: now })
           .where(eq(sponsorAccounts.id, ownedAccount.id));
         invalidated = true;
       }
@@ -255,7 +295,10 @@ export async function reconcileSponsorCheckout(
           .where(eq(sponsorSeats.slot, seat.slot));
         await tx
           .update(sponsorCheckouts)
-          .set({ releasedAt: now, state: p.state === "reserved" ? "expired" : p.state })
+          .set({
+            releasedAt: now,
+            state: p.state === "reserved" ? "expired" : p.state,
+          })
           .where(eq(sponsorCheckouts.id, p.id));
       }
       return true;
@@ -264,11 +307,13 @@ export async function reconcileSponsorCheckout(
       if (
         seat.reservedUntil &&
         seat.reservedUntil > now &&
-        current.status !== "expired" && !["canceled", "incomplete_expired"].includes(observation.status)
+        current.status !== "expired" &&
+        !["canceled", "incomplete_expired"].includes(observation.status)
       )
         return false;
       if (!(await stopCollection())) return false;
-      if (once && (await readBilling()).invoices.some(i => i.paid)) return false;
+      if (once && (await readBilling()).invoices.some((i) => i.paid))
+        return false;
       await releaseReservation(tx, p, now);
       return true;
     }
@@ -318,6 +363,22 @@ export async function reconcileSponsorCheckout(
         reservedUntil: null,
       })
       .where(eq(sponsorSeats.slot, seat.slot));
+    const paidInvoice = observation.invoices.find(
+      (invoice) =>
+        invoice.id === decision.invoiceId && invoice.paid && !invoice.refunded,
+    );
+    if (paidInvoice)
+      await tx
+        .insert(sponsorDeliveryPeriods)
+        .values({
+          accountId: account.id,
+          paymentId: paidInvoice.id,
+          startAt: new Date(paidInvoice.periodStart),
+          endAt: new Date(paidInvoice.periodEnd),
+          baseAmount: observation.price.unitAmount!,
+          currency: paidInvoice.currency,
+        })
+        .onConflictDoNothing();
     await tx
       .update(sponsorCheckouts)
       .set({

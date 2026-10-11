@@ -1,32 +1,18 @@
 "use client";
 
-import posthog from "posthog-js";
 import { useEffect, useState } from "react";
-
-const analyticsConfigured = Boolean(
-  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
-    process.env.NEXT_PUBLIC_POSTHOG_HOST,
-);
+import { isAnalyticsDisabled, setAnalyticsDisabled } from "@/analytics/privacy";
 
 export function AnalyticsPreferences() {
   const [optedOut, setOptedOut] = useState<boolean | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      if (!analyticsConfigured) return;
-      setOptedOut(posthog.has_opted_out_capturing());
+      setOptedOut(isAnalyticsDisabled());
     }, 0);
 
     return () => window.clearTimeout(timeout);
   }, []);
-
-  if (!analyticsConfigured) {
-    return (
-      <p className="text-[14px] leading-6 text-[#777]">
-        Analytics is not active in this environment.
-      </p>
-    );
-  }
 
   const ready = optedOut !== null;
 
@@ -38,10 +24,10 @@ export function AnalyticsPreferences() {
         aria-pressed={ready ? !optedOut : undefined}
         onClick={() => {
           if (optedOut) {
-            posthog.opt_in_capturing({ captureEventName: false });
-            setOptedOut(false);
+            setAnalyticsDisabled(false);
+            setOptedOut(isAnalyticsDisabled());
           } else {
-            posthog.opt_out_capturing();
+            setAnalyticsDisabled(true);
             setOptedOut(true);
           }
         }}

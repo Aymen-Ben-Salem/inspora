@@ -9,7 +9,7 @@ import {
 } from "./sponsorship-environment";
 
 import {
-  ANALYTICS_CONFIGURATION_KEYS,
+  ANALYTICS_RUNTIME_CONFIGURATION_KEYS,
   validatePreviewAnalytics,
   verifyPreviewAnalyticsProject,
 } from "../../src/analytics/preview-configuration";
@@ -113,7 +113,7 @@ export function resolvePreviewBuildEnvironment(
   for (const key of SPONSORSHIP_CONFIGURATION_KEYS)
     environment[key] = preview[key]?.trim() ?? "";
   // Empty strings prevent Next dotenv loading from resurrecting .env.local values.
-  for (const key of ANALYTICS_CONFIGURATION_KEYS)
+  for (const key of ANALYTICS_RUNTIME_CONFIGURATION_KEYS)
     environment[key] = preview[key]?.trim() ?? "";
 
   const blockerPath = resolve(

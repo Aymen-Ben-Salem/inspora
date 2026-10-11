@@ -61,7 +61,11 @@ export default function InfoPage() {
           </aside>
 
           <article className="lg:col-span-8 lg:col-start-5">
-            <section id="about" aria-labelledby="about-title" className="scroll-mt-8 pb-16 sm:pb-20">
+            <section
+              id="about"
+              aria-labelledby="about-title"
+              className="scroll-mt-8 pb-16 sm:pb-20"
+            >
               <h2
                 id="about-title"
                 className="text-[27px] font-normal leading-[1.1] tracking-[-0.035em] sm:text-[34px]"
@@ -70,10 +74,10 @@ export default function InfoPage() {
               </h2>
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
-                  Inspora helps designers, creative professionals, students,
-                  and teams find useful visual references. The archive covers
-                  web design, branding, product design, motion, illustration,
-                  3D, and print.
+                  Inspora helps designers, creative professionals, students, and
+                  teams find useful visual references. The archive covers web
+                  design, branding, product design, motion, illustration, 3D,
+                  and print.
                 </p>
                 <p>
                   Each entry presents a project in a consistent browsing format
@@ -109,7 +113,8 @@ export default function InfoPage() {
                   <p className="mt-3 text-[15px] leading-[1.65] text-[#777]">
                     We look for strong craft, originality, relevance, clarity of
                     execution, and usefulness as a design reference. Projects
-                    are added when approved, without a fixed publishing schedule.
+                    are added when approved, without a fixed publishing
+                    schedule.
                   </p>
                 </div>
                 <div>
@@ -117,9 +122,9 @@ export default function InfoPage() {
                     Presentation
                   </h3>
                   <p className="mt-3 text-[15px] leading-[1.65] text-[#777]">
-                    Categories describe the project&apos;s primary discipline and
-                    support browsing. We may update a title, category, credit, or
-                    source when better information becomes available.
+                    Categories describe the project&apos;s primary discipline
+                    and support browsing. We may update a title, category,
+                    credit, or source when better information becomes available.
                   </p>
                 </div>
                 <div>
@@ -159,8 +164,9 @@ export default function InfoPage() {
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
                   Featured work remains the property of its respective creator
-                  or rights holder. Inspora&apos;s role is to curate, organize, and
-                  direct visitors to the original source where one is available.
+                  or rights holder. Inspora&apos;s role is to curate, organize,
+                  and direct visitors to the original source where one is
+                  available.
                 </p>
                 <p>
                   If a creator name, project title, category, or source link is
@@ -184,17 +190,19 @@ export default function InfoPage() {
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
                   USD 500 or EUR 500 before applicable tax. One-time covers one
-                  calendar month from verified payment, with no automatic renewal.
-                  Monthly renews every calendar month until cancelled and must be
-                  selected explicitly. For business and professional promotion.
+                  calendar month from verified payment, with no automatic
+                  renewal. Monthly renews every calendar month until cancelled
+                  and must be selected explicitly. For business and professional
+                  promotion.
                 </p>
                 <p>
                   Preparation stays private and uses no seat. Checkout reserves
                   an available seat for 30 minutes; verified payment activates
                   your campaign. One-time ends and releases its seat at expiry.
-                  Monthly cancellation preserves the paid period; a failed monthly
-                  renewal pauses promotion at expiry and holds your seat for 72
-                  hours. Test checkout remains unavailable until configured.
+                  Monthly cancellation preserves the paid period; a failed
+                  monthly renewal pauses promotion at expiry and holds your seat
+                  for 72 hours. Test checkout remains unavailable until
+                  configured.
                 </p>
               </div>
             </section>
@@ -212,30 +220,74 @@ export default function InfoPage() {
               </h2>
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
-                  Inspora uses PostHog for first-party audience measurement and
-                  site improvement. Analytics can include the page path without
-                  URL parameters or fragments, the referring site, browser and
-                  device information, web performance measurements, post opens,
-                  source-link clicks, and completed newsletter subscriptions.
+                  Inspora measures public page views and sponsorship delivery
+                  with its own accepted-event records. PostHog provides a
+                  separate audience source where configured.
+                  Private account, sponsorship and administrator pages are
+                  excluded.
                 </p>
                 <p>
-                  A first-party cookie stores a random browser identifier for up
-                  to 90 days after the most recent visit. It lets us estimate
-                  unique browsers across weekly and monthly periods. The
-                  identifier is not a name or email address, and separate browsers
-                  or devices are counted separately.
+                  Analytics visitor identifiers are not stored in cookies or
+                  browser storage. Our monthly anonymous counting key uses
+                  transient trusted network and browser information; raw IP
+                  addresses, full browser identifiers, account identities and
+                  sensitive URLs are not retained in our event records. Shared
+                  networks can count together, and changing networks or browsers
+                  can count again. Monthly resets can count a returning visitor
+                  again in a range crossing months. Missing trustworthy identity
+                  contributes delivery, with no invented unique visitor.
+                </p>
+                <p>
+                  A sponsor impression requires at least half the placement to
+                  be visible continuously for one foreground second. Clicks
+                  count actual outbound activations. Unique visitors counts
+                  qualifying impression identities for sponsors and page-view
+                  identities for site audience; it is an estimate, not an exact
+                  count of people. Video figures measure the displayed preview
+                  and exclude repeat loops. A click does not prove a destination
+                  visit, signup or sale.
+                </p>
+                <p>
+                  Country uses trusted deployment network geolocation, with an
+                  Unknown bucket when unavailable. VPNs, relays and incomplete
+                  mapping affect it; this does not establish a visitor&apos;s
+                  physical location or nationality. We retain coarse devices and
+                  sanitized referring domains. PostHog resets
+                  anonymous identifiers daily, so their longer-range reach
+                  cannot replace our monthly sponsorship reach. Work opens use a
+                  tab-only session that resets on reload or after thirty minutes
+                  of inactivity.
+                </p>
+                <p>
+                  Accepted raw events are proposed for ninety-day retention only
+                  after whole-range and closed-period summaries are finalized.
+                  Aggregate reports and history remain for up to twenty-four
+                  months. Operational monthly secrets are destroyed one hour
+                  after rollover; retained recovery backups may still contain
+                  encrypted copies until those backups expire. Backup access is
+                  restricted, and secret destruction does not erase those
+                  copies.
+                </p>
+                <p>
+                  Separate minute-scoped abuse-control keys bound new event and
+                  retry receipts. They never supply reach figures and expire
+                  after one hour; raw network addresses are not retained.
                 </p>
                 <p>
                   We do not use this data for targeted advertising or cross-site
                   tracking. Person profiles, session replay, heatmaps, and
-                  automatic interaction capture are disabled. Sponsors may receive
-                  aggregate figures such as unique browsers and pageviews; they do
-                  not receive browser identifiers or event-level analytics data.
+                  automatic interaction capture are disabled. Sponsors may
+                  receive aggregate delivery and audience figures; they do not
+                  receive browser identifiers or event-level analytics data.
                 </p>
                 <p>
-                  You can disable analytics for this browser below. The preference
-                  remains until you enable analytics again or clear this site&apos;s
-                  browser data. PostHog&apos;s own data handling is described in its{" "}
+                  Do Not Track, Global Privacy Control and the control below
+                  disable all analytics collectors. A functional preference
+                  cookie stores only this choice, not a visitor identifier. You
+                  can disable analytics for this browser below. The preference
+                  remains until you enable analytics again or clear this
+                  site&apos;s browser data. PostHog&apos;s own data handling is
+                  described in its{" "}
                   <a
                     href="https://posthog.com/privacy"
                     target="_blank"

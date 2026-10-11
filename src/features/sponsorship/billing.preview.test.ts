@@ -53,6 +53,7 @@ import {
   reconcileSponsorCheckout,
 } from "./billing-repository";
 import { getDesignSponsors } from "@/data/sponsor-repository";
+import { queryMetrics } from "@/analytics/first-party/report-query";
 import { requestWebhookAccountDeletion } from "@/features/profiles/account-lifecycle";
 import { administerSponsorBilling } from "./admin-billing";
 import { recordStripeWebhook } from "./webhook";
@@ -519,6 +520,7 @@ describe("guarded paid sponsorship lifecycle", () => {
       id: "refund:in_initial",
       paid: false,
       refunded: true,
+      netBaseAmount: 0,
     };
     await administerSponsorBilling("resolve_exception", f.id, f.provider);
     await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.end);
@@ -560,6 +562,7 @@ describe("guarded paid sponsorship lifecycle", () => {
       id: "refund:in_initial",
       paid: false,
       refunded: true,
+      netBaseAmount: 0,
     };
     await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
     expect(
@@ -597,6 +600,34 @@ describe("guarded paid sponsorship lifecycle", () => {
       )[0].exceptionCode,
     ).toBeNull();
   });
+  it.each([["one_time", 49900], ["subscription", 0], ["one_time", null]] as const)(
+    "reports the remaining paid fee after a verified %s refund (fee %s)", async (mode, netBaseAmount) => {
+      const f = await fixture("Refund-adjusted report", mode);
+      await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, mode);
+      await ensureSponsorCheckoutSession(f.id, f.provider);
+      f.complete();
+      await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+      const account = (await withSponsorWrite(tx => tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, f.owner))))[0];
+      const invoice = f.observation.invoices[0];
+      f.observation.invoices[0] = { ...invoice,
+        id: mode === "one_time" ? `refund:${invoice.id}` : invoice.id,
+        paid: mode !== "one_time", refunded: true, netBaseAmount,
+      };
+      await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+      // Fixed active-time fixture isolates financial adjustment from the real
+      // database trigger's wall clock; report aggregation remains actual SQL.
+      await withSponsorWrite(tx => tx.update(sponsorDeliveryIntervals)
+        .set({ startAt: f.now, endAt: new Date(invoice.periodEnd) })
+        .where(eq(sponsorDeliveryIntervals.accountId, account.id)));
+      const report = await withSponsorWrite(tx => queryMetrics(tx, account.id, { range: "30d" },
+        { start: f.now.toISOString(), end: new Date(invoice.periodEnd).toISOString() }, f.now));
+      expect(report.spend).toEqual(netBaseAmount === null ? null : { amount: mode === "one_time" ? 499 : 0, currency: "usd" });
+      await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+      const replay = await withSponsorWrite(tx => queryMetrics(tx, account.id, { range: "30d" },
+        { start: f.now.toISOString(), end: new Date(invoice.periodEnd).toISOString() }, f.now));
+      expect(replay.spend).toEqual(report.spend);
+    },
+  );
   it("corrects historical base spend for a verified refund after seat release", async () => {
     const f = await fixture("Late historical refund", "one_time");
     vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
@@ -619,6 +650,7 @@ describe("guarded paid sponsorship lifecycle", () => {
       id: "refund:in_initial",
       paid: false,
       refunded: true,
+      netBaseAmount: 0,
     };
     await reconcileSponsorCheckout(f.id, f.provider, f.promote, end);
     expect(

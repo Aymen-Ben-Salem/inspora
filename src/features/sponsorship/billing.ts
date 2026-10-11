@@ -21,6 +21,8 @@ export type PaidInvoice = {
   periodEnd: number;
   paidAt?: number;
   refunded?: boolean;
+  /** Verified fee remaining after refunds, excluding tax; null means the split is unknown. */
+  netBaseAmount?: number | null;
 };
 export type BillingObservation = {
   subscriptionId: string | null;

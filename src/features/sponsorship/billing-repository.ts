@@ -231,7 +231,7 @@ export async function reconcileSponsorCheckout(
     // One-time provider observations prefix the original payment ID with refund:.
     if (account)
       for (const invoice of observation.invoices.filter(
-        (i) => i.refunded && i.priceId === p.priceId,
+        (i) => (i.paid || i.refunded) && i.priceId === p.priceId,
       )) {
         const paymentId = invoice.id.replace(/^refund:/, "");
         if (once && paymentId !== p.paidInvoiceId) continue;
@@ -239,7 +239,9 @@ export async function reconcileSponsorCheckout(
         // a later seat or subscription must not be changed by this adjustment.
         await tx
           .update(sponsorDeliveryPeriods)
-          .set({ baseAmount: 0 })
+          .set({ baseAmount: invoice.netBaseAmount === undefined
+            ? (invoice.refunded ? null : observation.price.unitAmount!)
+            : invoice.netBaseAmount })
           .where(
             and(
               eq(sponsorDeliveryPeriods.accountId, account.id),
@@ -365,7 +367,7 @@ export async function reconcileSponsorCheckout(
       .where(eq(sponsorSeats.slot, seat.slot));
     const paidInvoice = observation.invoices.find(
       (invoice) =>
-        invoice.id === decision.invoiceId && invoice.paid && !invoice.refunded,
+        invoice.id === decision.invoiceId && invoice.paid,
     );
     if (paidInvoice)
       await tx
@@ -375,7 +377,9 @@ export async function reconcileSponsorCheckout(
           paymentId: paidInvoice.id,
           startAt: new Date(paidInvoice.periodStart),
           endAt: new Date(paidInvoice.periodEnd),
-          baseAmount: observation.price.unitAmount!,
+          baseAmount: paidInvoice.netBaseAmount === undefined
+            ? observation.price.unitAmount!
+            : paidInvoice.netBaseAmount,
           currency: paidInvoice.currency,
         })
         .onConflictDoNothing();

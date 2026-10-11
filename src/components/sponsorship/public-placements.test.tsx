@@ -93,9 +93,11 @@ it.each([0, 1, 2, 3, 4])(
     for (const clone of clones) {
       expect(clone.tabIndex).toBe(-1);
       expect(clone.href).toMatch(/^https:\/\/[a-d]\.example\.com\/$/);
+      expect(clone.hasAttribute("data-sponsor-copy")).toBe(true);
+      expect(active.map(sponsor => sponsor.id)).toContain(clone.dataset.campaignId);
     }
     expect(
-      container.querySelectorAll(".sponsor-wordmark-clones [data-campaign-id]"),
+      container.querySelectorAll(".sponsor-wordmark-clones [data-sponsor-placement]"),
     ).toHaveLength(0);
     for (const a of container.querySelectorAll<HTMLAnchorElement>(
       '[data-sponsor-placement="detail"]',
@@ -146,7 +148,7 @@ it("refreshes all mounted placements together on foreground and within 30 second
   await act(async () => {
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  expect(container.querySelectorAll('[data-version-id="v2"]')).toHaveLength(3);
+  expect(container.querySelectorAll('[data-sponsor-placement][data-version-id="v2"]')).toHaveLength(3);
   fetchMock.mockImplementation(async () => ({
     ok: false,
     json: async () => ({}),

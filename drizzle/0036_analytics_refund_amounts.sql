@@ -1,0 +1,3 @@
+ALTER TABLE "sponsor_delivery_periods" DROP CONSTRAINT "sponsor_delivery_period_valid";--> statement-breakpoint
+ALTER TABLE "sponsor_delivery_periods" ALTER COLUMN "base_amount" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "sponsor_delivery_periods" ADD CONSTRAINT "sponsor_delivery_period_valid" CHECK ("sponsor_delivery_periods"."end_at" > "sponsor_delivery_periods"."start_at" and ("sponsor_delivery_periods"."base_amount" is null or "sponsor_delivery_periods"."base_amount" >= 0) and "sponsor_delivery_periods"."currency" in ('usd','eur'));

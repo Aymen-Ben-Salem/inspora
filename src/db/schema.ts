@@ -1261,14 +1261,14 @@ export const sponsorDeliveryPeriods = pgTable(
       mode: "date",
     }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true, mode: "date" }).notNull(),
-    baseAmount: integer("base_amount").notNull(),
+    baseAmount: integer("base_amount"),
     currency: text("currency").notNull(),
   },
   (t) => [
     uniqueIndex("sponsor_delivery_period_payment_unique").on(t.paymentId),
     check(
       "sponsor_delivery_period_valid",
-      sql`${t.endAt} > ${t.startAt} and ${t.baseAmount} >= 0 and ${t.currency} in ('usd','eur')`,
+      sql`${t.endAt} > ${t.startAt} and (${t.baseAmount} is null or ${t.baseAmount} >= 0) and ${t.currency} in ('usd','eur')`,
     ),
   ],
 );

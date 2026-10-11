@@ -79,6 +79,15 @@ function testObject(object: { livemode?: boolean }) {
 function idOf(value: string | { id: string } | null | undefined) {
   return typeof value === "string" ? value : (value?.id ?? null);
 }
+function remainingBaseSpend(base: number, charged: number, refunded: number) {
+  if (![base, charged, refunded].every(Number.isSafeInteger) || base < 0 || charged < base || refunded < 0 || refunded > charged)
+    throw new Error("Verified refund amounts are required.");
+  if (refunded === 0) return base;
+  if (refunded === charged) return 0;
+  // A generic taxed refund does not identify how much fee versus tax was
+  // returned. Preserve that uncertainty instead of inventing a proportional split.
+  return charged === base ? base - refunded : null;
+}
 function priceView(p: Stripe.Price, currency = p.currency): SponsorPrice {
   const selected = p.currency_options?.[currency];
   return {
@@ -233,7 +242,8 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       // Keep a verified refund receipt for audited resolution and replay checks.
       // It never qualifies as a paid invoice that grants entitlement.
       result.invoices = [{ id: refunded ? `refund:${intent.id}` : intent.id, paid: !refunded, refunded, amountPaid: intent.amount_received, currency: s.currency,
-        priceId: source.id, periodStart: start, periodEnd: calendarMonthEnd(start), paidAt: start }];
+        priceId: source.id, periodStart: start, periodEnd: calendarMonthEnd(start), paidAt: start,
+        netBaseAmount: remainingBaseSpend(price.unitAmount!, charge.amount, charge.amount_refunded) }];
       return result;
     },
     async settlePayment(sessionId) {
@@ -265,11 +275,14 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       testObject(sourcePrice);
       const price = priceView(sourcePrice, sub.currency);
       const invoices: BillingObservation["invoices"] = [];
-      // Only bounded recent invoices can advance current entitlement.
+      // Reports expire relative to period end, not invoice creation. A creation
+      // cutoff could hide refunds on a still-retained period. Keep the read
+      // bounded and entitlement subject to verified period/anchor rules.
       const list = await stripe.invoices.list({
         subscription: sub.id,
-        limit: 12,
+        limit: 100,
       });
+      if (list.has_more) throw new Error("Billing history exceeds its safe read limit.");
       for (const invoice of list.data) {
         testObject(invoice);
         if (invoice.status !== "paid") continue;
@@ -292,21 +305,37 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           status: "paid",
           limit: 100,
         });
-        let confirmed = 0;
+        if (payments.has_more) throw new Error("Complete invoice payments are required.");
+        let confirmed = 0, refundedAmount = 0, refundSplitKnown = true;
         for (const payment of payments.data) {
           testObject(payment);
           const intentId = idOf(payment.payment.payment_intent);
           if (!intentId) continue;
           const intent = await stripe.paymentIntents.retrieve(intentId);
           testObject(intent);
-          if (intent.status === "succeeded" && intent.currency === price.currency && invoice.currency === price.currency)
-            confirmed += payment.amount_paid ?? 0;
+          if (intent.status !== "succeeded" || intent.currency !== price.currency || invoice.currency !== price.currency) continue;
+          if (intent.id !== intentId || idOf(intent.customer) !== idOf(sub.customer) || !idOf(intent.latest_charge))
+            throw new Error("Monthly payment ownership mismatch.");
+          const charge = await stripe.charges.retrieve(idOf(intent.latest_charge)!);
+          testObject(charge);
+          if (charge.status !== "succeeded" || !charge.paid || !charge.captured ||
+            charge.amount !== charge.amount_captured || charge.amount_captured !== intent.amount_received ||
+            charge.currency !== price.currency || idOf(charge.payment_intent) !== intent.id || idOf(charge.customer) !== idOf(sub.customer) ||
+            !Number.isSafeInteger(payment.amount_paid) || !payment.amount_paid || payment.amount_paid <= 0 || payment.amount_paid > charge.amount_captured)
+            throw new Error("Verified captured monthly payment required.");
+          confirmed += payment.amount_paid;
+          refundedAmount += charge.amount_refunded;
+          if (payment.amount_paid !== charge.amount_captured) refundSplitKnown = false;
         }
         const line = recurring[0];
         invoices.push({
           id: invoice.id,
           paid: confirmed >= 50000,
           amountPaid: confirmed,
+          refunded: refundedAmount > 0,
+          netBaseAmount: confirmed >= price.unitAmount! && refundSplitKnown
+            ? remainingBaseSpend(price.unitAmount!, confirmed, refundedAmount)
+            : null,
           currency: invoice.currency,
           priceId: idOf(line.pricing?.price_details?.price) ?? "",
           periodStart: line.period.start * 1000,
@@ -409,6 +438,27 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       if (type.startsWith("checkout.session."))
         return (await this.session(objectId)).checkoutId || null;
       let subscriptionId: string | null = null;
+      if (type === "charge.refunded" || type === "refund.updated") {
+        const chargeId = type === "refund.updated"
+          ? idOf((await stripe.refunds.retrieve(objectId)).charge)
+          : objectId;
+        if (!chargeId) return null;
+        const charge = await stripe.charges.retrieve(chargeId);
+        testObject(charge);
+        const intentId = idOf(charge.payment_intent);
+        if (!intentId) return null;
+        const intent = await stripe.paymentIntents.retrieve(intentId);
+        testObject(intent);
+        if (intent.metadata.sponsor_checkout_id) return intent.metadata.sponsor_checkout_id;
+        const payments = await stripe.invoicePayments.list({ payment: { type: "payment_intent", payment_intent: intentId }, limit: 2 });
+        if (!payments.has_more && payments.data.length === 0) return null;
+        if (payments.has_more || payments.data.length !== 1)
+          throw new Error("Refund invoice binding is unavailable.");
+        testObject(payments.data[0]);
+        const invoice = await stripe.invoices.retrieve(idOf(payments.data[0].invoice)!);
+        testObject(invoice);
+        subscriptionId = idOf(invoice.parent?.subscription_details?.subscription);
+      }
       if (type.startsWith("customer.subscription.")) subscriptionId = objectId;
       else if (type.startsWith("invoice.")) {
         const invoice = await stripe.invoices.retrieve(objectId);

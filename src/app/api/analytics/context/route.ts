@@ -41,7 +41,12 @@ export async function POST(request: Request) {
     const placements = [
       "header",
       ...(["/", "/websites", "/logos"].includes(input.path) ? ["feed"] : []),
-      ...(/^\/posts\/[^/]+$/.test(input.path) ? ["detail"] : []),
+      // Website/Logo dialogs retain the archive pathname. The observer only
+      // emits detail activity for a rendered sidebar, never decorative copies.
+      ...(/^\/posts\/[^/]+$/.test(input.path) ||
+      ["/websites", "/logos"].includes(input.path)
+        ? ["detail"]
+        : []),
     ] as const;
     const tokens = sponsors
       .filter((s) => s.versionId)

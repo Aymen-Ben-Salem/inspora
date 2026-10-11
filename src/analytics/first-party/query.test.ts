@@ -65,3 +65,8 @@ it("allocates one paid base fee across active campaigns without multiplying it",
     { amount: 250, currency: "usd" },
   );
 });
+it("does not turn an unknown refund tax split into zero spend", () => {
+  const window = { start: "2026-10-01T00:00:00Z", end: "2026-10-31T00:00:00Z" };
+  expect(allocateSpend([{ startAt: window.start, endAt: window.end, baseAmount: null, currency: "usd" }],
+    [{ campaignId: "A", versionId: "v1", startAt: window.start, endAt: window.end }], window, {})).toBeNull();
+});

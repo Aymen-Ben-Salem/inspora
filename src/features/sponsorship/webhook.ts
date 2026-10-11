@@ -26,7 +26,7 @@ export function createStripeWebhookReceiver(deps: {
     if (event.livemode || !event.id || !event.data.object.id)
       return { accepted: false, duplicate: false };
     const supported =
-      /^(checkout\.session\.(completed|expired|async_payment_succeeded|async_payment_failed)|customer\.subscription\.(created|updated|deleted)|invoice\.(paid|payment_succeeded|payment_failed|updated|voided|marked_uncollectible))$/;
+      /^(checkout\.session\.(completed|expired|async_payment_succeeded|async_payment_failed)|customer\.subscription\.(created|updated|deleted)|invoice\.(paid|payment_succeeded|payment_failed|updated|voided|marked_uncollectible)|charge\.refunded|refund\.updated)$/;
     if (!supported.test(event.type))
       return { accepted: true, duplicate: false };
     const fresh = await deps.record({

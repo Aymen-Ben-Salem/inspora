@@ -89,7 +89,7 @@ export function rollingWindow(range: SponsorRange, now: Date) {
 type SpendPeriod = {
   startAt: string;
   endAt: string;
-  baseAmount: number;
+  baseAmount: number | null;
   currency: string;
 };
 type ActiveInterval = {
@@ -138,6 +138,8 @@ export function allocateSpend(
             Date.parse(i.startAt),
           ),
       );
+      if (duration === 0) continue;
+      if (p.baseAmount === null) return null;
       amount +=
         ((p.baseAmount / 100) * duration) /
         (Date.parse(p.endAt) - Date.parse(p.startAt));

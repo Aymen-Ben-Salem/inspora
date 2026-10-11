@@ -76,7 +76,18 @@ export function AnalyticsTable({
     </section>
   );
 }
-export function DeliveryChart({ rows }: { rows: Breakdown[] }) {
+export function DeliveryChart({ rows: observedRows, start, end }: {
+  rows: Breakdown[];
+  start: string;
+  end: string;
+}) {
+  const dayMs = 86400000;
+  const byDay = new Map(observedRows.map(row => [row.label.slice(0, 10), row]));
+  const rows: Pick<Breakdown, "label" | "impressions" | "clicks">[] = [];
+  for (let day = Math.floor(Date.parse(start) / dayMs) * dayMs; day < Date.parse(end); day += dayMs) {
+    const label = new Date(day).toISOString().slice(0, 10), observed = byDay.get(label);
+    rows.push({ label, impressions: observed?.impressions ?? 0, clicks: observed?.clicks ?? 0 });
+  }
   const max = Math.max(
     1,
     ...rows.flatMap((row) => [row.impressions, row.clicks]),
@@ -357,7 +368,7 @@ export function AnalyticsOverview() {
             </p>
           ) : null}
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-            <DeliveryChart rows={available.daily} />
+            <DeliveryChart rows={available.daily} start={available.start} end={available.end} />
             <section className={surface}>
               <h3 className="text-lg font-medium">Public campaign</h3>
               {current ? (
@@ -483,7 +494,8 @@ export function AnalyticsOverview() {
               {available.spend
                 ? `${available.spend.currency.toUpperCase()} ${available.spend.amount.toFixed(2)}`
                 : "unavailable for this filter or incomplete history"}
-              . Tax and fees are excluded. A click does not establish a
+              . Verified refunds are reflected; spend is unavailable when their
+              fee/tax split is unknown. Tax and fees are excluded. A click does not establish a
               destination visit, signup or sale.
             </p>
           </section>

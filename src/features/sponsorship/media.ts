@@ -74,6 +74,9 @@ async function withOwnMedia<T>(
     return work({ userId, tx, p, paid: Boolean(account) });
   });
 }
+export async function requireSponsorMediaWriteAccess(): Promise<void> {
+  await withOwnMedia(true, async () => {});
+}
 export async function beginSponsorUpload(raw: unknown) {
   const input = uploadInput.parse(raw);
   if (input.sizeBytes > getMediaUploadLimit(input.contentType))

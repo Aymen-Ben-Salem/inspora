@@ -1,14 +1,11 @@
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const adapters = vi.hoisted(() => ({
-  read: vi.fn(),
+  authorize: vi.fn(),
   suggest: vi.fn(),
   fetchPublic: vi.fn(),
   importAsset: vi.fn(),
   prepare: vi.fn(),
-}));
-vi.mock("@/features/sponsorship/service", () => ({
-  preparationService: { read: adapters.read },
 }));
 vi.mock("@/features/sponsorship/metadata", async (original) => ({
   ...(await original<typeof import("@/features/sponsorship/metadata")>()),
@@ -19,6 +16,7 @@ vi.mock("@/features/sponsorship/metadata", async (original) => ({
 }));
 vi.mock("@/features/sponsorship/media", () => ({
   importSponsorSuggestion: adapters.importAsset,
+  requireSponsorMediaWriteAccess: adapters.authorize,
 }));
 vi.mock("@/features/sponsorship/suggestion-images", () => ({
   prepareWebsiteSuggestion: adapters.prepare,
@@ -35,10 +33,7 @@ const request = () =>
   });
 beforeEach(() => {
   vi.resetAllMocks();
-  adapters.read.mockResolvedValue({
-    ok: true,
-    value: { id: "private-preparation" },
-  });
+  adapters.authorize.mockResolvedValue(undefined);
   adapters.suggest.mockResolvedValue({
     iconUrl: "https://product.example/icon.png",
     imageUrl: "https://product.example/og.png",
@@ -101,8 +96,10 @@ it("keeps icon and OG results when the wordmark is unavailable or unsupported", 
   expect(body.value.missingAssets).toEqual(["wordmark"]);
   expect(adapters.importAsset).toHaveBeenCalledTimes(2);
 });
-it("does not fetch or import website assets without verified preparation access", async () => {
-  adapters.read.mockResolvedValue({ ok: false, code: "unauthenticated" });
+it("does not fetch or import website assets without verified sponsor media access", async () => {
+  adapters.authorize.mockRejectedValue(
+    new Error("Verify sponsor access before uploading."),
+  );
   expect((await POST(request())).status).toBe(403);
   expect(adapters.suggest).not.toHaveBeenCalled();
   expect(adapters.importAsset).not.toHaveBeenCalled();

@@ -3,7 +3,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
-vi.mock("next/server", () => ({ connection: async () => {} }));
+vi.mock("next/server", async (original) => ({
+  ...(await original<typeof import("next/server")>()),
+  connection: async () => {},
+}));
 const access = vi.hoisted(() => ({ owner: null as string | null }));
 vi.mock("./authorization", () => ({
   verifiedSponsorOwner: async () => access.owner,
@@ -40,7 +43,18 @@ import type { CampaignInput } from "./types";
 import { getActiveSponsors } from "@/data/sponsor-repository";
 import { beginSponsorUpload, readOwnSponsorAsset } from "./media";
 import { cleanupExpiredSponsorPreparations } from "./cleanup";
+import { metadataFetcher } from "./metadata";
+import { POST as suggestFromWebsite } from "@/app/api/sponsorship/metadata/route";
 const owners: string[] = [];
+const suggestionRequest = () =>
+  new Request("https://preview.example/api/sponsorship/metadata", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "https://preview.example",
+    },
+    body: JSON.stringify({ url: "https://another.example.com" }),
+  });
 afterEach(async () => {
   await withSponsorWrite(async (tx) => {
     const accounts = await tx
@@ -78,7 +92,93 @@ afterEach(async () => {
       .where(inArray(sponsorIdentities.userId, owners));
   });
   owners.length = 0;
+  access.owner = null;
+  vi.restoreAllMocks();
 });
+it("suggests website fields for a paid sponsor with no unpaid preparation without changing the completed checkout", async () => {
+  const f = await fixture({ checkoutExpiresAt: new Date(Date.now() + 86400000) });
+  access.owner = f.owner;
+  const before = await withSponsorWrite((tx) =>
+    tx
+      .select()
+      .from(sponsorCheckouts)
+      .where(eq(sponsorCheckouts.id, f.ids.checkout)),
+  );
+  const website = vi.spyOn(metadataFetcher, "suggest").mockResolvedValue({
+    title: "Another product",
+    imageUrl: undefined,
+    iconUrl: undefined,
+    wordmarkUrl: undefined,
+  });
+  try {
+    const response = await suggestFromWebsite(suggestionRequest());
+    const body = await response.json();
+    expect(body, body.message).toMatchObject({
+      ok: true,
+      value: { title: "Another product" },
+    });
+    const after = await withSponsorWrite((tx) =>
+      tx
+        .select()
+        .from(sponsorCheckouts)
+        .where(eq(sponsorCheckouts.ownerUserId, f.owner)),
+    );
+    expect(after).toEqual(before);
+    expect(await f.service.list()).toMatchObject({
+      ok: true,
+      value: { campaigns: [] },
+    });
+  } finally {
+    website.mockRestore();
+    access.owner = null;
+  }
+});
+it("keeps website suggestions available for an owned unpaid preparation", async () => {
+  const owner = `ticket03-${randomUUID()}`;
+  owners.push(owner);
+  await withSponsorWrite(async (tx) => {
+    await tx.insert(sponsorIdentities).values({ userId: owner });
+    await tx.insert(sponsorCheckouts).values({
+      ownerUserId: owner,
+      state: "preparing",
+      expiresAt: new Date(Date.now() + 86400000),
+    });
+  });
+  access.owner = owner;
+  vi.spyOn(metadataFetcher, "suggest").mockResolvedValue({
+    title: "Before checkout",
+    imageUrl: undefined,
+    iconUrl: undefined,
+    wordmarkUrl: undefined,
+  });
+  expect(
+    await (await suggestFromWebsite(suggestionRequest())).json(),
+  ).toMatchObject({
+    ok: true,
+    value: { title: "Before checkout" },
+  });
+});
+it.each(["inactive", "revoked"] as const)(
+  "denies website suggestions for an %s account before reading the website",
+  async (state) => {
+    const f = await fixture();
+    await withSponsorWrite((tx) =>
+      tx
+        .update(sponsorAccounts)
+        .set({ state })
+        .where(eq(sponsorAccounts.id, f.ids.account)),
+    );
+    access.owner = f.owner;
+    const website = vi.spyOn(metadataFetcher, "suggest");
+    const response = await suggestFromWebsite(suggestionRequest());
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      code: "forbidden",
+    });
+    expect(website).not.toHaveBeenCalled();
+  },
+);
 it("accepts paid uploads independently of an expired checkout and keeps owned referenced media readable after expiry", async () => {
   const f = await fixture();
   access.owner = f.owner;
@@ -119,7 +219,7 @@ it("accepts paid uploads independently of an expired checkout and keeps owned re
   expect(await readOwnSponsorAsset(f.ids.iconId)).toBeNull();
   access.owner = null;
 });
-async function fixture() {
+async function fixture(options: { checkoutExpiresAt?: Date } = {}) {
   const owner = `ticket03-${randomUUID()}`;
   owners.push(owner);
   const ids = await withSponsorWrite(async (tx) => {
@@ -137,7 +237,7 @@ async function fixture() {
       .values({
         ownerUserId: owner,
         state: "completed",
-        expiresAt: new Date(0),
+        expiresAt: options.checkoutExpiresAt ?? new Date(0),
       })
       .returning();
     const [seat] = await tx

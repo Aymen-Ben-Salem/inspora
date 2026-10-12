@@ -107,7 +107,7 @@ export function CampaignList({
                 </div>
                 <div className="flex items-center gap-3 xl:block">
                   <span className={`inline-flex items-center gap-2 rounded px-2 py-1 text-xs ${c.state === "published" ? "bg-[#f0f0f0] text-[#262626]" : "bg-[#fafafa] text-[#767676]"}`}>
-                    {c.state === "published" && <span aria-hidden className={`size-1.5 rounded-full ${paused ? "bg-current" : "bg-[#16a34a]"}`} />}
+                    {c.state === "published" && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: paused ? "currentColor" : "#16a34a" }} />}
                     {c.state === "published" ? paused ? "Paused" : "Published" : c.state === "archived" ? "Previous" : "Draft"}
                   </span>
                   <p className="text-xs text-[#767676] xl:mt-2 xl:px-2">Version {c.revision}</p>

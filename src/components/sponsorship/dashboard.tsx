@@ -1,4 +1,5 @@
 "use client";
+import { sponsorButton } from "./button-styles";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -23,8 +24,7 @@ function date(value: string | null) {
       }) + " UTC"
     : "—";
 }
-const button =
-  "focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 py-2 text-sm disabled:opacity-40";
+
 const sections = [
   { id: "overview", label: "Overview" },
   { id: "campaigns", label: "Campaigns" },
@@ -166,7 +166,7 @@ export function SponsorDashboard({
         <button
           type="button"
           hidden={section !== "billing"}
-          className={`${button} ${section === "billing" ? "inline-flex" : "hidden"} items-center gap-2 cursor-pointer transition-colors hover:border-[#cfcfcf] hover:bg-[#fafafa] active:bg-[#f0f0f0] disabled:cursor-not-allowed`}
+          className={`${sponsorButton.secondary} ${section === "billing" ? "inline-flex" : "hidden"} items-center gap-2`}
           disabled={busy || refreshing}
           aria-busy={refreshing}
           onClick={() => {
@@ -223,7 +223,7 @@ export function SponsorDashboard({
             {account ? <AnalyticsOverview key={data.ownerUserId} /> : (
               <div className="mt-5 rounded-md border border-[#e6e6e6] p-6">
                 <p className="text-sm text-[#767676]">Performance appears after verified payment. Your campaign preparation stays private.</p>
-                <button type="button" onClick={() => changeSection("billing")} className={`${button} mt-5 cursor-pointer`}>Review payment</button>
+                <button type="button" onClick={() => changeSection("billing")} className={`${sponsorButton.secondary} mt-5 cursor-pointer`}>Review payment</button>
               </div>
             )}
           </section>
@@ -238,7 +238,7 @@ export function SponsorDashboard({
                   <span className="rounded bg-[#fafafa] px-2 py-1 text-xs text-[#767676]">{c.state === "archived" ? "Previous" : "Private preparation"}</span>
                 </li>)}
               </ul>}
-              {data.checkout?.state !== "reserved" && <Link href={"/sponsor/start" as Route} className={`${button} mt-6 inline-flex items-center`}>Prepare campaign</Link>}
+              {data.checkout?.state !== "reserved" && <Link href={"/sponsor/start" as Route} className={`${sponsorButton.secondary} mt-6 inline-flex items-center`}>Prepare campaign</Link>}
             </div>
           )}
         </section>
@@ -285,7 +285,7 @@ export function SponsorDashboard({
                 ) : null}
               </dl>
               <button
-                className={`${button} mt-8 bg-[#262626] text-white`}
+                className={`${sponsorButton.primary} mt-8`}
                 type="button"
                 disabled={busy || refreshing || !account.billingAvailable}
                 onClick={() => {
@@ -318,7 +318,7 @@ export function SponsorDashboard({
                 </p>
               ) : null}
               <button
-                className={`${button} mt-8 bg-[#262626] text-white`}
+                className={`${sponsorButton.primary} mt-8`}
                 type="button"
                 disabled={
                   busy ||

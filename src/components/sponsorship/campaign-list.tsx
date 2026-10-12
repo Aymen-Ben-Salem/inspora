@@ -1,4 +1,5 @@
 "use client";
+import { sponsorButton } from "./button-styles";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
@@ -7,8 +8,7 @@ import { NavbarMenu } from "@/components/navbar-menu";
 import { useEffect, useState } from "react";
 import type { OwnedCampaign } from "@/features/sponsorship/types";
 import { sponsorRequest } from "./upload-operations";
-const button =
-  "focus-ring inline-flex min-h-11 items-center justify-center rounded-md border border-[#e6e6e6] px-4 py-2 text-sm transition-colors hover:bg-[#fafafa] disabled:opacity-40";
+
 export function CampaignList({
   initial,
   paused = false,
@@ -72,7 +72,7 @@ export function CampaignList({
             ? "Your campaign history is read-only. Your past creative stays available to view."
             : "Manage your creative in one place. One campaign is public at a time; drafts stay private."}
         </p>
-        {!readonly && <Link prefetch className={`${button} shrink-0 bg-[#262626] text-white hover:bg-[#404040]`} href={"/sponsor/campaigns/new" as Route}>Create campaign</Link>}
+        {!readonly && <Link prefetch className={`${sponsorButton.primary} shrink-0`} href={"/sponsor/campaigns/new" as Route}>Create campaign</Link>}
       </div>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
@@ -107,15 +107,15 @@ export function CampaignList({
                 </div>
                 <div className="flex items-center gap-3 xl:block">
                   <span className={`inline-flex items-center gap-2 rounded px-2 py-1 text-xs ${c.state === "published" ? "bg-[#f0f0f0] text-[#262626]" : "bg-[#fafafa] text-[#767676]"}`}>
-                    {c.state === "published" && <span aria-hidden className="size-1.5 rounded-full bg-current" />}
+                    {c.state === "published" && <span aria-hidden className={`size-1.5 rounded-full ${paused ? "bg-current" : "bg-[#16a34a]"}`} />}
                     {c.state === "published" ? paused ? "Paused" : "Published" : c.state === "archived" ? "Previous" : "Draft"}
                   </span>
                   <p className="text-xs text-[#767676] xl:mt-2 xl:px-2">Version {c.revision}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                  <Link prefetch href={`/sponsor/campaigns/${c.id}` as Route} className={button}>{readonly ? "View campaign" : "Edit campaign"}</Link>
+                  <Link prefetch href={`/sponsor/campaigns/${c.id}` as Route} className={sponsorButton.secondary}>{readonly ? "View campaign" : "Edit campaign"}</Link>
                   {!readonly && c.state !== "published" && <>
-                    <button type="button" className={button} disabled={busy} onClick={() => setConfirm({kind:"publish",campaign:c})}>Make public</button>
+                    <button type="button" className={sponsorButton.secondary} disabled={busy} onClick={() => setConfirm({kind:"publish",campaign:c})}>Make public</button>
                     {!busy && <NavbarMenu label={`More actions for ${c.creative.title}`} trigger={<span aria-hidden="true">···</span>} triggerClassName="flex size-11 items-center justify-center rounded-md text-lg hover:bg-[#f0f0f0]" menuClassName="right-0 w-44" keepInViewport items={[{label:"Delete campaign",onSelect:()=>setConfirm({kind:"delete",campaign:c})}]} />}
                   </>}
                 </div>
@@ -141,7 +141,7 @@ export function CampaignList({
               </p>
               <div className="mt-4 flex gap-3">
                 <button
-                  className={`${button} bg-[#262626] text-white`}
+                  className={`${sponsorButton.primary}`}
                   disabled={busy}
                   onClick={() => void apply()}
                 >
@@ -152,7 +152,7 @@ export function CampaignList({
                       : "Confirm deletion"}
                 </button>
                 <button
-                  className={button}
+                  className={sponsorButton.secondary}
                   disabled={busy}
                   onClick={() => setConfirm(undefined)}
                 >
@@ -191,7 +191,7 @@ export function CampaignsPanel({ ownerUserId, readonly, paused }: { ownerUserId:
       .catch(error => { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Campaigns could not be loaded."); });
     return () => controller.abort();
   }, [ownerUserId, attempt]);
-  if (error) return <div className="rounded-md border border-[#f0f0f0] p-5"><p role="alert" className="text-sm text-[#767676]">{error}</p><button type="button" className={`${button} mt-4`} onClick={() => {setError(""); setAttempt(value => value + 1);}}>Try again</button></div>;
+  if (error) return <div className="rounded-md border border-[#f0f0f0] p-5"><p role="alert" className="text-sm text-[#767676]">{error}</p><button type="button" className={`${sponsorButton.secondary} mt-4`} onClick={() => {setError(""); setAttempt(value => value + 1);}}>Try again</button></div>;
   if (!data) return <p role="status" className="py-8 text-sm text-[#767676]">Loading campaigns…</p>;
   return <CampaignList initial={data} forceReadonly={readonly} paused={paused} />;
 }

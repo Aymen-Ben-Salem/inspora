@@ -9,10 +9,25 @@ import type {
   ReportResult,
 } from "@/analytics/first-party/query";
 import type { readOwnAnalyticsCatalog } from "@/features/sponsorship/analytics";
+import { NavbarMenu } from "@/components/navbar-menu";
 const number = new Intl.NumberFormat("en");
 const surface = "min-w-0 rounded-md border border-[#f0f0f0] p-5 sm:p-6";
 const select =
-  "focus-ring min-h-11 max-w-full cursor-pointer rounded-md border border-[#e6e6e6] bg-white px-3 text-sm";
+  "focus-ring min-h-11 cursor-pointer rounded-md border border-[#e6e6e6] bg-white px-3 text-sm";
+function ReportFilter({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange(value: string): void;
+}) {
+  return <NavbarMenu
+    label={label}
+    trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0" /></>}
+    triggerClassName={`${select} inline-flex max-w-[min(280px,calc(100vw-2rem))] items-center gap-3`}
+    menuClassName="left-0 w-max min-w-full max-w-[min(340px,calc(100vw-2rem))] max-h-80 overflow-y-auto"
+    items={options.map(option => ({ label: option.label, selected: option.value === value, onSelect: () => onChange(option.value) }))}
+  />;
+}
 export const VISITOR_DEFINITION =
   "Visitors counted anonymously without cookies. Shared networks may count together; changing networks or browsers can count again. Identifiers reset monthly, so a range crossing months can count a returning visitor again. Missing trusted identity is excluded from reach. Blockers, opt-out and network failures reduce coverage.";
 export function AnalyticsTable({
@@ -227,76 +242,12 @@ export function AnalyticsOverview() {
       return next;
     });
   return (
-    <section aria-label="Sponsorship performance" className="mt-8 space-y-6">
+    <section aria-label="Sponsorship performance" className="mt-5 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap gap-2">
-          <select
-            aria-label="Campaign report"
-            className={select}
-            value={filter.campaignId ?? ""}
-            onChange={(e) => update("campaignId", e.target.value)}
-          >
-            <option value="">All campaigns</option>
-            {catalog?.campaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Creative version"
-            className={select}
-            value={filter.versionId ?? ""}
-            onChange={(e) => update("versionId", e.target.value)}
-          >
-            <option value="">All versions</option>
-            {catalog?.versions
-              .filter(
-                (v) => !filter.campaignId || v.campaignId === filter.campaignId,
-              )
-              .map((v) => (
-                <option key={v.id} value={v.id}>
-                  {versions[v.id]}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label="Placement report"
-            className={select}
-            value={filter.placement ?? ""}
-            onChange={(e) => update("placement", e.target.value)}
-          >
-            <option value="">All placements</option>
-            <option value="header">Navbar</option>
-            <option value="feed">Feed</option>
-            <option value="detail">Detail sidebar</option>
-          </select>
-          <select
-            aria-label="Country report"
-            className={select}
-            value={filter.country ?? ""}
-            onChange={(e) => update("country", e.target.value)}
-          >
-            <option value="">All countries</option>
-            {available?.country.map((c) => (
-              <option key={c.label} value={c.label}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Paid period"
-            className={select}
-            value={filter.periodId ?? ""}
-            onChange={(e) => update("periodId", e.target.value)}
-          >
-            <option value="">Recent activity</option>
-            {catalog?.periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.start.slice(0, 10)} – {p.end.slice(0, 10)}
-              </option>
-            ))}
-          </select>
+          <ReportFilter label="Campaign report" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
+            { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
+          ]} />
         </div>
         <div
           role="group"
@@ -316,6 +267,23 @@ export function AnalyticsOverview() {
           ))}
         </div>
       </div>
+      <details className="group text-sm text-[#767676]">
+        <summary className="focus-ring w-fit cursor-pointer">More filters{[filter.versionId, filter.placement, filter.country, filter.periodId].filter(Boolean).length ? " · active" : ""}</summary>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <ReportFilter label="Creative version" value={filter.versionId ?? ""} onChange={value => update("versionId", value)} options={[
+            { value: "", label: "All versions" }, ...(catalog?.versions.filter(v => !filter.campaignId || v.campaignId === filter.campaignId).map(v => ({ value: v.id, label: versions[v.id] })) ?? []),
+          ]} />
+          <ReportFilter label="Placement report" value={filter.placement ?? ""} onChange={value => update("placement", value)} options={[
+            { value: "", label: "All placements" }, { value: "header", label: "Navbar" }, { value: "feed", label: "Feed" }, { value: "detail", label: "Detail sidebar" },
+          ]} />
+          <ReportFilter label="Country report" value={filter.country ?? ""} onChange={value => update("country", value)} options={[
+            { value: "", label: "All countries" }, ...(available?.country.map(c => ({ value: c.label, label: c.label })) ?? []),
+          ]} />
+          <ReportFilter label="Paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
+            { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
+          ]} />
+        </div>
+      </details>
       {busy || !data ? (
         <p role="status" className="py-10 text-sm text-[#767676]">
           Loading performance…
@@ -355,7 +323,7 @@ export function AnalyticsOverview() {
                 >
                   {label}
                 </p>
-                <p className="mt-3 break-words text-[28px] tracking-[-0.03em] tabular-nums sm:text-[34px]">
+                <p className="mt-3 break-words text-[26px] tracking-[-0.03em] tabular-nums sm:text-[30px]">
                   {value}
                 </p>
               </article>
@@ -435,7 +403,9 @@ export function AnalyticsOverview() {
               )}
             </section>
           </div>
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <details className={surface}>
+            <summary className="focus-ring cursor-pointer text-base font-medium">Audience and delivery</summary>
+            <div className="mt-5 grid gap-5 md:grid-cols-2">
             <AnalyticsTable
               title="Placements"
               rows={available.placement}
@@ -446,8 +416,6 @@ export function AnalyticsOverview() {
               }}
             />
             <AnalyticsTable title="Countries" rows={available.country} />
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
             <AnalyticsTable title="Devices" rows={available.device} />
             <AnalyticsTable title="Referring sites" rows={available.referrer} />
             <AnalyticsTable
@@ -461,6 +429,10 @@ export function AnalyticsOverview() {
               labels={versions}
             />
           </div>
+          </details>
+          <details className={surface}>
+            <summary className="focus-ring cursor-pointer text-base font-medium">Reach, cost and video</summary>
+            <div className="mt-5 space-y-5">
           <section className={surface}>
             <h3 className="text-lg font-medium">Reach and efficiency</h3>
             <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-4">
@@ -523,6 +495,8 @@ export function AnalyticsOverview() {
               Playback is separate from the one-second placement impression.
             </p>
           </section>
+            </div>
+          </details>
           <details className="text-sm leading-6 text-[#767676]">
             <summary className="focus-ring cursor-pointer">
               How these metrics are measured

@@ -10,9 +10,14 @@ vi.mock("next/navigation", async () => {
     () => navigation.search, () => navigation.search,
   )) };
 });
-function navigate(search: string) { navigation.search = search; for (const listener of navigation.listeners) listener(); }
+const updateBrowserHistory = window.history.replaceState.bind(window.history);
+function navigate(search: string) {
+  updateBrowserHistory(null, "", `http://localhost:3000/sponsor/dashboard${search}`);
+  navigation.search = search;
+  for (const listener of navigation.listeners) listener();
+}
 beforeEach(() => {
-  navigation.search = "";
+  navigate("");
   vi.spyOn(window.history, "replaceState").mockImplementation((_state, _title, url) => {
     navigate(new URL(String(url), "http://localhost:3000/sponsor/dashboard").search);
   });
@@ -39,6 +44,29 @@ const initial: SponsorDashboardData = {
   checkoutEnabled: true,
   capacityAvailable: true,
 };
+
+it("switches three dashboard sections while preserving payment choice and hiding unrelated panels", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: { status: "unavailable", source: "Inspora accepted events" } })));
+  navigate("?billing=subscription");
+  const container = document.createElement("div"), root = createRoot(container);
+  try {
+    await act(async () => root.render(<SponsorDashboard initial={initial} />));
+    const nav = container.querySelector('nav[aria-label="Sponsorship sections"]')!;
+    expect(nav).not.toBeNull();
+    const select = (label: string) => Array.from(nav.querySelectorAll("button")).find(b => b.textContent === label)!;
+    expect(select("Overview").getAttribute("aria-current")).toBe("page");
+    expect(container.querySelector<HTMLElement>('#billing')!.hidden).toBe(true);
+    await act(async () => select("Billing").click());
+    expect(container.querySelector<HTMLElement>('#billing')!.hidden).toBe(false);
+    expect(container.querySelector<HTMLElement>('#overview')!.hidden).toBe(true);
+    expect(new URLSearchParams(navigation.search).get("billing")).toBe("subscription");
+    expect(new URLSearchParams(navigation.search).get("section")).toBe("billing");
+    await act(async () => select("Campaigns").click());
+    expect(container.querySelector<HTMLElement>('#campaigns')!.hidden).toBe(false);
+    expect(container.querySelector<HTMLElement>('#billing')!.hidden).toBe(true);
+  } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); }
+});
 
 it("defaults to a single calendar month and sends the explicit monthly choice to checkout", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -111,6 +139,7 @@ it("shows refresh progress and then renders cancellation without removing the pa
   const root = createRoot(container);
   try {
     await act(async () => root.render(<SponsorDashboard initial={initial} />));
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('nav button')).find(button => button.textContent === "Billing")!.click());
     const refresh = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Refresh")!;
     await act(async () => refresh.click());
     expect(refresh.textContent).toBe("Refreshing…");
@@ -137,6 +166,7 @@ it("releases the refresh loading state after a failed request and keeps the save
   const root = createRoot(container);
   try {
     await act(async () => root.render(<SponsorDashboard initial={initial} />));
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('nav button')).find(button => button.textContent === "Billing")!.click());
     const refresh = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Refresh")!;
     await act(async () => refresh.click());
     expect(refresh.disabled).toBe(false);

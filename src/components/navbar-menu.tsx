@@ -12,6 +12,7 @@ import Link from "next/link";
 
 export type NavbarMenuItem = {
   label: string;
+  selected?: boolean;
   href?: Route;
   onSelect?: () => void;
   wrap?: (button: ReactNode) => ReactNode;
@@ -89,7 +90,8 @@ export function NavbarMenu({
         />
         {items.map((item, index) => {
           const props = {
-            role: "menuitem",
+            role: item.selected === undefined ? "menuitem" : "menuitemradio",
+            "aria-checked": item.selected,
             tabIndex: open ? 0 : -1,
             onFocus: () => setHighlighted(index),
             onMouseEnter: () => setHighlighted(index),
@@ -97,12 +99,13 @@ export function NavbarMenu({
               close();
               item.onSelect?.();
             },
-            className: `focus-ring relative z-10 flex h-[var(--archive-menu-item-height,41px)] w-full cursor-pointer items-center rounded-[var(--archive-menu-radius,3px)] px-[var(--archive-menu-item-x,16px)] text-left transition-colors ${highlighted === index ? "text-[#262626]" : "text-[rgba(38,38,38,0.8)]"}`,
+            className: `focus-ring relative z-10 flex h-[var(--archive-menu-item-height,41px)] w-full cursor-pointer items-center justify-between gap-3 rounded-[var(--archive-menu-radius,3px)] px-[var(--archive-menu-item-x,16px)] text-left transition-colors ${highlighted === index ? "text-[#262626]" : "text-[rgba(38,38,38,0.8)]"}`,
           };
+          const content = <><span className="min-w-0 truncate">{item.label}</span>{item.selected ? <span aria-hidden="true">✓</span> : null}</>;
           const node = item.href ? (
-            <Link prefetch={false} href={item.href} {...props}>{item.label}</Link>
+            <Link prefetch={false} href={item.href} {...props}>{content}</Link>
           ) : (
-            <button type="button" {...props}>{item.label}</button>
+            <button type="button" {...props}>{content}</button>
           );
           return (
             <Fragment key={item.label}>

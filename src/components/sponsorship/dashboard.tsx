@@ -24,6 +24,11 @@ function date(value: string | null) {
 }
 const button =
   "focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 py-2 text-sm disabled:opacity-40";
+const sections = [
+  { id: "overview", label: "Overview" },
+  { id: "campaigns", label: "Campaigns" },
+  { id: "billing", label: "Billing" },
+] as const;
 export function SponsorDashboard({
   initial,
   initialMode = "one_time",
@@ -114,18 +119,27 @@ export function SponsorDashboard({
   const account = data.account,
     current = data.campaigns.find((c) => c.state === "published");
   const readonly = account?.state === "inactive";
+  const requestedSection = params.get("section");
+  const section = sections.find(item => item.id === requestedSection)?.id ??
+    (account ? "overview" : "billing");
+  function changeSection(id: typeof sections[number]["id"]) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("section", id);
+    window.history.replaceState(null, "", url);
+  }
   return (
-    <main className="mx-auto min-h-[80dvh] w-full max-w-[1120px] px-4 pb-20 pt-12 sm:px-8">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#e6e6e6] pb-8">
+    <main className="mx-auto min-h-[80dvh] w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-8">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#e6e6e6] pb-6">
         <div>
           <p className="text-sm text-[#767676]">Inspora sponsorship</p>
-          <h1 className="mt-2 text-[32px] font-medium tracking-[-0.03em]">
+          <h1 className="mt-2 text-[28px] font-medium tracking-[-0.03em]">
             Your sponsorship
           </h1>
         </div>
         <button
           type="button"
-          className={`${button} inline-flex items-center gap-2 cursor-pointer transition-colors hover:border-[#cfcfcf] hover:bg-[#fafafa] active:bg-[#f0f0f0] disabled:cursor-not-allowed`}
+          hidden={section !== "billing"}
+          className={`${button} ${section === "billing" ? "inline-flex" : "hidden"} items-center gap-2 cursor-pointer transition-colors hover:border-[#cfcfcf] hover:bg-[#fafafa] active:bg-[#f0f0f0] disabled:cursor-not-allowed`}
           disabled={busy || refreshing}
           aria-busy={refreshing}
           onClick={() => {
@@ -175,9 +189,32 @@ export function SponsorDashboard({
                   ? "Your delivery, audience and billing."
                   : "Your preparation is private until payment is verified."}
       </p>
-      {account ? <AnalyticsOverview key={data.ownerUserId} /> : null}
-      <div className="mt-8 grid gap-6 md:grid-cols-[1.2fr_1fr]">
-        <section className="rounded-lg border border-[#e6e6e6] p-6">
+      <div className="mt-6 grid items-start gap-6 md:grid-cols-[160px_minmax(0,1fr)] md:gap-8">
+        <nav aria-label="Sponsorship sections" className="flex gap-1 rounded-md bg-[#fafafa] p-1 md:sticky md:top-8 md:flex-col md:bg-transparent md:p-0">
+          {sections.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={section === item.id ? "page" : undefined}
+              aria-controls={item.id}
+              onClick={() => changeSection(item.id)}
+              className={`focus-ring min-h-11 min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2 text-sm transition-colors md:flex-none md:text-left ${section === item.id ? "bg-[#f0f0f0] font-medium text-[#262626]" : "text-[#767676] hover:bg-[#fafafa] hover:text-[#262626]"}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="min-w-0">
+          <section id="overview" aria-label="Overview" hidden={section !== "overview"}>
+            <h2 className="text-xl font-medium">Overview</h2>
+            {account ? <AnalyticsOverview key={data.ownerUserId} /> : (
+              <div className="mt-5 rounded-md border border-[#e6e6e6] p-6">
+                <p className="text-sm text-[#767676]">Performance appears after verified payment. Your campaign preparation stays private.</p>
+                <button type="button" onClick={() => changeSection("billing")} className={`${button} mt-5 cursor-pointer`}>Review payment</button>
+              </div>
+            )}
+          </section>
+        <section id="campaigns" aria-label="Campaigns" hidden={section !== "campaigns"} className="rounded-lg border border-[#e6e6e6] p-6">
           <h2 className="text-lg font-medium">Current campaign</h2>
           {current ? (
             <>
@@ -273,6 +310,8 @@ export function SponsorDashboard({
         </section>
         <section
           id="billing"
+          aria-label="Billing"
+          hidden={section !== "billing"}
           className="scroll-mt-8 rounded-lg border border-[#e6e6e6] p-6"
         >
           <h2 className="text-lg font-medium">Billing</h2>
@@ -377,6 +416,7 @@ export function SponsorDashboard({
             </p>
           ) : null}
         </section>
+        </div>
       </div>
       {message ? (
         <p role="alert" className="mt-6 text-sm text-[#b42318]">

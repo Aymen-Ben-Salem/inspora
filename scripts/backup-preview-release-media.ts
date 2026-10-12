@@ -5,7 +5,8 @@ import { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, S3Client } f
 import { loadPreviewEnvironment } from "./lib/preview-environment";
 import { assertSnapshotUnchanged, captureContentSnapshot } from "./lib/content-transfer-database";
 import type { ContentSnapshot } from "./lib/content-transfer-plan";
-import { backupSha256, captureReleaseMedia, PREVIEW_MEDIA_BUCKETS, releaseSnapshotLabel, storePreviewMedia, type BackupObject, type MediaObject } from "./lib/release-backup-media";
+import { assertSponsorBackupCoverage, backupSha256, captureReleaseMedia, PREVIEW_MEDIA_BUCKETS, releaseSnapshotLabel, storePreviewMedia, type BackupObject, type MediaObject, type SponsorBackupReference } from "./lib/release-backup-media";
+import { assertSponsorBackupTables, readSponsorBackupReferences } from "./lib/sponsor-backup-references";
 
 async function main() {
   const [selector, mode, ...extra] = process.argv.slice(2), label = releaseSnapshotLabel(selector ?? "");
@@ -23,6 +24,7 @@ async function main() {
   const rawCapture = readFileSync(local(capturePath));
   const capture = JSON.parse(rawCapture.toString()) as { kind: string; archiveSha256: string; snapshot: ContentSnapshot };
   if (capture.kind !== "preview" || backupSha256(readFileSync(local("private-recovery/preview-" + label + ".dump"))) !== capture.archiveSha256) throw Error("Backup matching preview database archive required");
+  assertSponsorBackupTables(Object.keys(capture.snapshot.tableHashes));
   const e = loadPreviewEnvironment();
   if (e.r2BucketName !== PREVIEW_MEDIA_BUCKETS[0] || e.r2SubmissionsBucketName !== PREVIEW_MEDIA_BUCKETS[1]) throw Error("Backup preview bucket identity rejected");
   const pool = new Pool({ connectionString: e.databaseUrlUnpooled, connectionTimeoutMillis: 20000 });
@@ -35,6 +37,7 @@ async function main() {
     for (const o of prior.objects as BackupObject[]) if (o.bucket === "inspora-media-production" && /^private-recovery\/production-media-full\/[a-f0-9]{64}$/.test(o.localPath)) cache.set(o.key, o);
   }
   const started = Date.now();
+  let sponsorReferences: SponsorBackupReference[] = [];
   try {
     const report = await captureReleaseMedia({
       buckets: [...PREVIEW_MEDIA_BUCKETS],
@@ -43,6 +46,7 @@ async function main() {
         try {
           await db.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
           assertSnapshotUnchanged(capture.snapshot, await captureContentSnapshot(db, "preview"));
+          sponsorReferences = await readSponsorBackupReferences(db);
           await db.query("COMMIT");
         } catch (error) { await db.query("ROLLBACK"); throw error; } finally { db.release(); }
       },
@@ -79,7 +83,8 @@ async function main() {
       },
       store: async (digest, bytes) => storePreviewMedia(root, digest, bytes),
     });
-    const result = { at: new Date().toISOString(), label, previewCaptureSha256: backupSha256(rawCapture), seconds: (Date.now() - started) / 1000, ...report };
+    assertSponsorBackupCoverage(sponsorReferences, report.objects);
+    const result = { at: new Date().toISOString(), label, previewCaptureSha256: backupSha256(rawCapture), seconds: (Date.now() - started) / 1000, sponsorshipReferencesVerified: true, sponsorReferences: sponsorReferences.length, ...report };
     writeFileSync(receipt, JSON.stringify(result, null, 2) + "\n", { flag: "wx" });
     console.log(JSON.stringify({ ...result, objects: undefined }));
   } finally { client.destroy(); await pool.end(); }

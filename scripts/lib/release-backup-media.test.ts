@@ -3,12 +3,24 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { captureReleaseMedia, previewBackupFiles, storePreviewMedia } from "./release-backup-media";
+import { assertSponsorBackupCoverage, captureReleaseMedia, previewBackupFiles, storePreviewMedia } from "./release-backup-media";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytes = Buffer.from("retained work");
 const object = { bucket: "inspora-media-preview", key: "logos/original.webp", size: bytes.length, etag: '"version-one"' };
 const buckets = ["inspora-media-preview", "inspora-submissions-preview"];
+
+describe("sponsorship backup references", () => {
+  it("requires retained private originals and public wordmarks alongside complete schema coverage", () => {
+    const references = [
+      { bucket: buckets[1], key: "sponsorships/owner/source/original.png", required: true },
+      { bucket: buckets[0], key: "sponsorships/account/campaign/version/wordmark.png", required: true },
+    ];
+    expect(() => assertSponsorBackupCoverage(references, [])).toThrow(/reference/);
+    expect(() => assertSponsorBackupCoverage(references, references)).not.toThrow();
+    expect(() => assertSponsorBackupCoverage(references, references.map(r => ({ ...r, bucket: buckets[0] })))).toThrow(/reference/);
+  });
+});
 
 describe("local recovery path containment", () => {
   it("stores digest-verified bytes without overwriting existing recovery objects", () => {
@@ -34,7 +46,7 @@ function provider(options: { drift?: boolean; corrupt?: boolean; snapshotDrift?:
   return {
     buckets,
     list: async () => ++lists === 2 && options.drift ? [{ ...object, etag: '"version-two"' }] : [object],
-    get: async (_o: typeof object) => ({ bytes: options.corrupt ? Buffer.from("wrong") : bytes, etag: object.etag, contentType: "image/webp" }),
+    get: async () => ({ bytes: options.corrupt ? Buffer.from("wrong") : bytes, etag: object.etag, contentType: "image/webp" }),
     store: async (digest: string, data: Uint8Array) => { saved.set(digest, data); return `private-recovery/preview-media-full/${digest}`; },
     checkSnapshot: async () => { if (++checks === 2 && options.snapshotDrift) throw Error("database drift"); },
   };

@@ -31,6 +31,8 @@ import {
   sponsorAccounts,
   sponsorAssets,
   sponsorCampaignVersions,
+  sponsorDeliveryIntervals,
+  sponsorDeliveryPeriods,
   sponsorCheckouts,
   sponsorIdentities,
   sponsorSeats,
@@ -71,6 +73,10 @@ afterEach(async () => {
           reservedUntil: null,
         })
         .where(eq(sponsorSeats.accountId, a.id));
+    for (const account of accounts) {
+      await tx.delete(sponsorDeliveryIntervals).where(eq(sponsorDeliveryIntervals.accountId, account.id));
+      await tx.delete(sponsorDeliveryPeriods).where(eq(sponsorDeliveryPeriods.accountId, account.id));
+    }
     await tx
       .delete(sponsorVersionAssets)
       .where(inArray(sponsorVersionAssets.ownerUserId, owners));

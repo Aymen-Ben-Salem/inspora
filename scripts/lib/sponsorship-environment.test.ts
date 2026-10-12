@@ -1,5 +1,10 @@
 import { expect, it } from "vitest";
-import { validatePreviewSponsorshipEnvironment } from "./sponsorship-environment";
+import { validatePreviewSponsorshipEnvironment, validateSponsorRecoveryEnvironment } from "./sponsorship-environment";
+
+it("requires billing and reporting configuration even when recovery purchases are disabled", () => {
+  expect(() => validateSponsorRecoveryEnvironment({ SPONSORSHIP_ENABLED: "true", SPONSORSHIP_WRITES_ENABLED: "false", SPONSORSHIP_CHECKOUT_ENABLED: "false" })).toThrow(/STRIPE_SECRET_KEY/);
+  expect(() => validateSponsorRecoveryEnvironment({ SPONSORSHIP_ENABLED: "false" })).toThrow(/paid/);
+});
 it("permits unconfigured checkout but rejects live keys and incomplete enabled configuration", () => {
   expect(() => validatePreviewSponsorshipEnvironment({})).not.toThrow();
   expect(() =>
@@ -25,6 +30,10 @@ it("requires explicit tax behavior and a private maintenance credential", () => 
     STRIPE_SPONSOR_AUTOMATIC_TAX: "false",
   };
   expect(() => validatePreviewSponsorshipEnvironment(values)).not.toThrow();
+  const recovery = { ...values, SPONSORSHIP_ENABLED: "true", SPONSORSHIP_WRITES_ENABLED: "false", SPONSORSHIP_CHECKOUT_ENABLED: "false", ANALYTICS_KEY_ENCRYPTION_SECRET: "k".repeat(32) };
+  expect(() => validateSponsorRecoveryEnvironment(recovery)).not.toThrow();
+  expect(() => validateSponsorRecoveryEnvironment({ ...recovery, SPONSORSHIP_WRITES_ENABLED: "true" })).toThrow(/disable/);
+  expect(() => validateSponsorRecoveryEnvironment({ ...recovery, ANALYTICS_KEY_ENCRYPTION_SECRET: "" })).toThrow(/ANALYTICS/);
   expect(() =>
     validatePreviewSponsorshipEnvironment({ ...values, CRON_SECRET: "short" }),
   ).toThrow();

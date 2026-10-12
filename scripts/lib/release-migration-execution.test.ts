@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { assertReleasePlan, runReleaseTransaction } from './release-migration-execution';
+import { assertReleasePlan, captureReleaseDatabase, runReleaseTransaction } from './release-migration-execution';
 
 describe('release execution safety', () => {
+  it('reports a manually migrated disposable schema without fabricating a Drizzle migration ledger', async () => {
+    const client = { query: async (statement: string) => {
+      if (statement.includes('from drizzle.__drizzle_migrations')) throw Error('Missing ledger');
+      if (statement.includes('information_schema.columns')) return { rows: [{ table_name: 'posts', column_name: 'id' }, { table_name: 'creators', column_name: 'id' }], rowCount: 2 };
+      if (statement.includes('to_regclass')) return { rows: [{ available: false }], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    } };
+    const snapshot = await captureReleaseDatabase(client, { allowMissingLedger: true });
+    expect(snapshot.migrationLedgerPresent).toBe(false);
+    expect(snapshot.ledger).toEqual([]);
+    await expect(captureReleaseDatabase(client)).rejects.toThrow('Missing ledger');
+  });
   it('rejects drift in code, target, ledger and data before writes', () => {
     const pinned = { target: 'rehearsal', code: 'a', ledger: [1], data: 'a' };
     expect(() => assertReleasePlan(pinned, { ...pinned })).not.toThrow();

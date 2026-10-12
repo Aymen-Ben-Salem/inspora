@@ -47,3 +47,14 @@ export function validatePreviewSponsorshipEnvironment(
   if (!["true", "false"].includes(values.STRIPE_SPONSOR_AUTOMATIC_TAX ?? ""))
     throw new Error("Explicit preview Stripe tax behavior is required.");
 }
+
+/** A compatible fallback keeps paid reads and operational billing configured. */
+export function validateSponsorRecoveryEnvironment(values: Record<string, string | undefined>) {
+  if (values.SPONSORSHIP_ENABLED !== "true")
+    throw new Error("Recovery must retain paid sponsorship eligibility and owner access.");
+  if (values.SPONSORSHIP_WRITES_ENABLED !== "false" || values.SPONSORSHIP_CHECKOUT_ENABLED !== "false")
+    throw new Error("Recovery must explicitly disable checkout and campaign writes.");
+  validatePreviewSponsorshipEnvironment({ ...values, SPONSORSHIP_CHECKOUT_ENABLED: "true" });
+  if ((values.ANALYTICS_KEY_ENCRYPTION_SECRET?.length ?? 0) < 32)
+    throw new Error("Recovery requires the retained ANALYTICS_KEY_ENCRYPTION_SECRET.");
+}

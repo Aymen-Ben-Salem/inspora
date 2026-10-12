@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
+import { Pool } from "@neondatabase/serverless";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 vi.mock("server-only", () => ({}));
@@ -66,6 +67,10 @@ import type { BillingProvider } from "./stripe-client";
 import type { SponsorPromoter } from "./public-media";
 import { createPaidCampaignService } from "./paid-campaigns";
 import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
+import { drainSponsorJobs } from "./jobs";
+import { startSponsorCheckout } from "./billing-service";
+import { withCampaignWrites } from "./campaign-service";
+import { readSponsorBackupReferences } from "../../../scripts/lib/sponsor-backup-references";
 const owners: string[] = [];
 const events: string[] = [];
 afterEach(async () => {
@@ -313,6 +318,45 @@ async function fixture(
   };
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it("keeps signed billing jobs, paid placement and owned history working in a recovery candidate", async () => {
+    const f = await fixture("Recovery candidate");
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    vi.stubEnv("SPONSORSHIP_ENABLED", "true");
+    vi.stubEnv("SPONSORSHIP_WRITES_ENABLED", "false");
+    vi.stubEnv("SPONSORSHIP_CHECKOUT_ENABLED", "false");
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fixture");
+    vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_fixture");
+    access.owner = f.owner;
+    expect(await startSponsorCheckout(f.id, "subscription")).toMatchObject({ ok: false, code: "unavailable" });
+    let edited = false;
+    expect(await withCampaignWrites(async () => { edited = true; })).toMatchObject({ ok: false, code: "unavailable" });
+    expect(edited).toBe(false);
+    const dashboard = await readOwnSponsorDashboard();
+    const campaignId = dashboard!.campaigns[0].id;
+    expect((await getDesignSponsors()).some(c => c.id === campaignId)).toBe(true);
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const client = await pool.connect();
+    try {
+      const references = await readSponsorBackupReferences(client);
+      expect(references.some(r => r.required && r.key.includes(campaignId))).toBe(true);
+      expect(references.some(r => r.required && r.bucket === "inspora-submissions-preview")).toBe(true);
+    } finally { client.release(); await pool.end(); }
+
+    f.observation.invoices.push({ ...f.observation.invoices[0], id: "in_recovery_renewal", periodStart: f.end.getTime(), periodEnd: f.end.getTime() + 30 * 86400000 });
+    const id = `evt_${randomUUID()}`;
+    events.push(id);
+    const raw = JSON.stringify({ id, object: "event", type: "invoice.paid", livemode: false, data: { object: { id: "in_recovery_renewal" } } });
+    const signature = new Stripe("sk_test_fixture").webhooks.generateTestHeaderString({ payload: raw, secret: "whsec_fixture" });
+    expect(await recordStripeWebhook(raw, signature)).toEqual({ accepted: true, duplicate: false });
+    expect(await recordStripeWebhook(raw, signature)).toEqual({ accepted: true, duplicate: true });
+    expect((await drainSponsorJobs(f.provider, 10, new Date(f.end.getTime() + 1000))).completed).toBeGreaterThan(0);
+    const renewed = await readOwnSponsorDashboard();
+    expect(renewed?.account?.paidThrough).toEqual(new Date(f.end.getTime() + 30 * 86400000).toISOString());
+    expect(renewed?.campaigns.map(c => c.id)).toEqual(dashboard!.campaigns.map(c => c.id));
+  });
   it("publishes a single payment once, pins its mode, and releases its seat at calendar expiry", async () => {
     const f = await fixture("Single payment", "one_time");
     vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());

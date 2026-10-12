@@ -8,13 +8,14 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 
 import { creators, postMedia, sponsors } from "../src/db/schema";
+import { LEGACY_ORPHAN_PREFIXES, legacyOrphanKeyAllowed } from "./lib/sponsor-release-policy";
 import {
   loadProductionMediaEnvironment,
   parseExecutionOptions,
   type ProductionMediaEnvironment,
 } from "./lib/production-environment";
 
-const MANAGED_PREFIXES = ["posts/", "creators/", "sponsors/"];
+const MANAGED_PREFIXES = LEGACY_ORPHAN_PREFIXES;
 
 function createR2Client(environment: ProductionMediaEnvironment) {
   return new S3Client({
@@ -46,7 +47,7 @@ async function listManagedObjects(
       );
       objects.push(
         ...(response.Contents ?? []).flatMap((object) =>
-          object.Key
+          object.Key && legacyOrphanKeyAllowed(object.Key)
             ? [{ key: object.Key, lastModified: object.LastModified ?? null }]
             : [],
         ),
@@ -119,6 +120,7 @@ async function cleanupR2Orphans() {
   const allOrphans = stored
     .filter(
       (object) =>
+        legacyOrphanKeyAllowed(object.key) &&
         !referenced.has(object.key) &&
         object.lastModified !== null &&
         object.lastModified.getTime() < cutoff,

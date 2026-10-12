@@ -2,11 +2,11 @@ import { createHash } from 'node:crypto';
 import type { ReleaseLedgerRow } from './release-migration';
 
 export interface ReleaseClient {
-  query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, any>[]; rowCount: number | null }>;
+  query(sql: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[]; rowCount: number | null }>;
 }
 export const releaseHash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
-const stable = (value: any): any => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
-  ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
+const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
+  ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable((value as Record<string, unknown>)[key])])) : value;
 export const releaseObjectHash = (value: unknown) => releaseHash(JSON.stringify(stable(value)));
 export const quoteReleaseIdentifier = (value: string) => '"' + value.replaceAll('"', '""') + '"';
 
@@ -41,13 +41,14 @@ export async function releaseDataHashes(client: ReleaseClient, columns: Record<s
   return result;
 }
 
-export async function captureReleaseDatabase(client: ReleaseClient) {
-  const schema = (await client.query("select table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default from information_schema.columns where table_schema='public' order by table_name,ordinal_position")).rows;
+export async function captureReleaseDatabase(client: ReleaseClient, options: { allowMissingLedger?: boolean } = {}) {
+  const schema = (await client.query("select table_name,column_name,ordinal_position,data_type,udt_name,is_nullable,column_default from information_schema.columns where table_schema='public' order by table_name,ordinal_position")).rows as { table_name: string; column_name: string }[];
   const columns: Record<string, string[]> = {};
   for (const row of schema) (columns[row.table_name] ??= []).push(row.column_name);
   if (!columns.posts || !columns.creators) throw Error('Release required tables missing.');
   const constraints = (await client.query("select c.relname as table_name, con.conname, pg_get_constraintdef(con.oid) as definition from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' order by c.relname,con.conname")).rows;
   const indexes = (await client.query("select schemaname,tablename,indexname,indexdef from pg_indexes where schemaname in ('public','drizzle') order by schemaname,tablename,indexname")).rows;
-  const categories = (await client.query('select category,count(*)::int as count from posts group by category order by category')).rows;
-  return { schema, columns, constraints, indexes, categories, ledger: await releaseLedger(client), data: await releaseDataHashes(client, columns) };
+  const categories = (await client.query('select category,count(*)::int as count from posts group by category order by category')).rows as { category: string; count: number }[];
+  const migrationLedgerPresent = !options.allowMissingLedger || (await client.query("select to_regclass('drizzle.__drizzle_migrations') is not null as available")).rows[0]?.available === true;
+  return { schema, columns, constraints, indexes, categories, migrationLedgerPresent, ledger: migrationLedgerPresent ? await releaseLedger(client) : [], data: await releaseDataHashes(client, columns) };
 }

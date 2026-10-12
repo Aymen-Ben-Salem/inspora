@@ -1,8 +1,9 @@
 import {canonicalHash,D1,EXCLUDED_WEBSITE_ID,type ContentSnapshot,type Row} from './content-transfer-plan';
 import {normalizeXProfileUrl,validateCreatorUsername} from '../../src/features/creators/validation';
+import {assertNoPreviewSponsorshipTransfer,EDITORIAL_RELEASE_TABLES} from './sponsor-release-policy';
 
 function fail(reason:string):never{throw Error('Release content: '+reason);}
-const tables=['creators','creator_username_aliases','logos','logo_media','websites','website_media','website_sections'] as const;
+const tables=EDITORIAL_RELEASE_TABLES;
 const clean=(row:Row)=>Object.fromEntries(Object.entries(row).filter(([k])=>!['has_owner','has_verified_x','owner_user_id','x_provider_id','created_by','updated_by'].includes(k)));
 const xIdentity=(row:Row)=>{try{return normalizeXProfileUrl(String(row.x_profile_url||row.url||''));}catch{return null;}};
 
@@ -77,5 +78,12 @@ export function buildReleaseContentPlan(source:ContentSnapshot,destination:Conte
  for(const website of websites){if(!s.website_media.some(r=>r.website_id===website.id)||!s.website_sections.some(r=>r.website_id===website.id))fail('missing website presentation');add('websites',website);}
  for(const row of s.logo_media.filter(r=>logoIds.has(r.logo_id)))add('logo_media',row,true);
  for(const table of ['website_media','website_sections'])for(const row of s[table].filter(r=>websiteIds.has(r.website_id)))add(table,row,true);
- return {inserts,profileUpdates,mediaKeys:[...mediaKeys].sort(),selectedCreatorIds:[...creatorIds].map(String).sort(),selectedWorkIds:[...logoIds,...websiteIds].map(String).sort()};
+ const plan={inserts,profileUpdates,mediaKeys:[...mediaKeys].sort(),selectedCreatorIds:[...creatorIds].map(String).sort(),selectedWorkIds:[...logoIds,...websiteIds].map(String).sort()};
+ assertNoPreviewSponsorshipTransfer(plan,{
+  creators:s.creators.filter(r=>creatorIds.has(r.id)),
+  logo_media:s.logo_media.filter(r=>logoIds.has(r.logo_id)),
+  website_media:s.website_media.filter(r=>websiteIds.has(r.website_id)),
+  website_sections:s.website_sections.filter(r=>websiteIds.has(r.website_id)),
+ });
+ return plan;
 }

@@ -32,6 +32,17 @@ export type MediaObject = { bucket: string; key: string; size: number; etag: str
 export type ObjectBody = { bytes: Uint8Array; etag: string; contentType?: string; cacheControl?: string; contentDisposition?: string; contentEncoding?: string; contentLanguage?: string; metadata?: Record<string, string> };
 export type BackupObject = MediaObject & Omit<ObjectBody, "bytes"> & { sha256: string; localPath: string };
 
+export type SponsorBackupReference = { bucket: string; key: string; required: boolean; digest?: string };
+export function assertSponsorBackupCoverage(references: SponsorBackupReference[], objects: { bucket: string; key: string; sha256?: string }[]) {
+  const inventory = new Map(objects.map(o => [o.bucket + "/" + o.key, o]));
+  for (const reference of references) {
+    const object = inventory.get(reference.bucket + "/" + reference.key);
+    if (reference.required && !object) fail("sponsor reference missing from inventory");
+    if (object?.sha256 && reference.digest && object.sha256 !== reference.digest)
+      fail("sponsor reference digest mismatch");
+  }
+}
+
 export async function captureReleaseMedia(io: {
   buckets: string[];
   list(): Promise<MediaObject[]>;

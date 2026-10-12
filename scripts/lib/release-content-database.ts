@@ -5,6 +5,7 @@ import {buildReleaseContentPlan} from './release-content-plan';
 import {initializeCreatorProfiles} from './creator-profile-backfill-database';
 import {planCreatorProfileBackfill} from './creator-profile-backfill';
 import {quoteReleaseIdentifier as quote,runReleaseTransaction} from './release-migration-execution';
+import {assertNoPreviewSponsorshipTransfer} from './sponsor-release-policy';
 
 export function releaseProfilePlan(before:ContentSnapshot,plan:ReturnType<typeof buildReleaseContentPlan>,environment:'production'|'rehearsal'){
  const creators=structuredClone([...before.rows.creators,...plan.inserts.creators]);
@@ -15,6 +16,10 @@ export function releaseProfilePlan(before:ContentSnapshot,plan:ReturnType<typeof
 }
 
 export async function applyReleaseContent(client:PoolClient,before:ContentSnapshot,plan:ReturnType<typeof buildReleaseContentPlan>,environment:'production'|'rehearsal',rollbackTest=false){
+ assertNoPreviewSponsorshipTransfer(plan,{
+  existing:Object.fromEntries(['creators','logo_media','website_media','website_sections'].map(t=>[t,before.rows[t]])),
+  inserted:plan.inserts,
+ });
  if(rollbackTest&&environment!=='rehearsal')throw Error('Release content rollback fixture only permitted in rehearsal');
  const profiles=releaseProfilePlan(before,plan,environment);
  return runReleaseTransaction(client,async()=>{

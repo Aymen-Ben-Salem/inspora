@@ -159,6 +159,82 @@ it("refreshes all mounted placements together on foreground and within 30 second
   expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(4);
   expect(container.querySelectorAll("[data-campaign-id]")).toHaveLength(0);
 });
+it.each(["unavailable", "offline"])(
+  "expires the initial Design sponsors and shows the empty feed when placements are %s from the first refresh",
+  async (failure) => {
+    vi.useFakeTimers({
+      toFake: [
+        "Date",
+        "setInterval",
+        "clearInterval",
+        "setTimeout",
+        "clearTimeout",
+      ],
+    });
+    vi.setSystemTime(new Date("2026-10-10T12:00:00Z"));
+    const initial = [
+      {
+        ...campaign("initial"),
+        serverTime: "2026-10-10T14:00:00Z",
+        paidThrough: "2026-10-10T14:01:00Z",
+      },
+    ];
+    if (failure === "offline")
+      fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    else fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
+    await act(async () =>
+      root.render(
+        <PublicSponsorsProvider>
+          <PostFeed posts={[]} sponsors={initial} />
+        </PublicSponsorsProvider>,
+      ),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(59000);
+    });
+    expect(
+      container.querySelectorAll('[data-sponsor-placement="feed"]'),
+    ).toHaveLength(1);
+    expect(container.textContent).not.toContain("No posts in this category yet.");
+    await act(async () =>
+      root.render(
+        <PublicSponsorsProvider>
+          <PostFeed posts={[]} sponsors={[...initial]} />
+        </PublicSponsorsProvider>,
+      ),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(
+      container.querySelectorAll('[data-sponsor-placement="feed"]'),
+    ).toHaveLength(0);
+    expect(container.textContent).toContain("No posts in this category yet.");
+  },
+);
+it.each([0, 1])(
+  "keeps a successful refresh with %i sponsors authoritative when the initial Design list is rendered again",
+  async (count) => {
+    active = count ? [campaign("fresh")] : [];
+    const initial = [campaign("stale")];
+    for (const sponsors of [initial, [...initial]]) {
+      await act(async () =>
+        root.render(
+          <PublicSponsorsProvider>
+            <PostFeed posts={[]} sponsors={sponsors} />
+          </PublicSponsorsProvider>,
+        ),
+      );
+      expect(
+        container.querySelectorAll('[data-sponsor-placement="feed"]'),
+      ).toHaveLength(count);
+      expect(container.querySelector('[data-campaign-id="stale"]')).toBeNull();
+      if (count)
+        expect(container.querySelector('[data-campaign-id="fresh"]')).not.toBeNull();
+      else expect(container.textContent).toContain("No posts in this category yet.");
+    }
+  },
+);
 it("keeps sponsor-only sparse Website/Logo filters but excludes App Icons and preserves their newsletter", async () => {
   active = [campaign("a")];
   await act(async () =>

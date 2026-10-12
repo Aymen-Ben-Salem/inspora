@@ -13,17 +13,18 @@ const Context = createContext<{
   sponsors: ActiveSponsor[];
   ready: boolean;
   refresh: () => Promise<void>;
-}>({ sponsors: [], ready: false, refresh: async () => {} });
+  initialize: (initial: ActiveSponsor[]) => void;
+}>({ sponsors: [], ready: false, refresh: async () => {}, initialize: () => {} });
 export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
   const [sponsors, setSponsors] = useState<ActiveSponsor[]>([]),
     [ready, setReady] = useState(false);
   const inFlight = useRef(false),
     controller = useRef<AbortController | null>(null);
-  const snapshot = useRef<{ sponsors: ActiveSponsor[]; offset: number }>({
-    sponsors: [],
-    offset: 0,
-  });
+  const snapshot = useRef<{ sponsors: ActiveSponsor[]; offset: number } | null>(
+    null,
+  );
   const expire = useCallback(() => {
+    if (!snapshot.current) return;
     const { sponsors: current, offset } = snapshot.current;
     const valid = current.filter(
       (s) => !s.paidThrough || Date.parse(s.paidThrough) > Date.now() + offset,
@@ -35,6 +36,21 @@ export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
         : valid,
     );
   }, []);
+  const initialize = useCallback(
+    (initial: ActiveSponsor[]) => {
+      // The server-rendered list needs the same deadline enforcement as API data.
+      // Never replace a confirmed snapshot, including an empty API response.
+      if (snapshot.current || !initial.length) return;
+      const serverTime = Date.parse(initial[0].serverTime ?? "");
+      snapshot.current = {
+        sponsors: initial,
+        offset: Number.isFinite(serverTime) ? serverTime - Date.now() : 0,
+      };
+      setReady(true);
+      expire();
+    },
+    [expire],
+  );
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -91,12 +107,15 @@ export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
     };
   }, [expire, refresh]);
   return (
-    <Context.Provider value={{ sponsors, ready, refresh }}>
+    <Context.Provider value={{ sponsors, ready, refresh, initialize }}>
       {children}
     </Context.Provider>
   );
 }
 export function usePublicSponsors(initial: ActiveSponsor[] = []) {
-  const value = useContext(Context);
+  const { initialize, ...value } = useContext(Context);
+  useEffect(() => {
+    initialize(initial);
+  }, [initial, initialize]);
   return { ...value, sponsors: value.ready ? value.sponsors : initial };
 }

@@ -49,7 +49,6 @@ R2_SECRET_ACCESS_KEY=preview-secret
 R2_BUCKET_NAME=fixture-bucket
 R2_PUBLIC_BASE_URL=https://fixture-media.r2.dev
 R2_SUBMISSIONS_BUCKET_NAME=fixture-private-bucket
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_must_not_win
 NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=preview-token
 NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com
 POSTHOG_API_HOST=https://eu.posthog.com
@@ -59,6 +58,89 @@ POSTHOG_WORK_VIEWS_CUTOVER_AT=2026-09-21T12:00:00.000Z
 `;
 
 describe("guarded Preview build", () => {
+  it("builds with an independent Preview Clerk instance without reading Development", () => {
+    const reads: string[] = [];
+    const environment = resolvePreviewBuildEnvironment({
+      cwd: "C:/isolated-fixture",
+      approvedFingerprint: approvedPreview,
+      baseEnvironment: {
+        NODE_ENV: "development",
+        CLERK_SECRET_KEY: "sk_test_inherited_dev",
+        ADMIN_USER_IDS: "user_dev_admin",
+        NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL: "/dev-sign-in",
+        NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL: "/dev-sign-up",
+      },
+      readFile(path) {
+        reads.push(path.replaceAll("\\", "/"));
+        if (!path.endsWith(".env.preview.local"))
+          throw new Error("Development credentials are unavailable.");
+        return previewFixture + `
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_preview
+CLERK_SECRET_KEY=sk_test_preview
+CLERK_WEBHOOK_SIGNING_SECRET=whsec_preview
+ADMIN_USER_IDS=user_preview_admin
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL=/preview-sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/preview-sign-up
+`;
+      },
+    });
+    expect(reads).toEqual(["C:/isolated-fixture/.env.preview.local"]);
+    expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe("pk_test_preview");
+    expect(environment.CLERK_SECRET_KEY).toBe("sk_test_preview");
+    expect(environment.CLERK_WEBHOOK_SIGNING_SECRET).toBe("whsec_preview");
+    expect(environment.ADMIN_USER_IDS).toBe("user_preview_admin");
+    expect(environment.NEXT_PUBLIC_CLERK_SIGN_UP_URL).toBe("/sign-up");
+    expect(environment.NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL).toBe(
+      "/preview-sign-in",
+    );
+    expect(environment.NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL).toBe(
+      "/preview-sign-up",
+    );
+  });
+  it.each([
+    ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_preview", "CLERK_SECRET_KEY"],
+    ["CLERK_SECRET_KEY=sk_test_preview", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+    [
+      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_preview\nCLERK_SECRET_KEY=sk_live_preview",
+      "test Clerk",
+    ],
+  ])(
+    "rejects partial or live Preview Clerk settings without falling back to Development: %s",
+    (configuration, error) => {
+      expect(() =>
+        resolvePreviewBuildEnvironment({
+          cwd: "C:/isolated-fixture",
+          approvedFingerprint: approvedPreview,
+          readFile: (path) =>
+            path.endsWith(".env.preview.local")
+              ? previewFixture + "\n" + configuration
+              : developmentFixture,
+        }),
+      ).toThrow(error);
+    },
+  );
+  it("keeps Preview admin and webhook settings empty when absent from its independent instance", () => {
+    const environment = resolvePreviewBuildEnvironment({
+      cwd: "C:/isolated-fixture",
+      approvedFingerprint: approvedPreview,
+      baseEnvironment: {
+        NODE_ENV: "development",
+        ADMIN_USER_IDS: "user_dev_admin",
+        CLERK_WEBHOOK_SIGNING_SECRET: "whsec_dev",
+        NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL: "/dev-sign-in",
+        NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL: "/dev-sign-up",
+      },
+      readFile: () => previewFixture + `
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_preview
+CLERK_SECRET_KEY=sk_test_preview
+`,
+    });
+    expect(environment.ADMIN_USER_IDS).toBe("");
+    expect(environment.CLERK_WEBHOOK_SIGNING_SECRET).toBe("");
+    expect(environment.NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL).toBe("");
+    expect(environment.NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL).toBe("");
+  });
   it("does not inherit Stripe or sponsorship credentials/flags from another environment", () => {
     const environment = resolvePreviewBuildEnvironment({
       cwd: "C:/isolated-fixture",
@@ -98,8 +180,8 @@ describe("guarded Preview build", () => {
     });
 
     expect(reads).toEqual([
-      "C:/isolated-fixture/.env.local",
       "C:/isolated-fixture/.env.preview.local",
+      "C:/isolated-fixture/.env.local",
     ]);
     expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe(
       "pk_test_fixture",
@@ -172,7 +254,7 @@ describe("guarded Preview build", () => {
         },
         runCommand,
       }),
-    ).rejects.toThrow("development Clerk");
+    ).rejects.toThrow("test Clerk");
     expect(runCommand).not.toHaveBeenCalled();
   });
 

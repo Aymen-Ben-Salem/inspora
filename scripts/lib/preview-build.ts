@@ -20,12 +20,17 @@ import {
   type EnvironmentFingerprint,
 } from "./environment-fingerprint";
 
-const DEVELOPMENT_CONFIGURATION_KEYS = [
+const CLERK_CONFIGURATION_KEYS = [
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "CLERK_SECRET_KEY",
+  "CLERK_WEBHOOK_SIGNING_SECRET",
   "ADMIN_USER_IDS",
   "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
+  "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
   "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
+  "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
+  "NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL",
+  "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
 ] as const;
 
 const PREVIEW_CONFIGURATION_KEYS = [
@@ -84,29 +89,38 @@ export function resolvePreviewBuildEnvironment(
   const cwd = options.cwd ?? process.cwd();
   const readFile =
     options.readFile ?? ((path: string) => readFileSync(path, "utf8"));
-  const development = parse(readFile(resolve(cwd, ".env.local")));
   const preview = parse(readFile(resolve(cwd, ".env.preview.local")));
   const environment = { ...(options.baseEnvironment ?? process.env) };
+  const explicitPreviewClerk = [
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "CLERK_SECRET_KEY",
+  ].some((key) => Object.hasOwn(preview, key));
+  const clerkSource = explicitPreviewClerk ? ".env.preview.local" : ".env.local";
+  const clerk = explicitPreviewClerk
+    ? preview
+    : parse(readFile(resolve(cwd, clerkSource)));
 
   const clerkPublishableKey = required(
-    development,
+    clerk,
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-    ".env.local",
+    clerkSource,
   );
   const clerkSecretKey = required(
-    development,
+    clerk,
     "CLERK_SECRET_KEY",
-    ".env.local",
+    clerkSource,
   );
   if (
     !clerkPublishableKey.startsWith("pk_test_") ||
     !clerkSecretKey.startsWith("sk_test_")
   ) {
     throw new Error(
-      "The guarded Preview build requires development Clerk keys.",
+      `The guarded Preview build requires test Clerk keys from ${clerkSource}.`,
     );
   }
-  copyOwnedValues(environment, development, DEVELOPMENT_CONFIGURATION_KEYS);
+  // Empty values also block Next dotenv from restoring Development auth values.
+  for (const key of CLERK_CONFIGURATION_KEYS)
+    environment[key] = clerk[key]?.trim() ?? "";
   copyOwnedValues(environment, preview, PREVIEW_CONFIGURATION_KEYS);
   validatePreviewAnalytics(preview);
   validatePreviewSponsorshipEnvironment(preview);

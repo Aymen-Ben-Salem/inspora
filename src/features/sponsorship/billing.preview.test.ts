@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
+import { DeleteObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { Pool } from "@neondatabase/serverless";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
@@ -35,6 +36,14 @@ import {
   clerkWebhookReceipts,
   cleanupJobs,
   profileAccounts,
+  creators,
+  logos,
+  logoMedia,
+  posts,
+  postMedia,
+  websites,
+  websiteMedia,
+  websiteSections,
   sponsorAssets,
   sponsorCampaignVersions,
   sponsorDeliveryIntervals,
@@ -71,6 +80,11 @@ import { drainSponsorJobs } from "./jobs";
 import { startSponsorCheckout } from "./billing-service";
 import { withCampaignWrites } from "./campaign-service";
 import { readSponsorBackupReferences } from "../../../scripts/lib/sponsor-backup-references";
+import { cleanupDeletedSponsorOwner } from "./deletion";
+import { getPublishedLogoAsset } from "@/data/logos-repository";
+import { updateAdminCreator } from "@/features/creators/identity";
+import { getR2PublicUrl } from "@/storage/r2";
+import { createAdminPost } from "@/features/admin/posts-repository";
 const owners: string[] = [];
 const events: string[] = [];
 afterEach(async () => {
@@ -317,7 +331,124 @@ async function fixture(
     },
   };
 }
+async function saveDuringSponsorMediaDeletion(save: (key: string, creatorId: string) => Promise<unknown>) {
+  const f = await fixture("Concurrent editorial save");
+  vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+  await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
+  await ensureSponsorCheckoutSession(f.id, f.provider);
+  f.complete();
+  await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+  const creatorId = randomUUID(), bucket = process.env.R2_BUCKET_NAME!;
+  const key = await withSponsorWrite(async tx => {
+    const [account] = await tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, f.owner));
+    const [version] = await tx.select().from(sponsorCampaignVersions).where(eq(sponsorCampaignVersions.ownerUserId, f.owner));
+    await tx.insert(creators).values({ id: creatorId, name: "Concurrent editorial fixture", avatarUrl: "/brand/default-avatar.svg", recordOrigin: "preview" });
+    return `sponsorships/${account.id}/${version.campaignId}/${version.id}/${version.creative.assets[0].id}.png`;
+  });
+  const bytes = new Set([bucket + "/" + key]);
+  const deleting = Promise.withResolvers<void>(), proceed = Promise.withResolvers<void>();
+  vi.spyOn(S3Client.prototype, "send").mockImplementation(async command => {
+    if (command instanceof DeleteObjectCommand) {
+      if (command.input.Bucket === bucket && command.input.Key === key) { deleting.resolve(); await proceed.promise; }
+      bytes.delete(command.input.Bucket + "/" + command.input.Key);
+    } else if (command instanceof HeadObjectCommand) {
+      if (!bytes.has(command.input.Bucket + "/" + command.input.Key)) throw Error("Fixture media no longer exists");
+    } else throw Error("Unexpected storage operation");
+    return { $metadata: {} };
+  });
+  let cleanup: Promise<boolean> | undefined, saving: Promise<boolean> | undefined;
+  try {
+    await requestWebhookAccountDeletion({ eventId: `evt-delete-${f.owner}`, userId: f.owner });
+    cleanup = cleanupDeletedSponsorOwner(f.owner, f.provider, f.now);
+    await deleting.promise;
+    saving = save(key, creatorId).then(() => true, () => false);
+    proceed.resolve();
+    expect(await cleanup).toBe(true);
+    expect(await saving).toBe(false);
+    expect(bytes.has(bucket + "/" + key)).toBe(false);
+    // The same valid save succeeds when its external media exists again.
+    bytes.add(bucket + "/" + key);
+    await save(key, creatorId);
+  } finally {
+    proceed.resolve();
+    await cleanup?.catch(() => {});
+    await saving;
+    await withSponsorWrite(async tx => {
+      const rows = await tx.select({ id: posts.id }).from(posts).where(eq(posts.creatorId, creatorId));
+      await tx.delete(adminAuditLogs).where(inArray(adminAuditLogs.resourceId, [creatorId, ...rows.map(row => row.id)]));
+      await tx.delete(posts).where(eq(posts.creatorId, creatorId));
+      await tx.delete(creators).where(eq(creators.id, creatorId));
+    });
+  }
+}
 describe("guarded paid sponsorship lifecycle", () => {
+  it("rejects a concurrent creator avatar save when sponsor cleanup removes the image", async () => {
+    await saveDuringSponsorMediaDeletion((key, creatorId) => updateAdminCreator(creatorId, {
+      name: "Concurrent editorial fixture", avatarUrl: getR2PublicUrl(key), avatarStorageProvider: "r2", avatarStorageKey: key,
+    }));
+  });
+  it("rejects a concurrent variant-only editorial save when sponsor cleanup removes the image", async () => {
+    await saveDuringSponsorMediaDeletion((key, creatorId) => createAdminPost({
+      title: "Concurrent design fixture", slug: "concurrent-" + randomUUID(), description: "Fixture", category: "Web", industries: [], colors: [], styles: [], sourceUrl: "https://example.invalid", status: "draft", isFeatured: false,
+      creator: { id: creatorId, name: "Concurrent editorial fixture", avatarUrl: "/brand/default-avatar.svg" },
+      media: [{ type: "image", url: "/brand/default-avatar.svg", width: 64, height: 64, alt: "Fixture", variants: [{ url: getR2PublicUrl(key), storageKey: key, width: 64, height: 64, bytes: 100, format: "webp" }] }],
+    }, { userId: "user_billing_admin_fixture" }));
+  });
+  it("deletes sponsor-only media but preserves independently referenced editorial images on retry", async () => {
+    const f = await fixture("Shared editorial images");
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    const creatorId = randomUUID(), logoId = randomUUID(), websiteId = randomUUID(), postId = randomUUID();
+    const publicBucket = process.env.R2_BUCKET_NAME!;
+    const objects = new Map<string, string>();
+    vi.spyOn(S3Client.prototype, "send").mockImplementation(async command => {
+      if (!(command instanceof DeleteObjectCommand)) throw Error("Unexpected storage operation");
+      objects.delete(command.input.Bucket + "/" + command.input.Key);
+      return { $metadata: {} };
+    });
+    try {
+      const keys = await withSponsorWrite(async tx => {
+        const [account] = await tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, f.owner));
+        const [version] = await tx.select().from(sponsorCampaignVersions).where(eq(sponsorCampaignVersions.ownerUserId, f.owner));
+        const versions = [version];
+        for (let revision = 2; revision <= 5; revision++) {
+          const [retained] = await tx.insert(sponsorCampaignVersions).values({ campaignId: version.campaignId, ownerUserId: f.owner, revision, creative: version.creative }).returning();
+          await tx.insert(sponsorVersionAssets).values(version.creative.assets.map(asset => ({ versionId: retained.id, assetId: asset.id, ownerUserId: f.owner })));
+          versions.push(retained);
+        }
+        const publicKeys = versions.flatMap(v => v.creative.assets.map(asset => `sponsorships/${account.id}/${v.campaignId}/${v.id}/${asset.id}.png`));
+        publicKeys.forEach(key => objects.set(publicBucket + "/" + key, "retained image bytes"));
+        await tx.insert(creators).values({ id: creatorId, name: "Independent editorial creator", avatarUrl: "https://example.invalid/avatar.png", avatarStorageProvider: "r2", avatarStorageKey: publicKeys[8], recordOrigin: "editorial" });
+        await tx.insert(logos).values({ id: logoId, slug: "shared-" + logoId, title: "Independent editorial logo", creatorId, description: "Fixture", industry: "Design", shape: "Abstract", sourceUrl: "https://example.invalid", status: "published", publishedAt: f.now });
+        const variant = (key: string) => ({ url: "https://example.invalid/image.webp", storageKey: key, width: 64, height: 64, bytes: 100, format: "webp" as const });
+        await tx.insert(logoMedia).values({ logoId, url: "https://example.invalid/logo.png", storageProvider: "r2", storageKey: publicKeys[1], width: 64, height: 64, variants: [variant(publicKeys[2])] });
+        await tx.insert(websites).values({ id: websiteId, slug: "shared-" + websiteId, title: "Independent editorial website", tagline: "Fixture", creatorId, description: "Fixture", sourceUrl: "https://example.invalid" });
+        await tx.insert(websiteMedia).values({ websiteId, role: "recording", url: "https://example.invalid/recording.mp4", storageProvider: "r2", storageKey: publicKeys[5], width: 64, height: 64, posterUrl: "https://example.invalid/poster.png", posterStorageKey: publicKeys[3], videoPreview: { url: "https://example.invalid/preview.mp4", storageKey: publicKeys[4], width: 64, height: 64, bytes: 100, format: "mp4" } });
+        await tx.insert(websiteSections).values({ websiteId, label: "Fixture", position: 0, imageUrl: "https://example.invalid/section.png", imageStorageProvider: "r2", imageStorageKey: publicKeys[6], imageWidth: 64, imageHeight: 64, imageVariants: [variant(publicKeys[7])] });
+        await tx.insert(posts).values({ id: postId, title: "Independent editorial design", slug: "shared-" + postId, creatorId, description: "Fixture", sourceUrl: "https://example.invalid", category: "Web" });
+        await tx.insert(postMedia).values({ postId, url: "https://example.invalid/design.png", width: 64, height: 64, variants: [variant(publicKeys[9])] });
+        return publicKeys;
+      });
+      await requestWebhookAccountDeletion({ eventId: `evt-delete-${f.owner}`, userId: f.owner });
+      expect(await cleanupDeletedSponsorOwner(f.owner, f.provider, f.now)).toBe(true);
+      expect(await cleanupDeletedSponsorOwner(f.owner, f.provider, f.now)).toBe(true);
+      expect(objects.has(publicBucket + "/" + keys[0])).toBe(false);
+      expect(keys.slice(1).every(key => objects.has(publicBucket + "/" + key))).toBe(true);
+      expect(await getPublishedLogoAsset(logoId)).toMatchObject({ storageKey: keys[1] });
+      access.owner = f.owner;
+      expect(await readOwnSponsorDashboard()).toBeNull();
+    } finally {
+      await withSponsorWrite(async tx => {
+        await tx.delete(logos).where(eq(logos.id, logoId));
+        await tx.delete(websites).where(eq(websites.id, websiteId));
+        await tx.delete(posts).where(eq(posts.id, postId));
+        await tx.delete(creators).where(eq(creators.id, creatorId));
+      });
+    }
+  });
   it("keeps signed billing jobs, paid placement and owned history working in a recovery candidate", async () => {
     const f = await fixture("Recovery candidate");
     await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);

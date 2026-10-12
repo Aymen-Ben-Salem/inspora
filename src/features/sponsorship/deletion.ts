@@ -26,6 +26,7 @@ import type { BillingProvider } from "./stripe-client";
 import { privateSponsorStorage } from "@/storage/private-sponsor-assets";
 import { deleteSponsorPublicKeys } from "./public-media";
 import { createSponsorPublicAssetKey } from "./public-media-key";
+import { lockPublicationAssets, readPublicMediaReferenceKeys } from "../submissions/publication-assets";
 export async function queueSponsorIdentityDeletion(
   tx: WriteTx,
   userId: string,
@@ -116,7 +117,9 @@ export async function cleanupDeletedSponsorOwner(
             }),
           ),
       );
-      await deleteSponsorPublicKeys(account.id, keys);
+      await lockPublicationAssets(tx, keys.map(storageKey => ({ storageProvider: "r2", storageKey, type: "image" })));
+      const referenced = await readPublicMediaReferenceKeys(tx);
+      await deleteSponsorPublicKeys(account.id, keys.filter(key => !referenced.has(key)));
     }
     const assets = await tx
       .select()

@@ -17,8 +17,6 @@ import {
   cleanupJobs,
   creatorClaims,
   creators,
-  logoMedia,
-  postMedia,
   profileAccounts,
   profileMessages,
   savedPosts,
@@ -27,8 +25,6 @@ import {
   submissionReceipts,
   submissions,
   submissionUploads,
-  websiteMedia,
-  websiteSections,
 } from "../../db/schema";
 import { withWriteTransaction, type WriteTx } from "../../db/write-client";
 import {
@@ -43,7 +39,7 @@ import {
 import type { ManagedMediaAsset } from "../../storage/types";
 import { enqueueCleanup } from "./cleanup-jobs";
 import { createImmediateCleanup, type CleanupAttempt } from "./immediate-cleanup";
-import { lockPublicationAssets } from "./publication-assets";
+import { lockPublicationAssets, readPublicMediaReferenceKeys } from "./publication-assets";
 import type { CleanupJobInput, SubmissionResult } from "./types";
 
 const HOUR = 60 * 60 * 1000;
@@ -456,36 +452,6 @@ export function unreferencedAssetKeys(
   return [...new Set(assets.flatMap(keysForAsset))].filter((key) => !referenced.has(key));
 }
 
-function addMediaKeys(target: Set<string>, row: {
-  storageKey: string | null;
-  variants: { storageKey: string }[];
-  videoPreview?: { storageKey: string } | null;
-  posterStorageKey?: string | null;
-}) {
-  if (row.storageKey) target.add(row.storageKey);
-  for (const variant of row.variants) target.add(variant.storageKey);
-  if (row.videoPreview?.storageKey) target.add(row.videoPreview.storageKey);
-  if (row.posterStorageKey) target.add(row.posterStorageKey);
-}
-
-async function publicReferenceKeys(database: WriteTx) {
-  const [posts, logos, websiteAssets, sections, avatars, attachedAttempts] = await Promise.all([
-    database.select({ storageKey: postMedia.storageKey, variants: postMedia.variants, videoPreview: postMedia.videoPreview, posterStorageKey: postMedia.posterStorageKey }).from(postMedia),
-    database.select({ storageKey: logoMedia.storageKey, variants: logoMedia.variants }).from(logoMedia),
-    database.select({ storageKey: websiteMedia.storageKey, variants: websiteMedia.variants, videoPreview: websiteMedia.videoPreview, posterStorageKey: websiteMedia.posterStorageKey }).from(websiteMedia),
-    database.select({ storageKey: websiteSections.imageStorageKey, variants: websiteSections.imageVariants }).from(websiteSections),
-    database.select({ storageKey: creators.avatarStorageKey }).from(creators),
-    database.select({ assets: submissionPublicationAttempts.assets }).from(submissionPublicationAttempts).where(inArray(submissionPublicationAttempts.status, ["prepared", "attached"])),
-  ]);
-  const keys = new Set<string>();
-  for (const row of [...posts, ...logos, ...websiteAssets, ...sections]) addMediaKeys(keys, row);
-  for (const avatar of avatars) if (avatar.storageKey) keys.add(avatar.storageKey);
-  for (const attempt of attachedAttempts) {
-    for (const asset of attempt.assets) for (const key of keysForAsset(asset)) keys.add(key);
-  }
-  return keys;
-}
-
 async function processPublicOrphan(attemptId: string) {
   const [identity] = await requireDatabase().select().from(submissionPublicationAttempts)
     .where(eq(submissionPublicationAttempts.id, attemptId)).limit(1);
@@ -495,7 +461,7 @@ async function processPublicOrphan(attemptId: string) {
     const [attempt] = await tx.select().from(submissionPublicationAttempts).where(eq(submissionPublicationAttempts.id, attemptId)).for("update");
     if (!attempt || attempt.status === "attached") return;
     if (attempt.status !== "cleanup") throw new Error("Publication assets are not ready for cleanup.");
-    const referenced = await publicReferenceKeys(tx);
+    const referenced = await readPublicMediaReferenceKeys(tx);
     await deleteR2StorageKeys(unreferencedAssetKeys(attempt.assets, referenced));
     await tx.delete(submissionPublicationAttempts).where(eq(submissionPublicationAttempts.id, attemptId));
   });

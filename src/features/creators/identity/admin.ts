@@ -17,6 +17,7 @@ import {
   websites,
 } from "@/db/schema";
 import { withWriteTransaction, type WriteTx } from "@/db/write-client";
+import { protectPublicationMedia } from "@/features/submissions/publication-assets";
 import {
   isCreatorVisibleInEnvironment,
   shouldLockExistingCreator,
@@ -231,6 +232,7 @@ async function createAdminCreatorRecord(
   input: AdminCreatorInput,
 ) {
   const values = await newAdminCreatorValues(transaction, input);
+  await protectPublicationMedia(transaction, [{ storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const { id: creatorId, username } = values;
   const [created] = await transaction
     .insert(creators)
@@ -302,6 +304,7 @@ async function updateAdminCreatorRecord(
   const { values, username } = await adminCreatorUpdateValues(
     transaction, existing, input, options,
   );
+  await protectPublicationMedia(transaction, [{ storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const [updated] = await transaction
     .update(creators)
     .set({ ...values, updatedAt: new Date() })

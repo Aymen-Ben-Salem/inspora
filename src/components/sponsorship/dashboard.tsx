@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useSearchParams } from "next/navigation";
 import { PurchaseOptions } from "./purchase-options";
+import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
 import {
   isSponsorBillingMode,
@@ -116,8 +117,7 @@ export function SponsorDashboard({
       setBusy(false);
     }
   }
-  const account = data.account,
-    current = data.campaigns.find((c) => c.state === "published");
+  const account = data.account;
   const readonly = account?.state === "inactive";
   const requestedSection = params.get("section");
   const section = sections.find(item => item.id === requestedSection)?.id ??
@@ -128,12 +128,39 @@ export function SponsorDashboard({
     window.history.replaceState(null, "", url);
   }
   return (
-    <main className="mx-auto min-h-[80dvh] w-full max-w-[1200px] px-4 pb-16 pt-8 sm:px-8">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#e6e6e6] pb-6">
+    <main className="archive-frame grid min-h-[80dvh] items-start gap-6 pb-16 pt-6 text-[#262626] lg:grid-cols-[184px_minmax(0,1fr)] lg:gap-8">
+      <aside className="min-w-0 lg:min-h-[calc(100dvh-140px)] lg:self-stretch lg:border-r lg:border-[#f0f0f0] lg:pr-5">
+        <div className="lg:sticky lg:top-28">
+        <p className="mb-5 text-base font-medium tracking-[-0.02em]">Your sponsorship</p>
+        <nav aria-label="Sponsorship sections" className="flex gap-1 lg:flex-col">
+          {sections.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={section === item.id ? "page" : undefined}
+              aria-controls={item.id}
+              onClick={() => changeSection(item.id)}
+              className={`focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "bg-[#f0f0f0] font-medium text-[#262626]" : "text-[#767676] hover:bg-[#fafafa] hover:text-[#262626]"}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        {section === "overview" && account ? (
+          <nav aria-label="On this report" className="mt-10 hidden border-t border-[#f0f0f0] pt-5 lg:block">
+            <p className="mb-2 px-3 text-xs text-[#767676]">On this report</p>
+            {[["performance", "Performance"], ["reach-video", "Reach, cost & video"], ["audience", "Audience & delivery"]].map(([id, label]) => (
+              <a key={id} href={`#report-${id}`} className="focus-ring flex min-h-11 items-center rounded-md px-3 text-xs text-[#767676] transition-colors hover:bg-[#fafafa] hover:text-[#262626]">{label}</a>
+            ))}
+          </nav>
+        ) : null}
+        </div>
+      </aside>
+      <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-[#767676]">Inspora sponsorship</p>
-          <h1 className="mt-2 text-[28px] font-medium tracking-[-0.03em]">
-            Your sponsorship
+          <h1 className="text-[26px] font-medium leading-[1.2] tracking-[-0.02em]">
+            {sections.find(item => item.id === section)?.label}
           </h1>
         </div>
         <button
@@ -175,7 +202,7 @@ export function SponsorDashboard({
       <p
         role="status"
         aria-live="polite"
-        className="mt-6 text-sm text-[#767676]"
+        className="mt-3 text-sm leading-6 text-[#767676]"
       >
         {finishing
           ? "Payment received. Finishing publication — we’ll retry automatically."
@@ -186,27 +213,13 @@ export function SponsorDashboard({
               : account?.state === "recovery"
                 ? "Your paid period has ended. Promotion is paused while payment recovers."
                 : account
-                  ? "Your delivery, audience and billing."
+                  ? section === "campaigns" ? "Your campaigns, from first draft to publication." : "Your delivery, audience and billing."
                   : "Your preparation is private until payment is verified."}
       </p>
-      <div className="mt-6 grid items-start gap-6 md:grid-cols-[160px_minmax(0,1fr)] md:gap-8">
-        <nav aria-label="Sponsorship sections" className="flex gap-1 rounded-md bg-[#fafafa] p-1 md:sticky md:top-8 md:flex-col md:bg-transparent md:p-0">
-          {sections.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              aria-current={section === item.id ? "page" : undefined}
-              aria-controls={item.id}
-              onClick={() => changeSection(item.id)}
-              className={`focus-ring min-h-11 min-w-0 flex-1 cursor-pointer rounded-md px-3 py-2 text-sm transition-colors md:flex-none md:text-left ${section === item.id ? "bg-[#f0f0f0] font-medium text-[#262626]" : "text-[#767676] hover:bg-[#fafafa] hover:text-[#262626]"}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+      <div className="mt-6">
         <div className="min-w-0">
           <section id="overview" aria-label="Overview" hidden={section !== "overview"}>
-            <h2 className="text-xl font-medium">Overview</h2>
+            <h2 className="sr-only">Overview</h2>
             {account ? <AnalyticsOverview key={data.ownerUserId} /> : (
               <div className="mt-5 rounded-md border border-[#e6e6e6] p-6">
                 <p className="text-sm text-[#767676]">Performance appears after verified payment. Your campaign preparation stays private.</p>
@@ -214,105 +227,26 @@ export function SponsorDashboard({
               </div>
             )}
           </section>
-        <section id="campaigns" aria-label="Campaigns" hidden={section !== "campaigns"} className="rounded-lg border border-[#e6e6e6] p-6">
-          <h2 className="text-lg font-medium">Current campaign</h2>
-          {current ? (
-            <>
-              <p className="mt-8 text-2xl tracking-[-0.02em]">
-                {current.title}
-              </p>
-              <a
-                className="focus-ring mt-2 inline-block max-w-full break-all text-sm text-[#767676] underline"
-                href={current.url}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {current.url}
-              </a>
-              <p className="mt-4 text-sm text-[#767676]">
-                {account?.state === "active"
-                  ? "Published through the paid period"
-                  : "Promotion paused"}
-              </p>
-            </>
-          ) : (
-            <p className="mt-8 text-sm text-[#767676]">
-              {finishing
-                ? "Publication is being completed."
-                : "No public campaign yet."}
-            </p>
+        <section id="campaigns" aria-label="Campaigns" hidden={section !== "campaigns"}>
+          {account ? section === "campaigns" && <CampaignsPanel key={data.ownerUserId} ownerUserId={data.ownerUserId} readonly={readonly} paused={account.state !== "active"} /> : (
+            <div className="rounded-md border border-[#f0f0f0] p-6">
+              <h2 className="text-lg font-medium">{data.campaigns.length ? "Your prepared campaigns" : "Your first campaign"}</h2>
+              <p className="mt-3 text-sm text-[#767676]">{finishing ? "Publication is being completed." : "No public campaign yet. Your preparation stays private until payment is verified."}</p>
+              {data.campaigns.length > 0 && <ul className="mt-5 divide-y divide-[#f0f0f0] border-t border-[#f0f0f0]">
+                {data.campaigns.map(c => <li key={c.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-4">
+                  <div className="min-w-0"><h3 className="break-words text-sm font-medium">{c.title}</h3><p className="mt-1 break-all text-xs text-[#767676]">{c.url}</p></div>
+                  <span className="rounded bg-[#fafafa] px-2 py-1 text-xs text-[#767676]">{c.state === "archived" ? "Previous" : "Private preparation"}</span>
+                </li>)}
+              </ul>}
+              {data.checkout?.state !== "reserved" && <Link href={"/sponsor/start" as Route} className={`${button} mt-6 inline-flex items-center`}>Prepare campaign</Link>}
+            </div>
           )}
-          {!readonly && !account && data.checkout?.state !== "reserved" ? (
-            <Link
-              href={"/sponsor/start" as Route}
-              className={`${button} mt-8 inline-flex items-center`}
-            >
-              Prepare campaign
-            </Link>
-          ) : null}
-          {account ? (
-            <div className="mt-6 flex flex-wrap gap-3">
-              {!readonly ? (
-                <Link
-                  prefetch={true}
-                  href={"/sponsor/campaigns/new" as Route}
-                  className={`${button} inline-flex items-center bg-[#262626] text-white`}
-                >
-                  Create campaign
-                </Link>
-              ) : null}
-              <Link
-                prefetch={true}
-                href={"/sponsor/campaigns" as Route}
-                className={`${button} inline-flex items-center`}
-              >
-                View all campaigns
-              </Link>
-            </div>
-          ) : null}
-          {data.campaigns.length ? (
-            <div className="mt-8 border-t border-[#e6e6e6] pt-4">
-              <h3 className="text-sm text-[#767676]">
-                {account ? "Your campaigns" : "Campaign history"}
-              </h3>
-              <ul className="mt-3 space-y-3">
-                {data.campaigns.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex flex-wrap justify-between gap-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="break-words">{c.title}</p>
-                      <p className="mt-1 text-xs text-[#767676]">
-                        {c.state === "published"
-                          ? "Published"
-                          : c.state === "archived"
-                            ? "Previous"
-                            : c.state === "draft"
-                              ? "Private draft"
-                              : "Prepared"}
-                      </p>
-                    </div>
-                    {account ? (
-                      <Link
-                        prefetch={true}
-                        href={`/sponsor/campaigns/${c.id}` as Route}
-                        className="focus-ring inline-flex min-h-11 shrink-0 items-center text-sm underline underline-offset-4"
-                      >
-                        {readonly ? "View campaign" : "Edit campaign"}
-                      </Link>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </section>
         <section
           id="billing"
           aria-label="Billing"
           hidden={section !== "billing"}
-          className="scroll-mt-8 rounded-lg border border-[#e6e6e6] p-6"
+          className="max-w-[760px] scroll-mt-8 py-2"
         >
           <h2 className="text-lg font-medium">Billing</h2>
           <p className="mt-2 text-sm text-[#767676]">
@@ -423,6 +357,7 @@ export function SponsorDashboard({
           {message}
         </p>
       ) : null}
+      </div>
     </main>
   );
 }

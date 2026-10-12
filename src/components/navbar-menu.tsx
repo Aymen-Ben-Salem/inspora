@@ -3,6 +3,7 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -22,22 +23,45 @@ export function NavbarMenu({
   trigger,
   triggerClassName,
   menuClassName,
+  keepInViewport = false,
   items,
 }: {
   label: string;
   trigger: ReactNode;
   triggerClassName: string | ((open: boolean) => string);
   menuClassName: string;
+  keepInViewport?: boolean;
   items: NavbarMenuItem[];
 }) {
   const [open, setOpen] = useState(false),
     [highlighted, setHighlighted] = useState(0);
   const root = useRef<HTMLDivElement>(null),
+    menu = useRef<HTMLDivElement>(null),
     button = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => {
     setOpen(false);
     setHighlighted(0);
   }, []);
+  useLayoutEffect(() => {
+    if (!keepInViewport) return;
+    function position() {
+      if (!menu.current || !root.current) return;
+      const left = root.current.getBoundingClientRect().left;
+      const width = menu.current.getBoundingClientRect().width;
+      menu.current.style.left = `${Math.max(16 - left, Math.min(0, document.documentElement.clientWidth - 16 - left - width))}px`;
+    }
+    // Position closed menus too: invisible absolute content can still widen
+    // the page. Recheck when options, trigger text or the viewport change.
+    position();
+    const observer = new ResizeObserver(position);
+    if (root.current) observer.observe(root.current);
+    if (menu.current) observer.observe(menu.current);
+    window.addEventListener("resize", position);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", position);
+    };
+  }, [keepInViewport, open, items]);
   useEffect(() => {
     if (!open) return;
     function outside(event: Event) {
@@ -75,6 +99,7 @@ export function NavbarMenu({
         {trigger}
       </button>
       <div
+        ref={menu}
         role="menu"
         aria-label={label}
         aria-hidden={!open}

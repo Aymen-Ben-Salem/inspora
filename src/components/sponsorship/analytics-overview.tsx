@@ -11,9 +11,9 @@ import type {
 import type { readOwnAnalyticsCatalog } from "@/features/sponsorship/analytics";
 import { NavbarMenu } from "@/components/navbar-menu";
 const number = new Intl.NumberFormat("en");
-const surface = "min-w-0 rounded-md border border-[#f0f0f0] p-5 sm:p-6";
+const surface = "min-w-0 rounded-md border border-[#f0f0f0] bg-white p-4 sm:p-5";
 const select =
-  "focus-ring min-h-11 cursor-pointer rounded-md border border-[#e6e6e6] bg-white px-3 text-sm";
+  "focus-ring min-h-11 cursor-pointer rounded-md bg-[#fafafa] px-3 text-sm text-[#262626] transition-colors hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-40";
 function ReportFilter({ label, value, options, onChange }: {
   label: string;
   value: string;
@@ -21,6 +21,7 @@ function ReportFilter({ label, value, options, onChange }: {
   onChange(value: string): void;
 }) {
   return <NavbarMenu
+    keepInViewport
     label={label}
     trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0" /></>}
     triggerClassName={`${select} inline-flex max-w-[min(280px,calc(100vw-2rem))] items-center gap-3`}
@@ -35,16 +36,18 @@ export function AnalyticsTable({
   rows,
   labels = {},
   site = false,
+  plain = false,
 }: {
   title: string;
   rows: Breakdown[];
   labels?: Record<string, string>;
   site?: boolean;
+  plain?: boolean;
 }) {
   return (
-    <section className={surface}>
+    <section className={plain ? "min-w-0 py-4" : surface}>
       <h3 className="text-lg font-medium">{title}</h3>
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-5 max-h-80 overflow-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="text-xs text-[#767676]">
@@ -85,23 +88,46 @@ export function AnalyticsTable({
       </div>
       {!rows.length ? (
         <p className="mt-4 text-sm text-[#767676]">
-          No accepted activity in this range.
+          No activity recorded for these dates and filters yet.
         </p>
       ) : null}
     </section>
   );
 }
-export function DeliveryChart({ rows: observedRows, start, end }: {
+export function DeliveryChart({ rows: observedRows, start, end, plain = false }: {
   rows: Breakdown[];
   start: string;
   end: string;
+  plain?: boolean;
 }) {
+  const chart = useRef<SVGSVGElement>(null);
+  const [chartWidth, setChartWidth] = useState(800);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  useEffect(() => {
+    const element = chart.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0) setChartWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const dayMs = 86400000;
   const byDay = new Map(observedRows.map(row => [row.label.slice(0, 10), row]));
   const rows: Pick<Breakdown, "label" | "impressions" | "clicks">[] = [];
   for (let day = Math.floor(Date.parse(start) / dayMs) * dayMs; day < Date.parse(end); day += dayMs) {
     const label = new Date(day).toISOString().slice(0, 10), observed = byDay.get(label);
     rows.push({ label, impressions: observed?.impressions ?? 0, clicks: observed?.clicks ?? 0 });
+  }
+  const chosen = rows.findIndex(row => row.label === selectedDay);
+  const selectedIndex = chosen < 0 ? rows.length - 1 : chosen;
+  const selected = rows[selectedIndex];
+  const selectedX = 20 + (selectedIndex * (chartWidth - 40)) / Math.max(1, rows.length - 1);
+  function selectAt(clientX: number) {
+    if (!chart.current || !rows.length) return;
+    const x = clientX - chart.current.getBoundingClientRect().left;
+    const index = Math.max(0, Math.min(rows.length - 1, Math.round(((x - 20) / Math.max(1, chartWidth - 40)) * (rows.length - 1))));
+    setSelectedDay(rows[index].label);
   }
   const max = Math.max(
     1,
@@ -111,26 +137,32 @@ export function DeliveryChart({ rows: observedRows, start, end }: {
     rows
       .map(
         (row, i) =>
-          `${20 + (i * 760) / Math.max(1, rows.length - 1)},${180 - (row[field] / max) * 150}`,
+          `${20 + (i * (chartWidth - 40)) / Math.max(1, rows.length - 1)},${180 - (row[field] / max) * 150}`,
       )
       .join(" ");
   return (
-    <section className={surface}>
+    <section className={plain ? "min-w-0" : surface}>
       <div className="flex flex-wrap justify-between gap-2">
         <h3 className="text-lg font-medium">Performance</h3>
-        <p className="text-xs text-[#767676]">Impressions · Clicks</p>
+        <div className="flex items-center gap-4 text-xs text-[#767676]">
+          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-[#262626]" />Impressions</span>
+          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-dashed border-[#999]" />Clicks</span>
+        </div>
       </div>
       <p className="mt-1 text-xs text-[#767676]">
         Daily delivery and activations · UTC
       </p>
       <svg
+        ref={chart}
         role="img"
         aria-label="Daily impressions and clicks"
-        viewBox="0 0 800 220"
-        className="mt-5 w-full"
+        viewBox={`0 0 ${chartWidth} 220`}
+        className="mt-5 h-[220px] w-full"
+        onPointerMove={event => selectAt(event.clientX)}
+        onPointerDown={event => selectAt(event.clientX)}
       >
         {[30, 80, 130, 180].map((y) => (
-          <line key={y} x1="20" y1={y} x2="780" y2={y} stroke="#f0f0f0" />
+          <line key={y} x1="20" y1={y} x2={chartWidth - 20} y2={y} stroke="#f0f0f0" />
         ))}
         <polyline
           fill="none"
@@ -142,31 +174,45 @@ export function DeliveryChart({ rows: observedRows, start, end }: {
           fill="none"
           stroke="#999"
           strokeWidth="2"
+          strokeDasharray="5 4"
           points={points("clicks")}
         />
+        {selected ? (
+          <g aria-hidden="true">
+            <line x1={selectedX} x2={selectedX} y1="20" y2="180" stroke="#d4d4d4" strokeDasharray="3 4" />
+            {(["impressions", "clicks"] as const).map(metric => (
+              <circle key={metric} cx={selectedX} cy={180 - (selected[metric] / max) * 150} r="3" fill={metric === "impressions" ? "#262626" : "#999"} stroke="white" strokeWidth="1.5" />
+            ))}
+          </g>
+        ) : null}
         {rows.length ? (
           <>
             <text x="20" y="210" fill="#767676" fontSize="12">
               {rows[0].label.slice(0, 10)}
             </text>
-            <text x="780" y="210" textAnchor="end" fill="#767676" fontSize="12">
+            <text x={chartWidth - 20} y="210" textAnchor="end" fill="#767676" fontSize="12">
               {rows.at(-1)?.label.slice(0, 10)}
             </text>
           </>
         ) : null}
       </svg>
-      <details className="text-xs text-[#767676]">
-        <summary className="focus-ring cursor-pointer">
-          Read daily figures
-        </summary>
-        <ul className="mt-3 space-y-2">
-          {rows.map((row) => (
-            <li key={row.label}>
-              {row.label}: {row.impressions} impressions, {row.clicks} clicks
-            </li>
-          ))}
-        </ul>
-      </details>
+      {selected ? (
+        <div role="group" aria-label="Daily figures" className="mt-3 flex items-center justify-between gap-3 border-t border-[#f0f0f0] pt-3">
+          <button type="button" aria-label="Previous day" disabled={selectedIndex === 0} onClick={() => setSelectedDay(rows[selectedIndex - 1].label)} className={`${select} flex size-11 shrink-0 items-center justify-center`}>
+            <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} />
+          </button>
+          <div aria-live="polite" aria-atomic="true" className="min-w-0 text-center text-xs tabular-nums">
+            <p className="text-[#767676]">{selected.label} · UTC</p>
+            <p className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1">
+              <span>{number.format(selected.impressions)} impressions</span>
+              <span>{number.format(selected.clicks)} clicks</span>
+            </p>
+          </div>
+          <button type="button" aria-label="Next day" disabled={selectedIndex === rows.length - 1} onClick={() => setSelectedDay(rows[selectedIndex + 1].label)} className={`${select} flex size-11 shrink-0 items-center justify-center`}>
+            <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} className="rotate-180" />
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -179,6 +225,11 @@ export function AnalyticsOverview() {
     [refresh, setRefresh] = useState(0),
     [nextRefresh, setNextRefresh] = useState(0);
   const manual = useRef(false);
+  useEffect(() => {
+    const changed = () => setRefresh(value => value + 1);
+    window.addEventListener("sponsorship-changed", changed);
+    return () => window.removeEventListener("sponsorship-changed", changed);
+  }, []);
   useEffect(() => {
     if (!nextRefresh) return;
     const timer = setTimeout(() => setNextRefresh(0), 60000);
@@ -242,34 +293,12 @@ export function AnalyticsOverview() {
       return next;
     });
   return (
-    <section aria-label="Sponsorship performance" className="mt-5 space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap gap-2">
+    <section aria-label="Sponsorship performance" className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f0f0f0] pb-5">
+        <div role="group" aria-label="Report filters" className="flex min-w-0 flex-wrap gap-2">
           <ReportFilter label="Campaign report" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
             { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
           ]} />
-        </div>
-        <div
-          role="group"
-          aria-label="Report range"
-          className="flex rounded-md border border-[#f0f0f0] bg-[#fafafa] p-1"
-        >
-          {(["1d", "7d", "30d"] as const).map((range) => (
-            <button
-              key={range}
-              type="button"
-              aria-pressed={filter.range === range}
-              onClick={() => setFilter((previous) => ({ ...previous, range }))}
-              className={`focus-ring min-h-11 cursor-pointer rounded px-3 text-sm ${filter.range === range ? "bg-white shadow-sm" : "text-[#767676]"}`}
-            >
-              {range === "1d" ? "1 day" : range === "7d" ? "7 days" : "30 days"}
-            </button>
-          ))}
-        </div>
-      </div>
-      <details className="group text-sm text-[#767676]">
-        <summary className="focus-ring w-fit cursor-pointer">More filters{[filter.versionId, filter.placement, filter.country, filter.periodId].filter(Boolean).length ? " · active" : ""}</summary>
-        <div className="mt-3 flex flex-wrap gap-2">
           <ReportFilter label="Creative version" value={filter.versionId ?? ""} onChange={value => update("versionId", value)} options={[
             { value: "", label: "All versions" }, ...(catalog?.versions.filter(v => !filter.campaignId || v.campaignId === filter.campaignId).map(v => ({ value: v.id, label: versions[v.id] })) ?? []),
           ]} />
@@ -283,7 +312,24 @@ export function AnalyticsOverview() {
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
           ]} />
         </div>
-      </details>
+        <div
+          role="group"
+          aria-label="Report range"
+          className="flex gap-1"
+        >
+          {(["1d", "7d", "30d"] as const).map((range) => (
+            <button
+              key={range}
+              type="button"
+              aria-pressed={filter.range === range}
+              onClick={() => setFilter((previous) => ({ ...previous, range }))}
+              className={`focus-ring min-h-11 cursor-pointer rounded-md px-3 text-sm transition-colors ${filter.range === range ? "bg-[#f0f0f0] text-[#262626]" : "text-[#767676] hover:bg-[#fafafa]"}`}
+            >
+              {range === "1d" ? "1 day" : range === "7d" ? "7 days" : "30 days"}
+            </button>
+          ))}
+        </div>
+      </div>
       {busy || !data ? (
         <p role="status" className="py-10 text-sm text-[#767676]">
           Loading performance…
@@ -295,7 +341,7 @@ export function AnalyticsOverview() {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
             {[
               ["Impressions", number.format(available.summary.impressions)],
               ["Clicks", number.format(available.summary.clicks)],
@@ -323,7 +369,7 @@ export function AnalyticsOverview() {
                 >
                   {label}
                 </p>
-                <p className="mt-3 break-words text-[26px] tracking-[-0.03em] tabular-nums sm:text-[30px]">
+                <p className="mt-2 break-words text-[28px] leading-tight tracking-[-0.03em] tabular-nums sm:text-[32px]">
                   {value}
                 </p>
               </article>
@@ -335,107 +381,15 @@ export function AnalyticsOverview() {
               qualify.
             </p>
           ) : null}
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-            <DeliveryChart rows={available.daily} start={available.start} end={available.end} />
-            <section className={surface}>
-              <h3 className="text-lg font-medium">Public campaign</h3>
-              {current ? (
-                <>
-                  <p className="mt-1 text-sm text-[#767676]">{current.title}</p>
-                  <div className="mt-5 grid grid-cols-[1fr_1fr] items-center gap-4">
-                    {current.mediaUrl ? (
-                      <Image
-                        src={current.mediaPosterUrl ?? current.mediaUrl}
-                        width={current.mediaWidth}
-                        height={current.mediaHeight}
-                        unoptimized
-                        alt={current.mediaAlt || current.title}
-                        className="aspect-[3/2] w-full rounded-md object-cover"
-                      />
-                    ) : (
-                      <div className="flex aspect-[3/2] items-center justify-center rounded-md bg-[#262626] p-3 text-center text-sm text-white">
-                        {current.title}
-                      </div>
-                    )}
-                    <div className="min-w-0 space-y-5">
-                      <div>
-                        <p className="mb-2 text-xs text-[#767676]">Navbar</p>
-                        {current.iconUrl ? (
-                          <Image
-                            src={current.iconUrl}
-                            width={35}
-                            height={35}
-                            unoptimized
-                            alt={`${current.title} icon`}
-                            className="size-[35px] rounded-md border border-[#e6e6e6] object-contain p-1"
-                          />
-                        ) : null}
-                      </div>
-                      <div>
-                        <p className="mb-2 text-xs text-[#767676]">
-                          Sidebar wordmark
-                        </p>
-                        {current.wordmarkUrl ? (
-                          <Image
-                            src={current.wordmarkUrl}
-                            width={160}
-                            height={28}
-                            unoptimized
-                            alt={`${current.title} wordmark`}
-                            className="max-h-7 w-auto max-w-full object-contain"
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  <Link
-                    prefetch
-                    href={`/sponsor/campaigns/${current.id}` as Route}
-                    className={`${select} mt-6 flex items-center`}
-                  >
-                    View campaign
-                  </Link>
-                </>
-              ) : (
-                <p className="mt-6 text-sm text-[#767676]">
-                  No public campaign.
-                </p>
-              )}
-            </section>
+          <div id="report-performance" className={`${surface} scroll-mt-28`}>
+            <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain />
           </div>
-          <details className={surface}>
-            <summary className="focus-ring cursor-pointer text-base font-medium">Audience and delivery</summary>
-            <div className="mt-5 grid gap-5 md:grid-cols-2">
-            <AnalyticsTable
-              title="Placements"
-              rows={available.placement}
-              labels={{
-                header: "Navbar",
-                feed: "Feed",
-                detail: "Detail sidebar",
-              }}
-            />
-            <AnalyticsTable title="Countries" rows={available.country} />
-            <AnalyticsTable title="Devices" rows={available.device} />
-            <AnalyticsTable title="Referring sites" rows={available.referrer} />
-            <AnalyticsTable
-              title="Campaigns"
-              rows={available.campaign}
-              labels={campaigns}
-            />
-            <AnalyticsTable
-              title="Creative versions"
-              rows={available.version}
-              labels={versions}
-            />
-          </div>
-          </details>
-          <details className={surface}>
-            <summary className="focus-ring cursor-pointer text-base font-medium">Reach, cost and video</summary>
-            <div className="mt-5 space-y-5">
+          <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
+            <h2 id="report-reach-title" className="text-lg font-medium">Reach, cost and video</h2>
+            <div className="mt-4 grid items-start gap-4 xl:grid-cols-2">
           <section className={surface}>
             <h3 className="text-lg font-medium">Reach and efficiency</h3>
-            <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-4">
+            <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-2">
               {[
                 [
                   "Unique clickers",
@@ -496,7 +450,99 @@ export function AnalyticsOverview() {
             </p>
           </section>
             </div>
-          </details>
+          </section>
+          <section id="report-audience" aria-labelledby="report-audience-title" className="scroll-mt-28">
+            <h2 id="report-audience-title" className="text-lg font-medium">Audience and delivery</h2>
+            <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
+            <AnalyticsTable
+              title="Placements"
+              rows={available.placement}
+              labels={{
+                header: "Navbar",
+                feed: "Feed",
+                detail: "Detail sidebar",
+              }}
+            />
+            <AnalyticsTable title="Countries" rows={available.country} />
+            <AnalyticsTable title="Devices" rows={available.device} />
+            <AnalyticsTable title="Referring sites" rows={available.referrer} />
+            <AnalyticsTable
+              title="Campaigns"
+              rows={available.campaign}
+              labels={campaigns}
+            />
+            <AnalyticsTable
+              title="Creative versions"
+              rows={available.version}
+              labels={versions}
+            />
+          </div>
+          </section>
+            <section className={surface}>
+              <h3 className="text-lg font-medium">Public campaign</h3>
+              {current ? (
+                <>
+                  <p className="mt-1 text-sm text-[#767676]">{current.title}</p>
+                  <div className="mt-4 grid max-w-[440px] grid-cols-[100px_minmax(0,1fr)] items-center gap-5">
+                    {current.mediaUrl ? (
+                      <Image
+                        src={current.mediaPosterUrl ?? current.mediaUrl}
+                        width={current.mediaWidth}
+                        height={current.mediaHeight}
+                        unoptimized
+                        alt={current.mediaAlt || current.title}
+                        className="aspect-[3/2] w-full rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="flex aspect-[3/2] items-center justify-center rounded-md bg-[#262626] p-3 text-center text-sm text-white">
+                        {current.title}
+                      </div>
+                    )}
+                    <div className="flex min-w-0 flex-wrap items-start gap-5">
+                      <div>
+                        <p className="mb-2 text-xs text-[#767676]">Navbar</p>
+                        {current.iconUrl ? (
+                          <Image
+                            src={current.iconUrl}
+                            width={35}
+                            height={35}
+                            unoptimized
+                            alt={`${current.title} icon`}
+                            className="size-[35px] rounded-md border border-[#e6e6e6] object-contain p-1"
+                          />
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs text-[#767676]">
+                          Sidebar wordmark
+                        </p>
+                        {current.wordmarkUrl ? (
+                          <Image
+                            src={current.wordmarkUrl}
+                            width={160}
+                            height={28}
+                            unoptimized
+                            alt={`${current.title} wordmark`}
+                            className="max-h-7 w-auto max-w-full object-contain"
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <Link
+                    prefetch
+                    href={`/sponsor/campaigns/${current.id}` as Route}
+                    className="focus-ring mt-5 inline-flex min-h-11 items-center text-sm text-[#767676] underline decoration-[#d4d4d4] underline-offset-4 hover:text-[#262626]"
+                  >
+                    View campaign
+                  </Link>
+                </>
+              ) : (
+                <p className="mt-6 text-sm text-[#767676]">
+                  No public campaign.
+                </p>
+              )}
+            </section>
           <details className="text-sm leading-6 text-[#767676]">
             <summary className="focus-ring cursor-pointer">
               How these metrics are measured

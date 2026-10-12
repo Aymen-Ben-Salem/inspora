@@ -5,7 +5,7 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const navigation = vi.hoisted(() => ({ search: "", listeners: new Set<() => void>() }));
 vi.mock("next/navigation", async () => {
   const { useSyncExternalStore } = await import("react");
-  return { useSearchParams: () => new URLSearchParams(useSyncExternalStore(
+  return { useRouter: () => ({ refresh: vi.fn() }), useSearchParams: () => new URLSearchParams(useSyncExternalStore(
     (listener) => { navigation.listeners.add(listener); return () => navigation.listeners.delete(listener); },
     () => navigation.search, () => navigation.search,
   )) };
@@ -47,7 +47,7 @@ const initial: SponsorDashboardData = {
 
 it("switches three dashboard sections while preserving payment choice and hiding unrelated panels", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data: { status: "unavailable", source: "Inspora accepted events" } })));
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("/campaigns") ? {ok:true,value:{ownerUserId:"owner",campaigns:[],readonly:false}} : { data: { status: "unavailable", source: "Inspora accepted events" } })));
   navigate("?billing=subscription");
   const container = document.createElement("div"), root = createRoot(container);
   try {
@@ -150,7 +150,7 @@ it("shows refresh progress and then renders cancellation without removing the pa
     expect(refresh.textContent).toBe("Refresh");
     expect(container.textContent).toContain("Cancellation");
     expect(container.textContent).toContain("Ends 9 Nov 2026, 20:31 UTC");
-    expect(container.textContent).toContain("Published through the paid period");
+    expect(container.textContent).not.toContain("Promotion is paused");
   } finally {
     await act(async () => root.unmount());
     container.remove();
@@ -172,7 +172,7 @@ it("releases the refresh loading state after a failed request and keeps the save
     expect(refresh.disabled).toBe(false);
     expect(refresh.textContent).toBe("Refresh");
     expect(container.textContent).toContain("Your latest billing state could not be loaded.");
-    expect(container.textContent).toContain("Published through the paid period");
+    expect(container.textContent).not.toContain("Promotion is paused");
   } finally {
     await act(async () => root.unmount());
     container.remove();

@@ -24,6 +24,14 @@ it("shows waiting state and unavailable checkout without granting return-page en
   expect(html).toContain("No public campaign yet");
   expect(html).toContain("Test checkout is not configured yet");
 });
+it("retains owner-scoped prepared campaigns before payment without granting paid editing", () => {
+  const html = renderToStaticMarkup(<SponsorDashboard initial={{...initial, campaigns:[{id:"prepared",title:"My prepared creative",url:"https://example.com",state:"prepared"}]}} />);
+  expect(html).toContain("Your prepared campaigns");
+  expect(html).toContain("My prepared creative");
+  expect(html).toContain("Private preparation");
+  expect(html).not.toContain("/sponsor/campaigns/new");
+  expect(html).not.toContain("Make public");
+});
 it("shows paid dates, finishing activation and former read-only billing", () => {
   const account = {
     state: "active",

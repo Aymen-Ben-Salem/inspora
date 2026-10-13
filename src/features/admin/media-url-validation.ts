@@ -1,14 +1,12 @@
 import { z } from "zod";
 
+import { isLocalAssetPath, isLocalOrHttpsAssetUrl } from "../../lib/asset-url";
+
 export const MANAGED_ASSET_URL_ERROR =
   "Use a local path or an https URL from the configured media hostname.";
 
-function isLocalPath(value: string) {
-  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\");
-}
-
 export function isAllowedManagedAssetUrl(value: string) {
-  if (isLocalPath(value)) return true;
+  if (isLocalAssetPath(value)) return true;
 
   try {
     const url = new URL(value);
@@ -28,14 +26,10 @@ export function isAllowedManagedAssetUrl(value: string) {
 }
 
 // Pasted images have no storage ownership metadata; they remain at their source.
-export const imageUrlSchema = z.string().trim().refine((value) => {
-  if (isLocalPath(value)) return true;
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
-}, "Use a local path or an https URL.");
+export const imageUrlSchema = z.string().trim().refine(
+  isLocalOrHttpsAssetUrl,
+  "Use a local path or an https URL.",
+);
 
 // Uploaded assets and generated derivatives still use our existing host rules.
 export const managedAssetUrlSchema = z.string().trim().refine(

@@ -44,12 +44,19 @@ describe("creator validation", () => {
     "http://avatars.example.net/studio.png",
     "javascript:alert(1)",
     "data:image/png;base64,AAAA",
+    "//avatars.example.net/studio.png",
+    "/\\avatars.example.net/studio.png",
+    "/brand\\avatar.png",
   ])(
     "rejects unsupported creator avatar %s",
     (avatarUrl) => {
       const form = validCreatorForm();
       form.set("creatorAvatarUrl", avatarUrl);
       expect(() => parseAdminCreatorForm(form)).toThrow("Use a local path or an https URL");
+      expect(() => validateAdminCreatorInput({
+        name: "Example Studio",
+        avatarUrl,
+      })).toThrow("Use a local path or an https URL");
     },
   );
 

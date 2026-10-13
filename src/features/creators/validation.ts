@@ -1,3 +1,5 @@
+import { creatorAvatarUrlSchema } from "./avatar-url";
+
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
 const X_USERNAME_PATTERN = /^[a-z0-9_]{1,15}$/;
 
@@ -98,25 +100,6 @@ export function normalizeXProfileUrl(value: string) {
   }
 }
 
-function isAllowedAvatarUrl(value: string) {
-  if (value.startsWith("/")) return true;
-  try {
-    const url = new URL(value);
-    const configuredHosts = [process.env.MEDIA_HOSTNAME];
-    if (process.env.R2_PUBLIC_BASE_URL) {
-      try {
-        configuredHosts.push(new URL(process.env.R2_PUBLIC_BASE_URL).hostname);
-      } catch {}
-    }
-    return (
-      url.protocol === "https:" &&
-      ["images.unsplash.com", ...configuredHosts].filter(Boolean).includes(url.hostname)
-    );
-  } catch {
-    return false;
-  }
-}
-
 const optionalUrl = z
   .union([z.literal(""), z.url()])
   .transform((value) => value || undefined);
@@ -129,10 +112,7 @@ const adminCreatorSchema = z
     username: z.string().trim().optional(),
     url: optionalUrl,
     xProfileUrl: optionalUrl,
-    avatarUrl: z.string().trim().refine(
-      isAllowedAvatarUrl,
-      "Use a local path or an https URL from the configured media hostname.",
-    ),
+    avatarUrl: creatorAvatarUrlSchema,
     avatarStorageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     avatarStorageKey: z.string().trim().min(1).max(1024).optional(),
   })

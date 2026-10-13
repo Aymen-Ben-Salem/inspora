@@ -10,6 +10,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
+import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
   initialAdminActionState,
@@ -175,7 +176,7 @@ export function WebsiteEditor({
   }
 
   return (
-    <form action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <form ref={preserveFormDraft} action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <input type="hidden" name="media" value={JSON.stringify(media)} />
       <input type="hidden" name="sections" value={JSON.stringify(normalizeSections(sections))} />
 

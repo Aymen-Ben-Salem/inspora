@@ -86,6 +86,53 @@ afterEach(() => {
 });
 
 describe("admin website validation", () => {
+  it("accepts a pasted external HTTPS creator avatar", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validWebsiteForm();
+    form.set("creatorAvatarUrl", "https://avatars.example.net/studio.png");
+
+    expect(parseAdminWebsiteForm(form).creator.avatarUrl).toBe(
+      "https://avatars.example.net/studio.png",
+    );
+  });
+
+  it("keeps external HTTPS website media and sections restricted to configured hosts", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validWebsiteForm();
+    const media = JSON.parse(String(form.get("media")));
+    media[0].url = "https://artwork.example.net/recording.webm";
+    form.set("media", JSON.stringify(media));
+
+    expect(() => parseAdminWebsiteForm(form)).toThrow(
+      "Use a local path or an https URL from the configured media hostname.",
+    );
+
+    const sectionForm = validWebsiteForm();
+    const sections = JSON.parse(String(sectionForm.get("sections")));
+    sections[0].url = "https://artwork.example.net/hero.png";
+    sectionForm.set("sections", JSON.stringify(sections));
+    expect(() => parseAdminWebsiteForm(sectionForm)).toThrow(
+      "Use a local path or an https URL from the configured media hostname.",
+    );
+  });
+
+  it("preserves complete avatar ownership metadata and rejects incomplete metadata", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validWebsiteForm();
+    form.set("creatorAvatarUrl", "https://media.example.com/creators/studio.webp");
+    form.set("creatorAvatarStorageProvider", "r2");
+    form.set("creatorAvatarStorageKey", "creators/studio.webp");
+
+    expect(parseAdminWebsiteForm(form).creator).toMatchObject({
+      avatarStorageProvider: "r2",
+      avatarStorageKey: "creators/studio.webp",
+    });
+    form.delete("creatorAvatarStorageKey");
+    expect(() => parseAdminWebsiteForm(form)).toThrow(
+      "Managed creator avatars must include their storage provider and key.",
+    );
+  });
+
   it("parses recording metadata and independent section ownership", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const website = parseAdminWebsiteForm(validWebsiteForm());

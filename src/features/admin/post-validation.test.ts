@@ -48,6 +48,25 @@ function withR2BaseUrl<T>(operation: () => T) {
 }
 
 describe("admin post validation", () => {
+  it("accepts a pasted external HTTPS creator avatar", () => {
+    const form = validForm();
+    const avatarUrl = "https://images-ext-1.discordapp.net/external/ki-dIb9YqE8l3BldgxTgxB83d3U0c93YuaEa6Nqoyko/https/cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg?format=webp";
+    form.set("creatorAvatarUrl", avatarUrl);
+
+    expect(parseAdminPostForm(form).creator.avatarUrl).toBe(avatarUrl);
+  });
+
+  it("keeps external HTTPS work media restricted to configured hosts", () => {
+    const form = validForm();
+    const media = JSON.parse(String(form.get("media")));
+    media[0].url = "https://artwork.example.net/work.png";
+    form.set("media", JSON.stringify(media));
+
+    expect(() => parseAdminPostForm(form)).toThrow(
+      "Use a local path or an https URL from the configured media hostname.",
+    );
+  });
+
   it("accepts a custom category on a post", () => {
     const form = validForm();
     form.set("category", "Typography");

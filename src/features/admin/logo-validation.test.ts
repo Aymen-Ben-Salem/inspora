@@ -48,6 +48,45 @@ afterEach(() => {
 });
 
 describe("admin logo validation", () => {
+  it("accepts a pasted external HTTPS creator avatar", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    form.set("creatorAvatarUrl", "https://avatars.example.net/studio.png");
+
+    expect(parseAdminLogoForm(form).creator.avatarUrl).toBe(
+      "https://avatars.example.net/studio.png",
+    );
+  });
+
+  it("keeps external HTTPS logo media restricted to configured hosts", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    const media = JSON.parse(String(form.get("media")));
+    media.url = "https://artwork.example.net/logo.png";
+    form.set("media", JSON.stringify(media));
+
+    expect(() => parseAdminLogoForm(form)).toThrow(
+      "Use a local path or an https URL from the configured media hostname.",
+    );
+  });
+
+  it("preserves complete avatar ownership metadata and rejects incomplete metadata", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    form.set("creatorAvatarUrl", "https://media.example.com/creators/studio.webp");
+    form.set("creatorAvatarStorageProvider", "r2");
+    form.set("creatorAvatarStorageKey", "creators/studio.webp");
+
+    expect(parseAdminLogoForm(form).creator).toMatchObject({
+      avatarStorageProvider: "r2",
+      avatarStorageKey: "creators/studio.webp",
+    });
+    form.delete("creatorAvatarStorageKey");
+    expect(() => parseAdminLogoForm(form)).toThrow(
+      "Managed creator avatars must include their storage provider and key.",
+    );
+  });
+
   it("parses a complete logo form", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const logo = parseAdminLogoForm(validLogoForm());

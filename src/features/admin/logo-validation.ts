@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { LOGO_KINDS } from "../../domain/logo";
+import { creatorAvatarUrlSchema } from "../creators/avatar-url";
 import { MEDIA_STORAGE_PROVIDERS } from "../../storage/types";
 import { normalizeCreatorValidationInput } from "./creator-environment-policy";
 
@@ -51,7 +52,7 @@ const creatorSchema = z.preprocess(
     url: optionalRemoteUrl,
     xProfileUrl: optionalRemoteUrl,
     recordOrigin: z.enum(["mirrored", "preview", "development", "editorial", "user"]).optional(),
-    avatarUrl: assetUrl,
+    avatarUrl: creatorAvatarUrlSchema,
     avatarStorageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     avatarStorageKey: z.string().trim().min(1).max(1024).optional(),
   })

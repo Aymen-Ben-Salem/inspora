@@ -13,6 +13,7 @@ import type {
 } from "@/features/admin/types";
 import { initialAdminActionState } from "@/features/admin/types";
 import { fetchWebsiteMetadataAction } from "@/features/admin/website-metadata";
+import { preserveFormDraft } from "./preserve-form-draft";
 
 const inputClass =
   "focus-ring h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition-colors placeholder:text-[#aaa] focus:border-black/30";
@@ -104,7 +105,7 @@ export function SponsorEditor({
   }
 
   return (
-    <form action={formAction} className="grid gap-10">
+    <form ref={preserveFormDraft} action={formAction} className="grid gap-10">
       {state.status === "error" && state.message ? (
         <div
           role="alert"

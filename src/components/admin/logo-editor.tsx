@@ -11,6 +11,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { LOGO_KINDS } from "@/domain/logo";
+import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
   initialAdminActionState,
@@ -103,6 +104,7 @@ export function LogoEditor({
 
   return (
     <form
+      ref={preserveFormDraft}
       action={formAction}
       className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]"
     >

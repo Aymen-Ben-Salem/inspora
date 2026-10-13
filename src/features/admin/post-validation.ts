@@ -4,47 +4,21 @@ import { isPostCategory } from "../../domain/post";
 import { creatorAvatarUrlSchema } from "../creators/avatar-url";
 import { MEDIA_STORAGE_PROVIDERS } from "../../storage/types";
 import { normalizeCreatorValidationInput } from "./creator-environment-policy";
+import {
+  imageUrlSchema,
+  isAllowedManagedAssetUrl,
+  managedAssetUrlSchema,
+  MANAGED_ASSET_URL_ERROR,
+} from "./media-url-validation";
 
 import type { AdminPostInput } from "./types";
-
-function isAllowedAssetUrl(value: string) {
-  if (value.startsWith("/")) return true;
-
-  try {
-    const url = new URL(value);
-    let r2Hostname: string | undefined;
-    try {
-      r2Hostname = process.env.R2_PUBLIC_BASE_URL
-        ? new URL(process.env.R2_PUBLIC_BASE_URL).hostname
-        : undefined;
-    } catch {}
-    const allowedHostnames = new Set(
-      [
-        "images.unsplash.com",
-        process.env.MEDIA_HOSTNAME,
-        r2Hostname,
-      ].filter(Boolean),
-    );
-    return url.protocol === "https:" && allowedHostnames.has(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
-const localOrRemoteUrl = z
-  .string()
-  .trim()
-  .refine(
-    isAllowedAssetUrl,
-    "Use a local path or an https URL from the configured media hostname.",
-  );
 
 const optionalRemoteUrl = z
   .union([z.literal(""), z.url()])
   .transform((value) => value || undefined);
 
 const optionalAssetUrl = z
-  .union([z.literal(""), localOrRemoteUrl])
+  .union([z.literal(""), managedAssetUrlSchema])
   .optional()
   .transform((value) => value || undefined);
 
@@ -73,7 +47,7 @@ const creatorSchema = z.preprocess(
 const mediaSchema = z
   .object({
     type: z.enum(["image", "video"]),
-    url: localOrRemoteUrl,
+    url: imageUrlSchema,
     posterUrl: optionalAssetUrl,
     storageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     storageKey: z.string().trim().min(1).max(1024).optional(),
@@ -83,7 +57,7 @@ const mediaSchema = z
     variants: z
       .array(
         z.object({
-          url: localOrRemoteUrl,
+          url: managedAssetUrlSchema,
           storageKey: z.string().trim().min(1).max(1024),
           width: z.coerce.number().int().positive().max(12000),
           height: z.coerce.number().int().positive().max(12000),
@@ -95,7 +69,7 @@ const mediaSchema = z
       .optional(),
     videoPreview: z
       .object({
-        url: localOrRemoteUrl,
+        url: managedAssetUrlSchema,
         storageKey: z.string().trim().min(1).max(1024),
         width: z.coerce.number().int().positive().max(1080),
         height: z.coerce.number().int().positive().max(1920),
@@ -111,6 +85,12 @@ const mediaSchema = z
   .refine(
     (media) => Boolean(media.storageProvider) === Boolean(media.storageKey),
     "Managed media must include its storage provider and key.",
+  )
+  .refine(
+    (media) =>
+      (media.type === "image" && !media.storageProvider) ||
+      isAllowedManagedAssetUrl(media.url),
+    { message: MANAGED_ASSET_URL_ERROR, path: ["url"] },
   )
   .refine(
     (media) => !media.posterStorageKey || media.storageProvider === "r2",

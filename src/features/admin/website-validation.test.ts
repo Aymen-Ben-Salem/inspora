@@ -86,6 +86,28 @@ afterEach(() => {
 });
 
 describe("admin website validation", () => {
+  it.each(["favicon", "section"] as const)("accepts a pasted external HTTPS %s image without upload metadata", (field) => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validWebsiteForm();
+    const url = "https://cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg";
+    if (field === "favicon") {
+      const media = JSON.parse(String(form.get("media")));
+      media[1] = { role: "favicon", url, alt: "Paper icon", width: 160, height: 160 };
+      form.set("media", JSON.stringify(media));
+    } else {
+      form.set("sections", JSON.stringify([{
+        id: "00000000-0000-4000-8000-000000000010", label: "Hero", alt: "Paper hero",
+        url, width: 160, height: 160, position: 0,
+      }]));
+    }
+
+    const website = parseAdminWebsiteForm(form);
+    const image = field === "favicon" ? website.media[1] : website.sections[0];
+    expect(image.url).toBe(url);
+    expect(image.storageProvider).toBeUndefined();
+    expect(image.storageKey).toBeUndefined();
+  });
+
   it("accepts a pasted external HTTPS creator avatar", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validWebsiteForm();
@@ -96,7 +118,7 @@ describe("admin website validation", () => {
     );
   });
 
-  it("keeps external HTTPS website media and sections restricted to configured hosts", () => {
+  it("keeps managed website media and sections restricted to configured hosts", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validWebsiteForm();
     const media = JSON.parse(String(form.get("media")));

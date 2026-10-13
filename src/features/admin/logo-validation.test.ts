@@ -48,6 +48,54 @@ afterEach(() => {
 });
 
 describe("admin logo validation", () => {
+  it("accepts the reported Dribbble URL pasted as an unuploaded logo image", () => {
+    const form = validLogoForm();
+    const url = "https://cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg";
+    form.set("media", JSON.stringify({ url, alt: "Creator logo", width: 160, height: 160 }));
+
+    expect(parseAdminLogoForm(form).media).toEqual({ url, alt: "Creator logo", width: 160, height: 160 });
+  });
+
+  it("accepts a pasted HTTPS app icon URL with query parameters", () => {
+    const form = validLogoForm();
+    const url = "https://images.example.net/icon.jpg?format=webp&size=160";
+    form.set("kind", "icon");
+    form.set("media", JSON.stringify({ url, alt: "App icon", width: 160, height: 160 }));
+    expect(parseAdminLogoForm(form).media.url).toBe(url);
+  });
+
+  it.each([
+    "", "not-a-url", "http://cdn.dribbble.com/image.jpg", "javascript:alert(1)",
+    "data:image/png;base64,AAAA", "//cdn.dribbble.com/image.jpg", "/\\cdn.dribbble.com/image.jpg",
+  ])("rejects unsupported pasted image URL %s", (url) => {
+    const form = validLogoForm();
+    form.set("media", JSON.stringify({ url, alt: "Logo", width: 160, height: 160 }));
+    expect(() => parseAdminLogoForm(form)).toThrow("Use a local path or an https URL.");
+  });
+
+  it("requires complete ownership metadata for uploaded logo images", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    const media = JSON.parse(String(form.get("media")));
+    delete media.storageKey;
+    form.set("media", JSON.stringify(media));
+    expect(() => parseAdminLogoForm(form)).toThrow("Managed logo media must include its storage provider and key.");
+  });
+
+  it("keeps uploaded image variants restricted to configured hosts", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    const media = JSON.parse(String(form.get("media")));
+    media.variants = [{
+      url: "https://images.example.net/logo.webp", storageKey: "logos/small.webp",
+      width: 160, height: 160, bytes: 500, format: "webp",
+    }];
+    form.set("media", JSON.stringify(media));
+    expect(() => parseAdminLogoForm(form)).toThrow(
+      "Use a local path or an https URL from the configured media hostname.",
+    );
+  });
+
   it("accepts a pasted external HTTPS creator avatar", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validLogoForm();
@@ -58,7 +106,7 @@ describe("admin logo validation", () => {
     );
   });
 
-  it("keeps external HTTPS logo media restricted to configured hosts", () => {
+  it("keeps managed logo media restricted to configured hosts", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validLogoForm();
     const media = JSON.parse(String(form.get("media")));

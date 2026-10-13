@@ -56,12 +56,37 @@ describe("admin post validation", () => {
     expect(parseAdminPostForm(form).creator.avatarUrl).toBe(avatarUrl);
   });
 
-  it("keeps external HTTPS work media restricted to configured hosts", () => {
+  it("accepts a pasted external HTTPS design image without upload metadata", () => {
+    const form = validForm();
+    const media = JSON.parse(String(form.get("media")));
+    media[0].url = "https://cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg";
+    form.set("media", JSON.stringify(media));
+
+    const result = parseAdminPostForm(form).media[0];
+    expect(result.url).toBe(media[0].url);
+    expect(result.storageProvider).toBeUndefined();
+    expect(result.storageKey).toBeUndefined();
+  });
+
+  it("keeps managed design images restricted to configured hosts", () => {
     const form = validForm();
     const media = JSON.parse(String(form.get("media")));
     media[0].url = "https://artwork.example.net/work.png";
+    media[0].storageProvider = "r2";
+    media[0].storageKey = "posts/work.png";
     form.set("media", JSON.stringify(media));
 
+    expect(() => parseAdminPostForm(form)).toThrow(
+      "Use a local path or an https URL from the configured media hostname.",
+    );
+  });
+
+  it("keeps video URLs restricted to configured hosts", () => {
+    const form = validForm();
+    const media = JSON.parse(String(form.get("media")));
+    media[0].type = "video";
+    media[0].url = "https://videos.example.net/work.mp4";
+    form.set("media", JSON.stringify(media));
     expect(() => parseAdminPostForm(form)).toThrow(
       "Use a local path or an https URL from the configured media hostname.",
     );

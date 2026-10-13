@@ -4,6 +4,12 @@ import { WEBSITE_MEDIA_ROLES } from "../../domain/website";
 import { creatorAvatarUrlSchema } from "../creators/avatar-url";
 import { MEDIA_STORAGE_PROVIDERS } from "../../storage/types";
 import { normalizeCreatorValidationInput } from "./creator-environment-policy";
+import {
+  imageUrlSchema,
+  isAllowedManagedAssetUrl,
+  managedAssetUrlSchema,
+  MANAGED_ASSET_URL_ERROR,
+} from "./media-url-validation";
 
 import type { AdminWebsiteInput } from "./types";
 
@@ -17,32 +23,8 @@ const STATIC_IMAGE_TYPES = [
 ] as const;
 const RECORDING_TYPES = ["video/mp4", "video/webm"] as const;
 
-function isAllowedAssetUrl(value: string) {
-  if (value.startsWith("/")) return true;
-
-  try {
-    const url = new URL(value);
-    let r2Hostname: string | undefined;
-    try {
-      r2Hostname = process.env.R2_PUBLIC_BASE_URL
-        ? new URL(process.env.R2_PUBLIC_BASE_URL).hostname
-        : undefined;
-    } catch {}
-    const allowedHostnames = new Set(
-      ["images.unsplash.com", process.env.MEDIA_HOSTNAME, r2Hostname].filter(Boolean),
-    );
-    return url.protocol === "https:" && allowedHostnames.has(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
-const assetUrl = z.string().trim().refine(
-  isAllowedAssetUrl,
-  "Use a local path or an https URL from the configured media hostname.",
-);
 const optionalAssetUrl = z
-  .union([z.literal(""), assetUrl])
+  .union([z.literal(""), managedAssetUrlSchema])
   .optional()
   .transform((value) => value || undefined);
 const optionalRemoteUrl = z
@@ -72,7 +54,7 @@ const creatorSchema = z.preprocess(
 );
 
 const imageVariantSchema = z.object({
-  url: assetUrl,
+  url: managedAssetUrlSchema,
   storageKey: z.string().trim().min(1).max(1024),
   width: z.coerce.number().int().positive().max(12000),
   height: z.coerce.number().int().positive().max(12000),
@@ -81,7 +63,7 @@ const imageVariantSchema = z.object({
 });
 
 const videoPreviewSchema = z.object({
-  url: assetUrl,
+  url: managedAssetUrlSchema,
   storageKey: z.string().trim().min(1).max(1024),
   width: z.coerce.number().int().positive().max(1080),
   height: z.coerce.number().int().positive().max(1920),
@@ -92,7 +74,7 @@ const videoPreviewSchema = z.object({
 const websiteMediaSchema = z
   .object({
     role: z.enum(WEBSITE_MEDIA_ROLES),
-    url: assetUrl,
+    url: imageUrlSchema,
     posterUrl: optionalAssetUrl,
     storageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     storageKey: z.string().trim().min(1).max(1024).optional(),
@@ -109,6 +91,12 @@ const websiteMediaSchema = z
   .refine(
     (media) => Boolean(media.storageProvider) === Boolean(media.storageKey),
     "Managed website media must include its storage provider and key.",
+  )
+  .refine(
+    (media) =>
+      (media.role === "favicon" && !media.storageProvider) ||
+      isAllowedManagedAssetUrl(media.url),
+    { message: MANAGED_ASSET_URL_ERROR, path: ["url"] },
   );
 
 const sectionSchema = z
@@ -116,7 +104,7 @@ const sectionSchema = z
     id: z.uuid(),
     label: z.string().trim().min(1).max(120),
     alt: z.string().trim().min(1).max(500),
-    url: assetUrl,
+    url: imageUrlSchema,
     storageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     storageKey: z.string().trim().min(1).max(1024).optional(),
     mimeType: z.string().trim().min(1).max(255).optional(),
@@ -130,6 +118,10 @@ const sectionSchema = z
   .refine(
     (section) => Boolean(section.storageProvider) === Boolean(section.storageKey),
     "Managed website sections must include their storage provider and key.",
+  )
+  .refine(
+    (section) => !section.storageProvider || isAllowedManagedAssetUrl(section.url),
+    { message: MANAGED_ASSET_URL_ERROR, path: ["url"] },
   )
   .refine(
     (section) =>

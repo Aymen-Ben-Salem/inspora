@@ -17,6 +17,7 @@ import { LogoEditor } from "./logo-editor";
 import { WebsiteEditor } from "./website-editor";
 import { SponsorEditor } from "./sponsor-editor";
 import { CreatorManager } from "./creator-manager";
+import { parseAdminLogoForm } from "@/features/admin/logo-validation";
 
 type SaveAction = (state: AdminActionState, data: FormData) => Promise<AdminActionState>;
 type EditorMode = "create" | "edit" | "review";
@@ -183,6 +184,39 @@ it("retains sponsor details and the active selection after a failed save", async
     expect(textField(form, "title").value).toBe("Keep this sponsor");
     expect(active.checked).toBe(false);
     expect(textField(form, "isActive").value).toBe("false");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});
+
+it("submits a pasted Dribbble logo through the real parser and retains it after a save error", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const url = "https://cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg";
+  const action = vi.fn<SaveAction>(async (_state, data) => {
+    const parsed = parseAdminLogoForm(data);
+    expect(parsed.media.url).toBe(url);
+    expect(parsed.media.storageProvider).toBeUndefined();
+    expect(parsed.media.storageKey).toBeUndefined();
+    expect(parsed.media.variants).toEqual([]);
+    return { status: "error", message: "The save failed. Try again." };
+  });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<LogoEditor action={action} creators={[]} logo={{ ...logo, creator: { ...creator, id: "00000000-0000-4000-8000-000000000010" } }} />));
+    const form = container.querySelector("form")!;
+    const imageUrl = Array.from(form.querySelectorAll("label"))
+      .find((label) => label.textContent === "Image URL")!.querySelector("input")!;
+    await enterText(imageUrl, url);
+
+    await submit(form);
+
+    expect(action).toHaveBeenCalledOnce();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("The save failed. Try again.");
+    expect(imageUrl.value).toBe(url);
+    expect(textField(form, "title").value).toBe("Original title");
   } finally {
     await act(async () => root.unmount());
     container.remove();

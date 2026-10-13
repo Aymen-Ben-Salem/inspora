@@ -27,17 +27,18 @@ function outputFileName(fileName: string, width: number) {
   return `${baseName || "image"}-${width}w.webp`;
 }
 
-function canvasToWebp(canvas: HTMLCanvasElement) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) =>
-        blob?.type === "image/webp"
-          ? resolve(blob)
-          : reject(new Error("This browser could not create an optimized WebP image.")),
-      "image/webp",
-      WEBP_QUALITY,
-    );
+async function canvasToWebp(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/webp", WEBP_QUALITY);
   });
+  if (blob?.type === "image/webp") return blob;
+
+  // Safari can decode WebP but export PNG from canvas. Encode the RGBA pixels
+  // instead so responsive variants keep their WebP format and transparency.
+  const { default: encode } = await import("@jsquash/webp/encode.js");
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  const bytes = await encode(pixels, { quality: WEBP_QUALITY * 100 });
+  return new Blob([bytes], { type: "image/webp" });
 }
 
 export async function optimizeStaticImage(file: File, kind: MediaUploadKind) {
@@ -60,7 +61,7 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind) {
         if (!context) throw new Error("The image optimizer could not start.");
 
         context.drawImage(bitmap, 0, 0, width, height);
-        const blob = await canvasToWebp(canvas);
+        const blob = await canvasToWebp(canvas, context);
         return {
           file: new File([blob], outputFileName(file.name, width), {
             type: "image/webp",

@@ -47,6 +47,7 @@ describe("Clerk proxy routing", () => {
     "/sponsor/campaigns/new",
     "/sponsor/campaigns/11111111-1111-4111-8111-111111111111",
     "/api/profile",
+    "/api/admin/media",
     "/api/submissions/11111111-1111-4111-8111-111111111111/media",
   ])("runs Clerk for %s", (pathname) => {
     expect(matches(pathname)).toBe(true);

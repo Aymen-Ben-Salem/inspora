@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  completeMediaUploadAction,
-  createMediaUploadSignatureAction,
-  discardMediaUploadsAction,
-  getMediaConverterConfigurationAction,
-} from "../admin/media-actions";
+import { adminUploadHttpRequests } from "./admin-upload-http";
 import {
   isOptimizableStaticImage,
   optimizeStaticImage,
@@ -27,12 +22,7 @@ import {
   type PreparedMediaUpload,
 } from "./prepare-upload";
 
-export const defaultUploadOperations = createAdminMediaUploadOperations({
-  sign: createMediaUploadSignatureAction,
-  complete: completeMediaUploadAction,
-  discard: discardMediaUploadsAction,
-  converterConfiguration: getMediaConverterConfigurationAction,
-});
+export const defaultUploadOperations = createAdminMediaUploadOperations(adminUploadHttpRequests);
 
 export type UploadStatus =
   | "idle"

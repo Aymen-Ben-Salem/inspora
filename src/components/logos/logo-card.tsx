@@ -43,7 +43,6 @@ export function LogoCard({
             ? `${isProfileIcon ? "aspect-[1.64]" : "aspect-square"} bg-[#f3f3f3]`
             : "bg-transparent"
         }`}
-        style={isFramedIcon ? undefined : { aspectRatio: `${logo.media.width}/${logo.media.height}` }}
       >
         {isFramedIcon ? (
           <span className="absolute inset-0 flex items-center justify-center">
@@ -69,7 +68,7 @@ export function LogoCard({
             variants={logo.media.variants}
             priority={priority}
             sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
-            className="absolute inset-0 size-full object-contain"
+            className="block h-auto w-full"
           />
         )}
         {!isIcon || isFramedIcon ? (

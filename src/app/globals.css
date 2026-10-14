@@ -472,14 +472,51 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
     height: clamp(15px, min(1.583576vw, 2.815246dvh), 22.804px);
   }
 
+  .detail-fit-sidebar-intro {
+    margin-top: var(--detail-content-top);
+    overflow-wrap: anywhere;
+  }
+
   .detail-fit-sidebar-content {
     flex: 0 1 auto;
-    margin-top: var(--detail-content-top);
+    margin-top: var(--detail-section-gap);
+    padding-inline: 8px;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    scrollbar-color: #8a8a8a transparent;
     overflow-wrap: anywhere;
+  }
+
+  @supports selector(::-webkit-scrollbar) {
+    .detail-fit-sidebar-content {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+
+    .detail-fit-sidebar-content::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .detail-fit-sidebar-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .detail-fit-sidebar-content::-webkit-scrollbar-thumb {
+      min-height: 32px;
+      border-radius: 999px;
+      background: #8a8a8a;
+    }
+
+    .detail-fit-sidebar-content::-webkit-scrollbar-thumb:hover {
+      background: #666;
+    }
+
+    .detail-fit-sidebar-content::-webkit-scrollbar-button {
+      display: none;
+    }
   }
 
   .detail-fit-sidebar-actions {

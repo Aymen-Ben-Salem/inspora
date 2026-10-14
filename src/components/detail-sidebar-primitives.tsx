@@ -27,6 +27,7 @@ export const detailSecondaryActionClassName =
 export function DetailSidebarLayout({
   children,
   actions,
+  intro,
   mode = "overlay",
   navigation,
   newsletterSource,
@@ -34,6 +35,7 @@ export function DetailSidebarLayout({
 }: {
   children: ReactNode;
   actions?: ReactNode;
+  intro?: ReactNode;
   mode?: "overlay" | "page";
   navigation: ReactNode;
   newsletterSource: "logo-detail" | "post-detail" | "website-detail";
@@ -54,7 +56,18 @@ export function DetailSidebarLayout({
       <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0">
         {navigation}
 
-        <div role="region" aria-label="Work information" tabIndex={0} className="detail-fit-sidebar-content focus-ring mt-6 flex min-h-0 flex-1 items-start sm:mt-7">
+        {intro ? (
+          <div className="detail-fit-sidebar-intro mt-6 shrink-0 sm:mt-7">
+            {intro}
+          </div>
+        ) : null}
+
+        <div
+          role="region"
+          aria-label="Work filters"
+          tabIndex={0}
+          className="detail-fit-sidebar-content focus-ring mt-6 flex min-h-0 flex-1 items-start sm:mt-7"
+        >
           <div className="detail-fit-groups flex w-full flex-col gap-6">
             {children}
           </div>

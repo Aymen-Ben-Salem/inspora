@@ -65,6 +65,15 @@ export function PostMetadata({
     <DetailSidebarLayout
       mode={overlay ? "overlay" : "page"}
       newsletterSource="post-detail"
+      intro={
+        <DetailIntro
+          postId={post.id}
+          title={post.title}
+          creator={post.creator}
+          description={post.description}
+          publishedAt={post.publishedAt}
+        />
+      }
       actions={
         <div className="detail-fit-actions flex flex-col gap-3">
           <TrackedOriginalLink
@@ -110,14 +119,6 @@ export function PostMetadata({
         />
       }
     >
-      <DetailIntro
-        postId={post.id}
-        title={post.title}
-        creator={post.creator}
-        description={post.description}
-        publishedAt={post.publishedAt}
-      />
-
       <DetailMetadataList
         capitalizeValues
         rows={[
@@ -126,7 +127,6 @@ export function PostMetadata({
           { label: "Styles", values: post.styles },
         ]}
       />
-
     </DetailSidebarLayout>
   );
 }

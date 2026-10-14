@@ -224,6 +224,17 @@ export function WebsiteDetailDialog({
 
         <DetailSidebarLayout
           newsletterSource="website-detail"
+          intro={
+            <DetailIntro
+              postId={website.id}
+              title={website.title}
+              titleId="website-dialog-title"
+              headingAs="h2"
+              creator={website.creator}
+              description={website.description}
+              publishedAt={website.publishedAt}
+            />
+          }
           actions={
             <div className="detail-fit-actions flex flex-col gap-3">
               <a
@@ -279,15 +290,6 @@ export function WebsiteDetailDialog({
             />
           }
         >
-          <DetailIntro
-            postId={website.id}
-            title={website.title}
-            titleId="website-dialog-title"
-            headingAs="h2"
-            creator={website.creator}
-            description={website.description}
-            publishedAt={website.publishedAt}
-          />
           <DetailMetadataList
             rows={[
               { label: "Categories", values: website.categories },

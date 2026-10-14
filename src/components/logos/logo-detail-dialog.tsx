@@ -103,6 +103,17 @@ export function LogoDetailDialog({
         <DetailSidebarLayout
           appIcon={logo.kind === "icon"}
           newsletterSource="logo-detail"
+          intro={
+            <DetailIntro
+              postId={logo.id}
+              title={logo.title}
+              titleId="logo-dialog-title"
+              headingAs="h2"
+              creator={logo.creator}
+              description={logo.description}
+              publishedAt={logo.publishedAt}
+            />
+          }
           actions={
             <div className="detail-fit-actions flex flex-col gap-3">
               <a
@@ -156,16 +167,6 @@ export function LogoDetailDialog({
             />
           }
         >
-          <DetailIntro
-            postId={logo.id}
-            title={logo.title}
-            titleId="logo-dialog-title"
-            headingAs="h2"
-            creator={logo.creator}
-            description={logo.description}
-            publishedAt={logo.publishedAt}
-          />
-
           <DetailMetadataList
             capitalizeValues
             rows={[
@@ -175,7 +176,6 @@ export function LogoDetailDialog({
               { label: "Colours", values: logo.colors },
             ]}
           />
-
         </DetailSidebarLayout>
       </main>
     </PostDialog>

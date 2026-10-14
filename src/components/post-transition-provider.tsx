@@ -363,35 +363,36 @@ function OptimisticPostTransition({
               </span>
             </div>
 
+            <div className="detail-fit-sidebar-intro mt-6 shrink-0 sm:mt-7">
+              <div className="detail-intro flex flex-col gap-4">
+                <div className="detail-intro-heading-row flex items-center justify-between gap-4">
+                  <div className="detail-intro-heading flex flex-col gap-1">
+                    {source.title ? (
+                      <h1 className="detail-intro-title text-[18px] font-medium leading-normal tracking-[0.036px] text-[#262626]">
+                        {source.title}
+                      </h1>
+                    ) : null}
+                    {source.creatorName ? (
+                      <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]">
+                        {source.creatorAvatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={source.creatorAvatarUrl} alt="" className="detail-intro-avatar size-5 rounded-full object-cover" />
+                        ) : null}
+                        <span>{source.creatorName}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/icons/detail/bookmark.svg" alt="" className="detail-bookmark-icon h-5 w-4" />
+                </div>
+                <div className="flex max-w-[429px] flex-col gap-2" aria-hidden="true">
+                  <span className="h-[18px] w-full bg-[#f0f0f0]" />
+                  <span className="h-[18px] w-5/6 bg-[#f0f0f0]" />
+                </div>
+              </div>
+            </div>
             <div className="detail-fit-sidebar-content mt-6 flex min-h-0 flex-1 items-start sm:mt-7">
               <div className="detail-fit-groups flex w-full flex-col gap-6">
-                <div className="detail-intro flex flex-col gap-4">
-                  <div className="detail-intro-heading-row flex items-center justify-between gap-4">
-                    <div className="detail-intro-heading flex flex-col gap-1">
-                      {source.title ? (
-                        <h1 className="detail-intro-title text-[18px] font-medium leading-normal tracking-[0.036px] text-[#262626]">
-                          {source.title}
-                        </h1>
-                      ) : null}
-                      {source.creatorName ? (
-                        <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]">
-                          {source.creatorAvatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={source.creatorAvatarUrl} alt="" className="detail-intro-avatar size-5 rounded-full object-cover" />
-                          ) : null}
-                          <span>{source.creatorName}</span>
-                        </div>
-                      ) : null}
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/icons/detail/bookmark.svg" alt="" className="detail-bookmark-icon h-5 w-4" />
-                  </div>
-                  <div className="flex max-w-[429px] flex-col gap-2" aria-hidden="true">
-                    <span className="h-[18px] w-full bg-[#f0f0f0]" />
-                    <span className="h-[18px] w-5/6 bg-[#f0f0f0]" />
-                  </div>
-                </div>
-
                 <div className="flex flex-col gap-3 xl:gap-3.5 min-[1700px]:gap-[15px]">
                   {(["Industries", "Colors", "Styles"] as const).map((label) => (
                     <div key={label} className="grid grid-cols-[84px_minmax(0,1fr)] items-start gap-3 xl:grid-cols-[92px_minmax(0,1fr)] xl:gap-4 min-[1700px]:grid-cols-[112px_minmax(0,1fr)] min-[1700px]:gap-5">

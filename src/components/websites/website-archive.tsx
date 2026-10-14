@@ -111,7 +111,7 @@ export function WebsiteArchive({
 
           {filtered.length > 0 || sponsors.length > 0 ? (
             <div className="mt-[var(--archive-feed-gap)]">
-              <SponsorFeed key={JSON.stringify([query,selections,view])} layout="websites" ordinary={filtered.map(website => ({ id: website.id, node: <WebsiteCard key={website.id} website={website} onSelect={selectWebsite} /> }))} />
+              <SponsorFeed key={JSON.stringify([query,selections,view])} layout="websites" ordinary={filtered.map((website, index) => ({ id: website.id, node: <WebsiteCard key={website.id} website={website} onSelect={selectWebsite} priority={index < 3} lazyPoster={index >= 3} /> }))} />
             </div>
           ) : (
             <div className="mt-10 flex min-h-64 flex-col items-center justify-center border border-[#e6e6e6] bg-[#fafafa] px-6 text-center">

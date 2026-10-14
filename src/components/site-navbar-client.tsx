@@ -100,6 +100,7 @@ export function SiteNavbarClient({
                 <Link
                   key={href}
                   href={href}
+                  prefetch={true}
                   aria-current={page === itemPage ? "page" : undefined}
                   style={{
                     color: page === itemPage ? archiveInk : archiveMuted,

@@ -6,11 +6,15 @@ import { LoopingVideo } from "../looping-video";
 export function WebsiteCard({
   website,
   onSelect,
+  priority = false,
+  lazyPoster = false,
   initiallySaved = false,
   onSavedChange,
 }: {
   website: Website;
   onSelect: (website: Website) => void;
+  priority?: boolean;
+  lazyPoster?: boolean;
   initiallySaved?: boolean;
   onSavedChange?: (saved: boolean) => void;
 }) {
@@ -31,9 +35,11 @@ export function WebsiteCard({
           data-feed-transition-target
           className="relative aspect-video w-full overflow-hidden bg-[#ececea]"
         >
+          {priority ? <link rel="preload" as="image" href={website.recording.posterUrl} fetchPriority="high" /> : null}
           <LoopingVideo
             src={website.recording.videoPreview.url}
             poster={website.recording.posterUrl}
+            lazyPoster={lazyPoster && !priority}
             aria-label={website.recording.alt}
             suspendWithFeed
             className="size-full object-contain"

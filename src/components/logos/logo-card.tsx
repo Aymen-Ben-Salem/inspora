@@ -9,6 +9,7 @@ import { ResponsiveR2Image } from "../responsive-r2-image";
 export function LogoCard({
   logo,
   onSelect,
+  priority = false,
   initiallySaved = false,
   onSavedChange,
   showCreator = true,
@@ -16,6 +17,7 @@ export function LogoCard({
 }: {
   logo: Logo;
   onSelect: (logo: Logo) => void;
+  priority?: boolean;
   initiallySaved?: boolean;
   onSavedChange?: (saved: boolean) => void;
   showCreator?: boolean;
@@ -52,6 +54,7 @@ export function LogoCard({
               width={logo.media.width}
               height={logo.media.height}
               variants={logo.media.variants}
+              priority={priority}
               sizes="(min-width: 1120px) 140px, (min-width: 460px) 18vw, 34vw"
               className={`${isProfileIcon ? "w-[34%] max-w-32" : "w-[44%]"} h-auto object-contain`}
             />
@@ -64,6 +67,7 @@ export function LogoCard({
             width={logo.media.width}
             height={logo.media.height}
             variants={logo.media.variants}
+            priority={priority}
             sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
             className="absolute inset-0 size-full object-contain"
           />

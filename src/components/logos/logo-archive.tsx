@@ -162,13 +162,13 @@ export function LogoArchive({
               {kind === "icon" ? (
                 <FeedMotion itemCount={filtered.length}>
                   <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 min-[1500px]:grid-cols-9 min-[1500px]:gap-7">
-                    {filtered.map((logo) => (
-                      <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} />
+                    {filtered.map((logo, index) => (
+                      <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} priority={index < 4} />
                     ))}
                   </div>
                 </FeedMotion>
               ) : (
-                <SponsorFeed key={JSON.stringify([query,selections,kind])} ordinary={filtered.map(logo => ({ id: logo.id, node: <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} /> }))} />
+                <SponsorFeed key={JSON.stringify([query,selections,kind])} ordinary={filtered.map((logo, index) => ({ id: logo.id, node: <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} priority={index < 4} /> }))} />
               )}
             </div>
           ) : (

@@ -84,6 +84,7 @@ export function MobileNavigationOverlay({
               <Link
                 key={item.label}
                 href={item.href as Route}
+                prefetch={true}
                 aria-current={item.href === activeHref ? "page" : undefined}
                 onClick={onClose}
                 className={`focus-ring ${mobileNavigationItemClass} transition-colors ${

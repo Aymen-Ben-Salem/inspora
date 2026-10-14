@@ -224,6 +224,27 @@ export function WebsiteDetailDialog({
 
         <DetailSidebarLayout
           newsletterSource="website-detail"
+          actions={
+            <div className="detail-fit-actions flex flex-col gap-3">
+              <a
+                href={website.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${detailOriginalLinkClassName} detail-fit-action`}
+              >
+                <DetailGlobeIcon />
+                View Site
+              </a>
+              <MediaAssetActions
+                assetKey={view === "preview" ? `${website.id}:preview` : `${website.id}:section:${selectedSection?.id ?? "none"}`}
+                assetUrl={view === "preview" ? recordingAssetUrl : sectionAssetUrl}
+                copyText={view === "preview" ? canonicalUrl : undefined}
+                copyLabel={view === "preview" ? "Copy link" : "Copy section"}
+                downloadLabel={view === "preview" ? "Download video" : "Download section"}
+                downloadFileName={selectedSection ? getWebsiteSectionFileName(website.slug, selectedSection.label, selectedSection.mimeType) : undefined}
+              />
+            </div>
+          }
           navigation={
             <DetailSidebarNavigation
               label="Website navigation"
@@ -274,37 +295,6 @@ export function WebsiteDetailDialog({
               { label: "Colours", values: website.colors },
             ]}
           />
-          <div className="detail-fit-actions flex flex-col gap-3">
-            <a
-              href={website.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${detailOriginalLinkClassName} detail-fit-action`}
-            >
-              <DetailGlobeIcon />
-              View Site
-            </a>
-            <MediaAssetActions
-              assetKey={
-                view === "preview"
-                  ? `${website.id}:preview`
-                  : `${website.id}:section:${selectedSection?.id ?? "none"}`
-              }
-              assetUrl={view === "preview" ? recordingAssetUrl : sectionAssetUrl}
-              copyText={view === "preview" ? canonicalUrl : undefined}
-              copyLabel={view === "preview" ? "Copy link" : "Copy section"}
-              downloadLabel={view === "preview" ? "Download video" : "Download section"}
-              downloadFileName={
-                selectedSection
-                  ? getWebsiteSectionFileName(
-                      website.slug,
-                      selectedSection.label,
-                      selectedSection.mimeType,
-                    )
-                  : undefined
-              }
-            />
-          </div>
         </DetailSidebarLayout>
       </main>
     </PostDialog>

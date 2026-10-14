@@ -103,6 +103,25 @@ export function LogoDetailDialog({
         <DetailSidebarLayout
           appIcon={logo.kind === "icon"}
           newsletterSource="logo-detail"
+          actions={
+            <div className="detail-fit-actions flex flex-col gap-3">
+              <a
+                href={logo.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${detailOriginalLinkClassName} detail-fit-action`}
+              >
+                <DetailGlobeIcon />
+                View Original
+              </a>
+              <MediaAssetActions
+                assetKey={logo.id}
+                assetUrl={assetUrl}
+                copyLabel="Copy image"
+                downloadFileName={getLogoAssetFileName(logo.slug, logo.media.mimeType)}
+              />
+            </div>
+          }
           navigation={
             <DetailSidebarNavigation
               label="Logo navigation"
@@ -157,26 +176,6 @@ export function LogoDetailDialog({
             ]}
           />
 
-          <div className="detail-fit-actions flex flex-col gap-3">
-            <a
-              href={logo.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${detailOriginalLinkClassName} detail-fit-action`}
-            >
-              <DetailGlobeIcon />
-              View Original
-            </a>
-            <MediaAssetActions
-              assetKey={logo.id}
-              assetUrl={assetUrl}
-              copyLabel="Copy image"
-              downloadFileName={getLogoAssetFileName(
-                logo.slug,
-                logo.media.mimeType,
-              )}
-            />
-          </div>
         </DetailSidebarLayout>
       </main>
     </PostDialog>

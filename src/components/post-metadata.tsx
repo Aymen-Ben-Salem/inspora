@@ -65,6 +65,14 @@ export function PostMetadata({
     <DetailSidebarLayout
       mode={overlay ? "overlay" : "page"}
       newsletterSource="post-detail"
+      actions={
+        <div className="detail-fit-actions flex flex-col gap-3">
+          <TrackedOriginalLink
+            post={post}
+            className={`${detailOriginalLinkClassName} detail-fit-action`}
+          />
+        </div>
+      }
       navigation={
         <DetailSidebarNavigation
           label="Post navigation"
@@ -119,12 +127,6 @@ export function PostMetadata({
         ]}
       />
 
-      <div className="detail-fit-actions flex flex-col gap-3">
-        <TrackedOriginalLink
-          post={post}
-          className={`${detailOriginalLinkClassName} detail-fit-action`}
-        />
-      </div>
     </DetailSidebarLayout>
   );
 }

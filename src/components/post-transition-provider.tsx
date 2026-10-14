@@ -14,6 +14,8 @@ import {
   useState,
 } from "react";
 
+import { fitOverlayToViewport } from "@/lib/viewport-overlay";
+
 import { getOptimisticHeroGeometry } from "./post-transition-geometry";
 
 type TransitionKind = "open" | "swap";
@@ -131,6 +133,10 @@ function OptimisticPostTransition({
   const dismissIndicator = useRef<HTMLDivElement>(null);
   const [entranceComplete, setEntranceComplete] = useState(false);
   const heroGeometry = getOptimisticHeroGeometry(source.aspectRatio);
+
+  useLayoutEffect(() => {
+    return scope.current ? fitOverlayToViewport(scope.current) : undefined;
+  }, []);
 
   function handleClick(event: ReactMouseEvent<HTMLDivElement>) {
     const target = event.target;
@@ -339,10 +345,10 @@ function OptimisticPostTransition({
         <aside
           ref={sidebar}
           data-optimistic-post-surface
-          className="detail-fit-sidebar flex min-h-fit w-full flex-none flex-col bg-white lg:min-h-full lg:w-[min(29.583333vw,426px)] lg:shrink-0 lg:overflow-y-auto"
+          className="detail-fit-sidebar flex min-h-fit w-full flex-none flex-col bg-white lg:h-full lg:min-h-0 lg:w-[min(29.583333vw,426px)] lg:shrink-0 lg:overflow-hidden"
         >
-          <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full">
-            <div className="detail-fit-nav flex h-10 items-center justify-between">
+          <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0">
+            <div className="detail-fit-nav flex h-10 shrink-0 items-center justify-between">
               <span className="detail-fit-nav-button flex size-9 items-center justify-center border border-[#f0f0f0] bg-[#f0f0f0] sm:size-10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/icons/detail/close.svg" alt="" className="detail-close-icon size-5" />
@@ -357,7 +363,7 @@ function OptimisticPostTransition({
               </span>
             </div>
 
-            <div className="detail-fit-sidebar-content flex flex-1 items-start pt-6 sm:pt-7">
+            <div className="detail-fit-sidebar-content mt-6 flex min-h-0 flex-1 items-start sm:mt-7">
               <div className="detail-fit-groups flex w-full flex-col gap-6">
                 <div className="detail-intro flex flex-col gap-4">
                   <div className="detail-intro-heading-row flex items-center justify-between gap-4">
@@ -399,13 +405,14 @@ function OptimisticPostTransition({
                     </div>
                   ))}
                 </div>
-
-                <span className="detail-fit-action inline-flex h-9 w-full items-center justify-center gap-2 bg-[#262626] text-[14px] font-medium tracking-[0.028px] text-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/icons/detail/globe.svg" alt="" className="detail-primary-action-icon size-4" />
-                  View Original
-                </span>
               </div>
+            </div>
+            <div className="detail-fit-sidebar-actions mt-6 shrink-0">
+              <span className="detail-fit-action inline-flex h-9 w-full items-center justify-center gap-2 bg-[#262626] text-[14px] font-medium tracking-[0.028px] text-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/detail/globe.svg" alt="" className="detail-primary-action-icon size-4" />
+                View Original
+              </span>
             </div>
           </div>
         </aside>

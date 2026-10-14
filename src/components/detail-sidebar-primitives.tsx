@@ -26,12 +26,14 @@ export const detailSecondaryActionClassName =
 
 export function DetailSidebarLayout({
   children,
+  actions,
   mode = "overlay",
   navigation,
   newsletterSource,
   appIcon = false,
 }: {
   children: ReactNode;
+  actions?: ReactNode;
   mode?: "overlay" | "page";
   navigation: ReactNode;
   newsletterSource: "logo-detail" | "post-detail" | "website-detail";
@@ -43,20 +45,22 @@ export function DetailSidebarLayout({
     <aside
       data-post-dialog-surface={overlay ? "" : undefined}
       data-post-dialog-sidebar={overlay ? "" : undefined}
-      className={`detail-fit-sidebar flex w-full flex-col bg-white lg:overflow-y-auto ${
+      className={`detail-fit-sidebar flex w-full flex-col bg-white lg:overflow-hidden ${
         overlay
           ? "min-h-fit flex-none lg:h-full lg:min-h-0 lg:w-[min(29.583333vw,426px)] lg:shrink-0"
           : "order-first min-h-[100dvh] shrink-0 lg:order-last lg:h-[100dvh] lg:min-h-0 lg:w-[min(29.583333vw,426px)]"
       }`}
     >
-      <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-full">
+      <div className="detail-fit-sidebar-inner flex flex-1 flex-col px-5 py-5 sm:px-7 lg:min-h-0">
         {navigation}
 
-        <div className="detail-fit-sidebar-content flex min-h-0 flex-1 items-start pt-6 sm:pt-7">
+        <div role="region" aria-label="Work information" tabIndex={0} className="detail-fit-sidebar-content focus-ring mt-6 flex min-h-0 flex-1 items-start sm:mt-7">
           <div className="detail-fit-groups flex w-full flex-col gap-6">
             {children}
           </div>
         </div>
+
+        {actions ? <div className="detail-fit-sidebar-actions mt-6 shrink-0">{actions}</div> : null}
 
         {appIcon ? <div className="detail-fit-footer mt-auto flex shrink-0 flex-col items-center gap-2 pt-8">
           <NewsletterForm source={newsletterSource} />

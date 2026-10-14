@@ -142,16 +142,16 @@ export function PostDetailSkeleton({ standalone = false }: { standalone?: boolea
         </div>
         <div className="detail-fit-sidebar w-full shrink-0 bg-white lg:h-full lg:w-[min(29.583333vw,426px)]">
           <div className="detail-fit-sidebar-inner flex h-full flex-col px-5 py-5 sm:px-7">
-            <div className="detail-fit-nav flex h-10 items-center justify-between"><Block className="size-8 rounded-full" /><Block className="h-8 w-20" /></div>
-            <div className="detail-fit-sidebar-content flex-1 pt-6 sm:pt-7">
+            <div className="detail-fit-nav flex h-10 shrink-0 items-center justify-between"><Block className="size-8 rounded-full" /><Block className="h-8 w-20" /></div>
+            <div className="detail-fit-sidebar-content mt-6 min-h-0 flex-1 sm:mt-7">
               <div className="detail-fit-groups flex flex-col gap-6">
                 <Block className="h-8 w-3/4" />
                 <div className="flex items-center gap-3"><Block className="size-9 rounded-full" /><Block className="h-4 w-32" /></div>
                 <div className="space-y-2"><Block className="h-4 w-full" /><Block className="h-4 w-5/6" /><Block className="h-4 w-2/3" /></div>
                 <div className="detail-fit-metadata space-y-3">{[0, 1, 2, 3].map((index) => <Block key={index} className="h-6 w-full" />)}</div>
-                <Block className="h-9 w-full" />
               </div>
             </div>
+            <div className="detail-fit-sidebar-actions mt-6 shrink-0"><Block className="h-9 w-full" /></div>
             <div className="detail-fit-footer mt-auto pt-8"><Block className="h-10 w-full" /></div>
           </div>
         </div>

@@ -412,7 +412,8 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
 
 @media (min-width: 1024px) {
   .detail-fit-sidebar {
-    scrollbar-gutter: stable both-edges;
+    overflow: hidden;
+    scrollbar-gutter: auto;
     --detail-sidebar-pad-x: clamp(18px, min(2.222222vw, 3.950617dvh), 32px);
     --detail-sidebar-pad-y: clamp(10px, min(1.388889vw, 2.469136dvh), 20px);
     --detail-nav-size: clamp(24px, min(2.345833vw, 4.17037dvh), 33.783px);
@@ -442,8 +443,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-sidebar-inner {
-    padding-right: var(--detail-sidebar-pad-x);
-    padding-left: var(--detail-sidebar-pad-x);
+    padding-inline: var(--detail-sidebar-pad-x);
     padding-top: var(--detail-sidebar-pad-y);
     padding-bottom: var(--detail-sidebar-pad-y);
   }
@@ -473,8 +473,17 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 
   .detail-fit-sidebar-content {
-    flex: 0 0 auto;
-    padding-top: var(--detail-content-top);
+    flex: 0 1 auto;
+    margin-top: var(--detail-content-top);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable both-edges;
+    overflow-wrap: anywhere;
+  }
+
+  .detail-fit-sidebar-actions {
+    margin-top: var(--detail-section-gap);
   }
 
   .detail-fit-groups {

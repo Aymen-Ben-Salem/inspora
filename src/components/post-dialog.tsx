@@ -4,6 +4,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { usePathname, useRouter } from "next/navigation";
 import { registerPostDialogHistory } from "@/lib/post-dialog-history";
+import { fitOverlayToViewport } from "@/lib/viewport-overlay";
 import {
   createContext,
   type MouseEvent,
@@ -354,6 +355,7 @@ export function PostDialog({
   }, []);
 
   useLayoutEffect(() => {
+    const restoreWidth = scope.current ? fitOverlayToViewport(scope.current) : undefined;
     const previousOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     // Preserve the stable gutter so opening and closing cannot resize the feed.
@@ -376,6 +378,7 @@ export function PostDialog({
     const unregisterHistoryClose = registerPostDialogHistory(handleHistoryNavigation);
 
     return () => {
+      restoreWidth?.();
       document.documentElement.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
       unregisterHistoryClose();

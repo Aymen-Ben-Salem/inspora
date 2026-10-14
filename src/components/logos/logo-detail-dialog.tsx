@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import type { Logo } from "@/domain/logo";
+import { splitLogoFilterValues } from "@/data/logo-filters";
 import { getLogoAssetFileName } from "@/lib/logo-asset";
 
 import { DetailMotion } from "../detail-motion";
@@ -149,8 +150,8 @@ export function LogoDetailDialog({
           <DetailMetadataList
             capitalizeValues
             rows={[
-              { label: "Type", values: [logo.shape] },
-              { label: "Industry", values: [logo.industry] },
+              { label: "Type", values: splitLogoFilterValues(logo.shape) },
+              { label: "Industry", values: splitLogoFilterValues(logo.industry) },
               { label: "Style", values: logo.styles },
               { label: "Colours", values: logo.colors },
             ]}

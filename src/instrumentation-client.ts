@@ -1,5 +1,6 @@
 import posthog from "posthog-js";
 import { installPostDialogHistory } from "@/lib/post-dialog-history";
+import { installPublicAuthHistory } from "@/auth/public-auth-return";
 
 import {
   isPrivateAnalyticsPath,
@@ -10,6 +11,7 @@ import {
 } from "@/analytics/privacy";
 
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+installPublicAuthHistory();
 installPostDialogHistory();
 const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 

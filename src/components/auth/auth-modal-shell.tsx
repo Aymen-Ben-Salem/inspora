@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
+import { restorePublicAuthReturn } from "../../auth/public-auth-return";
 
 export function AuthModalShell({
   label,
@@ -19,7 +20,8 @@ export function AuthModalShell({
   function dismissAuth(event: MouseEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
-    // Clerk steps can add history entries; dismiss the entire auth route.
+    if (overlay && restorePublicAuthReturn()) return;
+    // Direct auth visits have no retained page/history entry to restore.
     router.replace("/", { scroll: false });
   }
 

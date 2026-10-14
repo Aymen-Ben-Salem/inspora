@@ -22,6 +22,7 @@ import {
 } from "./submission-state";
 import { SubmissionModal } from "./submission-modal";
 import { useAuthPathname } from "../auth/use-auth-pathname";
+import { rememberPublicAuthReturn } from "../../auth/public-auth-return";
 
 type SubmissionContextValue = {
   openSubmission: () => void;
@@ -45,7 +46,8 @@ export function SubmissionProvider({
       return;
     }
     if (!signedIn) {
-      router.push(submissionAuthHref() as Route);
+      rememberPublicAuthReturn();
+      router.push(submissionAuthHref() as Route, { scroll: false });
       return;
     }
     setOpen(true);

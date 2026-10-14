@@ -3,6 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
+import { rememberPublicAuthReturn } from "../auth/public-auth-return";
 import {
   createContext,
   type PropsWithChildren,
@@ -183,7 +184,8 @@ export function SavedPostsProvider({ children }: PropsWithChildren) {
   const toggle = useCallback(
     async (postId: string, current: boolean) => {
       if (!isLoaded || !isSignedIn || !userId) {
-        router.push(signInDestination() as Route);
+        rememberPublicAuthReturn();
+        router.push(signInDestination() as Route, { scroll: false });
         return current;
       }
 

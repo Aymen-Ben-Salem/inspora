@@ -12,8 +12,10 @@ import {
 } from "@/data/posts-repository";
 import {
   buildPostStructuredData,
+  getPostCoverImage,
   serializeJsonLd,
   SITE_NAME,
+  SITE_OG_IMAGE,
 } from "@/lib/seo";
 
 type PostPageProps = {
@@ -31,7 +33,7 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 
   if (!post) return {};
 
-  const cover = post.media[0];
+  const cover = getPostCoverImage(post.media[0]) ?? { url: SITE_OG_IMAGE };
 
   return {
     title: post.title,
@@ -48,13 +50,13 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
       description: post.description,
       publishedTime: post.publishedAt,
       authors: [post.creator.name],
-      images: cover ? [{ url: cover.url, width: cover.width, height: cover.height, alt: cover.alt }] : [],
+      images: [cover],
     },
     twitter: {
-      card: cover ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: post.title,
       description: post.description,
-      images: cover ? [cover.url] : [],
+      images: [cover.url],
     },
   };
 }

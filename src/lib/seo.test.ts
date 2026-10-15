@@ -12,6 +12,7 @@ import {
   buildLogoCollectionStructuredData,
   buildPostStructuredData,
   buildWebsiteStructuredData,
+  getPostCoverImage,
   serializeJsonLd,
   SITE_OG_IMAGE,
   SITE_URL,
@@ -66,6 +67,42 @@ const logo: Logo = {
     height: 659,
   },
 };
+
+describe("design cover metadata", () => {
+  const image: Post["media"][number] = {
+    id: "cover", type: "image", url: "/media/design.webp", alt: "Design preview",
+    width: 1200, height: 800, position: 0,
+  };
+  const video: Post["media"][number] = {
+    ...image, type: "video", url: "https://media.example.com/motion.mp4",
+    posterUrl: "https://media.example.com/motion-poster.webp",
+  };
+
+  it("uses the image itself for social and CreativeWork previews", () => {
+    expect(getPostCoverImage(image)).toEqual({
+      url: image.url, alt: image.alt, width: image.width, height: image.height,
+    });
+    expect(buildPostStructuredData({ ...post, media: [image] }).image)
+      .toBe("https://www.inspora.design/media/design.webp");
+  });
+
+  it("uses a video's poster without publishing the MP4 or assuming poster dimensions", () => {
+    expect(getPostCoverImage(video)).toEqual({ url: video.posterUrl, alt: video.alt });
+    const data = buildPostStructuredData({ ...post, media: [video] });
+    expect(data.image).toBe(video.posterUrl);
+    expect(JSON.stringify(data)).not.toContain(video.url);
+    expect(data.creator).toMatchObject({ name: post.creator.name, url: post.creator.url });
+  });
+
+  it.each([undefined, { ...video, posterUrl: undefined }])(
+    "leaves missing artwork previews available for the social fallback without fabricating a work image (%s)",
+    (cover) => {
+      expect(getPostCoverImage(cover)).toBeUndefined();
+      expect(buildPostStructuredData({ ...post, media: cover ? [cover] : [] }))
+        .not.toHaveProperty("image");
+    },
+  );
+});
 
 describe("SEO helpers", () => {
   it("builds canonical URLs on the production www origin", () => {
@@ -166,12 +203,36 @@ describe("redesigned archive SEO", () => {
       mainEntity: { numberOfItems: 0, itemListElement: [] },
     });
   });
+
+  it.each([
+    ["design", (attribution: Post["creator"]) => buildPostStructuredData({ ...post, creator: attribution }).creator],
+    ["logo", (attribution: Logo["creator"]) => buildLogoCollectionStructuredData([{ ...logo, creator: attribution }]).mainEntity.itemListElement[0].item.creator],
+  ] as const)("connects a %s credit to the same creator entity as its public profile", (_kind, buildAttribution) => {
+    const profile = buildCreatorStructuredData(creator, "jane-current");
+    const attribution = buildAttribution({ ...post.creator, username: "jane-current" });
+
+    expect(attribution).toMatchObject({
+      "@id": profile.mainEntity["@id"],
+      url: profile.mainEntity.url,
+      name: profile.mainEntity.name,
+      sameAs: ["https://example.com"],
+    });
+  });
+
+  it("does not invent a public creator profile from a legacy handle", () => {
+    const attribution = buildPostStructuredData({
+      ...post,
+      creator: { ...post.creator, handle: "@jane-legacy", url: undefined },
+    }).creator;
+
+    expect(attribution).toEqual({ "@type": "Person", name: "Jane Example" });
+  });
 });
 
 it("preserves website attribution and poster data in the collection", () => {
   const website: Website = {
     id: "site-1", slug: "example", title: "Example website", tagline: "A portfolio",
-    description: "An editorial portfolio", creator: { ...creator, username: "jane-current" },
+    description: "An editorial portfolio", creator: { ...creator, username: "jane-current", url: "https://example.com" },
     categories: ["Portfolio"], themes: ["Editorial"], colors: ["Black"],
     sourceUrl: "https://example.com", isFeatured: false,
     createdAt: "2026-08-01T00:00:00.000Z", publishedAt: "2026-08-02T00:00:00.000Z",
@@ -187,7 +248,11 @@ it("preserves website attribution and poster data in the collection", () => {
     numberOfItems: 1,
     itemListElement: [{ position: 1, item: {
       name: "Example website", image: "https://media.example.com/poster.webp",
-      citation: "https://example.com", creator: { url: "https://www.inspora.design/creators/jane-current" },
+      citation: "https://example.com", creator: {
+        "@id": buildCreatorStructuredData(creator, "jane-current").mainEntity["@id"],
+        url: "https://www.inspora.design/creators/jane-current",
+        sameAs: ["https://example.com"],
+      },
     } }],
   });
 });

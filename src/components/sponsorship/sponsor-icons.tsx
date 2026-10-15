@@ -4,7 +4,7 @@ import { usePublicSponsors } from "./public-sponsors";
 export function SponsorIcons() {
   const { sponsors } = usePublicSponsors();
   return (
-    <div aria-label="Sponsors" className="flex items-center gap-1">
+    <div role="group" aria-label="Sponsors" className="flex items-center gap-1">
       {sponsors
         .slice(0, 4)
         .filter((s) => s.iconUrl)

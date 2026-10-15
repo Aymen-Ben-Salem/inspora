@@ -31,6 +31,11 @@ export function renderSitemap(slugs: readonly string[], creatorUsernames: readon
       changeFrequency: "monthly",
       priority: "0.6",
     },
+    {
+      url: `${SITE_URL}/sponsor`,
+      changeFrequency: "monthly",
+      priority: "0.6",
+    },
     ...[...new Set(slugs)].map((slug) => ({
       url: `${SITE_URL}/posts/${slug}`,
       changeFrequency: "monthly",

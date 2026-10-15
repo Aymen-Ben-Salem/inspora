@@ -37,7 +37,7 @@ const logos: Logo[] = Array.from({ length: 6 }, (_, index) => ({
 
 it("prioritizes the first logo row and keeps later images lazy", () => {
   const html = renderToStaticMarkup(<LogoArchive logos={logos} />);
-  const images = [...html.matchAll(/<img[^>]*src="\/logo-(\d)\.webp"[^>]*>/g)];
+  const images = [...html.matchAll(/<img[^>]*alt="Logo (\d)"[^>]*>/g)];
   expect(images).toHaveLength(6);
   for (const [tag, index] of images) {
     expect(tag).toContain(Number(index) < 4 ? 'loading="eager"' : 'loading="lazy"');

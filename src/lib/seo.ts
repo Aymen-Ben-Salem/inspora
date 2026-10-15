@@ -16,6 +16,32 @@ export function absoluteUrl(path = "/") {
   return new URL(path.startsWith("/") ? path : `/${path}`, `${SITE_URL}/`).toString();
 }
 
+export function getPostCoverImage(cover: Post["media"][number] | undefined) {
+  if (!cover) return undefined;
+  if (cover.type === "video") {
+    return cover.posterUrl ? { url: cover.posterUrl, alt: cover.alt } : undefined;
+  }
+  return { url: cover.url, width: cover.width, height: cover.height, alt: cover.alt };
+}
+
+function buildWorkCreatorStructuredData(creator: Pick<Post["creator"], "name" | "username" | "url">) {
+  const profileUrl = creator.username
+    ? absoluteUrl(`/creators/${encodeURIComponent(creator.username)}`)
+    : undefined;
+
+  return {
+    "@type": "Person",
+    name: creator.name,
+    ...(profileUrl
+      ? {
+          "@id": `${profileUrl}#creator`,
+          url: profileUrl,
+          ...(creator.url ? { sameAs: [creator.url] } : {}),
+        }
+      : creator.url ? { url: creator.url } : {}),
+  };
+}
+
 export function buildWebsiteStructuredData() {
   const organizationId = absoluteUrl("/#organization");
   const websiteId = absoluteUrl("/#website");
@@ -54,6 +80,8 @@ export function buildWebsiteStructuredData() {
 }
 
 export function buildPostStructuredData(post: Post) {
+  const cover = getPostCoverImage(post.media[0]);
+
   return {
     "@context": "https://schema.org",
     "@type": "CreativeWork",
@@ -62,15 +90,12 @@ export function buildPostStructuredData(post: Post) {
     mainEntityOfPage: absoluteUrl(`/posts/${post.slug}`),
     name: post.title,
     description: post.description,
+    ...(cover ? { image: absoluteUrl(cover.url) } : {}),
     inLanguage: "en",
     datePublished: post.publishedAt,
     genre: post.category,
     keywords: [post.category, ...post.industries, ...post.styles],
-    creator: {
-      "@type": "Person",
-      name: post.creator.name,
-      ...(post.creator.url ? { url: post.creator.url } : {}),
-    },
+    creator: buildWorkCreatorStructuredData(post.creator),
     publisher: { "@id": absoluteUrl("/#organization") },
     citation: post.sourceUrl,
   };
@@ -109,11 +134,7 @@ export function buildLogoCollectionStructuredData(logos: Logo[]) {
             ...logo.styles,
           ],
           datePublished: logo.publishedAt,
-          creator: {
-            "@type": "Person",
-            name: logo.creator.name,
-            ...(logo.creator.url ? { url: logo.creator.url } : {}),
-          },
+          creator: buildWorkCreatorStructuredData(logo.creator),
           citation: logo.sourceUrl,
         },
       })),
@@ -188,13 +209,7 @@ export function buildWebsiteCollectionStructuredData(websites: Website[]) {
           image: absoluteUrl(website.recording.posterUrl),
           datePublished: website.publishedAt,
           keywords: [...website.categories, ...website.themes, ...website.colors],
-          creator: {
-            "@type": "Person",
-            name: website.creator.name,
-            ...(website.creator.username
-              ? { url: absoluteUrl(`/creators/${encodeURIComponent(website.creator.username)}`) }
-              : website.creator.url ? { url: website.creator.url } : {}),
-          },
+          creator: buildWorkCreatorStructuredData(website.creator),
           citation: website.sourceUrl,
         },
       })),

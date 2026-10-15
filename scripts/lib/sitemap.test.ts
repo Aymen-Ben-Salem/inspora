@@ -8,13 +8,15 @@ describe("renderSitemap", () => {
     expect(xml.match(/<loc>https:\/\/www.inspora.design\/creators\/cabralorenzo<\/loc>/g)).toHaveLength(1);
     expect(xml).not.toContain('r2.dev');
   });
-  it("renders the canonical homepage, logos page, info page, and post URLs", () => {
+  it("covers public landing pages and designs without including private application routes", () => {
     const xml = renderSitemap(["first-project", "second-project"]);
 
     expect(xml).toContain("<loc>https://www.inspora.design/</loc>");
     expect(xml).toContain("<loc>https://www.inspora.design/info</loc>");
     expect(xml).toContain("<loc>https://www.inspora.design/logos</loc>");
     expect(xml).toContain("<loc>https://www.inspora.design/websites</loc>");
+    expect(xml).toContain("<loc>https://www.inspora.design/sponsor</loc>");
+    expect(xml).not.toMatch(/<loc>[^<]*\/(?:admin|account|sign-in|sponsor\/)[^<]*<\/loc>/);
     expect(xml).toContain(
       "<loc>https://www.inspora.design/posts/first-project</loc>",
     );

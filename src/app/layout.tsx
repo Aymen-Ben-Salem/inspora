@@ -81,6 +81,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <head>
+        {process.env.R2_PUBLIC_BASE_URL ? (
+          <link rel="preconnect" href={process.env.R2_PUBLIC_BASE_URL} />
+        ) : null}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

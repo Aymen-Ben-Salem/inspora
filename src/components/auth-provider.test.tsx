@@ -89,6 +89,7 @@ describe("AuthProvider", () => {
     expect(renderClerkProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         appearance: expect.any(Object),
+        prefetchUI: false,
         localization: expect.objectContaining({
           formButtonPrimary: "Continue with email",
         }),

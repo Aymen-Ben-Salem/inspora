@@ -29,6 +29,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       <ClerkProvider
         appearance={clerkAppearance}
         localization={clerkLocalization}
+        prefetchUI={false}
       >
         <ViewerProfileProvider>
           <ClerkSubmissionProvider>

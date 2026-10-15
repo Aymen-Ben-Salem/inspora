@@ -22,6 +22,7 @@ describe("Clerk proxy routing", () => {
     "/admin",
     "/admin/posts",
     "/admin/posts/new",
+    "/admin/creators/11111111-1111-4111-8111-111111111111/works",
     "/admin/analytics/live",
     "/admin/subscribers/export",
     "/admin-access-denied",

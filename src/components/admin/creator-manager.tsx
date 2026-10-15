@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useCallback, useMemo, useState } from "react";
 import { AdminLibraryPagination } from "./library-pagination";
+import { CreatorWorkDrawer } from "./creator-work-drawer";
 
 import {
   AdminCreatorEditor,
@@ -56,6 +57,8 @@ export function CreatorManager({
   );
   const [creator, setCreator] = useState<AdminCreatorInput>(blankAdminCreator());
   const [search, setSearch] = useState("");
+  const [workCreator, setWorkCreator] = useState<AdminCreatorRecord | null>(null);
+  const dismissWork = useCallback(() => setWorkCreator(null), []);
   const filteredCreators = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return creators;
@@ -117,17 +120,16 @@ export function CreatorManager({
           {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
           <div className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
             {filteredCreators.map((item) => (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                onClick={() => setCreator(toAdminCreatorDraft(item))}
-                aria-pressed={creator.id === item.id}
-                className={`focus-ring grid min-w-0 items-start gap-2 rounded-xl border p-4 text-left transition-colors sm:grid-cols-[minmax(0,1fr)_auto] ${
+                className={`flex min-w-0 items-center gap-3 rounded-xl border p-4 transition-colors ${
                   creator.id === item.id
                     ? "border-black bg-[#f3f3ef]"
                     : "border-black/10 hover:bg-[#f7f7f4]"
                 }`}
               >
+                <button type="button" onClick={() => setCreator(toAdminCreatorDraft(item))} aria-pressed={creator.id === item.id}
+                  className="focus-ring grid min-w-0 flex-1 items-start gap-2 rounded-sm text-left sm:grid-cols-[minmax(0,1fr)_auto]">
                 <span className="min-w-0 break-words">
                   <span className="block text-sm font-medium">{item.name}</span>
                   <span className="mt-1 block text-xs text-[#777]">
@@ -139,7 +141,10 @@ export function CreatorManager({
                   {item.ownerUserId ? <span>Claimed</span> : null}
                   {item.pendingClaimCount ? <span>{item.pendingClaimCount} pending</span> : null}
                 </span>
-              </button>
+                </button>
+                <button type="button" aria-label={`View work by ${item.name}`} aria-haspopup="dialog"
+                  onClick={() => setWorkCreator(item)} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
+              </div>
             ))}
             {filteredCreators.length === 0 ? (
               <p className="rounded-xl bg-[#f7f7f4] p-5 text-sm text-[#777]">
@@ -254,6 +259,7 @@ export function CreatorManager({
         ) : null}
         {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1) }} /> : null}
       </aside>
+      {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
     </div>
   );
 }

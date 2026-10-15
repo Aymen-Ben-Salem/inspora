@@ -6,6 +6,10 @@ export default defineConfig({
   test: { include: [
     "src/features/admin/library-performance.test.ts",
     "src/features/admin/secondary-performance.test.ts",
+    "src/features/admin/creator-work-repository.test.ts",
+    "src/components/admin/creator-work-drawer.test.tsx",
+    "src/app/admin/creators/[id]/works/route.test.ts",
+    "src/proxy.test.ts",
     "src/features/admin/queue-performance.test.ts",
     "src/features/admin/converter-lifecycle.test.ts",
     "src/features/admin/media-preparation-lifecycle.test.ts",

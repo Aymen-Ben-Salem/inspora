@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CreatorAvatar, creatorProfileHref } from "../creator-avatar";
 import { FeedSaveButton } from "../feed-save-overlay";
 import { ResponsiveR2Image } from "../responsive-r2-image";
+import { getLogoCardImageDimensions } from "./logo-card-image-dimensions";
 
 export function LogoCard({
   logo,
@@ -26,6 +27,7 @@ export function LogoCard({
   const isIcon = logo.kind === "icon";
   const isFramedIcon = isIcon && iconLayout !== "plain";
   const isProfileIcon = isIcon && iconLayout === "profile";
+  const imageDimensions = getLogoCardImageDimensions(logo.media);
 
   return (
     <article data-feed-card>
@@ -63,8 +65,8 @@ export function LogoCard({
             data-feed-transition-media
             src={logo.media.url}
             alt={logo.media.alt}
-            width={logo.media.width}
-            height={logo.media.height}
+            width={imageDimensions.width}
+            height={imageDimensions.height}
             variants={logo.media.variants}
             priority={priority}
             sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"

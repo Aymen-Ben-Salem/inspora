@@ -57,18 +57,20 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
   if (!contentType || !isAcceptedUploadForKind(kind, contentType) || file.size > getMediaUploadLimit(contentType, kind)) {
     throw new Error(uploadError(kind));
   }
+  const controller = new AbortController();
+  const preparationSignal = controller.signal;
+  onController?.(controller);
+  preparationSignal.throwIfAborted();
   let uploadItems: PreparedMediaUpload[];
   if (isOptimizableStaticImage(contentType)) {
     setStatus("optimizing");
-    const images = await optimizeStaticImage(file, kind);
+    const images = await optimizeStaticImage(file, kind, preparationSignal);
     uploadItems = images.map((image, index) => ({
       ...image,
       uploadKind: kind,
       role: index === images.length - 1 ? "primary" : "variant",
     }));
   } else if (contentType === "image/gif") {
-    const controller = new AbortController();
-    onController?.(controller);
     const configuration = await activeOperations.converterConfiguration();
     const { convertGifToMp4, createVideoPreview } = await import(
       "../admin/gif-conversion"
@@ -79,34 +81,32 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
       signal: controller.signal,
       onStage: setStatus,
     });
-    const originalDimensions = await readMediaDimensions(converted);
+    const originalDimensions = await readMediaDimensions(converted, preparationSignal);
     const preview = await createVideoPreview({
       file: converted,
       configuration,
       signal: controller.signal,
       onStage: setStatus,
     });
-    const poster = await createVideoPoster(preview);
+    const poster = await createVideoPoster(preview, preparationSignal);
     uploadItems = [
       { file: converted, ...originalDimensions, uploadKind: kind, role: "primary" },
       { file: preview, width: poster.videoWidth, height: poster.videoHeight, uploadKind: kind, role: "video-preview" },
       { file: poster.file, width: poster.width, height: poster.height, uploadKind: kind, role: "poster" },
     ];
   } else if (contentType.startsWith("video/")) {
-    const controller = new AbortController();
-    onController?.(controller);
     const configuration = await activeOperations.converterConfiguration();
     const { createVideoPreview } = await import(
       "../admin/gif-conversion"
     );
-    const originalDimensions = await readMediaDimensions(file);
+    const originalDimensions = await readMediaDimensions(file, preparationSignal);
     const preview = await createVideoPreview({
       file,
       configuration,
       signal: controller.signal,
       onStage: setStatus,
     });
-    const poster = await createVideoPoster(preview);
+    const poster = await createVideoPoster(preview, preparationSignal);
     uploadItems = [
       { file, ...originalDimensions, uploadKind: kind, role: "primary" },
       { file: preview, width: poster.videoWidth, height: poster.videoHeight, uploadKind: kind, role: "video-preview" },
@@ -121,10 +121,11 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
   } else {
     setStatus("analyzing");
     uploadItems = [
-      { file, ...(await readMediaDimensions(file)), uploadKind: kind, role: "primary" },
+      { file, ...(await readMediaDimensions(file, preparationSignal)), uploadKind: kind, role: "primary" },
     ];
   }
 
+  preparationSignal.throwIfAborted();
   const generatedPreview = uploadItems.find((item) => item.role === "video-preview");
   if (generatedPreview) assertVideoPreviewDimensions(generatedPreview);
 

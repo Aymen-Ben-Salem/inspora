@@ -1,23 +1,25 @@
 import { CreatorManager } from "@/components/admin/creator-manager";
+import { parseAdminPage } from "@/features/admin/library-pagination";
 import {
   deleteCreatorAction,
   reviewCreatorClaimAction,
   saveCreatorAction,
 } from "@/features/admin/creator-actions";
 import {
-  getAdminCreatorClaims,
-  getAdminCreators,
+  getAdminCreatorClaimPage,
+  getAdminCreatorDirectory,
 } from "@/features/creators/identity";
 
 export default async function CreatorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; deleted?: string }>;
+  searchParams: Promise<{ saved?: string; deleted?: string; q?: string | string[]; page?: string | string[]; claimsPage?: string | string[] }>;
 }) {
-  const [{ saved, deleted }, creators, claims] = await Promise.all([
-    searchParams,
-    getAdminCreators(),
-    getAdminCreatorClaims(),
+  const { saved, deleted, q, page, claimsPage } = await searchParams;
+  const query = (Array.isArray(q) ? q[0] : q)?.trim().slice(0, 100) ?? "";
+  const [creators, claims] = await Promise.all([
+    getAdminCreatorDirectory({ query, page: parseAdminPage(page) }),
+    getAdminCreatorClaimPage(parseAdminPage(claimsPage)),
   ]);
 
   return (
@@ -37,8 +39,11 @@ export default async function CreatorsPage({
         ) : null}
       </div>
       <CreatorManager
-        creators={creators}
-        claims={claims}
+        key={`${creators.page}:${query}`}
+        creators={creators.items}
+        claims={claims.items}
+        directoryPage={{ page: creators.page, totalPages: creators.totalPages, query }}
+        claimsPage={{ page: claims.page, totalPages: claims.totalPages }}
         saveAction={saveCreatorAction}
         deleteAction={deleteCreatorAction}
         reviewAction={reviewCreatorClaimAction}

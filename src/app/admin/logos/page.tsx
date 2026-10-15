@@ -2,6 +2,8 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { AdminLibraryPagination } from "@/components/admin/library-pagination";
+import { parseAdminPage } from "@/features/admin/library-pagination";
 import { archiveLogoAction, deleteLogoAction } from "@/features/admin/actions";
 import { getAdminLogos } from "@/features/admin/logos-repository";
 
@@ -11,13 +13,10 @@ const statusStyles = {
   archived: "bg-[#e7e7e4] text-[#696965]",
 } as const;
 
-export default async function AdminLogosPage() {
-  const logos = await getAdminLogos();
+export default async function AdminLogosPage({ searchParams }: { searchParams: Promise<{ page?: string | string[] }> }) {
+  const params = await searchParams;
+  const { items: logos, counts: statusCounts, page, totalPages } = await getAdminLogos({ page: parseAdminPage(params.page) });
   const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
-  const statusCounts = logos.reduce(
-    (counts, logo) => ({ ...counts, [logo.status]: counts[logo.status] + 1 }),
-    { published: 0, draft: 0, archived: 0 },
-  );
 
   return (
     <div className="grid gap-8">
@@ -25,13 +24,13 @@ export default async function AdminLogosPage() {
         <div>
           <h1 className="text-4xl font-medium tracking-[-0.055em] sm:text-5xl">Logos</h1>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#777]">
-            <span>{logos.length} total</span>
+            <span>{statusCounts.total} total</span>
             <span>{statusCounts.published} published</span>
             <span>{statusCounts.draft} drafts</span>
             {statusCounts.archived ? <span>{statusCounts.archived} archived</span> : null}
           </div>
         </div>
-        <Link
+        <Link prefetch={false}
           href={"/admin/logos/new" as Route}
           className="focus-ring inline-flex h-11 items-center rounded-full bg-black px-5 text-sm font-medium text-white transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[#252525]"
         >
@@ -53,7 +52,7 @@ export default async function AdminLogosPage() {
         >
           {logos.map((logo) => (
             <article key={logo.id} className="group flex min-w-0 flex-col bg-white">
-              <Link
+              <Link prefetch={false}
                 href={`/admin/logos/${logo.id}/edit` as Route}
                 aria-label={`Edit ${logo.title}`}
                 className="focus-ring flex aspect-[16/10] items-center justify-center overflow-hidden bg-[#ececea] p-7"
@@ -61,9 +60,10 @@ export default async function AdminLogosPage() {
                 {/* Admin media URLs may precede Next image host configuration. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={logo.media.url}
-                  alt={logo.media.alt || `${logo.title} preview`}
+                  src={logo.media?.url || undefined}
+                  alt={logo.media?.alt || `${logo.title} preview`}
                   loading="lazy"
+                  decoding="async"
                   className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-[1.025]"
                 />
               </Link>
@@ -82,7 +82,7 @@ export default async function AdminLogosPage() {
                       {logo.kind}
                     </span>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] ${statusStyles[logo.status]}`}
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] ${statusStyles[logo.status as keyof typeof statusStyles]}`}
                     >
                       {logo.status}
                     </span>
@@ -94,14 +94,14 @@ export default async function AdminLogosPage() {
                   <span>Created {dateFormatter.format(new Date(logo.createdAt))}</span>
                 </div>
                 <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
-                  <Link
+                  <Link prefetch={false}
                     href={`/admin/logos/${logo.id}/edit` as Route}
                     className="focus-ring rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#252525]"
                   >
                     Edit
                   </Link>
                   {logo.status === "published" ? (
-                    <Link
+                    <Link prefetch={false}
                       href={`/logos?logo=${logo.slug}` as Route}
                       target="_blank"
                       className="focus-ring rounded-full border border-black/10 px-4 py-2 text-sm transition-colors hover:bg-[#f3f3f1]"
@@ -138,6 +138,7 @@ export default async function AdminLogosPage() {
           ))}
         </section>
       )}
+      <AdminLibraryPagination path="/admin/logos" page={page} totalPages={totalPages} />
     </div>
   );
 }

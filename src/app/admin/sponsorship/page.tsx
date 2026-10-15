@@ -1,8 +1,17 @@
 import { readSponsorBillingAdministration } from "@/features/sponsorship/admin-billing";
 import { AdminBillingControls } from "@/components/sponsorship/admin-billing-controls";
 import { AdminSponsorAnalytics } from "@/components/sponsorship/admin-analytics";
-export default async function Page() {
-  const data = await readSponsorBillingAdministration();
+import { AdminLibraryPagination } from "@/components/admin/library-pagination";
+import { parseAdminPage } from "@/features/admin/library-pagination";
+import { Suspense } from "react";
+import type { Route } from "next";
+import Link from "next/link";
+
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string; exceptionsPage?: string; jobsPage?: string; account?: string }> }) {
+  const params = await searchParams;
+  const data = await readSponsorBillingAdministration({ page: parseAdminPage(params.page), exceptionsPage: parseAdminPage(params.exceptionsPage), jobsPage: parseAdminPage(params.jobsPage) });
+  const reportAccount = data.accounts.find((account) => account.id === params.account);
+  const paginationQuery = { page: String(data.accountPagination.page), exceptionsPage: String(data.exceptionPagination.page), jobsPage: String(data.jobPagination.page) };
   return (
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-3xl">Sponsorship billing</h1>
@@ -44,6 +53,7 @@ export default async function Page() {
           No recorded payment exceptions.
         </p>
       )}
+      <AdminLibraryPagination path="/admin/sponsorship" {...data.exceptionPagination} pageParam="exceptionsPage" query={paginationQuery} />
       <h2 className="mt-10 text-xl">Pending work</h2>
       <ul className="mt-4 space-y-2 text-sm">
         {data.jobs.map((j) => (
@@ -53,25 +63,30 @@ export default async function Page() {
           </li>
         ))}
       </ul>
+      <AdminLibraryPagination path="/admin/sponsorship" {...data.jobPagination} pageParam="jobsPage" query={paginationQuery} />
       <h2 className="mt-10 text-xl">Accounts</h2>
       <ul className="mt-4 space-y-2 text-sm">
         {data.accounts.map((a) => (
           <li key={a.id} className="break-all">
             {a.id} · {a.state} · paid through{" "}
             {a.paidThrough?.toISOString() ?? "—"} ·{" "}
-            {a.cancelAtPeriodEnd ? "canceling" : "renewing"}
+            {a.cancelAtPeriodEnd ? "canceling" : "renewing"}{" "}
+            <Link href={`/admin/sponsorship?${new URLSearchParams({ ...paginationQuery, account: a.id })}` as Route} prefetch={false} className="underline">View performance</Link>
           </li>
         ))}
       </ul>
+      <AdminLibraryPagination path="/admin/sponsorship" {...data.accountPagination} query={paginationQuery} />
       <h2 className="mt-10 text-xl">Sponsor performance</h2>
-      {data.accounts.slice(0, 100).map((account) => (
-        <div key={account.id}>
+      {reportAccount ? (
+        <div>
           <p className="mt-6 break-all text-sm">
-            Account {account.id} · {account.state}
+            Account {reportAccount.id} · {reportAccount.state}
           </p>
-          <AdminSponsorAnalytics accountId={account.id} />
+          <Suspense fallback={<p role="status">Loading sponsor performance…</p>}>
+            <AdminSponsorAnalytics accountId={reportAccount.id} />
+          </Suspense>
         </div>
-      ))}
+      ) : <p className="mt-4 text-sm text-[#767676]">Choose View performance on an account to load its report.</p>}
     </main>
   );
 }

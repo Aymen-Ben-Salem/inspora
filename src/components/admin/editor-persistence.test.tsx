@@ -83,6 +83,25 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it("uses small lazy section previews and leaves the website recording unloaded until playback", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const action = vi.fn<SaveAction>().mockResolvedValue({ status: "idle" });
+  try {
+    await act(async () => root.render(<WebsiteEditor action={action} creators={[]} website={{
+      ...website,
+      media: [...website.media, { role: "recording", url: "/original.mp4", posterUrl: "/poster.webp", width: 1200, height: 800, alt: "Recording" }],
+    }} />));
+    const sectionImage = container.querySelector<HTMLImageElement>('img[src="/media/variant.webp"]');
+    expect(sectionImage?.loading).toBe("lazy");
+    expect(sectionImage?.decoding).toBe("async");
+    expect(container.querySelector("video")?.preload).toBe("none");
+    const sections = JSON.parse(textField(container.querySelector("form")!, "sections").value);
+    expect(sections[0].url).toBe("/media/work.webp");
+  } finally { await act(async () => root.unmount()); }
+});
+
 async function enterText(input: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const prototype = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   await act(async () => {

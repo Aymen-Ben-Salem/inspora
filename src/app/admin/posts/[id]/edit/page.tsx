@@ -6,7 +6,7 @@ import { updatePostAction } from "@/features/admin/actions";
 import {
   getAdminPostById,
 } from "@/features/admin/posts-repository";
-import { getAdminCreators } from "@/features/creators/identity";
+import { getAdminCreatorOptions } from "@/features/creators/identity";
 
 type EditPostPageProps = {
   params: Promise<{ id: string }>;
@@ -17,7 +17,7 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
   const [post, creators, categories] = await Promise.all([
     getAdminPostById(id),
-    getAdminCreators(),
+    getAdminCreatorOptions(),
     getDesignCategories(),
   ]);
 

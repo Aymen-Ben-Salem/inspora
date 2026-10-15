@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
@@ -23,6 +23,7 @@ import {
   shouldLockExistingCreator,
 } from "@/features/admin/creator-environment-policy";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
+import { ADMIN_LIBRARY_PAGE_SIZE, adminPageBounds } from "@/features/admin/library-pagination";
 import type { ManagedMediaAsset } from "@/storage/types";
 
 import type {
@@ -410,69 +411,90 @@ export async function saveAdminCreatorForAttribution(
   };
 }
 
-export async function getAdminCreators() {
+// Editors need attribution choices, not work/claim counts for every choice.
+export async function getAdminCreatorOptions() {
   await requireAdmin();
   const database = requireDatabase();
   const rows = await database.query.creators.findMany({
-    orderBy: [asc(creators.name)],
+    orderBy: [asc(creators.name), asc(creators.id)],
   });
-  const visibleRows = rows.filter((row) =>
+  return rows.filter((row) =>
     isCreatorVisibleInEnvironment(row.handle, process.env.DATA_ENVIRONMENT),
+  ).map(mapAdminCreatorAttribution);
+}
+
+function creatorDirectoryWhere(query = "") {
+  const term = query.trim().slice(0, 100);
+  return and(
+    process.env.DATA_ENVIRONMENT === "development" ? undefined : sql`(${creators.handle} is null or lower(trim(${creators.handle})) not like 'dev-%')`,
+    term ? or(...[creators.name, creators.handle, creators.username, creators.url, creators.xProfileUrl].map((column) => ilike(column, `%${term}%`))) : undefined,
   );
+}
+
+export async function getAdminCreatorDirectory({ query = "", page = 1 }: { query?: string; page?: number } = {}) {
+  await requireAdmin();
+  const [total] = await requireDatabase().select({ total: count() }).from(creators).where(creatorDirectoryWhere(query));
+  const pagination = adminPageBounds(total?.total ?? 0, page);
+  const items = await getAdminCreators({ query, page: pagination.page });
+  return { ...pagination, items };
+}
+
+export async function getAdminCreators(options: { query?: string; page?: number } = {}) {
+  await requireAdmin();
+  const database = requireDatabase();
+  const rows = await database.query.creators.findMany({
+    where: creatorDirectoryWhere(options.query),
+    orderBy: [asc(creators.name), asc(creators.id)],
+    ...(options.page ? { limit: ADMIN_LIBRARY_PAGE_SIZE, offset: (options.page - 1) * ADMIN_LIBRARY_PAGE_SIZE } : {}),
+  });
+  const visibleRows = rows.filter((row) => isCreatorVisibleInEnvironment(row.handle, process.env.DATA_ENVIRONMENT));
   if (visibleRows.length === 0) return [];
 
   const ids = visibleRows.map((row) => row.id);
-  const [postRows, logoRows, websiteRows, claimRows] = await Promise.all([
-    database
-      .select({ creatorId: posts.creatorId })
-      .from(posts)
-      .where(inArray(posts.creatorId, ids)),
-    database
-      .select({ creatorId: logos.creatorId })
-      .from(logos)
-      .where(inArray(logos.creatorId, ids)),
-    database
-      .select({ creatorId: websites.creatorId })
-      .from(websites)
-      .where(inArray(websites.creatorId, ids)),
-    database
-      .select({ creatorId: creatorClaims.targetCreatorId })
-      .from(creatorClaims)
-      .where(
-        and(
-          inArray(creatorClaims.targetCreatorId, ids),
-          eq(creatorClaims.status, "pending"),
-        ),
-      ),
-  ]);
-
-  const workCounts = new Map<string, number>();
-  for (const { creatorId } of [...postRows, ...logoRows, ...websiteRows]) {
-    workCounts.set(creatorId, (workCounts.get(creatorId) ?? 0) + 1);
-  }
-  const claimCounts = new Map<string, number>();
-  for (const { creatorId } of claimRows) {
-    claimCounts.set(creatorId, (claimCounts.get(creatorId) ?? 0) + 1);
-  }
+  const totals = await database.execute<{ creatorId: string; workCount: number; pendingClaimCount: number }>(sql`
+    select creator_id as "creatorId", sum(work_count)::int as "workCount", sum(claim_count)::int as "pendingClaimCount"
+    from (
+      select ${posts.creatorId} as creator_id, count(*) as work_count, 0 as claim_count from ${posts}
+      where ${inArray(posts.creatorId, ids)} group by ${posts.creatorId}
+      union all
+      select ${logos.creatorId}, count(*), 0 from ${logos}
+      where ${inArray(logos.creatorId, ids)} group by ${logos.creatorId}
+      union all
+      select ${websites.creatorId}, count(*), 0 from ${websites}
+      where ${inArray(websites.creatorId, ids)} group by ${websites.creatorId}
+      union all
+      select ${creatorClaims.targetCreatorId}, 0, count(*) from ${creatorClaims}
+      where ${and(inArray(creatorClaims.targetCreatorId, ids), eq(creatorClaims.status, "pending"))}
+      group by ${creatorClaims.targetCreatorId}
+    ) totals group by creator_id
+  `);
+  const counts = new Map(totals.rows.map((row) => [row.creatorId, row]));
 
   return visibleRows.map((row) =>
     mapAdminCreatorRecord(row, {
-      workCount: workCounts.get(row.id) ?? 0,
-      pendingClaimCount: claimCounts.get(row.id) ?? 0,
+      workCount: counts.get(row.id)?.workCount ?? 0,
+      pendingClaimCount: counts.get(row.id)?.pendingClaimCount ?? 0,
     }),
   );
 }
 
-export async function getAdminCreatorClaims(): Promise<
-  AdminCreatorClaimRecord[]
-> {
+export async function getAdminCreatorClaimPage(page = 1) {
+  await requireAdmin();
+  const database = requireDatabase();
+  const [total] = await database.select({ total: count() }).from(creatorClaims);
+  const pagination = adminPageBounds(total?.total ?? 0, page);
+  return { ...pagination, items: await getAdminCreatorClaims(pagination.page) };
+}
+
+export async function getAdminCreatorClaims(page?: number) {
   await requireAdmin();
   const database = requireDatabase();
   const rows = await database.query.creatorClaims.findMany({
-    orderBy: [asc(creatorClaims.createdAt)],
-    with: { targetCreator: true },
+    orderBy: [asc(creatorClaims.createdAt), asc(creatorClaims.id)],
+    ...(page ? { limit: ADMIN_LIBRARY_PAGE_SIZE, offset: (page - 1) * ADMIN_LIBRARY_PAGE_SIZE } : {}),
+    with: { targetCreator: { columns: { name: true } } },
   });
-  return rows.map((row) => ({
+  const items: AdminCreatorClaimRecord[] = rows.map((row) => ({
     id: row.id,
     requesterUserId: row.requesterUserId,
     targetCreatorId: row.targetCreatorId,
@@ -483,6 +505,7 @@ export async function getAdminCreatorClaims(): Promise<
     createdAt: row.createdAt.toISOString(),
     reviewedAt: row.reviewedAt?.toISOString(),
   }));
+  return items;
 }
 
 export async function createAdminCreator(input: AdminCreatorInput) {

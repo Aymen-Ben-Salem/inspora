@@ -41,7 +41,8 @@ async function canvasToWebp(canvas: HTMLCanvasElement, context: CanvasRenderingC
   return new Blob([bytes], { type: "image/webp" });
 }
 
-export async function optimizeStaticImage(file: File, kind: MediaUploadKind) {
+export async function optimizeStaticImage(file: File, kind: MediaUploadKind, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -51,26 +52,34 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind) {
 
   try {
     const widths = getOptimizedImageWidths(bitmap.width, kind);
-    return await Promise.all(
-      widths.map(async (width): Promise<OptimizedImage> => {
-        const height = Math.max(1, Math.round((bitmap.height * width) / bitmap.width));
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+    const outputs: OptimizedImage[] = [];
+    for (const width of widths) {
+      signal?.throwIfAborted();
+      const height = Math.max(1, Math.round((bitmap.height * width) / bitmap.width));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      try {
         const context = canvas.getContext("2d", { alpha: true });
         if (!context) throw new Error("The image optimizer could not start.");
 
         context.drawImage(bitmap, 0, 0, width, height);
         const blob = await canvasToWebp(canvas, context);
-        return {
+        signal?.throwIfAborted();
+        outputs.push({
           file: new File([blob], outputFileName(file.name, width), {
             type: "image/webp",
           }),
           width,
           height,
-        };
-      }),
-    );
+        });
+      } finally {
+        // Releasing the backing store matters for tall website screenshots.
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+    }
+    return outputs;
   } finally {
     bitmap.close();
   }

@@ -56,4 +56,16 @@ describe("shared publication file preparation", () => {
     await expect(prepareAndUploadMedia(new File(["png"], "image.png", { type: "image/png" }), "post-media", operations)).rejects.toThrow("decode failed");
     expect(operations.upload).not.toHaveBeenCalled();
   });
+
+  it("does not upload prepared media after the editor cancels conversion", async () => {
+    const video = new File(["mp4"], "input.mp4", { type: "video/mp4" });
+    const controller = new AbortController();
+    vi.mocked(createVideoPreview).mockImplementation(async () => { controller.abort(); return video; });
+    vi.mocked(createVideoPoster).mockResolvedValue({ file: new File(["poster"], "p.webp", { type: "image/webp" }), width: 400, height: 300, videoWidth: 400, videoHeight: 300 });
+    const operations = { upload: vi.fn(), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };
+    await expect(prepareAndUploadMedia(video, "post-media", operations, undefined, (active) => {
+      controller.signal.addEventListener("abort", () => active.abort());
+    })).rejects.toMatchObject({ name: "AbortError" });
+    expect(operations.upload).not.toHaveBeenCalled();
+  });
 });

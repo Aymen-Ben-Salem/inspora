@@ -68,6 +68,25 @@ describe("responsive image widths", () => {
 });
 
 describe("static image preparation", () => {
+  it("encodes one variant at a time and releases every canvas backing store", async () => {
+    const bitmap = { width: 2560, height: 100, close: vi.fn() };
+    vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
+    const canvases: Array<{ width: number; height: number }> = [];
+    vi.stubGlobal("document", { createElement: () => {
+      expect(canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
+      const canvas = {
+        width: 0, height: 0,
+        getContext: () => ({ drawImage: vi.fn() }),
+        toBlob: (callback: BlobCallback) => queueMicrotask(() => callback(new Blob(["webp"], { type: "image/webp" }))),
+      };
+      canvases.push(canvas);
+      return canvas;
+    } });
+    const outputs = await optimizeStaticImage(new File(["png"], "wide.png", { type: "image/png" }), "post-media");
+    expect(outputs).toHaveLength(4);
+    expect(canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
+    expect(bitmap.close).toHaveBeenCalledOnce();
+  });
   it("creates real WebP with transparency when canvas falls back to PNG in Safari", async () => {
     const bitmap = mockImageBrowser(new Blob(["png"], { type: "image/png" }));
     const source = new File(["png"], "logo.png", { type: "image/png" });

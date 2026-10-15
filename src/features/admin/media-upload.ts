@@ -46,13 +46,25 @@ export function defaultAltText(fileName: string) {
     .trim();
 }
 
-export async function readMediaDimensions(file: File) {
+export async function readMediaDimensions(file: File, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   const url = URL.createObjectURL(file);
+  let media: HTMLVideoElement | HTMLImageElement | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
+  function watch(reject: (reason: unknown) => void) {
+    timer = setTimeout(() => reject(new Error("Reading media dimensions timed out.")), 15000);
+    abort = () => reject(new DOMException("Media preparation was cancelled.", "AbortError"));
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+  }
 
   try {
     if (file.type.startsWith("video/")) {
       return await new Promise<{ width: number; height: number }>((resolve, reject) => {
         const video = document.createElement("video");
+        media = video;
+        watch(reject);
         video.preload = "metadata";
         video.muted = true;
         video.onloadedmetadata = () =>
@@ -66,6 +78,8 @@ export async function readMediaDimensions(file: File) {
 
     return await new Promise<{ width: number; height: number }>((resolve, reject) => {
       const image = new Image();
+      media = image;
+      watch(reject);
       image.onload = () =>
         image.naturalWidth > 0 && image.naturalHeight > 0
           ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
@@ -74,6 +88,19 @@ export async function readMediaDimensions(file: File) {
       image.src = url;
     });
   } finally {
+    clearTimeout(timer);
+    if (abort) signal?.removeEventListener("abort", abort);
+    if (media) {
+      media.onerror = null;
+      media.removeAttribute("src");
+      if (file.type.startsWith("video/")) {
+        const video = media as HTMLVideoElement;
+        video.onloadedmetadata = null;
+        video.load();
+      } else {
+        (media as HTMLImageElement).onload = null;
+      }
+    }
     URL.revokeObjectURL(url);
   }
 }

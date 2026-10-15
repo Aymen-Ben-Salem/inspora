@@ -6,7 +6,7 @@ import {
   acceptAndPublishAction,
   rejectSubmissionAction,
 } from "../../../../features/admin/submission-actions";
-import { getAdminCreators } from "../../../../features/creators/identity";
+import { getAdminCreatorOptions } from "../../../../features/creators/identity";
 import { getSubmissionReviewById } from "../../../../features/submissions/review-service";
 
 export default async function SubmissionReviewPage({
@@ -17,7 +17,7 @@ export default async function SubmissionReviewPage({
   const { id } = await params;
   const [submission, creators, categories] = await Promise.all([
     getSubmissionReviewById(id),
-    getAdminCreators(),
+    getAdminCreatorOptions(),
     getDesignCategories(),
   ]);
   if (!submission) notFound();

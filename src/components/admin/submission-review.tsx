@@ -8,7 +8,7 @@ import type { AdminSubmissionReview } from "../../features/submissions/review-se
 import {
   initialAdminActionState,
   type AdminActionState,
-  type AdminCreatorRecord,
+  type AdminCreatorAttribution,
   type AdminLogoRecord,
   type AdminPostRecord,
   type AdminWebsiteRecord,
@@ -31,7 +31,7 @@ function sourceLabel(kind: AdminSubmissionReview["kind"]) {
 
 function postDraft(
   submission: AdminSubmissionReview,
-  creator: AdminCreatorRecord,
+  creator: AdminCreatorAttribution,
 ): AdminPostRecord {
   return {
     id: submission.id,
@@ -54,7 +54,7 @@ function postDraft(
 
 function logoDraft(
   submission: AdminSubmissionReview,
-  creator: AdminCreatorRecord,
+  creator: AdminCreatorAttribution,
 ): AdminLogoRecord {
   return {
     id: submission.id,
@@ -77,7 +77,7 @@ function logoDraft(
 
 function websiteDraft(
   submission: AdminSubmissionReview,
-  creator: AdminCreatorRecord,
+  creator: AdminCreatorAttribution,
 ): AdminWebsiteRecord {
   return {
     id: submission.id,
@@ -142,8 +142,8 @@ export function SubmissionReview({
   rejectAction,
 }: {
   submission: AdminSubmissionReview;
-  creator: AdminCreatorRecord;
-  creators: AdminCreatorRecord[];
+  creator: AdminCreatorAttribution;
+  creators: AdminCreatorAttribution[];
   categories: string[];
   acceptAction: ReviewAction;
   rejectAction: ReviewAction;
@@ -204,7 +204,7 @@ export function SubmissionReview({
 
       {submission.status === "accepted" && submission.publishedRef ? (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-          This submission is published. <Link className="underline" href={submission.publishedRef.href as Route}>Open the work</Link>.
+          This submission is published. <Link prefetch={false} className="underline" href={submission.publishedRef.href as Route}>Open the work</Link>.
         </section>
       ) : null}
       {submission.status === "rejected" ? (

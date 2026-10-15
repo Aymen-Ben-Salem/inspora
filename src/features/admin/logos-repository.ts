@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 
+import { requireAdmin } from "@/auth/require-admin";
+
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, creators, logoMedia, logos } from "@/db/schema";
 import { withWriteTransaction, type WriteTx } from "@/db/write-client";
@@ -20,6 +22,7 @@ import type {
   AdminLogoRecord,
   ManagedMediaAsset,
 } from "./types";
+import { ADMIN_LIBRARY_PAGE_SIZE, adminThumbnailUrl, getAdminLibraryPagination, type AdminLibraryOptions } from "./library-pagination";
 
 type LogoRow = typeof logos.$inferSelect;
 type LogoMediaRow = typeof logoMedia.$inferSelect;
@@ -174,17 +177,25 @@ function unretainedLogoAssets(
   });
 }
 
-export async function getAdminLogos() {
+export async function getAdminLogos(options: AdminLibraryOptions = {}) {
+  await requireAdmin();
   const database = requireDatabase();
+  const pagination = await getAdminLibraryPagination(database, logos, options);
   const rows = await database.query.logos.findMany({
+    columns: { id: true, slug: true, title: true, kind: true, industry: true, status: true, createdAt: true },
     orderBy: [desc(logos.createdAt), desc(logos.id)],
+    limit: ADMIN_LIBRARY_PAGE_SIZE,
+    offset: (pagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE,
     with: {
-      creator: true,
-      media: { orderBy: [asc(logoMedia.createdAt)] },
+      creator: { columns: { name: true } },
+      media: { columns: { url: true, alt: true, variants: true }, orderBy: [asc(logoMedia.createdAt)], limit: 1 },
     },
   });
 
-  return rows.map(mapAdminLogo);
+  return { ...pagination, items: rows.map((row) => {
+    const media = row.media[0];
+    return { ...row, media: media ? { url: adminThumbnailUrl(media.url, media.variants), alt: media.alt } : undefined };
+  }) };
 }
 
 export async function getAdminLogoById(id: string) {

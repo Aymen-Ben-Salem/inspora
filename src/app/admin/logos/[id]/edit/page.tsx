@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { LogoEditor } from "@/components/admin/logo-editor";
 import { updateLogoAction } from "@/features/admin/actions";
 import { getAdminLogoById } from "@/features/admin/logos-repository";
-import { getAdminCreators } from "@/features/creators/identity";
+import { getAdminCreatorOptions } from "@/features/creators/identity";
 
 type EditLogoPageProps = {
   params: Promise<{ id: string }>;
@@ -14,7 +14,7 @@ export default async function EditLogoPage({ params, searchParams }: EditLogoPag
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
   const [logo, creators] = await Promise.all([
     getAdminLogoById(id),
-    getAdminCreators(),
+    getAdminCreatorOptions(),
   ]);
 
   if (!logo) notFound();

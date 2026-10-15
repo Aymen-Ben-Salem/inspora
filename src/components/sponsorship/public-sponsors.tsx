@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -16,6 +17,8 @@ const Context = createContext<{
   initialize: (initial: ActiveSponsor[]) => void;
 }>({ sponsors: [], ready: false, refresh: async () => {}, initialize: () => {} });
 export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/admin-access-denied";
   const [sponsors, setSponsors] = useState<ActiveSponsor[]>([]),
     [ready, setReady] = useState(false);
   const inFlight = useRef(false),
@@ -52,7 +55,7 @@ export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
     [expire],
   );
   const refresh = useCallback(async () => {
-    if (inFlight.current) return;
+    if (isAdmin || inFlight.current) return;
     inFlight.current = true;
     const request = new AbortController();
     controller.current = request;
@@ -63,6 +66,7 @@ export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
       });
       const body = await response.json();
       if (
+        request.signal.aborted ||
         !response.ok ||
         !Array.isArray(body.sponsors) ||
         !Number.isFinite(Date.parse(body.serverTime))
@@ -79,8 +83,9 @@ export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
     } finally {
       inFlight.current = false;
     }
-  }, [expire]);
+  }, [expire, isAdmin]);
   useEffect(() => {
+    if (isAdmin) return;
     let mounted = true;
     queueMicrotask(() => {
       if (mounted) void refresh();
@@ -105,7 +110,7 @@ export function PublicSponsorsProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", foreground);
       window.removeEventListener("sponsorship-changed", foreground);
     };
-  }, [expire, refresh]);
+  }, [expire, refresh, isAdmin]);
   return (
     <Context.Provider value={{ sponsors, ready, refresh, initialize }}>
       {children}

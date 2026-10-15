@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import { AdminLibraryPagination } from "./library-pagination";
 
 import {
   AdminCreatorEditor,
@@ -27,6 +28,8 @@ export function CreatorManager({
   deleteAction,
   reviewAction,
   lockExistingCreators,
+  directoryPage,
+  claimsPage,
 }: {
   creators: AdminCreatorRecord[];
   claims: AdminCreatorClaimRecord[];
@@ -40,6 +43,8 @@ export function CreatorManager({
   ) => Promise<AdminActionState>;
   reviewAction: (formData: FormData) => Promise<void>;
   lockExistingCreators: boolean;
+  directoryPage?: { page: number; totalPages: number; query: string };
+  claimsPage?: { page: number; totalPages: number };
 }) {
   const [saveState, saveFormAction, isSaving] = useActionState(
     saveAction,
@@ -94,7 +99,12 @@ export function CreatorManager({
               <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Directory</p>
               <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Creator records</h2>
             </div>
-            <label className="grid w-full min-w-0 gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#777] sm:w-64">
+            {directoryPage ? (
+              <form action="/admin/creators" className="flex w-full gap-2 sm:w-80">
+                <input name="q" defaultValue={directoryPage.query} aria-label="Search creators" placeholder="Name, username, Website or X" className={inputClass} />
+                <button className="focus-ring rounded-full bg-black px-4 text-sm text-white">Search</button>
+              </form>
+            ) : <label className="grid w-full min-w-0 gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#777] sm:w-64">
               Search
               <input
                 className={inputClass}
@@ -102,8 +112,9 @@ export function CreatorManager({
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Name, username, Website or X"
               />
-            </label>
+            </label>}
           </div>
+          {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
           <div className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
             {filteredCreators.map((item) => (
               <button
@@ -241,6 +252,7 @@ export function CreatorManager({
             No creator claims have been submitted.
           </p>
         ) : null}
+        {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1) }} /> : null}
       </aside>
     </div>
   );

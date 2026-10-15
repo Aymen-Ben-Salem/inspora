@@ -115,13 +115,13 @@ export default async function SubscribersPage({ searchParams }: SubscribersPageP
       {result.totalPages > 1 ? (
         <nav className="flex items-center justify-between" aria-label="Subscriber pages">
           {result.page > 1 ? (
-            <Link href={pageHref(result.page - 1, query)} className="focus-ring rounded-full border border-black/10 bg-white px-4 py-2 text-sm">
+            <Link prefetch={false} href={pageHref(result.page - 1, query)} className="focus-ring rounded-full border border-black/10 bg-white px-4 py-2 text-sm">
               Previous
             </Link>
           ) : <span />}
           <span className="text-sm text-[#777]">Page {result.page} of {result.totalPages}</span>
           {result.page < result.totalPages ? (
-            <Link href={pageHref(result.page + 1, query)} className="focus-ring rounded-full border border-black/10 bg-white px-4 py-2 text-sm">
+            <Link prefetch={false} href={pageHref(result.page + 1, query)} className="focus-ring rounded-full border border-black/10 bg-white px-4 py-2 text-sm">
               Next
             </Link>
           ) : <span />}

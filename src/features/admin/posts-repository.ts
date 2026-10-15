@@ -3,7 +3,9 @@ import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
+
+import { requireAdmin } from "@/auth/require-admin";
 
 import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, creators, postMedia, posts } from "@/db/schema";
@@ -22,6 +24,7 @@ import type {
   AdminPostStatus,
   ManagedMediaAsset,
 } from "./types";
+import { ADMIN_LIBRARY_PAGE_SIZE, adminThumbnailUrl, getAdminLibraryPagination, type AdminLibraryOptions } from "./library-pagination";
 
 type PostRow = typeof posts.$inferSelect;
 type CreatorRow = Parameters<typeof mapAdminCreatorAttribution>[0];
@@ -179,17 +182,35 @@ export async function insertAdminPostInTransaction(
   return { id, slug: input.slug };
 }
 
-export async function getAdminPosts() {
+export async function getAdminPosts(options: AdminLibraryOptions = {}) {
+  await requireAdmin();
   const database = requireDatabase();
+  const pagination = await getAdminLibraryPagination(database, posts, options);
   const rows = await database.query.posts.findMany({
+    columns: { id: true, slug: true, title: true, category: true, isFeatured: true, status: true, createdAt: true },
+    where: options.view === "featured" ? eq(posts.isFeatured, true) : undefined,
     orderBy: [desc(posts.createdAt), desc(posts.id)],
+    limit: ADMIN_LIBRARY_PAGE_SIZE,
+    offset: (pagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE,
+    extras: (fields) => ({
+      mediaCount: sql<number>`(select count(*)::int from post_media where post_media.post_id = ${fields.id})`.as("media_count"),
+    }),
     with: {
-      creator: true,
-      media: { orderBy: [asc(postMedia.position)] },
+      creator: { columns: { name: true } },
+      media: {
+        columns: { type: true, url: true, posterUrl: true, alt: true, width: true, sourceMimeType: true, variants: true },
+        orderBy: [asc(postMedia.position)], limit: 1,
+      },
     },
   });
 
-  return rows.map(mapAdminPost);
+  return { ...pagination, items: rows.map((row) => ({
+    ...row,
+    media: row.media.map(({ variants, ...media }) => ({
+      ...media,
+      url: media.type === "image" ? adminThumbnailUrl(media.url, variants) : media.url,
+    })),
+  })) };
 }
 
 export async function getAdminPostById(id: string) {

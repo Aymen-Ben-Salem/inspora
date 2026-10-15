@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { WebsiteEditor } from "@/components/admin/website-editor";
 import { updateWebsiteAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/creators/identity";
+import { getAdminCreatorOptions } from "@/features/creators/identity";
 import { getAdminWebsiteById } from "@/features/admin/websites-repository";
 
 type EditWebsitePageProps = {
@@ -14,7 +14,7 @@ export default async function EditWebsitePage({ params, searchParams }: EditWebs
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
   const [website, creators] = await Promise.all([
     getAdminWebsiteById(id),
-    getAdminCreators(),
+    getAdminCreatorOptions(),
   ]);
   if (!website) notFound();
 

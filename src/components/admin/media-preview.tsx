@@ -43,7 +43,7 @@ export function AdminMediaPreview({
   maxDisplayWidth,
 }: AdminMediaPreviewProps) {
   const [failedSource, setFailedSource] = useState<string>();
-  const source = type === "video" ? (posterUrl || url) : url;
+  const source = type === "video" && !controls ? (posterUrl || "") : url;
   const hasError = Boolean(source && failedSource === source);
 
   return (
@@ -52,16 +52,16 @@ export function AdminMediaPreview({
         maxDisplayWidth ? "flex items-center justify-center" : ""
       } ${className}`}
     >
-      {!url || hasError ? (
+      {!source || hasError ? (
         <EmptyPreview isError={hasError} />
-      ) : type === "video" ? (
+      ) : type === "video" && controls ? (
         <video
           src={url}
           poster={posterUrl || undefined}
           controls={controls}
           muted
           playsInline
-          preload="metadata"
+          preload="none"
           aria-label={alt || "Post video preview"}
           onError={() => setFailedSource(source)}
           style={
@@ -79,7 +79,7 @@ export function AdminMediaPreview({
         // Admins can preview a newly entered origin before it is added to Next.js image config.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={url}
+          src={source}
           alt={alt}
           loading="lazy"
           decoding="async"

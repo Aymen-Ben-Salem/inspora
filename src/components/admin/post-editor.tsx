@@ -18,7 +18,7 @@ import {
   initialAdminActionState,
   type AdminActionState,
   type AdminCreatorInput,
-  type AdminCreatorRecord,
+  type AdminCreatorAttribution,
   type AdminMediaInput,
   type AdminPostRecord,
 } from "@/features/admin/types";
@@ -55,7 +55,7 @@ export function PostEditor({
   submittedMediaHref,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
-  creators: AdminCreatorRecord[];
+  creators: AdminCreatorAttribution[];
   categories: string[];
   post?: AdminPostRecord;
   lockExistingCreators?: boolean;
@@ -380,7 +380,7 @@ export function PostEditor({
               Save draft
             </button>
           ) : null}
-          <Link href={cancelHref} className="focus-ring py-2 text-center text-sm text-[#777] hover:text-black">
+          <Link prefetch={false} href={cancelHref} className="focus-ring py-2 text-center text-sm text-[#777] hover:text-black">
             Cancel
           </Link>
         </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { MediaUploadKind, UploadedAdminMedia } from "@/features/admin/media-upload";
 import type { MediaUploadOperations } from "@/features/media/prepare-upload";
@@ -37,18 +37,30 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
   const isPending = status !== "idle";
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      conversionControllerRef.current?.abort();
+    };
+  }, []);
 
   async function upload(file: File) {
     setError("");
     try {
-      onUploaded(await prepareAndUploadMedia(file, kind, activeOperations, setStatus, (controller) => {
+      const result = await prepareAndUploadMedia(file, kind, activeOperations, (next) => {
+        if (mountedRef.current) setStatus(next);
+      }, (controller) => {
         conversionControllerRef.current = controller;
-      }));
+        if (!mountedRef.current) controller.abort();
+      });
+      if (mountedRef.current) onUploaded(result);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
+      if (mountedRef.current) setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
     } finally {
       conversionControllerRef.current = null;
-      setStatus("idle");
+      if (mountedRef.current) setStatus("idle");
       if (inputRef.current) inputRef.current.value = "";
     }
   }

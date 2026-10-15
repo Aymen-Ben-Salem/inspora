@@ -1,17 +1,17 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { AdminLibraryPagination } from "@/components/admin/library-pagination";
+import { parseAdminPage } from "@/features/admin/library-pagination";
 
 import { getSubmissionReviewQueue } from "../../../features/submissions/review-service";
 
 export default async function AdminSubmissionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ accepted?: string; rejected?: string }>;
+  searchParams: Promise<{ accepted?: string; rejected?: string; page?: string }>;
 }) {
-  const [{ accepted, rejected }, submissions] = await Promise.all([
-    searchParams,
-    getSubmissionReviewQueue(),
-  ]);
+  const { accepted, rejected, page: pageParam } = await searchParams;
+  const { items: submissions, total, page, totalPages } = await getSubmissionReviewQueue(parseAdminPage(pageParam));
   const dateFormatter = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -23,7 +23,7 @@ export default async function AdminSubmissionsPage({
         <div>
           <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Editorial queue</p>
           <h1 className="mt-1 text-4xl font-medium tracking-[-0.055em] sm:text-5xl">Submissions</h1>
-          <p className="mt-3 text-sm text-[#777]">{submissions.length} awaiting review</p>
+          <p className="mt-3 text-sm text-[#777]">{total} awaiting review</p>
         </div>
         {accepted || rejected ? (
           <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">
@@ -40,7 +40,7 @@ export default async function AdminSubmissionsPage({
       ) : (
         <section className="overflow-hidden rounded-2xl border border-black/10 bg-white" aria-label="Submission review queue">
           {submissions.map((submission) => (
-            <Link
+            <Link prefetch={false}
               key={submission.id}
               href={`/admin/submissions/${submission.id}` as Route}
               className="focus-ring grid gap-3 border-b border-black/10 px-5 py-5 transition-colors last:border-b-0 hover:bg-[#f7f7f4] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
@@ -64,6 +64,7 @@ export default async function AdminSubmissionsPage({
           ))}
         </section>
       )}
+      <AdminLibraryPagination path="/admin/submissions" page={page} totalPages={totalPages} />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { WebsiteEditor } from "@/components/admin/website-editor";
 import { createWebsiteAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/creators/identity";
+import { getAdminCreatorOptions } from "@/features/creators/identity";
 
 export default async function NewWebsitePage() {
-  const creators = await getAdminCreators();
+  const creators = await getAdminCreatorOptions();
   return (
     <div className="grid gap-7">
       <div>

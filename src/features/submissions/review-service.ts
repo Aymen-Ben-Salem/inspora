@@ -1,7 +1,9 @@
 import "server-only";
 import { attemptCleanupKey } from "./cleanup";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { requireAdmin } from "../../auth/require-admin";
+import { ADMIN_LIBRARY_PAGE_SIZE, adminPageBounds } from "../admin/library-pagination";
 
 import { requireDatabase } from "../../db/client";
 import {
@@ -390,11 +392,16 @@ function reviewQuery() {
     .leftJoin(submissionUploads, eq(submissionUploads.id, submissions.uploadId));
 }
 
-export async function getSubmissionReviewQueue() {
+export async function getSubmissionReviewQueue(page = 1) {
+  await requireAdmin();
+  const [total] = await requireDatabase().select({ total: count() }).from(submissions).where(eq(submissions.status, "in_review"));
+  const pagination = adminPageBounds(total?.total ?? 0, page);
   const rows = await reviewQuery()
     .where(eq(submissions.status, "in_review"))
-    .orderBy(desc(submissions.createdAt), desc(submissions.id));
-  return rows.map((row) => mapAdminSubmissionReview(row as ReviewProjectionRow));
+    .orderBy(desc(submissions.createdAt), desc(submissions.id))
+    .limit(ADMIN_LIBRARY_PAGE_SIZE)
+    .offset((pagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE);
+  return { ...pagination, total: total?.total ?? 0, items: rows.map((row) => mapAdminSubmissionReview(row as ReviewProjectionRow)) };
 }
 
 export async function getSubmissionReviewById(submissionId: string) {

@@ -1,10 +1,10 @@
 import { getDesignCategories } from "@/data/categories-repository";
 import { PostEditor } from "@/components/admin/post-editor";
 import { createPostAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/creators/identity";
+import { getAdminCreatorOptions } from "@/features/creators/identity";
 
 export default async function NewPostPage() {
-  const [creators, categories] = await Promise.all([getAdminCreators(), getDesignCategories()]);
+  const [creators, categories] = await Promise.all([getAdminCreatorOptions(), getDesignCategories()]);
 
   return (
     <div className="grid gap-7">

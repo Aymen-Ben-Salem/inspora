@@ -9,7 +9,6 @@ import { getConfiguredAdminUserIds, isClerkConfigured } from "@/auth/config";
 import { requireAdmin } from "@/auth/require-admin";
 import { AdminAuthEntry } from "@/components/auth/admin-auth-entry";
 import { BrandMark } from "@/components/brand-mark";
-import { CleanupNotice } from "@/components/admin/cleanup-notice";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -67,68 +66,69 @@ async function AdminContent({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] bg-[#f5f5f2] text-[#171717]">
-      <header className="sticky top-0 z-40 border-b border-black/10 bg-[#f5f5f2]/95 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-8 px-5 sm:px-8">
-          <Link
+      <header className="sticky top-0 z-40 border-b border-black/10 bg-[#f5f5f2]">
+        <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-5 sm:px-8 lg:gap-8">
+          <Link prefetch={false}
             href={"/admin/posts" as Route}
             aria-label="Inspora admin posts"
-            className="focus-ring rounded-lg"
+            className="focus-ring shrink-0 rounded-lg"
           >
             <BrandMark priority />
           </Link>
-          <nav className="flex items-center gap-1 text-sm text-[#666]" aria-label="Admin">
-            <Link
+          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap text-sm text-[#666]" aria-label="Admin">
+            <Link prefetch={false}
               href={"/admin/posts" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Posts
             </Link>
-            <Link
+            <Link prefetch={false}
               href={"/admin/logos" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Logos
             </Link>
-            <Link
+            <Link prefetch={false}
               href={"/admin/websites" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Websites
             </Link>
-            <Link
+            <Link prefetch={false}
               href={"/admin/submissions" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Submissions
             </Link>
-            <Link
+            <Link prefetch={false}
               href={"/admin/creators" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Creators
             </Link>
-            <Link
+            <Link prefetch={false}
               href={"/admin/sponsor" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Sponsor
             </Link>
-            <Link href={"/admin/sponsorship" as Route} className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black">Sponsor billing</Link>
-            <Link
+            <Link prefetch={false} href={"/admin/sponsorship" as Route} className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black">Sponsor billing</Link>
+            <Link prefetch={false}
               href={"/admin/subscribers" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Subscribers
             </Link>
-            <Link
+            <Link prefetch={false}
               href={"/admin/analytics" as Route}
               className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black"
             >
               Analytics
             </Link>
+            <Link prefetch={false} href={"/admin/cleanup" as Route} className="focus-ring rounded-full px-3 py-2 transition-colors hover:bg-white hover:text-black">Cleanup</Link>
           </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <Link
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <Link prefetch={false}
               href="/"
               target="_blank"
               className="focus-ring hidden rounded-full border border-black/10 bg-white px-4 py-2 text-sm sm:inline-flex"
@@ -140,7 +140,6 @@ async function AdminContent({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto w-full max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10">
-        <Suspense fallback={<p className="mb-6 text-sm">Checking cleanup status…</p>}><CleanupNotice /></Suspense>
         {children}
       </main>
     </div>

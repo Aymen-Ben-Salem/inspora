@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 import { useEffect, useState, type PropsWithChildren } from "react";
 
 import type { CreatorProfile } from "@/features/creators/types";
@@ -13,7 +14,9 @@ import {
 // Mounted inside the root Clerk provider so page/navbar remounts keep the photo.
 export function ViewerProfileProvider({ children }: PropsWithChildren) {
   const { isSignedIn, userId: clerkUserId } = useAuth();
-  const userId = isSignedIn ? clerkUserId ?? undefined : undefined;
+  const pathname = usePathname();
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/admin-access-denied";
+  const userId = isSignedIn && !isAdmin ? clerkUserId ?? undefined : undefined;
   const [result, setResult] = useState<ViewerProfileState | null>(null);
 
   useEffect(() => {

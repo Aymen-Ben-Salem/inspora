@@ -11,6 +11,7 @@ vi.mock("react", async (importOriginal) => ({
   useState: () => [hooks.state(), hooks.setState],
 }));
 vi.mock("@clerk/nextjs", () => ({ useAuth: () => hooks.auth() }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 import { refreshViewerProfile, useViewerProfile, type ViewerProfileState } from "./use-viewer-profile";
 import { ViewerProfileProvider } from "./viewer-profile-provider";

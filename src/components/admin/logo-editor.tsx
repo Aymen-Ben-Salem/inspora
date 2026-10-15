@@ -17,7 +17,7 @@ import {
   initialAdminActionState,
   type AdminActionState,
   type AdminCreatorInput,
-  type AdminCreatorRecord,
+  type AdminCreatorAttribution,
   type AdminLogoMediaInput,
   type AdminLogoRecord,
 } from "@/features/admin/types";
@@ -49,7 +49,7 @@ export function LogoEditor({
     state: AdminActionState,
     formData: FormData,
   ) => Promise<AdminActionState>;
-  creators: AdminCreatorRecord[];
+  creators: AdminCreatorAttribution[];
   logo?: AdminLogoRecord;
   lockExistingCreators?: boolean;
   actionLabel?: string;
@@ -377,7 +377,7 @@ export function LogoEditor({
           >
             {isPending ? "Saving..." : (actionLabel ?? (logo ? "Save changes" : "Create logo"))}
           </button>
-          <Link
+          <Link prefetch={false}
             href={cancelHref}
             className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline"
           >

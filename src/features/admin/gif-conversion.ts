@@ -19,11 +19,15 @@ type ConversionStage =
 const CONVERSION_TIMEOUT_MS = 5 * 60 * 1000;
 let enginePromise: Promise<import("@ffmpeg/ffmpeg").FFmpeg> | undefined;
 let conversionQueue: Promise<void> = Promise.resolve();
+let pendingConversions = 0;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
 function runConversionExclusive<T>(
   signal: AbortSignal,
   operation: () => Promise<T>,
 ) {
+  pendingConversions++;
+  clearTimeout(idleTimer);
   const run = conversionQueue.then(async () => {
     if (signal.aborted) {
       throw new DOMException("Media conversion was cancelled.", "AbortError");
@@ -34,7 +38,18 @@ function runConversionExclusive<T>(
     () => undefined,
     () => undefined,
   );
-  return run;
+  return run.finally(() => {
+    pendingConversions--;
+    if (pendingConversions === 0) {
+      // Keep the engine briefly for the GIF -> video-preview sequence, then
+      // release its worker and WASM high-water allocation across navigation.
+      idleTimer = setTimeout(() => {
+        const idleEngine = enginePromise;
+        enginePromise = undefined;
+        void idleEngine?.then((engine) => engine.terminate(), () => {});
+      }, 5000);
+    }
+  });
 }
 
 async function loadEngine(
@@ -48,14 +63,23 @@ async function loadEngine(
         import("@ffmpeg/util"),
       ]);
       const ffmpeg = new FFmpeg();
-      const [coreURL, wasmURL] = await Promise.all([
+      const blobs = await Promise.allSettled([
         toBlobURL(configuration.coreUrl, "text/javascript"),
         toBlobURL(configuration.wasmUrl, "application/wasm"),
       ]);
-      await ffmpeg.load({ coreURL, wasmURL }, { signal });
-      URL.revokeObjectURL(coreURL);
-      URL.revokeObjectURL(wasmURL);
-      return ffmpeg;
+      try {
+        signal.throwIfAborted();
+        const [core, wasm] = blobs;
+        if (core.status === "rejected") throw core.reason;
+        if (wasm.status === "rejected") throw wasm.reason;
+        await ffmpeg.load({ coreURL: core.value, wasmURL: wasm.value }, { signal });
+        return ffmpeg;
+      } catch (error) {
+        ffmpeg.terminate();
+        throw error;
+      } finally {
+        for (const blob of blobs) if (blob.status === "fulfilled") URL.revokeObjectURL(blob.value);
+      }
     })().catch((error) => {
       enginePromise = undefined;
       throw error;

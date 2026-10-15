@@ -4,6 +4,8 @@ import { protectPublicationMedia } from "../submissions/publication-assets";
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 
+import { requireAdmin } from "@/auth/require-admin";
+
 import { requireDatabase } from "@/db/client";
 import {
   adminAuditLogs,
@@ -29,6 +31,7 @@ import type {
   AdminWebsiteInput,
   AdminWebsiteRecord,
 } from "./types";
+import { ADMIN_LIBRARY_PAGE_SIZE, getAdminLibraryPagination, type AdminLibraryOptions } from "./library-pagination";
 
 type WebsiteRow = typeof websites.$inferSelect;
 type WebsiteMediaRow = typeof websiteMedia.$inferSelect;
@@ -213,13 +216,26 @@ function unretainedWebsiteAssets(
   });
 }
 
-export async function getAdminWebsites() {
+export async function getAdminWebsites(options: AdminLibraryOptions = {}) {
+  await requireAdmin();
   const database = requireDatabase();
+  const pagination = await getAdminLibraryPagination(database, websites, options);
   const rows = await database.query.websites.findMany({
+    columns: { id: true, slug: true, title: true, tagline: true, isFeatured: true, status: true, createdAt: true },
+    where: options.view === "featured" ? eq(websites.isFeatured, true) : undefined,
     orderBy: [desc(websites.createdAt), desc(websites.id)],
-    with: websiteRelations(),
+    limit: ADMIN_LIBRARY_PAGE_SIZE,
+    offset: (pagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE,
+    with: {
+      creator: { columns: { name: true } },
+      media: {
+        columns: { posterUrl: true, alt: true },
+        where: eq(websiteMedia.role, "recording"),
+        orderBy: [asc(websiteMedia.createdAt)], limit: 1,
+      },
+    },
   });
-  return rows.map(mapAdminWebsite).filter((website): website is AdminWebsiteRecord => Boolean(website));
+  return { ...pagination, items: rows };
 }
 
 export async function getAdminWebsiteById(id: string) {

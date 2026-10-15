@@ -1,4 +1,5 @@
 "use client";
+import { adminThumbnailUrl } from "@/features/admin/thumbnail";
 
 import type { Route } from "next";
 import Link from "next/link";
@@ -16,7 +17,7 @@ import {
   initialAdminActionState,
   type AdminActionState,
   type AdminCreatorInput,
-  type AdminCreatorRecord,
+  type AdminCreatorAttribution,
   type AdminWebsiteMediaInput,
   type AdminWebsiteRecord,
   type AdminWebsiteSectionInput,
@@ -74,7 +75,7 @@ export function WebsiteEditor({
   publicationOnly = false,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
-  creators: AdminCreatorRecord[];
+  creators: AdminCreatorAttribution[];
   website?: AdminWebsiteRecord;
   lockExistingCreators?: boolean;
   actionLabel?: string;
@@ -222,10 +223,10 @@ export function WebsiteEditor({
             <div key={role} className="grid gap-4 rounded-2xl border border-black/10 bg-[#f7f7f4] p-4 sm:grid-cols-[180px_minmax(0,1fr)]">
               <div className="flex min-h-40 items-center justify-center overflow-hidden bg-[#ececea] p-4">
                 {item.url ? role === "recording" ? (
-                  <video src={item.videoPreview?.url ?? item.url} poster={item.posterUrl} muted playsInline className="aspect-video size-full object-contain" />
+                  <video src={item.videoPreview?.url ?? item.url} poster={item.posterUrl} preload="none" controls muted playsInline className="aspect-video size-full object-contain" />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.url} alt={item.alt || `${title} preview`} className="max-h-24 max-w-24 object-contain" />
+                  <img src={item.url} alt={item.alt || `${title} preview`} loading="lazy" decoding="async" className="max-h-24 max-w-24 object-contain" />
                 ) : <span className="text-xs text-[#777]">No {role} yet</span>}
               </div>
               <div className="grid gap-3">
@@ -257,7 +258,7 @@ export function WebsiteEditor({
                 <div className="flex min-h-40 items-center justify-center overflow-hidden bg-[#ececea]">
                   {section.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={section.url} alt={section.alt} className="size-full object-contain" />
+                    <img src={adminThumbnailUrl(section.url, section.variants ?? [])} alt={section.alt} loading="lazy" decoding="async" className="size-full object-contain" />
                   ) : <span className="text-xs text-[#777]">No image yet</span>}
                 </div>
                 <div className="grid gap-3">
@@ -281,7 +282,7 @@ export function WebsiteEditor({
           {publicationOnly ? <input type="hidden" name="status" value="published" /> : <div className="grid grid-cols-2 gap-2">{(["draft", "published"] as const).map((status) => <label key={status} className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="radio" name="status" value={status} defaultChecked={(website?.status ?? "draft") === status} />{status === "draft" ? "Draft" : "Published"}</label>)}</div>}
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={website?.isFeatured} />Feature this website</label>
           <button type="submit" disabled={isPending} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
-          <Link href={cancelHref} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
+          <Link prefetch={false} href={cancelHref} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
         </section>
       </aside>
     </form>

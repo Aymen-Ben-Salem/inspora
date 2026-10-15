@@ -240,7 +240,7 @@ function TopPosts({ analytics }: { analytics: AdminAnalytics }) {
                   {index + 1}
                 </span>
                 {post.slug ? (
-                  <Link
+                  <Link prefetch={false}
                     href={`/posts/${post.slug}` as Route}
                     target="_blank"
                     className="focus-ring min-w-0 flex-1 truncate rounded-sm text-sm font-medium hover:underline"
@@ -403,7 +403,7 @@ export default async function AnalyticsPage({
             className="flex rounded-full bg-[#e5e5e1] p-1"
           >
             {ANALYTICS_RANGES.map((option) => (
-              <Link
+              <Link prefetch={false}
                 key={option}
                 href={`/admin/analytics?days=${option}` as Route}
                 aria-current={range === option ? "page" : undefined}

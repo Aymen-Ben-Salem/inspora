@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { FeaturedToggleButton } from "@/components/admin/featured-toggle-button";
 import { AdminMediaPreview } from "@/components/admin/media-preview";
+import { AdminLibraryPagination } from "@/components/admin/library-pagination";
+import { parseAdminPage } from "@/features/admin/library-pagination";
 import {
   archivePostAction,
   deletePostAction,
@@ -19,22 +21,15 @@ const statusStyles = {
 } as const;
 
 type AdminPostsPageProps = {
-  searchParams: Promise<{ view?: string | string[] }>;
+  searchParams: Promise<{ view?: string | string[]; page?: string | string[] }>;
 };
 
 export default async function AdminPostsPage({ searchParams }: AdminPostsPageProps) {
-  const { view: viewParam } = await searchParams;
+  const { view: viewParam, page: pageParam } = await searchParams;
   const rawView = Array.isArray(viewParam) ? viewParam[0] : viewParam;
   const view = rawView && isPostView(rawView) ? rawView : "latest";
-  const allPosts = await getAdminPosts();
-  const posts = view === "featured"
-    ? allPosts.filter((post) => post.isFeatured)
-    : allPosts;
+  const { items: posts, counts: statusCounts, page, totalPages } = await getAdminPosts({ view, page: parseAdminPage(pageParam) });
   const dateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
-  const statusCounts = allPosts.reduce(
-    (counts, post) => ({ ...counts, [post.status]: counts[post.status] + 1 }),
-    { published: 0, draft: 0, archived: 0 },
-  );
 
   return (
     <div className="grid gap-8">
@@ -42,7 +37,7 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
         <div className="max-w-5xl">
           <h1 className="text-4xl font-medium tracking-[-0.055em] sm:text-5xl">Posts</h1>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#777]">
-            <span>{allPosts.length} total</span>
+            <span>{statusCounts.total} total</span>
             <span>{statusCounts.published} published</span>
             <span>{statusCounts.draft} drafts</span>
             {statusCounts.archived ? <span>{statusCounts.archived} archived</span> : null}
@@ -56,7 +51,7 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
             {(["latest", "featured"] as const).map((option) => {
               const active = view === option;
               return (
-                <Link
+                <Link prefetch={false}
                   key={option}
                   href={(option === "latest" ? "/admin/posts" : "/admin/posts?view=featured") as Route}
                   aria-current={active ? "page" : undefined}
@@ -71,7 +66,7 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
               );
             })}
           </nav>
-          <Link
+          <Link prefetch={false}
             href={"/admin/posts/new" as Route}
             className="focus-ring inline-flex h-11 items-center rounded-full bg-black px-5 text-sm font-medium text-white transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[#252525]"
           >
@@ -101,15 +96,15 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
 
             return (
               <article key={post.id} className="group relative flex min-w-0 flex-col bg-white">
-                <Link
+                <Link prefetch={false}
                   href={`/admin/posts/${post.id}/edit` as Route}
                   aria-label={`Edit ${post.title}`}
                   className="focus-ring relative block aspect-[4/3] overflow-hidden bg-[#ececea]"
                 >
                   <AdminMediaPreview
-                    type={cover?.type ?? "image"}
+                    type={cover?.type === "video" ? "video" : "image"}
                     url={cover?.url ?? ""}
-                    posterUrl={cover?.posterUrl}
+                    posterUrl={cover?.posterUrl ?? undefined}
                     alt={cover?.alt || `${post.title} cover`}
                     maxDisplayWidth={
                       cover?.sourceMimeType === "image/gif" ? cover.width : undefined
@@ -117,9 +112,9 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
                     className="size-full"
                   />
                   <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                  {post.media.length > 1 ? (
+                  {post.mediaCount > 1 ? (
                     <span className="absolute bottom-3 right-3 rounded-full bg-black/65 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                      {post.media.length} media
+                      {post.mediaCount} media
                     </span>
                   ) : null}
                 </Link>
@@ -146,7 +141,7 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
                     </div>
                     <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
                       <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] ${statusStyles[post.status]}`}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] ${statusStyles[post.status as keyof typeof statusStyles]}`}
                       >
                         {post.status}
                       </span>
@@ -160,14 +155,14 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
                   </div>
 
                   <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
-                    <Link
+                    <Link prefetch={false}
                       href={`/admin/posts/${post.id}/edit` as Route}
                       className="focus-ring rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#252525]"
                     >
                       Edit
                     </Link>
                     {post.status === "published" ? (
-                      <Link
+                      <Link prefetch={false}
                         href={`/posts/${post.slug}` as Route}
                         target="_blank"
                         className="focus-ring rounded-full border border-black/10 px-4 py-2 text-sm transition-colors hover:bg-[#f3f3f1]"
@@ -205,6 +200,7 @@ export default async function AdminPostsPage({ searchParams }: AdminPostsPagePro
           })}
         </section>
       )}
+      <AdminLibraryPagination path="/admin/posts" page={page} totalPages={totalPages} view={view} />
     </div>
   );
 }

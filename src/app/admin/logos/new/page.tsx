@@ -1,9 +1,9 @@
 import { LogoEditor } from "@/components/admin/logo-editor";
 import { createLogoAction } from "@/features/admin/actions";
-import { getAdminCreators } from "@/features/creators/identity";
+import { getAdminCreatorOptions } from "@/features/creators/identity";
 
 export default async function NewLogoPage() {
-  const creators = await getAdminCreators();
+  const creators = await getAdminCreatorOptions();
 
   return (
     <div className="grid gap-7">

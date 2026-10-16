@@ -19,6 +19,7 @@ export type HogQlQueryRequest = {
   name: string;
   query: string;
   values?: Record<string, unknown>;
+  refresh?: "blocking" | "force_blocking";
 };
 
 export function getPostHogConfiguration(): PostHogConfiguration | null {
@@ -54,8 +55,8 @@ export async function runHogQlQuery(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // Next owns the five-minute cache. Do not reuse a stale provider query result.
-        refresh: "blocking",
+        // force_blocking recomputes even if PostHog considers its cache fresh.
+        refresh: request.refresh ?? "blocking",
         query: {
           kind: "HogQLQuery",
           name: request.name,

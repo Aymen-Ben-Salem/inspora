@@ -3,6 +3,7 @@ import Image from "next/image";
 import type { CreatorViewsResult } from "@/analytics/creator-views";
 import { CreatorAvatar } from "@/components/creator-avatar";
 import type { CreatorProfile } from "@/features/creators/types";
+import { ProfileViews } from "./profile-views";
 
 export function ProfileHeader({
   profile, owner, works, views, onEdit, onSettings,
@@ -42,20 +43,11 @@ export function ProfileHeader({
           <dl className="flex flex-wrap items-center gap-x-6 gap-y-1 text-base leading-[normal] tracking-[-0.32px]">
             <div className="flex items-baseline gap-1"><dd className="text-[#262626]">{works}</dd><dt className="text-[#767676]">Works</dt></div>
             <div className="flex items-baseline gap-1">
-              <dd
-                aria-label={
-                  views.status === "available"
-                    ? `${views.count} published-work views`
-                    : "Views unavailable"
-                }
-                title="Published work opens are counted once per analytics session. Privacy choices and historical coverage can reduce this total."
-                className="text-[#262626]"
-              >
-                {views.status === "available"
-                  ? views.count.toLocaleString("en")
-                  : "—"}
-              </dd>
-              <dt className="text-[#767676]">Views</dt>
+              <ProfileViews
+                key={profile.id}
+                creatorId={profile.id}
+                initialViews={views}
+              />
             </div>
           </dl>
         </div>

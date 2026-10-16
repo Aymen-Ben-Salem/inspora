@@ -74,7 +74,7 @@ suite("Preview eligibility and durable Views snapshots", () => {
     vi.resetModules();
     provider.query.mockRejectedValue(new Error("fixture-only provider outage"));
     const freshWorker = await import("./creator-views");
-    expect(await freshWorker.getCreatorViews(owner)).toEqual(success);
+    expect(await freshWorker.getCreatorViews(owner)).toEqual({ ...success, status: "stale", checkedAt: expect.any(String) });
     await db!.update(posts).set({creatorId:other}).where(eq(posts.id,design));
     expect(await freshWorker.getCreatorViews(owner)).toEqual({status:"unavailable"});
     expect(await freshWorker.getCreatorViews(other)).toEqual({status:"unavailable"});

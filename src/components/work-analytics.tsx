@@ -9,8 +9,8 @@ import { getWorkSessionKey } from "@/analytics/work-session";
 
 export type WorkAnalyticsKind = "design" | "logo" | "website";
 
-// PostHog supplies real session metadata. The aggregate deduplicates opens;
-// client suppression must never outlive an SDK session or a privacy choice.
+// The aggregate deduplicates opens by work and session. Retrying capture after
+// a privacy preference change must not suppress an otherwise eligible open.
 
 export function shouldCaptureWorkOpen({
   pathname,
@@ -34,21 +34,26 @@ export function WorkAnalytics({
   workKind: WorkAnalyticsKind;
 }) {
   useEffect(() => {
-    if (
-      !shouldCaptureWorkOpen({
-        pathname: window.location.pathname,
-        workId,
-        workKind,
-      })
-    ) {
-      return;
-    }
+    function capture() {
+      if (
+        !shouldCaptureWorkOpen({
+          pathname: window.location.pathname,
+          workId,
+          workKind,
+        })
+      ) {
+        return;
+      }
 
-    captureAnalyticsEvent(ANALYTICS_EVENTS.workOpened, {
-      work_id: workId,
-      work_kind: workKind,
-      work_session_key: getWorkSessionKey(),
-    });
+      captureAnalyticsEvent(ANALYTICS_EVENTS.workOpened, {
+        work_id: workId,
+        work_kind: workKind,
+        work_session_key: getWorkSessionKey(),
+      });
+    }
+    capture();
+    window.addEventListener("analytics-preference-changed", capture);
+    return () => window.removeEventListener("analytics-preference-changed", capture);
   }, [workId, workKind]);
 
   return null;

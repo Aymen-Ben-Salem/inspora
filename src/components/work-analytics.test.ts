@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const captureState = vi.hoisted(() => ({ enabled:true, session:"one", events:[] as string[] }));
-vi.mock("react", () => ({useEffect:(effect:()=>void) => effect()}));
+const cleanups = vi.hoisted(() => [] as Array<() => void>);
+vi.mock("react", () => ({useEffect:(effect:()=>void | (()=>void)) => {
+  const cleanup = effect();
+  if (cleanup) cleanups.push(cleanup);
+}}));
 vi.mock("@/analytics/client", () => ({ captureAnalyticsEvent: vi.fn(() => {
   if (captureState.enabled) captureState.events.push(captureState.session);
 }) }));
@@ -13,6 +17,14 @@ import {
   shouldCaptureWorkOpen,
 } from "./work-analytics";
 
+afterEach(() => {
+  cleanups.splice(0).forEach((cleanup) => cleanup());
+  vi.unstubAllGlobals();
+});
+
+function publicWindow() {
+  return Object.assign(new EventTarget(), { location: { pathname: "/logos" } });
+}
 
 
 describe("work-open analytics", () => {
@@ -69,7 +81,7 @@ describe("work-open analytics", () => {
 });
 
 it("permits capture after disabled or opted-out opens and after SDK session changes in one tab", () => {
-  vi.stubGlobal("window", {location:{pathname:"/logos"}});
+  vi.stubGlobal("window", publicWindow());
   captureState.events = [];
   captureState.enabled = false;
   WorkAnalytics({workId:"fixture",workKind:"logo"});
@@ -78,5 +90,19 @@ it("permits capture after disabled or opted-out opens and after SDK session chan
   captureState.session = "two";
   WorkAnalytics({workId:"fixture",workKind:"logo"});
   expect(captureState.events).toEqual(["one","two"]);
-  vi.unstubAllGlobals();
+});
+
+it("records the currently open work when analytics is re-enabled without reopening it", () => {
+  const browser = publicWindow();
+  vi.stubGlobal("window", browser);
+  captureState.events = [];
+  captureState.session = "enabled-later";
+  captureState.enabled = false;
+  WorkAnalytics({ workId: "fixture", workKind: "logo" });
+  captureState.enabled = true;
+  browser.dispatchEvent(new Event("analytics-preference-changed"));
+  expect(captureState.events).toEqual(["enabled-later"]);
+  cleanups.splice(0).forEach((cleanup) => cleanup());
+  browser.dispatchEvent(new Event("analytics-preference-changed"));
+  expect(captureState.events).toEqual(["enabled-later"]);
 });

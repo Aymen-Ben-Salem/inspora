@@ -19,8 +19,9 @@ import {
 } from "./posthog-query";
 
 export type CreatorViewsResult =
-  | { status: "available"; count: number; asOf: string }
-  | { status: "unavailable" };
+  | { status: "available" | "stale"; count: number; asOf: string;
+      eligibilityKey?: string; checkedAt?: string }
+  | { status: "unavailable"; checkedAt?: string };
 
 export type WorkViewFixture = {
   kind: "design" | "logo" | "website";
@@ -36,9 +37,9 @@ type EligibleWorkRow = {
 };
 
 const CREATOR_VIEWS_CACHE_LIFE = {
-  stale: 300,
-  revalidate: 300,
-  expire: 3600,
+  stale: 30,
+  revalidate: 60,
+  expire: 120,
 } as const;
 
 const creatorIdSchema = z.uuid();
@@ -96,6 +97,7 @@ export function buildCreatorViewsQuery(
     : `toString(properties.$session_id)`;
   return {
     name: "Inspora creator published-work views",
+    refresh: "force_blocking",
     query: `SELECT uniqExact(work_kind, work_id, session_id) AS views
       FROM (
         SELECT
@@ -182,6 +184,9 @@ async function getCachedCreatorViews(
     } satisfies CreatorViewsResult;
   }
 
+  // Order samples by query start, so a slow older response cannot replace a
+  // newer snapshot merely because it finished later.
+  const asOf = new Date().toISOString();
   const rows = await runHogQlQuery(
     configuration,
     buildCreatorViewsQuery(eligible, cutover, sessionCutover),
@@ -189,7 +194,7 @@ async function getCachedCreatorViews(
   return {
     status: "available",
     count: parseCreatorViewsRows(rows),
-    asOf: new Date().toISOString(),
+    asOf,
   } satisfies CreatorViewsResult;
 }
 
@@ -226,8 +231,15 @@ export async function getCreatorViews(
       ? hash([...legacyBoundary, sessionCutover])
       : legacyScope;
     const key = hash([scope, creatorId]);
+    const initialCheckedAt = new Date().toISOString();
     const eligible = await getEligibleCreatorWorkIds(creatorId);
     const fingerprint = hash(eligible);
+    if (!Object.values(eligible).some((ids) => ids.length > 0)) {
+      // Empty eligibility needs neither a provider sample nor a stored snapshot.
+      // A fresh timestamp also prevents cached empty scopes retaining old credit.
+      const asOf = initialCheckedAt;
+      return { status: "available", count: 0, asOf, eligibilityKey: fingerprint, checkedAt: asOf };
+    }
     let result: CreatorViewsResult;
     try {
       result = await getCachedCreatorViews(
@@ -243,18 +255,22 @@ export async function getCreatorViews(
           ? await readViewSnapshot(hash([legacyScope, creatorId]), fingerprint)
           : null);
       result = snapshot
-        ? { status: "available", ...snapshot }
+        ? { status: "stale", ...snapshot }
         : { status: "unavailable" };
+      const checkedAt = new Date().toISOString();
       if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint)
         return { status: "unavailable" };
-      return result;
+      return result.status === "unavailable" ? result : {
+        ...result, eligibilityKey: fingerprint, checkedAt,
+      };
     }
+    const checkedAt = new Date().toISOString();
     if (hash(await getEligibleCreatorWorkIds(creatorId)) !== fingerprint)
       return { status: "unavailable" };
     // A snapshot-store outage must not erase a valid provider response.
     if (result.status === "available")
       await writeViewSnapshot(key, fingerprint, result).catch(() => {});
-    return result;
+    return { ...result, eligibilityKey: fingerprint, checkedAt };
   } catch {
     return { status: "unavailable" };
   }

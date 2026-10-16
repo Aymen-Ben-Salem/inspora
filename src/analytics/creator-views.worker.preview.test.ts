@@ -24,6 +24,6 @@ it.skipIf(process.env.RUN_PREVIEW_VIEWS_WORKER !== "1")("reads the persisted fix
   try {
     const { getCreatorViews } = await import("./creator-views");
     expect(fixture.expected.status).toBe("available");
-    expect(await getCreatorViews(fixture.creatorId)).toEqual(fixture.expected);
+    expect(await getCreatorViews(fixture.creatorId)).toEqual({ ...fixture.expected, status: "stale", checkedAt: expect.any(String) });
   } finally { vi.unstubAllEnvs(); }
 },20000);

@@ -19,11 +19,13 @@ import {
 import { AudienceTechnologyCard, TrafficChart } from "./analytics-tabs";
 import { LiveVisitorsCard } from "./live-visitors-card";
 import { AdminAnalyticsSources } from "@/components/sponsorship/admin-analytics";
+import type { SponsorRange } from "@/analytics/first-party/types";
 
 type AnalyticsPageProps = {
-  searchParams: Promise<{ days?: string | string[] }>;
+  searchParams: Promise<{ days?: string | string[]; audience?: string | string[] }>;
 };
 
+const audienceRanges = ["1d", "7d", "30d"] as const;
 const compactNumber = new Intl.NumberFormat("en", { notation: "compact" });
 const exactNumber = new Intl.NumberFormat("en");
 function parseRange(value: string | string[] | undefined): AnalyticsRange {
@@ -39,6 +41,11 @@ function formatRangeLabel(range: AnalyticsRange) {
   if (range === "today") return "Today";
   if (range === "yesterday") return "Yesterday";
   return `${range}d`;
+}
+
+function parseAudienceRange(value: string | string[] | undefined): SponsorRange {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return audienceRanges.find(range => range === raw) ?? "30d";
 }
 
 function SetupState() {
@@ -173,7 +180,7 @@ function HourlyActivityChart({
           </h2>
           <p className="mt-1 text-xs text-[#888]">{visitorUnit} by hour</p>
         </div>
-        <p className="text-xs text-[#888]">Unique visitors · Tunisia time</p>
+        <p className="text-xs text-[#888]">Unique visitors · UTC</p>
       </div>
       <div className="mt-8 pb-6">
         <div className="flex h-52 min-w-0 items-end gap-1 border-b border-black/10 sm:gap-2">
@@ -358,8 +365,9 @@ function PostHogToolLinks({ tools }: { tools: PostHogTool[] }) {
 export default async function AnalyticsPage({
   searchParams,
 }: AnalyticsPageProps) {
-  const { days } = await searchParams;
+  const { days, audience } = await searchParams;
   const range = parseRange(days);
+  const audienceRange = parseAudienceRange(audience);
   const visitorUnit = "visitors";
 
   let analytics: AdminAnalytics | null = null;
@@ -398,14 +406,15 @@ export default async function AnalyticsPage({
           </p>
         </div>
         <div className="flex flex-col items-end gap-3">
+          <p className="text-xs text-[#777]">PostHog · Calendar days · UTC</p>
           <nav
-            aria-label="Analytics date range"
+            aria-label="PostHog date range"
             className="flex rounded-full bg-[#e5e5e1] p-1"
           >
             {ANALYTICS_RANGES.map((option) => (
               <Link prefetch={false}
                 key={option}
-                href={`/admin/analytics?days=${option}` as Route}
+                href={`/admin/analytics?days=${option}&audience=${audienceRange}` as Route}
                 aria-current={range === option ? "page" : undefined}
                 className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
                   range === option
@@ -421,15 +430,26 @@ export default async function AnalyticsPage({
         </div>
       </header>
 
-      <AdminAnalyticsSources
-        range={
-          range === 7
-            ? "7d"
-            : range === "today" || range === "yesterday"
-              ? "1d"
-              : "30d"
-        }
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[#777]">Accepted events · Rolling days · UTC</p>
+        <nav aria-label="Accepted-event date range" className="flex rounded-full bg-[#e5e5e1] p-1">
+          {audienceRanges.map(option => (
+            <Link prefetch={false}
+              key={option}
+              href={`/admin/analytics?days=${range}&audience=${option}` as Route}
+              aria-current={audienceRange === option ? "page" : undefined}
+              className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
+                audienceRange === option
+                  ? "bg-white text-black shadow-sm"
+                  : "text-[#666] hover:text-black"
+              }`}
+            >
+              {option}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      <AdminAnalyticsSources range={audienceRange} />
       <h2 className="text-2xl font-medium">PostHog</h2>
       <p className="text-sm text-[#777]">
         Separately measured audience. Cookieless identifiers reset daily and can
@@ -510,7 +530,8 @@ export default async function AnalyticsPage({
               {new Intl.DateTimeFormat("en", {
                 dateStyle: "medium",
                 timeStyle: "short",
-              }).format(new Date(analytics.generatedAt))}
+                timeZone: "UTC",
+              }).format(new Date(analytics.generatedAt))} UTC
             </p>
           </footer>
         </>

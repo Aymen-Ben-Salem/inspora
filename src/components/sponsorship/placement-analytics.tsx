@@ -23,18 +23,26 @@ export function PlacementAnalytics() {
       queue: AnalyticsEvent[] = [];
     let tokens: Token[] = [],
       pageToken = "",
+      expiresAt = 0,
       offset = 0,
       stopped = false,
       fetching = false,
       flushing = false,
       generation = 0;
+    let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     const observers = new Map<HTMLElement, { key: string; dispose(): void }>();
     function enqueue(
       kind: AnalyticsEvent["kind"],
       token: string,
       milestone?: 25 | 50 | 75 | 100,
     ) {
-      if (stopped || isAnalyticsDisabled()) return;
+      if (stopped || isAnalyticsDisabled()) return false;
+      // A later token cannot authenticate a past activation. Stop measuring
+      // until fresh context arrives instead of queuing an invalid occurrence.
+      if (Date.now() + offset >= expiresAt) {
+        expireContext();
+        return false;
+      }
       queue.push({
         occurrenceId: crypto.randomUUID(),
         kind,
@@ -42,10 +50,20 @@ export function PlacementAnalytics() {
         token,
         ...(milestone ? { milestone } : {}),
       });
+      return true;
     }
     function disconnect() {
       observers.forEach((o) => o.dispose());
       observers.clear();
+    }
+    function expireContext() {
+      clearTimeout(expiryTimer);
+      expiresAt = 0;
+      tokens = [];
+      pageToken = "";
+      // Fresh observers must qualify visibility again after an outage.
+      disconnect();
+      void context();
     }
     function scan() {
       if (stopped || isAnalyticsDisabled()) return;
@@ -97,8 +115,11 @@ export function PlacementAnalytics() {
                 milestone,
               ].join(":");
               if (kind !== "sponsor_click" && sent.has(key)) return;
-              if (kind !== "sponsor_click") sent.add(key);
-              enqueue(kind, fresh.token, milestone);
+              if (
+                enqueue(kind, fresh.token, milestone) &&
+                kind !== "sponsor_click"
+              )
+                sent.add(key);
             },
           );
           observers.set(element, {
@@ -143,21 +164,33 @@ export function PlacementAnalytics() {
           isAnalyticsDisabled() ||
           !response.ok ||
           body.disabled ||
-          !Array.isArray(body.tokens)
+          !Array.isArray(body.tokens) ||
+          !Number.isFinite(body.serverTime) ||
+          !Number.isFinite(body.expiresAt) ||
+          body.expiresAt <= body.serverTime
         )
           return;
         tokens = body.tokens;
         pageToken = body.pageToken;
         offset = body.serverTime - Date.now();
+        expiresAt = body.expiresAt;
+        clearTimeout(expiryTimer);
+        expiryTimer = setTimeout(
+          expireContext,
+          Math.max(0, expiresAt - Date.now() - offset),
+        );
         scan();
-        if (!sent.has("page")) {
+        if (!sent.has("page") && enqueue("site_page_view", pageToken)) {
           sent.add("page");
-          enqueue("site_page_view", pageToken);
         }
       } catch {
         /* Collection gaps are not fabricated delivery. */
       } finally {
         fetching = false;
+        // A preference change invalidates the old response. If analytics was
+        // re-enabled while it was pending, start its replacement once now.
+        if (current !== generation && !stopped && !isAnalyticsDisabled())
+          void context();
       }
     }
     async function flush() {
@@ -208,8 +241,15 @@ export function PlacementAnalytics() {
     };
     const preference = () => {
       generation++;
+      clearTimeout(expiryTimer);
+      expiresAt = 0;
+      tokens = [];
+      pageToken = "";
       disconnect();
       queue.length = 0;
+      // Dropped occurrences must not suppress fresh measurements on re-enable.
+      // Durable page/placement keys still deduplicate accepted occurrences.
+      sent.clear();
       if (!isAnalyticsDisabled()) void context();
     };
     const foreground = () => {
@@ -247,6 +287,7 @@ export function PlacementAnalytics() {
       mutations.disconnect();
       clearInterval(tick);
       clearInterval(refresh);
+      clearTimeout(expiryTimer);
       document.removeEventListener("click", copyClick);
       document.removeEventListener("auxclick", copyClick);
       document.removeEventListener("visibilitychange", foreground);

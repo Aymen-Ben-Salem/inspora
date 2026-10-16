@@ -66,19 +66,27 @@ export function isAnalyticsRange(value: string | number): value is AnalyticsRang
   return ANALYTICS_RANGES.some((range) => range === value);
 }
 
-export function getAnalyticsTimeRange(range: AnalyticsRange) {
+export function getAnalyticsTimeRange(
+  range: AnalyticsRange,
+  reportTimeExpression = "now()",
+) {
+  const today = `toStartOfDay(toTimeZone(${reportTimeExpression}, 'UTC'))`;
   if (range === "today") {
-    return { startExpression: "toStartOfDay(now())" };
+    return { startExpression: today, endExpression: reportTimeExpression };
   }
 
   if (range === "yesterday") {
     return {
-      startExpression: "toStartOfDay(now()) - INTERVAL 1 DAY",
-      endExpression: "toStartOfDay(now())",
+      startExpression: `${today} - INTERVAL 1 DAY`,
+      endExpression: today,
     };
   }
 
-  return { startExpression: `now() - INTERVAL ${range} DAY` };
+  // Include today and the preceding N-1 UTC dates, matching the daily buckets.
+  return {
+    startExpression: `${today} - INTERVAL ${range - 1} DAY`,
+    endExpression: reportTimeExpression,
+  };
 }
 
 export function getAnalyticsRangeDayCount(range: AnalyticsRange) {

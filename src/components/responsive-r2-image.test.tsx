@@ -31,7 +31,7 @@ describe("ResponsiveR2Image delivery", () => {
     expect(image.type).toBe("img");
     expect(image.props.src).toMatch(/^\/_next\/image\?/);
     expect(new URL(image.props.src!, "https://inspora.local").searchParams.get("url")).toBe(base.src);
-    const sources = image.props.srcSet!.split(", ");
+    const sources: string[] = image.props.srcSet!.split(", ");
     expect(sources.length).toBeGreaterThan(1);
     expect(sources.some((source) => /\bw=640&/.test(source))).toBe(true);
     expect(sources.every((source) => /\/_next\/image\?.+ \d+w$/.test(source))).toBe(true);

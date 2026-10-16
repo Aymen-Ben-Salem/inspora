@@ -129,7 +129,7 @@ export async function readMetricsReport(
           .select()
           .from(analyticsReports)
           .where(eq(analyticsReports.key, key));
-        return old
+        return old && old.expiresAt > now
           ? { ...old.data, status: "stale" }
           : { status: "unavailable", source: "Inspora accepted events" };
       });

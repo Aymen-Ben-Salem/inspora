@@ -308,7 +308,7 @@ export function AnalyticsOverview() {
           <ReportFilter label="Country report" value={filter.country ?? ""} onChange={value => update("country", value)} options={[
             { value: "", label: "All countries" }, ...(available?.country.map(c => ({ value: c.label, label: c.label })) ?? []),
           ]} />
-          <ReportFilter label="Paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
+          <ReportFilter label="Closed paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
           ]} />
         </div>

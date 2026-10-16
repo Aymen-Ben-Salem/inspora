@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { eq, inArray, sql } from "drizzle-orm";
 vi.mock("server-only", () => ({}));
+const catalogActor = vi.hoisted(() => ({ userId: "", accountId: "", state: "inactive" }));
+vi.mock("./authorization", () => ({ requireSponsorActor: async () => catalogActor }));
+import { readOwnAnalyticsCatalog } from "./analytics";
 import { withSponsorWrite } from "./repository";
 import {
   analyticsEvents,
@@ -385,6 +388,10 @@ it("unions identities over the whole range and reconciles placement/country/vers
   });
   expect(report.version).toHaveLength(1);
   expect(report.daily).toHaveLength(3);
+  for (const dimension of ["placement", "campaign", "version", "country", "device", "referrer", "daily"] as const) {
+    expect(report[dimension].reduce((sum, row) => sum + row.impressions, 0)).toBe(report.summary.impressions);
+    expect(report[dimension].reduce((sum, row) => sum + row.clicks, 0)).toBe(report.summary.clicks);
+  }
   expect(JSON.stringify(report)).not.toMatch(
     /2026-10:A|2026-11:A|2026-10:B|userId|visitorKey|fixture\.example/,
   );
@@ -402,6 +409,10 @@ it("unions identities over the whole range and reconciles placement/country/vers
     uniqueVisitors: 1,
     clicks: 0,
   });
+  const unknownCountry = await withSponsorWrite(tx => queryMetrics(tx, f.accountId,
+    { range: "7d", campaignId: f.campaignId, versionId: f.versionId, country: "Unknown" },
+    { start: "2026-10-25T12:00:00Z", end: now.toISOString() }, now));
+  expect(unknownCountry.summary).toMatchObject({ impressions: 1, clicks: 0, uniqueVisitors: 0, frequency: null });
 });
 it("rejects version/campaign mismatch at the database boundary", async () => {
   const f = await fixture(),
@@ -413,6 +424,30 @@ it("rejects version/campaign mismatch at the database boundary", async () => {
     ),
   ).rejects.toThrow();
 });
+it("offers only retained finalized paid periods in the historical report selector", async () => {
+  const f = await fixture(), other = await fixture(), at = new Date();
+  Object.assign(catalogActor, { userId: f.owner, accountId: f.accountId });
+  const closedId = randomUUID(), expiredId = randomUUID();
+  await withSponsorWrite(tx => tx.insert(sponsorDeliveryPeriods).values([
+    { id: closedId, accountId: f.accountId, paymentId: randomUUID(),
+      startAt: new Date(at.getTime() - 40 * 86400000), endAt: new Date(at.getTime() - 10 * 86400000), baseAmount: 50000, currency: "usd" },
+    { accountId: f.accountId, paymentId: randomUUID(),
+      startAt: new Date(at.getTime() - 10 * 86400000), endAt: new Date(at.getTime() + 20 * 86400000), baseAmount: 50000, currency: "usd" },
+    { accountId: f.accountId, paymentId: randomUUID(),
+      startAt: new Date(at.getTime() - 70 * 86400000), endAt: new Date(at.getTime() - 40 * 86400000), baseAmount: 50000, currency: "usd" },
+    { id: expiredId, accountId: f.accountId, paymentId: randomUUID(),
+      startAt: new Date(at.getTime() - 830 * 86400000), endAt: new Date(at.getTime() - 800 * 86400000), baseAmount: 50000, currency: "usd" },
+    { accountId: other.accountId, paymentId: randomUUID(),
+      startAt: new Date(at.getTime() - 40 * 86400000), endAt: new Date(at.getTime() - 10 * 86400000), baseAmount: 50000, currency: "usd" },
+  ]));
+  await finalizePaidPeriodReport(f.accountId, closedId, at);
+  await finalizePaidPeriodReport(f.accountId, expiredId, at);
+  const catalog = await readOwnAnalyticsCatalog();
+  expect(catalog.periods.map(period => period.id)).toEqual([closedId]);
+  expect(await readMetricsReport(f.accountId, { range: "7d", periodId: closedId }, false, at))
+    .toMatchObject({ status: "available", summary: { impressions: 0 } });
+});
+
 it("finalizes closed-period range union reports before raw deletion and serves retained history", async () => {
   const f = await fixture(),
     periodId = randomUUID();

@@ -1,7 +1,8 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { withWriteTransaction } from "@/db/write-client";
 import {
+  analyticsReports,
   sponsorCampaignVersions,
   sponsorDeliveryPeriods,
   sponsors,
@@ -77,9 +78,27 @@ export async function readOwnAnalyticsCatalog() {
       .where(eq(sponsors.accountId, actor.accountId)),
     periods: (
       await tx
-        .select()
+        .select({
+          id: sponsorDeliveryPeriods.id,
+          startAt: sponsorDeliveryPeriods.startAt,
+          endAt: sponsorDeliveryPeriods.endAt,
+        })
         .from(sponsorDeliveryPeriods)
-        .where(eq(sponsorDeliveryPeriods.accountId, actor.accountId))
+        .innerJoin(
+          analyticsReports,
+          eq(
+            analyticsReports.key,
+            sql`'closed-whole:' || ${sponsorDeliveryPeriods.id}::text`,
+          ),
+        )
+        .where(
+          and(
+            eq(sponsorDeliveryPeriods.accountId, actor.accountId),
+            eq(analyticsReports.scope, actor.accountId),
+            gt(analyticsReports.expiresAt, new Date()),
+          ),
+        )
+        .orderBy(desc(sponsorDeliveryPeriods.endAt))
     ).map((p) => ({
       id: p.id,
       start: p.startAt.toISOString(),

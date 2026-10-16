@@ -58,17 +58,21 @@ describe("PostHog analytics data", () => {
     expect(isAnalyticsRange(14)).toBe(false);
   });
 
-  it("uses project-midnight boundaries for today and yesterday", () => {
+  it("uses explicit UTC calendar boundaries for every dashboard range", () => {
     expect(getAnalyticsTimeRange("today")).toEqual({
-      startExpression: "toStartOfDay(now())",
+      startExpression: "toStartOfDay(toTimeZone(now(), 'UTC'))",
+      endExpression: "now()",
     });
     expect(getAnalyticsTimeRange("yesterday")).toEqual({
-      startExpression: "toStartOfDay(now()) - INTERVAL 1 DAY",
-      endExpression: "toStartOfDay(now())",
+      startExpression: "toStartOfDay(toTimeZone(now(), 'UTC')) - INTERVAL 1 DAY",
+      endExpression: "toStartOfDay(toTimeZone(now(), 'UTC'))",
     });
-    expect(getAnalyticsTimeRange(7)).toEqual({
-      startExpression: "now() - INTERVAL 7 DAY",
-    });
+    for (const days of [7, 30, 90] as const) {
+      expect(getAnalyticsTimeRange(days)).toEqual({
+        startExpression: `toStartOfDay(toTimeZone(now(), 'UTC')) - INTERVAL ${days - 1} DAY`,
+        endExpression: "now()",
+      });
+    }
   });
 
   it("maps calendar ranges to one chart day and selects yesterday's date", () => {

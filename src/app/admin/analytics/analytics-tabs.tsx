@@ -13,6 +13,7 @@ const exactNumber = new Intl.NumberFormat("en");
 const dateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
   day: "numeric",
+  timeZone: "UTC",
 });
 
 type TabOption<T extends string> = {
@@ -98,7 +99,7 @@ export function TrafficChart({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <p className="text-xs text-[#888]">
-            {rangeLabel}
+            {rangeLabel} · UTC
           </p>
           <Tabs
             active={metric}

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { sponsorButton } from "./button-styles";
 export function AdminBillingControls({
   checkoutId,
   exception = false,
@@ -38,7 +39,7 @@ export function AdminBillingControls({
       <button
         type="button"
         disabled={busy}
-        className="focus-ring rounded border px-3 py-2"
+        className={sponsorButton.secondary}
         onClick={() => {
           void act("retry");
         }}
@@ -48,7 +49,7 @@ export function AdminBillingControls({
       <button
         type="button"
         disabled={busy}
-        className="focus-ring rounded border px-3 py-2 text-[#b42318]"
+        className="focus-ring cursor-pointer rounded border px-3 py-2 text-[#b42318] disabled:cursor-not-allowed"
         onClick={() => setConfirmRevoke(true)}
       >
         Revoke access
@@ -62,14 +63,14 @@ export function AdminBillingControls({
           <button
             type="button"
             disabled={busy}
-            className="focus-ring rounded border px-3 py-2"
+            className={sponsorButton.secondary}
             onClick={() => {
               void act("revoke");
             }}
           >
             Confirm revocation
           </button>
-          <button type="button" onClick={() => setConfirmRevoke(false)}>
+          <button type="button" className="focus-ring cursor-pointer" onClick={() => setConfirmRevoke(false)}>
             Keep access
           </button>
         </>
@@ -78,7 +79,7 @@ export function AdminBillingControls({
         <button
           type="button"
           disabled={busy}
-          className="focus-ring rounded border px-3 py-2"
+          className={sponsorButton.secondary}
           onClick={() => {
             void act("resolve_exception");
           }}

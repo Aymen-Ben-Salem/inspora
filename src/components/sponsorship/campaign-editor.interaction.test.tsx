@@ -151,6 +151,119 @@ it("restores anonymous manual typing after sponsor verification", async () => {
   expect(sessionStorage.getItem("inspora:sponsor-typed")).toBeNull();
 });
 
+it.each([
+  [
+    504,
+    undefined,
+    "Suggestions are unavailable. Continue with manual fields and uploads.",
+  ],
+  [
+    429,
+    "challenge",
+    "A security check interrupted the request. Open this site in another tab to complete the check, then try again.",
+  ],
+] as const)(
+  "keeps the campaign editable when website suggestions return an HTML error page (%s)",
+  async (status, mitigated, message) => {
+    await act(async () => root.render(<CampaignEditor />));
+    const headers = new Headers({ "Content-Type": "text/html" });
+    if (mitigated) headers.set("x-vercel-mitigated", mitigated);
+    fetchMock.mockResolvedValueOnce(
+      new Response("<!DOCTYPE html><html><body>Request interrupted</body></html>", {
+        status,
+        headers,
+      }),
+    );
+    const suggest = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("Suggest from website"),
+    )!;
+
+    await act(async () => suggest.click());
+
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toBe(message);
+    expect(alert?.previousElementSibling).toBe(suggest);
+    expect(nameInput().value).toBe("Owner A private campaign");
+    expect(
+      container.querySelector<HTMLInputElement>('input[type="url"]')?.value,
+    ).toBe("https://owner-a.example");
+    expect(suggest.disabled).toBe(false);
+  },
+);
+
+it("shows suggestion loading only on empty fields and clears it when suggestions finish", async () => {
+  const draft = preparation("owner-a", true);
+  draft.campaign!.creative.title = "";
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: draft }));
+  await act(async () => root.render(<CampaignEditor />));
+  let finish!: (response: Response) => void;
+  fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { finish = resolve; }));
+  const suggest = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.includes("Suggest from website"),
+  )!;
+  const input = (label: string) => container.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+
+  await act(async () => suggest.click());
+
+  expect(nameInput().getAttribute("aria-busy")).toBe("true");
+  expect(nameInput().parentElement?.querySelector("svg")).not.toBeNull();
+  expect(input("Feed image or video (optional)").getAttribute("aria-busy")).toBe("true");
+  expect(input("Feed image or video (optional)").closest("label")?.textContent).toContain("Finding website suggestion");
+  expect(input("Compact icon").getAttribute("aria-busy")).not.toBe("true");
+  expect(input("Full wordmark").getAttribute("aria-busy")).not.toBe("true");
+  expect(input("Replace video poster (optional)").getAttribute("aria-busy")).not.toBe("true");
+  expect(container.querySelector('input[type="url"]')?.getAttribute("aria-busy")).not.toBe("true");
+  expect(suggest.disabled).toBe(true);
+  expect(suggest.nextElementSibling?.textContent).toContain("Finding suggestions");
+
+  await act(async () => finish(Response.json({ ok: true, value: { title: "Suggested product", assets: [] } })));
+
+  expect(nameInput().value).toBe("Suggested product");
+  expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+  expect(suggest.disabled).toBe(false);
+  expect(suggest.nextElementSibling?.textContent).toContain("Website suggestions imported");
+});
+
+it("shows loading on replacement assets and clears it after a local suggestion error", async () => {
+  await act(async () => root.render(<CampaignEditor />));
+  await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+  let fail!: (error: Error) => void;
+  fetchMock.mockReturnValueOnce(new Promise<Response>((_resolve, reject) => { fail = reject; }));
+  const suggest = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.includes("Suggest from website"),
+  )!;
+
+  await act(async () => suggest.click());
+
+  expect(nameInput().getAttribute("aria-busy")).not.toBe("true");
+  for (const label of ["Compact icon", "Full wordmark", "Feed image or video (optional)"])
+    expect(container.querySelector(`input[aria-label="${label}"]`)?.getAttribute("aria-busy")).toBe("true");
+
+  await act(async () => fail(new Error("Website unavailable")));
+
+  expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+  expect(suggest.nextElementSibling?.textContent).toBe("Website unavailable");
+  expect(suggest.nextElementSibling?.getAttribute("role")).toBe("alert");
+  expect(nameInput().value).toBe("Owner A private campaign");
+});
+
+it("keeps save errors beside the save action after suggestion errors", async () => {
+  await act(async () => root.render(<CampaignEditor />));
+  fetchMock.mockRejectedValueOnce(new Error("Website unavailable"));
+  const suggest = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent?.includes("Suggest from website"),
+  )!;
+  await act(async () => suggest.click());
+  fetchMock.mockRejectedValueOnce(new Error("Save unavailable"));
+
+  await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+
+  const alert = container.querySelector('[role="alert"]');
+  expect(alert?.textContent).toBe("Save unavailable");
+  expect(alert?.previousElementSibling).not.toBe(suggest);
+  expect(container.textContent).not.toContain("Website unavailable");
+});
+
 it("previews the website's three asset roles and excludes legacy taglines when saving", async () => {
   const draft = preparation("owner-a", true);
   draft.campaign!.creative.iconId = "";

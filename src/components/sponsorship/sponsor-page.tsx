@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
+import { sponsorButtonAppearance } from "./button-styles";
 
 const placements = [
   ["feed", "A presence in our most popular design feeds.", 244],
@@ -48,7 +49,7 @@ export function SponsorPage({
   const cta = canPrepare ? (
     <Link
       href={"/sponsor/start" as Route}
-      className={`${ctaClass} focus-ring bg-[#262626] text-white shadow-[0_1px_1px_#e6e6e6]`}
+      className={`${ctaClass} ${sponsorButtonAppearance.primary} focus-ring cursor-pointer transition-colors shadow-[0_1px_1px_#e6e6e6]`}
     >
       Become a sponsor
     </Link>

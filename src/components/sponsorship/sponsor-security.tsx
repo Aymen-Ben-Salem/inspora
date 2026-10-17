@@ -12,9 +12,9 @@ import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { SponsorSecurityState } from "@/features/sponsorship/security-state";
 import { SponsorLoading } from "./sponsor-loading";
+import { sponsorButton } from "./button-styles";
 
-const buttonClass =
-  "focus-ring min-h-11 cursor-pointer rounded-md bg-[#262626] px-5 py-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50";
+const buttonClass = sponsorButton.primary;
 const linkClass =
   "focus-ring cursor-pointer text-sm text-[#767676] underline underline-offset-4 hover:text-[#262626] disabled:cursor-not-allowed";
 type Phase =

@@ -1,8 +1,66 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createPreparedMediaUploadBundle } from "@/features/media/prepare-upload";
-import { sponsorUploadOperations } from "./upload-operations";
+import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
 
 afterEach(() => vi.unstubAllGlobals());
+
+it.each([200, 404, 500, 504])(
+  "reports unavailable suggestions for an HTML response with status %s",
+  async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response("<!DOCTYPE html><html><body>Error</body></html>", {
+        status,
+        headers: { "Content-Type": "text/html" },
+      }),
+    ));
+
+    await expect(
+      sponsorRequest("metadata", "POST", { url: "https://product.example" }),
+    ).rejects.toThrow(
+      "Suggestions are unavailable. Continue with manual fields and uploads.",
+    );
+  },
+);
+
+it("preserves JSON API error messages", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+    Response.json(
+      { ok: false, message: "Verify sponsor access before uploading." },
+      { status: 403 },
+    ),
+  ));
+
+  await expect(sponsorRequest("metadata", "POST", {})).rejects.toThrow(
+    "Verify sponsor access before uploading.",
+  );
+});
+
+it("uses the preparation fallback for a non-JSON upload response", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+    new Response("Service unavailable", { status: 503 }),
+  ));
+
+  await expect(sponsorRequest("uploads", "POST", {})).rejects.toThrow(
+    "Sponsor preparation is unavailable.",
+  );
+});
+
+it("preserves cancellation while reading a non-JSON response", async () => {
+  const controller = new AbortController();
+  const reason = new DOMException("Owner changed", "AbortError");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    ok: false,
+    json: async () => {
+      controller.abort(reason);
+      throw reason;
+    },
+  }));
+
+  await expect(
+    sponsorRequest("metadata", "POST", {}, controller.signal),
+  ).rejects.toBe(reason);
+});
+
 it.each(["media", "icon", "wordmark", "poster"] as const)(
   "preserves the selected %s original and associates its prepared images",
   async (kind) => {

@@ -24,10 +24,20 @@ export async function sponsorRequest<T>(
     body: input ? JSON.stringify(input) : undefined,
     signal,
   });
-  const result = await response.json();
+  const result = await response.json().catch(() => null);
   signal?.throwIfAborted();
-  if (!response.ok || result.ok === false)
-    throw new Error(result.message || "Sponsor preparation is unavailable.");
+  if (response.headers?.get("x-vercel-mitigated") === "challenge")
+    throw new Error(
+      "A security check interrupted the request. Open this site in another tab to complete the check, then try again.",
+    );
+  if (!response.ok || !result || typeof result !== "object" || result.ok === false)
+    throw new Error(
+      typeof result?.message === "string" && result.message
+        ? result.message
+        : path === "metadata"
+          ? "Suggestions are unavailable. Continue with manual fields and uploads."
+          : "Sponsor preparation is unavailable.",
+    );
   return result.value ?? result;
 }
 export function sponsorUploadOperations(

@@ -3,7 +3,7 @@ import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
 import type {
@@ -15,7 +15,8 @@ import type {
 import { CampaignPreview, type PreviewFields } from "./campaign-preview";
 import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
 import { CampaignUpload } from "./campaign-upload";
-import { SponsorLoading } from "./sponsor-loading";
+import { SponsorLoading, SponsorSpinner } from "./sponsor-loading";
+import { sponsorButton } from "./button-styles";
 import { PurchaseOptions } from "./purchase-options";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
@@ -28,7 +29,7 @@ const empty: PreviewFields = {
   videoPreviewId: "",
 };
 const fieldClass =
-  "focus-ring mt-2 min-h-11 w-full rounded-md border border-[#e6e6e6] bg-white px-3 py-2 text-sm";
+  "focus-ring min-h-11 w-full rounded-md border border-[#e6e6e6] bg-white px-3 py-2 text-sm";
 const uploadRoles = {
   media: { kind: "sponsor-media", field: "mediaId" },
   icon: { kind: "sponsor-icon", field: "iconId" },
@@ -85,9 +86,13 @@ function CampaignEditorContent({
   const [revision, setRevision] = useState(paid?.campaign?.revision ?? 0),
     [expiresAt, setExpiresAt] = useState<string>(),
     [ready, setReady] = useState(Boolean(paid)),
-    [busy, setBusy] = useState<string>(),
+    [busy, setBusy] = useState<"save" | "suggest">(),
     [message, setMessage] = useState(""),
     [failed, setFailed] = useState(false);
+  const [suggestionFeedback, setSuggestionFeedback] = useState<{ message: string; failed: boolean }>();
+  const suggestionStatusId = useId();
+  const suggesting = busy === "suggest";
+  const suggestingTitle = suggesting && !fields.title;
   const loaded = useRef<string | undefined>(undefined);
   const pending = useRef(new Set<AbortController>());
   const activeUploads = useRef(new Set<UploadRole>());
@@ -165,23 +170,29 @@ function CampaignEditorContent({
   function update(key: keyof PreviewFields, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
     setMessage("");
+    setSuggestionFeedback(undefined);
   }
   async function run(
-    label: string,
+    action: "save" | "suggest",
     work: (signal: AbortSignal) => Promise<void>,
   ) {
     if (busy || activeUploads.current.size) return;
     const controller = new AbortController();
     pending.current.add(controller);
-    setBusy(label);
+    setBusy(action);
     setMessage("");
     setFailed(false);
+    setSuggestionFeedback(undefined);
     try {
       await work(controller.signal);
     } catch (error) {
       if (controller.signal.aborted) return;
-      setFailed(true);
-      setMessage(error instanceof Error ? error.message : "Try again.");
+      const message = error instanceof Error ? error.message : "Try again.";
+      if (action === "suggest") setSuggestionFeedback({ message, failed: true });
+      else {
+        setFailed(true);
+        setMessage(message);
+      }
     } finally {
       pending.current.delete(controller);
       if (!controller.signal.aborted) setBusy(undefined);
@@ -304,7 +315,7 @@ function CampaignEditorContent({
           <button
             type="button"
             onClick={verify}
-            className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white"
+            className={sponsorButton.primary}
           >
             Verify sponsor access to save
           </button>
@@ -316,7 +327,7 @@ function CampaignEditorContent({
           onSubmit={(event) => {
             event.preventDefault();
             if (paid?.readonly || activeUploads.current.size) return;
-            void run(paid ? "Saving changes…" : "Saving preparation…", async (signal) => {
+            void run("save", async (signal) => {
               const c = await sponsorRequest<OwnedCampaign>(
                 paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
                 paid && !campaignId ? "POST" : "PUT",
@@ -348,12 +359,15 @@ function CampaignEditorContent({
           <div><h2 className="text-lg font-medium">Campaign details</h2><p className="mt-2 text-sm leading-6 text-[#767676]">Your public name and the website visitors will open.</p></div>
           <label className="block text-sm font-medium">
             Public name
-            <input className={fieldClass} required maxLength={160} disabled={paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
+            <span className="relative mt-2 block">
+              <input className={`${fieldClass} ${suggestingTitle ? "pr-11" : ""}`} required maxLength={160} aria-busy={suggestingTitle} aria-describedby={suggestingTitle ? suggestionStatusId : undefined} disabled={paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
+              {suggestingTitle ? <SponsorSpinner className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#767676]" /> : null}
+            </span>
           </label>
           <label className="block text-sm font-medium">
             Website destination
             <input
-              className={fieldClass}
+              className={`${fieldClass} mt-2`}
               type="url"
               disabled={paid?.readonly || Boolean(busy)}
               required
@@ -364,38 +378,48 @@ function CampaignEditorContent({
               autoComplete="url"
             />
           </label>
-          <button
-            type="button"
-            disabled={!ready || Boolean(busy) || uploading || !fields.url || paid?.readonly}
-            className="focus-ring min-h-11 rounded-md border border-[#e6e6e6] px-4 text-sm disabled:opacity-40"
-            onClick={() =>
-              void run("Finding suggestions…", async (signal) => {
-                const s = await sponsorRequest<
-                  MetadataSuggestions & { assets: VerifiedSponsorAsset[] }
-                >("metadata", "POST", { url: fields.url }, signal);
-                setFields((f) => {
-                  const filled = fillEmptySponsorFields(
-                    f,
-                    s,
-                    replaceWebsiteAssets,
-                  );
-                  return filled.mediaId !== f.mediaId
-                    ? { ...filled, posterId: "", videoPreviewId: "" }
-                    : filled;
-                });
-                if (s.mediaId && (replaceWebsiteAssets || !fields.mediaId))
-                  setVariants([]);
-                setAssets((a) => [...a, ...s.assets]);
-                setMessage(
-                  s.missingAssets?.length
-                    ? `Website suggestions imported. Could not import: ${s.missingAssets.join(", ")}. Upload these below.`
-                    : "Website suggestions imported. Review your three placement previews.",
-                );
-              })
-            }
-          >
-            Suggest from website (optional)
-          </button>
+          <div>
+            <button
+              type="button"
+              aria-busy={suggesting}
+              aria-describedby={suggesting || suggestionFeedback ? suggestionStatusId : undefined}
+              disabled={!ready || Boolean(busy) || uploading || !fields.url || paid?.readonly}
+              className={sponsorButton.secondary}
+              onClick={() =>
+                void run("suggest", async (signal) => {
+                  const s = await sponsorRequest<
+                    MetadataSuggestions & { assets: VerifiedSponsorAsset[] }
+                  >("metadata", "POST", { url: fields.url }, signal);
+                  setFields((f) => {
+                    const filled = fillEmptySponsorFields(
+                      f,
+                      s,
+                      replaceWebsiteAssets,
+                    );
+                    return filled.mediaId !== f.mediaId
+                      ? { ...filled, posterId: "", videoPreviewId: "" }
+                      : filled;
+                  });
+                  if (s.mediaId && (replaceWebsiteAssets || !fields.mediaId))
+                    setVariants([]);
+                  setAssets((a) => [...a, ...s.assets]);
+                  setSuggestionFeedback({
+                    failed: false,
+                    message: s.missingAssets?.length
+                      ? `Website suggestions imported. Could not import: ${s.missingAssets.join(", ")}. Upload these below.`
+                      : "Website suggestions imported. Review your three placement previews.",
+                  });
+                })
+              }
+            >
+              Suggest from website (optional)
+            </button>
+            {suggesting || suggestionFeedback ? (
+              <p id={suggestionStatusId} role={suggestionFeedback?.failed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-sm ${suggestionFeedback?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
+                {suggesting ? "Finding suggestions…" : suggestionFeedback?.message}
+              </p>
+            ) : null}
+          </div>
           {fields.iconId || fields.wordmarkId || fields.mediaId ? (
             <label className="flex items-center gap-2 text-sm text-[#767676]">
               <input
@@ -439,6 +463,7 @@ function CampaignEditorContent({
                   label={label}
                   disabled={!ready || Boolean(busy) || paid?.readonly}
                   busy={uploads[kind]?.busy}
+                  suggesting={suggesting && kind !== "poster" && (replaceWebsiteAssets || !fields[uploadRoles[kind].field])}
                   message={uploads[kind]?.message}
                   failed={uploads[kind]?.failed}
                   asset={assets.find((asset) => asset.id === fields[uploadRoles[kind].field])}
@@ -455,7 +480,7 @@ function CampaignEditorContent({
             ))}
             {fields.mediaId ? (
               <button
-                className="focus-ring min-h-11 text-sm underline"
+                className="focus-ring min-h-11 cursor-pointer text-sm underline disabled:cursor-not-allowed"
                 type="button"
                 disabled={uploads.media?.busy || uploads.poster?.busy}
                 onClick={() => {
@@ -477,7 +502,7 @@ function CampaignEditorContent({
             <button
               disabled={!ready || Boolean(busy) || uploading}
               type="submit"
-              className="focus-ring min-h-11 rounded-md bg-[#262626] px-5 text-sm text-white disabled:opacity-40"
+              className={sponsorButton.primary}
             >
               {paid ? "Save changes" : "Save private preparation"}
             </button>
@@ -493,7 +518,7 @@ function CampaignEditorContent({
             aria-live="polite"
             className={`min-h-6 text-sm ${failed ? "text-[#b42318]" : "text-[#767676]"}`}
           >
-            {busy || message}
+            {busy === "save" ? paid ? "Saving changes…" : "Saving preparation…" : message}
           </p>
           {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
             <Link prefetch={true} href={`/sponsor/dashboard?billing=${billingMode}` as Route} className="focus-ring font-medium underline">Open sponsorship dashboard</Link>

@@ -3,6 +3,34 @@ import { expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createStripeProvider } from "./stripe-client";
 
+it.each(["usd", "eur"] as const)("pins a monthly renewal in %s to the paid expiry without proration or an immediate charge", async currency => {
+  const startsAt = "2026-11-17T12:00:00.000Z";
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => {
+    if (new URL(String(url)).pathname === "/v1/prices/price_monthly") return Response.json({ id:"price_monthly",livemode:false,active:true,currency:"usd",unit_amount:50000,recurring:{interval:"month",interval_count:1},tax_behavior:"exclusive",currency_options:{usd:{unit_amount:50000,tax_behavior:"exclusive"},eur:{unit_amount:45000,tax_behavior:"exclusive"}} });
+    const body = new URLSearchParams(String(options?.body));
+    expect(body.get("mode")).toBe("subscription");
+    expect(body.get("customer")).toBe("cus_original");
+    expect(body.get("currency")).toBe(currency);
+    expect(body.get("subscription_data[billing_cycle_anchor]")).toBe(String(Date.parse(startsAt)/1000));
+    expect(body.get("subscription_data[proration_behavior]")).toBe("none");
+    expect(body.get("payment_method_collection")).toBe("always");
+    expect(body.has("subscription_data[trial_end]")).toBe(false);
+    expect(body.get("custom_text[submit][message]")).toContain("No charge for the remaining paid time");
+    expect(body.get("subscription_data[metadata][sponsor_checkout_id]")).toBe("renewal");
+    return Response.json({ id:"cs_renewal",livemode:false,mode:"subscription",status:"open",url:"https://checkout.stripe.com/test",client_reference_id:"renewal",expires_at:Date.parse(startsAt)/1000-86400,subscription:null });
+  });
+  const provider = createStripeProvider(new Stripe("sk_test_fixture",{httpClient:Stripe.createFetchHttpClient(fetcher),maxNetworkRetries:0}));
+  expect(await provider.createCheckout({checkoutId:"renewal",priceId:"price_monthly",key:"renewal",expiresAt:Date.parse(startsAt)-86400000,billingMode:"subscription",pinned:true,currency,renewal:{customerId:"cus_original",startsAt}})).toMatchObject({checkoutId:"renewal",billingMode:"subscription"});
+});
+
+it.each(["invalid-date","after-expiry","unpinned","one_time"])("rejects unsafe monthly renewal parameters: %s", async scenario => {
+  const fetcher = vi.fn();
+  const provider = createStripeProvider(new Stripe("sk_test_fixture",{httpClient:Stripe.createFetchHttpClient(fetcher),maxNetworkRetries:0}));
+  const expiry = Date.UTC(2026,10,16);
+  await expect(provider.createCheckout({checkoutId:"renewal",priceId:"price_monthly",key:"renewal",expiresAt:expiry,billingMode:scenario === "one_time" ? "one_time" : "subscription",pinned:scenario !== "unpinned",currency:"usd",renewal:{customerId:"cus_original",startsAt:scenario === "invalid-date" ? "bad" : new Date(expiry+(scenario === "after-expiry" ? -1 : 86400000)).toISOString()}})).rejects.toThrow("server-pinned future monthly renewal");
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
 it.each([
   ["eur", "dispute_unknown"], ["eur", "dispute_open"], ["eur", "dispute_lost"], ["eur", "dispute_won"], ["usd", "valid"], ["eur", "valid"], ["eur", "legacy"], ["eur", "partial_amount"], ["eur", "refunded"], ["usd", "wrong_checkout"], ["usd", "wrong_customer"],
   ["usd", "wrong_currency"], ["usd", "partial_amount"], ["usd", "uncaptured"], ["usd", "live_charge"],

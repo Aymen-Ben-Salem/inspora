@@ -78,9 +78,10 @@ import { createPaidCampaignService } from "./paid-campaigns";
 import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
 import { drainSponsorJobs } from "./jobs";
 import { startSponsorCheckout } from "./billing-service";
+import { prepareMonthlyRenewal } from "./monthly-renewal";
 import { withCampaignWrites } from "./campaign-service";
 import { readSponsorBackupReferences } from "../../../scripts/lib/sponsor-backup-references";
-import { cleanupDeletedSponsorOwner } from "./deletion";
+import { cleanupDeletedSponsorOwner, queueSponsorIdentityDeletion } from "./deletion";
 import { getPublishedLogoAsset } from "@/data/logos-repository";
 import { updateAdminCreator } from "@/features/creators/identity";
 import { getR2PublicUrl } from "@/storage/r2";
@@ -381,6 +382,177 @@ async function saveDuringSponsorMediaDeletion(save: (key: string, creatorId: str
     });
   }
 }
+async function monthlyFixture(createSession = true) {
+  const f = await fixture("Monthly renewal fixture", "one_time");
+  vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+  await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, "one_time");
+  await ensureSponsorCheckoutSession(f.id, f.provider);
+  f.complete();
+  await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+  const startsAt = f.observation.invoices[0].periodEnd;
+  const monthly: BillingObservation = { ...f.observation, billingMode:"subscription", subscriptionId:`sub_monthly_${randomUUID()}`,
+    checkoutId:"", status:"active", cancelAtPeriodEnd:false, billingAnchor:startsAt,
+    price:{...f.observation.price,id:"price_monthly",interval:"month",intervalCount:1}, invoices:[] };
+  let complete = false, expired = false, created = false, lost = false, settlement: "safe"|"pending"|"error" = "safe", id = "", expiresAt = f.now.getTime()+1805000;
+  const session = () => ({id:`cs_monthly_${id}`,checkoutId:id,billingMode:"subscription" as const,status:complete?"complete":expired?"expired":"open",url:"https://checkout.stripe.com/monthly",expiresAt,subscriptionId:complete?monthly.subscriptionId:null});
+  const provider: BillingProvider = { ...f.provider,
+    price:async()=>monthly.price,
+    createCheckout:vi.fn(async input => { created=true; expiresAt=input.expiresAt; expect(input.renewal).toMatchObject({startsAt:new Date(startsAt).toISOString(),customerId:monthly.customerId}); if(lost){lost=false;throw Error("Lost response");} return session(); }),
+    session:async key=>key===`cs_${f.id}`?f.provider.session(key):session(),
+    findCheckout:async key=>key===id&&created?session():null,
+    expireSession:async()=>{expired=true;return session();},
+    observe:async()=>monthly,
+    observePayment:async key=>f.provider.observePayment(key),
+    terminate:vi.fn(async()=>{monthly.status="canceled";monthly.cancelAtPeriodEnd=true;if(settlement==="error")throw Error("Provider unavailable");return settlement==="safe";}),
+    eventTarget:async()=>f.id,
+  };
+  const prepared = await prepareMonthlyRenewal(f.owner,"price_monthly",provider,f.now);
+  if(!prepared.ok)throw Error(prepared.message);
+  id=prepared.value.checkoutId;monthly.checkoutId=id;
+  if(createSession)await ensureSponsorCheckoutSession(id,provider);
+  const account = async()=> (await withSponsorWrite(tx=>tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId,f.owner))))[0];
+  return { ...f, provider, monthly, id, sourceId:f.id, startsAt, account,
+    completeRenewal:()=>{complete=true;}, loseResponse:()=>{lost=true;}, settlement:(value:typeof settlement)=>{settlement=value;},
+    async activate(){complete=true;await reconcileSponsorCheckout(id,provider,f.promote,f.now);},
+    refundSource(){f.observation.invoices[0]={...f.observation.invoices[0],id:"refund:in_initial",paid:false,refunded:true,netBaseAmount:0};},
+    addPaidMonth(){const invoice={id:"in_monthly_paid",paid:true,amountPaid:50000,currency:"usd",priceId:"price_monthly",periodStart:startsAt,periodEnd:calendarMonthEnd(startsAt),paidAt:startsAt+1000};monthly.invoices=[invoice];return new Date(startsAt+1000);},
+  };
+}
+
+describe("monthly renewal transition", () => {
+  it("carries only the existing paid month, then extends once for a verified monthly invoice", async()=>{
+    const f=await monthlyFixture();
+    await f.activate();
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,f.now);
+    expect(await f.account()).toMatchObject({state:"active",billingMode:"subscription",periodStart:f.now,paidThrough:new Date(f.startsAt)});
+    const checkout=(await withSponsorWrite(tx=>tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id,f.id))))[0];
+    expect(checkout.paymentReceivedAt).toBeNull();expect(checkout.paidInvoiceId).toBeNull();
+    const seats=await withSponsorWrite(tx=>tx.select().from(sponsorSeats).where(eq(sponsorSeats.accountId,checkout.snapshot!.renewal!.accountId)));
+    expect(seats).toHaveLength(1);expect(seats[0].checkoutId).toBe(f.id);
+    const paidAt=f.addPaidMonth();
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,paidAt);
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,paidAt);
+    expect(await f.account()).toMatchObject({state:"active",paidThrough:new Date(calendarMonthEnd(f.startsAt)),periodStart:new Date(f.startsAt)});
+    f.refundSource();
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,paidAt);
+    await reconcileSponsorCheckout(f.sourceId,f.provider,f.promote,paidAt);
+    expect(await f.account()).toMatchObject({state:"active",paidThrough:new Date(calendarMonthEnd(f.startsAt))});
+    expect(f.provider.terminate).not.toHaveBeenCalled();
+  });
+  it("expires an unfinished monthly checkout without removing the original paid seat",async()=>{
+    const f=await monthlyFixture();
+    const pending=(await withSponsorWrite(tx=>tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id,f.id))))[0];
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,new Date(pending.expiresAt.getTime()+1));
+    expect(await f.account()).toMatchObject({state:"active",billingMode:"one_time",paidThrough:new Date(f.startsAt)});
+    expect((await withSponsorWrite(tx=>tx.select().from(sponsorSeats).where(eq(sponsorSeats.accountId,pending.snapshot!.renewal!.accountId))))[0].checkoutId).toBe(f.sourceId);
+    f.completeRenewal();
+    const late=f.addPaidMonth();
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,late);
+    expect(await f.account()).toMatchObject({billingMode:"one_time",paidThrough:new Date(f.startsAt)});
+    expect((await withSponsorWrite(tx=>tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id,f.id))))[0].exceptionCode).toBe("late_payment_refund_review");
+  });
+  it.each(["pending","error"] as const)("pauses refunded carried coverage even while subscription settlement is %s",async settlement=>{
+    const f=await monthlyFixture();await f.activate();f.refundSource();f.settlement(settlement);
+    expect(await reconcileSponsorCheckout(f.id,f.provider,f.promote,f.now)).toBe(false);
+    expect((await f.account()).state).toBe("inactive");
+    expect((await getDesignSponsors()).some(c=>c.title==="Monthly renewal fixture")).toBe(false);
+    const source=(await withSponsorWrite(tx=>tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id,f.sourceId))))[0];
+    const [next]=await withSponsorWrite(tx=>tx.insert(sponsorCheckouts).values({ownerUserId:f.owner,campaignId:source.campaignId,state:"ready",snapshot:source.snapshot,expiresAt:new Date(f.startsAt)}).returning());
+    await expect(reserveSponsorSeat(f.owner,next.id,"price_fixture",f.now,"one_time")).rejects.toThrow("Sponsor access is unavailable.");
+    f.settlement("safe");await reconcileSponsorCheckout(f.id,f.provider,f.promote,f.now);
+    const account=await f.account();
+    expect(await withSponsorWrite(tx=>tx.select().from(sponsorSeats).where(eq(sponsorSeats.accountId,account.id)))).toHaveLength(0);
+  });
+  it.each(["refund","dispute"] as const)("withdraws carried access from the original %s webhook even when payment settlement throws",async kind=>{
+    const f=await monthlyFixture();await f.activate();
+    if(kind==="refund")f.refundSource();else f.observation.invoices[0].disputeState="open";
+    vi.spyOn(f.provider,"settlePayment").mockRejectedValueOnce(Error("Provider timeout"));
+    await withSponsorWrite(tx=>tx.update(sponsorJobs).set({state:"complete"}).where(inArray(sponsorJobs.targetId,[f.id,f.sourceId])));
+    vi.stubEnv("STRIPE_SECRET_KEY","sk_test_fixture");vi.stubEnv("STRIPE_WEBHOOK_SECRET","whsec_fixture");
+    const event=`evt_${randomUUID()}`;events.push(event);
+    const raw=JSON.stringify({id:event,object:"event",type:kind==="refund"?"charge.refunded":"charge.dispute.created",livemode:false,data:{object:{id:"ch_original"}}});
+    const signature=new Stripe("sk_test_fixture").webhooks.generateTestHeaderString({payload:raw,secret:"whsec_fixture"});
+    expect(await recordStripeWebhook(raw,signature)).toEqual({accepted:true,duplicate:false});
+    await withSponsorWrite(tx=>tx.update(sponsorJobs).set({nextAttemptAt:new Date(0)}).where(eq(sponsorJobs.idempotencyKey,`stripe:${event}`)));
+    await drainSponsorJobs(f.provider,1,new Date(f.now.getTime()+60000));
+    expect((await f.account()).state).toBe(kind==="refund"?"inactive":"recovery");
+    expect((await getDesignSponsors()).some(c=>c.title==="Monthly renewal fixture")).toBe(false);
+    expect((await withSponsorWrite(tx=>tx.select().from(sponsorJobs).where(eq(sponsorJobs.targetId,f.id)))).some(job=>job.state==="pending")).toBe(true);
+  });
+  it("resolves confirmed renewal before expiring the original seat, and never extends an unpaid month",async()=>{
+    const f=await monthlyFixture();f.completeRenewal();const expiry=new Date(f.startsAt);
+    f.monthly.status="past_due";
+    f.monthly.invoices=[{id:"in_zero",paid:true,amountPaid:0,currency:"usd",priceId:"price_monthly",periodStart:f.startsAt,periodEnd:calendarMonthEnd(f.startsAt)}];
+    expect(await reconcileSponsorCheckout(f.sourceId,f.provider,f.promote,expiry)).toBe(false);
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,expiry);
+    expect(await f.account()).toMatchObject({state:"recovery",paidThrough:expiry});
+    const paidAt=f.addPaidMonth();await reconcileSponsorCheckout(f.id,f.provider,f.promote,paidAt);
+    expect(await f.account()).toMatchObject({state:"active",paidThrough:new Date(calendarMonthEnd(f.startsAt))});
+    await reconcileSponsorCheckout(f.sourceId,f.provider,f.promote,paidAt);
+    expect((await withSponsorWrite(tx=>tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id,f.sourceId))))[0].releasedAt).not.toBeNull();
+  });
+  it("reuses a pinned change after a lost response without changing customer, price, currency, or date",async()=>{
+    const f=await monthlyFixture(false);f.loseResponse();
+    await expect(ensureSponsorCheckoutSession(f.id,f.provider)).rejects.toThrow("Lost response");
+    expect(await ensureSponsorCheckoutSession(f.id,f.provider)).toBe("https://checkout.stripe.com/monthly");
+    const calls=vi.mocked(f.provider.createCheckout).mock.calls;
+    expect(calls).toHaveLength(2);expect(calls[0][0]).toEqual(calls[1][0]);
+    expect(await prepareMonthlyRenewal(f.owner,"price_rotated",f.provider,f.now)).toEqual({ok:true,value:{checkoutId:f.id}});
+  });
+  it("keeps already-paid time after cancellation, then stops at expiry without monthly payment",async()=>{
+    const f=await monthlyFixture();await f.activate();f.monthly.cancelAtPeriodEnd=true;
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,f.now);
+    expect(await f.account()).toMatchObject({state:"active",paidThrough:new Date(f.startsAt)});
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,new Date(f.startsAt));
+    expect((await f.account()).state).toBe("inactive");
+    f.addPaidMonth();await reconcileSponsorCheckout(f.id,f.provider,f.promote,new Date(f.startsAt+1000));
+    expect((await f.account()).state).toBe("inactive");
+  });
+  it.each(["source-settlement","source-final-read","monthly-settlement","monthly-final-read"] as const)("persists reversed-payment withdrawal across %s failures",async scenario=>{
+    const f=await monthlyFixture();await f.activate();
+    let now=f.now;
+    if(scenario.startsWith("monthly")){
+      now=f.addPaidMonth();await reconcileSponsorCheckout(f.id,f.provider,f.promote,now);
+      f.monthly.invoices[0]={...f.monthly.invoices[0],refunded:true,netBaseAmount:0};
+    }else f.refundSource();
+    if(scenario.endsWith("settlement"))f.settlement("error");
+    else vi.spyOn(f.provider,"observe").mockResolvedValueOnce(f.monthly).mockRejectedValueOnce(Error("Final read failed"));
+    expect(await reconcileSponsorCheckout(f.id,f.provider,f.promote,now)).toBe(false);
+    const account=await f.account();expect(account.state).toBe("inactive");
+    expect(await withSponsorWrite(tx=>tx.select().from(sponsorSeats).where(eq(sponsorSeats.accountId,account.id)))).toHaveLength(1);
+  });
+  it("rejects plan changes too close to expiry and keeps reserved terms immutable",async()=>{
+    const f=await monthlyFixture(false);
+    const pending=(await withSponsorWrite(tx=>tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id,f.id))))[0];
+    await expect(withSponsorWrite(tx=>tx.update(sponsorCheckouts).set({snapshot:{...pending.snapshot!,renewal:{...pending.snapshot!.renewal!,startsAt:"2099-01-01T00:00:00.000Z"}}}).where(eq(sponsorCheckouts.id,f.id)))).rejects.toThrow();
+    await withSponsorWrite(tx=>tx.update(sponsorCheckouts).set({state:"expired",releasedAt:f.now}).where(eq(sponsorCheckouts.id,f.id)));
+    expect(await prepareMonthlyRenewal(f.owner,"price_monthly",f.provider,new Date(f.startsAt-1800000))).toMatchObject({ok:false,code:"conflict"});
+    expect(f.provider.createCheckout).not.toHaveBeenCalled();
+  });
+  it("does not transfer an unconfirmed or expired checkout carrying a subscription ID",async()=>{
+    const f=await monthlyFixture();
+    vi.spyOn(f.provider,"session").mockResolvedValueOnce({id:`cs_monthly_${f.id}`,checkoutId:f.id,status:"expired",url:null,expiresAt:f.now.getTime(),subscriptionId:f.monthly.subscriptionId,billingMode:"subscription"});
+    await reconcileSponsorCheckout(f.id,f.provider,f.promote,f.now);
+    expect(await f.account()).toMatchObject({state:"active",billingMode:"one_time",paidThrough:new Date(f.startsAt)});
+    expect(f.provider.terminate).toHaveBeenCalledOnce();
+  });
+  it.each(["revoke","delete"] as const)("stops confirmed future collection when the owner is subject to %s",async action=>{
+    const f=await monthlyFixture();await f.activate();
+    if(action==="revoke"){
+      await administerSponsorBilling("revoke",f.id,f.provider);
+      await reconcileSponsorCheckout(f.sourceId,f.provider,f.promote,f.now);
+      await reconcileSponsorCheckout(f.id,f.provider,f.promote,f.now);
+      expect((await f.account()).state).toBe("revoked");
+    }else{
+      vi.spyOn(S3Client.prototype,"send").mockResolvedValue({$metadata:{httpStatusCode:200}} as never);
+      await withSponsorWrite(tx=>queueSponsorIdentityDeletion(tx,f.owner,f.now));
+      expect(await cleanupDeletedSponsorOwner(f.owner,f.provider,f.now)).toBe(true);
+    }
+    expect(f.provider.terminate).toHaveBeenCalled();
+    expect((await getDesignSponsors()).some(c=>c.title==="Monthly renewal fixture")).toBe(false);
+  });
+});
+
 describe("guarded paid sponsorship lifecycle", () => {
   it("records the verified payment date separately from coverage and updates it on renewal", async () => {
     const f = await fixture("Payment date");
@@ -844,6 +1016,11 @@ describe("guarded paid sponsorship lifecycle", () => {
       refunded: true,
       netBaseAmount: 0,
     };
+    vi.spyOn(f.provider, "settlePayment").mockRejectedValueOnce(Error("Settlement temporarily unavailable"));
+    expect(await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now)).toBe(false);
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("inactive");
+    expect((await getDesignSponsors()).some(s => s.title === "Refunded single payment")).toBe(false);
     await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
     expect(
       (

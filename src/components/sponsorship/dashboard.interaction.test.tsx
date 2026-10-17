@@ -91,6 +91,33 @@ it("reuses loaded sections when switching tabs and keeps the selected overview r
   } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); }
 });
 
+it("reviews a future monthly plan and only opens checkout after explicit confirmation", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const data = { ...initial, account:{ ...initial.account!, billingMode:"one_time" as const, monthlyAvailable:true } };
+  let finish!: (response: Response) => void;
+  const fetcher=vi.fn((url:string)=>url.endsWith("/monthly") ? new Promise<Response>(resolve=>{finish=resolve;}) : Promise.resolve(Response.json(url.endsWith("/dashboard")?{ok:true,value:data}:{data:{status:"unavailable",source:"Inspora accepted events"}})));
+  vi.stubGlobal("fetch",fetcher);
+  const container=document.createElement("div"),root=createRoot(container);
+  try {
+    await act(async()=>root.render(<SponsorDashboard initial={data}/>));
+    const click=(text:string)=>Array.from(container.querySelectorAll("button")).find(b=>b.textContent===text)!.click();
+    await act(async()=>click("Billing"));
+    expect(container.querySelectorAll('#billing > dl > div')).toHaveLength(1);
+    expect(container.querySelector('#billing')!.textContent).not.toContain("Paid on");
+    await act(async()=>click("Switch to monthly"));
+    expect(container.querySelector('[aria-label="Review monthly billing"]')!.textContent).toContain("remaining paid time is included");
+    expect(fetcher.mock.calls.some(([url])=>url.endsWith("/monthly"))).toBe(false);
+    await act(async()=>click("Cancel"));
+    await act(async()=>click("Switch to monthly"));
+    const confirm=Array.from(container.querySelectorAll("button")).find(b=>b.textContent==="Continue to monthly checkout")!;
+    await act(async()=>{confirm.click();confirm.click();});
+    expect(fetcher.mock.calls.filter(([url])=>url.endsWith("/monthly"))).toHaveLength(1);
+    await act(async()=>finish(Response.json({ok:false,message:"Checkout unavailable"},{status:503})));
+    expect(container.textContent).toContain("Checkout unavailable");
+    expect(confirm.disabled).toBe(false);
+  }finally{await act(async()=>root.unmount());vi.unstubAllGlobals();}
+});
+
 it("defaults to a single calendar month and sends the explicit monthly choice to checkout", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const data = { ...initial, account: null,
@@ -185,9 +212,8 @@ it("shows refresh progress and then renders cancellation without removing the pa
     expect(refresh.textContent).toBe("Refresh");
     expect(container.textContent).toContain("Cancellation");
     expect(container.textContent).toContain("No automatic renewal");
-    const paidOn = Array.from(container.querySelectorAll('#billing dt')).find(label => label.textContent === "Paid on")!.parentElement!;
-    expect(paidOn.querySelector('time')?.getAttribute("datetime")).toBe(initial.account!.paidAt);
-    const period = Array.from(container.querySelectorAll('#billing > dl > div')).find(card => card.querySelector('dt')?.textContent === "Paid period")!;
+    expect(container.querySelector('#billing')!.textContent).not.toContain("Paid on");
+    const period = Array.from(container.querySelectorAll('#billing > dl > div')).find(card => card.querySelector('dt')?.textContent === "Subscription")!;
     expect(Array.from(period.querySelectorAll('time')).map(time => time.dateTime)).toEqual([initial.account!.periodStart, initial.account!.paidThrough]);
     expect(container.querySelector('#billing')!.textContent).not.toContain("Paid through");
     expect(container.textContent).not.toContain("Promotion is paused");

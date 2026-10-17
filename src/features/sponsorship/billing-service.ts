@@ -7,7 +7,7 @@ import {
   sponsorBillingProvider,
 } from "./stripe-client";
 import { reserveSponsorSeat } from "./seats";
-import { ensureSponsorCheckoutSession } from "./billing-repository";
+import { ensureSponsorCheckoutSession, reconcileSponsorCheckout } from "./billing-repository";
 import { runSponsorMaintenance } from "./jobs";
 import { withSponsorWrite } from "./repository";
 import {
@@ -20,6 +20,24 @@ import {
 import type { SponsorshipResult } from "./types";
 import type { SponsorBillingMode } from "./purchase-mode";
 import { isSponsorCurrency, type SponsorCurrency } from "./pricing";
+import { prepareMonthlyRenewal } from "./monthly-renewal";
+
+export async function startOwnMonthlyRenewal(): Promise<SponsorshipResult<{ url: string }>> {
+  const owner = await verifiedSponsorOwner("write");
+  if (!owner) return { ok: false, code: "unauthenticated", message: "Sign in to change billing." };
+  if (!sponsorCheckoutEnabled("subscription")) return { ok: false, code: "unavailable", message: "Monthly checkout is currently unavailable." };
+  const provider = sponsorBillingProvider();
+  const expired = await withSponsorWrite(async tx => tx.select().from(sponsorCheckouts).where(and(
+    eq(sponsorCheckouts.ownerUserId, owner), eq(sponsorCheckouts.state, "reserved"),
+  )));
+  for (const checkout of expired) {
+    if (checkout.snapshot?.renewal && !checkout.releasedAt && checkout.expiresAt && checkout.expiresAt <= new Date())
+      await reconcileSponsorCheckout(checkout.id, provider);
+  }
+  const prepared = await prepareMonthlyRenewal(owner, process.env.STRIPE_SPONSOR_PRICE_ID!, provider);
+  if (!prepared.ok) return prepared;
+  return { ok: true, value: { url: await ensureSponsorCheckoutSession(prepared.value.checkoutId, provider) } };
+}
 export function sponsorCheckoutEnabled(mode: SponsorBillingMode = "subscription") {
   return (
     sponsorshipWritesEnabled() &&
@@ -180,6 +198,13 @@ export async function readOwnSponsorDashboard() {
             billingMode: account.billingMode,
             billingInterval: account.billingInterval,
             billingIntervalCount: account.billingIntervalCount,
+            ...(account.billingMode === "one_time" && account.state === "active" && sponsorCheckoutEnabled("subscription") &&
+              account.paidThrough && (account.paidThrough.getTime() > Date.now() + 1810000 ||
+                (checkout?.state === "reserved" && checkout.snapshot?.renewal?.accountId === account.id && !checkout.releasedAt &&
+                  checkout.expiresAt && checkout.expiresAt > new Date())) ? { monthlyAvailable: true } : {}),
+            ...(checkout?.snapshot?.renewal && checkout.state === "completed" && account.stripeSubscriptionId === checkout.stripeSubscriptionId &&
+              account.paidThrough?.toISOString() === checkout.snapshot.renewal.startsAt && Date.parse(checkout.snapshot.renewal.startsAt) > Date.now()
+              ? { monthlyStartsAt: checkout.snapshot.renewal.startsAt } : {}),
           }
         : null,
       checkout: checkout
@@ -190,6 +215,7 @@ export async function readOwnSponsorDashboard() {
             ...(checkout.snapshot?.checkoutCurrency ? { currency: checkout.snapshot.checkoutCurrency } : {}),
             paymentReceived: Boolean(checkout.paymentReceivedAt),
             exceptionCode: checkout.exceptionCode,
+            ...(checkout.snapshot?.renewal ? { monthlyRenewal: true } : {}),
           }
         : null,
       campaigns,

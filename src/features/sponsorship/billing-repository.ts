@@ -1,6 +1,6 @@
 import { sponsorPublicCreative } from "./public-creative";
 import "server-only";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import {
   sponsorAccounts,
@@ -18,6 +18,8 @@ import { billingDecision, validateSponsorPrice } from "./billing";
 import { promoteSponsorMedia, type SponsorPromoter } from "./public-media";
 import type { BillingProvider, CheckoutSession } from "./stripe-client";
 import type { SponsorUpload } from "./types";
+import { readRenewalSource } from "./monthly-renewal";
+import { queueSponsorJob } from "./jobs-store";
 type Checkout = typeof sponsorCheckouts.$inferSelect;
 async function checkoutOwnerLock(tx: WriteTx, owner: string) {
   await tx.execute(
@@ -49,13 +51,14 @@ async function storedSession(
   p: Checkout,
   provider: BillingProvider,
   reservedUntil: Date | null,
+  allowCreate = true,
 ): Promise<CheckoutSession | null> {
   if (p.stripeSessionId) return provider.session(p.stripeSessionId);
   if (!reservedUntil || !p.priceId) return null;
   // A missing stored ID can mean an unknown provider outcome. Once the original
   // expiry is too close for creation, look up current sessions exhaustively;
   // never recreate with an invalid expiry or after idempotency retention.
-  if (Date.now() + 1800000 >= reservedUntil.getTime()) {
+  if (!allowCreate || Date.now() + 1800000 >= reservedUntil.getTime()) {
     const found = await provider.findCheckout(p.id, reservedUntil);
     if (found)
       await tx
@@ -72,6 +75,7 @@ async function storedSession(
     billingMode: p.billingMode,
     pinned: true,
     ...(p.snapshot?.checkoutCurrency ? { currency: p.snapshot.checkoutCurrency } : {}),
+    ...(p.snapshot?.renewal ? { renewal: p.snapshot.renewal } : {}),
   });
   if (session.checkoutId !== p.id || session.billingMode !== p.billingMode)
     throw new Error("Checkout binding mismatch.");
@@ -104,18 +108,28 @@ export async function ensureSponsorCheckoutSession(
     const [seat] = await tx
       .select()
       .from(sponsorSeats)
-      .where(eq(sponsorSeats.checkoutId, p.id))
+      .where(eq(sponsorSeats.checkoutId, p.snapshot?.renewal?.sourceCheckoutId ?? p.id))
       .for("update");
+    const renewal = p.snapshot?.renewal;
+    const [account] = renewal ? await tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.id, renewal.accountId)) : [];
+    const renewalAvailable = renewal && account?.ownerUserId === p.ownerUserId && account.state === "active" &&
+      account.billingMode === "one_time" && account.stripeCustomerId === renewal.customerId &&
+      account.paidThrough?.toISOString() === renewal.startsAt && account.periodStart?.toISOString() === renewal.periodStart &&
+      seat?.accountId === account.id && seat.state === "occupied";
+    const deadline = renewal ? p.expiresAt : seat?.reservedUntil;
     if (
       identity?.state !== "allowed" ||
       p.releasedAt ||
       p.state !== "reserved" ||
-      seat?.state !== "reserved" ||
-      !seat.reservedUntil ||
-      seat.reservedUntil <= new Date()
+      (renewal ? !renewalAvailable : seat?.state !== "reserved") ||
+      !deadline || deadline <= new Date()
     )
       throw new Error("Checkout reservation unavailable.");
-    const session = await storedSession(tx, p, provider, seat.reservedUntil);
+    if (renewal) {
+      const original = await readRenewalSource(tx, p.ownerUserId, renewal, provider, new Date());
+      if (!original.paid || original.source.releasedAt) throw new Error("Your current payment needs billing resolution.");
+    }
+    const session = await storedSession(tx, p, provider, deadline);
     if (
       !session ||
       session.status !== "open" ||
@@ -158,16 +172,31 @@ export async function reconcileSponsorCheckout(
     const [seat] = await tx
       .select()
       .from(sponsorSeats)
-      .where(eq(sponsorSeats.checkoutId, p.id))
+      .where(p.snapshot?.renewal
+        ? or(eq(sponsorSeats.checkoutId, p.id), eq(sponsorSeats.checkoutId, p.snapshot.renewal.sourceCheckoutId))
+        : eq(sponsorSeats.checkoutId, p.id))
       .for("update");
     if (!p.priceId || !p.snapshot) return true;
+    const renewal = p.snapshot.renewal;
+    const denied = identity?.state !== "allowed" || ["revoked", "deleting"].includes(account?.state ?? "");
+    const carriesPaidMonth = Boolean(renewal && account && account.id === renewal.accountId &&
+      account.ownerUserId === p.ownerUserId && account.state === "active" && account.billingMode === "one_time" &&
+      account.stripeCustomerId === renewal.customerId && account.periodStart?.toISOString() === renewal.periodStart &&
+      account.paidThrough?.toISOString() === renewal.startsAt && seat?.accountId === account.id &&
+      seat.state === "occupied" && seat.checkoutId === renewal.sourceCheckoutId);
     const session = await storedSession(
       tx,
       p,
       provider,
-      seat?.reservedUntil ?? null,
+      renewal ? p.expiresAt : seat?.reservedUntil ?? null,
+      !renewal,
     );
     if (!session) {
+      if (renewal) {
+        if (p.expiresAt > now && !denied && !p.releasedAt) return false;
+        await releaseReservation(tx, p, now);
+        return true;
+      }
       if (seat?.state === "reserved" && !p.stripeSessionId)
         await releaseReservation(tx, p, now);
       return true;
@@ -176,12 +205,10 @@ export async function reconcileSponsorCheckout(
       throw new Error("Checkout owner binding mismatch.");
     let current = session;
     const once = p.billingMode === "one_time";
-    const denied =
-      identity?.state !== "allowed" ||
-      ["revoked", "deleting"].includes(account?.state ?? "");
+    const deadline = renewal ? p.expiresAt : seat?.reservedUntil;
     if (
       session.status === "open" &&
-      (denied || !seat?.reservedUntil || seat.reservedUntil <= now)
+      (denied || p.releasedAt || !deadline || deadline <= now || renewal && !carriesPaidMonth)
     )
       current = await provider.expireSession(session.id);
     if (!once && current.status === "expired" && !current.subscriptionId) {
@@ -189,7 +216,16 @@ export async function reconcileSponsorCheckout(
       return true;
     }
     if (once && current.status === "open") return false;
+    if (renewal && current.status === "open") return false;
     if (!once && !current.subscriptionId) return false;
+    if (once && !denied && account?.billingMode === "one_time" && account.paidThrough && account.paidThrough <= now && !p.releasedAt) {
+      const [pending] = await tx.select().from(sponsorCheckouts).where(and(eq(sponsorCheckouts.ownerUserId, p.ownerUserId),
+        eq(sponsorCheckouts.state, "reserved"), sql`${sponsorCheckouts.snapshot}->'renewal'->>'sourceCheckoutId' = ${p.id}`));
+      if (pending) {
+        await queueSponsorJob(tx, "reconcile", pending.id, `renewal-resolution:${pending.id}`, now);
+        return false;
+      }
+    }
     if (
       p.stripeSubscriptionId &&
       p.stripeSubscriptionId !== current.subscriptionId
@@ -203,11 +239,20 @@ export async function reconcileSponsorCheckout(
       once
         ? provider.observePayment(current.id)
         : provider.observe(current.subscriptionId!);
-    const stopCollection = () =>
-      once
-        ? provider.settlePayment(current.id)
-        : provider.terminate(current.subscriptionId!);
+    let accessWithdrawn = false;
+    const stopCollection = async () => {
+      try {
+        return await (once ? provider.settlePayment(current.id) : provider.terminate(current.subscriptionId!));
+      } catch (error) {
+        // Persist a verified refund/dispute pause even if Stripe settlement is
+        // temporarily unavailable; the queued reconciliation retries collection.
+        if (accessWithdrawn) return false;
+        throw error;
+      }
+    };
     const observation = await readBilling();
+    if (renewal && (once || observation.customerId !== renewal.customerId || observation.billingAnchor !== Date.parse(renewal.startsAt)))
+      throw new Error("Monthly renewal customer or billing date mismatch.");
     if (
       observation.checkoutId !== p.id ||
       observation.subscriptionId !== current.subscriptionId ||
@@ -217,13 +262,22 @@ export async function reconcileSponsorCheckout(
     if (p.snapshot.checkoutCurrency && observation.price.currency !== p.snapshot.checkoutCurrency)
       throw new Error("Checkout currency mismatch.");
     validateSponsorPrice(observation.price, p.priceId, false, p.billingMode);
+    // A rejected renewal must never release the original account's paid seat.
+    // Only an eligible source period or this checkout's own seat can be used.
+    if (renewal && seat?.checkoutId !== p.id && (!carriesPaidMonth || denied || p.releasedAt || current.status !== "complete" || !["active", "past_due"].includes(observation.status))) {
+      if (observation.invoices.some(invoice => invoice.paid && invoice.amountPaid > 0 && invoice.id !== p.paidInvoiceId))
+        await tx.update(sponsorCheckouts).set({ exceptionCode: "late_payment_refund_review" }).where(eq(sponsorCheckouts.id, p.id));
+      if (!(await stopCollection())) return false;
+      await releaseReservation(tx, p, now);
+      return true;
+    }
     const ownedAccount =
       account &&
       (once
         ? account.billingMode === "one_time" &&
           seat?.accountId === account.id &&
           seat.checkoutId === p.id
-        : account.stripeSubscriptionId === current.subscriptionId)
+        : account.stripeSubscriptionId === current.subscriptionId || carriesPaidMonth)
         ? account
         : null;
     if (
@@ -258,13 +312,37 @@ export async function reconcileSponsorCheckout(
       paidThrough: ownedAccount?.paidThrough?.getTime() ?? null,
       periodStart: ownedAccount?.periodStart?.getTime() ?? null,
     };
-    const decision = billingDecision(
+    let decision = billingDecision(
       observation,
       previous,
       now.getTime(),
       p.priceId,
     );
-    const disputedPeriod = observation.invoices.some(i => i.disputeState &&
+    let sourceDisputed = false;
+    if (renewal && ownedAccount && (decision.periodStart ?? 0) < Date.parse(renewal.startsAt)) {
+      const original = await readRenewalSource(tx, p.ownerUserId, renewal, provider, now);
+      if (!original.paid) {
+        await tx.update(sponsorAccounts).set({ state: original.disputed ? original.decision.state : "inactive",
+          recoveryDeadline: original.disputed && original.decision.recoveryDeadline ? new Date(original.decision.recoveryDeadline) : null,
+          cancelAtPeriodEnd: true, updatedAt: now }).where(eq(sponsorAccounts.id, ownedAccount.id));
+        accessWithdrawn = true;
+        invalidated = true;
+        await queueSponsorJob(tx, "reconcile", renewal.sourceCheckoutId, `renewal-source:${p.id}`, now);
+        if (!(await stopCollection())) return false;
+        if (carriesPaidMonth) {
+          await releaseReservation(tx, p, now);
+          return true;
+        }
+        // A refund/dispute of the carried month cannot be hidden behind the
+        // newly authorized subscription. Stop collection and pause its access.
+        sourceDisputed = original.disputed;
+        decision = { ...original.decision, invoiceId: null,
+          state: original.disputed ? original.decision.state : "inactive",
+          terminate: original.disputed ? original.decision.terminate : true };
+        observation.cancelAtPeriodEnd = true;
+      }
+    }
+    const disputedPeriod = sourceDisputed || observation.invoices.some(i => i.disputeState &&
       i.priceId === p.priceId && i.currency === observation.price.currency &&
       i.periodStart === decision.periodStart && i.periodEnd === decision.paidThrough);
     if (disputedPeriod || p.exceptionCode === "payment_dispute")
@@ -272,6 +350,21 @@ export async function reconcileSponsorCheckout(
         .set({ exceptionCode: disputedPeriod ? "payment_dispute" : null })
         .where(eq(sponsorCheckouts.id, p.id));
     const refunded = once && observation.invoices.some((i) => i.refunded);
+    if (once && !denied && !seat && account?.billingMode === "subscription" && (refunded || disputedPeriod)) {
+      const [currentSeat] = await tx.select().from(sponsorSeats).where(eq(sponsorSeats.accountId, account.id));
+      const [currentCheckout] = currentSeat?.checkoutId ? await tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id, currentSeat.checkoutId)) : [];
+      const carried = currentCheckout?.snapshot?.renewal;
+      if (carried?.sourceCheckoutId === p.id && carried.accountId === account.id &&
+        account.periodStart?.toISOString() === carried.periodStart && account.paidThrough?.toISOString() === carried.startsAt) {
+        await tx.update(sponsorAccounts).set({ state: disputedPeriod ? decision.state : "inactive",
+          recoveryDeadline: decision.recoveryDeadline ? new Date(decision.recoveryDeadline) : null,
+          cancelAtPeriodEnd: true, updatedAt: now }).where(eq(sponsorAccounts.id, account.id));
+        await tx.update(sponsorCheckouts).set({ exceptionCode: disputedPeriod ? "payment_dispute" : "original_payment_reversed" }).where(eq(sponsorCheckouts.id, currentCheckout.id));
+        await queueSponsorJob(tx, "reconcile", currentCheckout.id, `source-payment:${p.id}:${now.getTime()}`, now);
+        accessWithdrawn = true;
+        invalidated = true;
+      }
+    }
     if (
       denied ||
       p.releasedAt ||
@@ -292,6 +385,7 @@ export async function reconcileSponsorCheckout(
           .update(sponsorAccounts)
           .set({ state: "inactive", recoveryDeadline: null, updatedAt: now })
           .where(eq(sponsorAccounts.id, ownedAccount.id));
+        accessWithdrawn = true;
         invalidated = true;
       }
       const safe = await stopCollection();
@@ -306,14 +400,9 @@ export async function reconcileSponsorCheckout(
             reservedUntil: null,
           })
           .where(eq(sponsorSeats.slot, seat.slot));
-        await tx
-          .update(sponsorCheckouts)
-          .set({
-            releasedAt: now,
-            state: p.state === "reserved" ? "expired" : p.state,
-          })
-          .where(eq(sponsorCheckouts.id, p.id));
       }
+      await tx.update(sponsorCheckouts).set({ releasedAt: p.releasedAt ?? now,
+        state: p.state === "reserved" ? "expired" : p.state }).where(eq(sponsorCheckouts.id, p.id));
       return true;
     }
     if (decision.state === "pending") {
@@ -378,11 +467,13 @@ export async function reconcileSponsorCheckout(
         .set(values)
         .where(eq(sponsorAccounts.id, ownedAccount.id))
         .returning();
+    if (decision.state !== "active") accessWithdrawn = true;
     await tx
       .update(sponsorSeats)
       .set({
         state: decision.terminate ? "releasing" : "occupied",
         accountId: account.id,
+        checkoutId: p.id,
         reservedUntil: null,
       })
       .where(eq(sponsorSeats.slot, seat.slot));
@@ -404,7 +495,7 @@ export async function reconcileSponsorCheckout(
       .update(sponsorCheckouts)
       .set({
         state: "completed",
-        paymentReceivedAt: p.paymentReceivedAt ?? now,
+        paymentReceivedAt: p.paymentReceivedAt ?? (paidInvoice || !renewal ? now : null),
         paidInvoiceId: decision.invoiceId ?? p.paidInvoiceId,
       })
       .where(eq(sponsorCheckouts.id, p.id));
@@ -413,7 +504,12 @@ export async function reconcileSponsorCheckout(
       if (!(await stopCollection())) return false;
       // Re-read after stopping collection so an in-flight success becomes an
       // explicit exception, never entitlement after the seat is reused.
-      const final = await readBilling();
+      let final;
+      try { final = await readBilling(); }
+      catch (error) {
+        if (accessWithdrawn) return false;
+        throw error;
+      }
       if (
         final.invoices.some(
           (i) => i.paid && i.periodEnd > decision.paidThrough!,

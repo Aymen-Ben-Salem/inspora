@@ -53,6 +53,10 @@ export async function reserveSponsorSeat(
         message:
           "Your sponsor account already has a seat or needs billing resolution.",
       };
+    if (account) {
+      const [held] = await tx.select().from(sponsorSeats).where(eq(sponsorSeats.accountId, account.id));
+      if (held) return { ok: false, code: "conflict", message: "Your previous payment is still being settled. Refresh Billing before starting another checkout." };
+    }
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended('sponsor-capacity', 0))`,
     );

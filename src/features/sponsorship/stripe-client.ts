@@ -29,6 +29,7 @@ export type BillingProvider = {
     /** Only set for an existing server-owned seat reservation. */
     pinned?: boolean;
     currency?: SponsorCurrency;
+    renewal?: { customerId: string; startsAt: string };
   }): Promise<CheckoutSession>;
   session(id: string): Promise<CheckoutSession>;
   findCheckout(
@@ -144,6 +145,9 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
     },
     async createCheckout(input) {
       const once = input.billingMode === "one_time";
+      if (input.renewal && (once || !input.pinned || !input.currency || !input.renewal.customerId ||
+        !Number.isFinite(Date.parse(input.renewal.startsAt)) || Date.parse(input.renewal.startsAt) <= input.expiresAt))
+        throw new Error("A server-pinned future monthly renewal is required.");
       const price = priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] }));
       validateSponsorPrice(price, input.priceId, !input.pinned, input.billingMode);
       if (input.currency !== undefined) {
@@ -162,6 +166,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           mode: once ? "payment" : "subscription",
           adaptive_pricing: { enabled: false },
           ...(input.currency ? { currency: input.currency } : {}),
+          ...(input.renewal ? { customer: input.renewal.customerId, customer_update: { address: "auto" as const, name: "auto" as const }, payment_method_collection: "always" as const } : {}),
           client_reference_id: input.checkoutId,
           metadata: { sponsor_checkout_id: input.checkoutId },
           ...(once ? { customer_creation: "always" as const,
@@ -169,6 +174,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
             payment_intent_data: { metadata: { sponsor_checkout_id: input.checkoutId } },
           } : { subscription_data: {
             metadata: { sponsor_checkout_id: input.checkoutId },
+            ...(input.renewal ? { billing_cycle_anchor: Math.floor(Date.parse(input.renewal.startsAt) / 1000), proration_behavior: "none" as const } : {}),
           } }),
           line_items: [{ price: input.priceId, quantity: 1 }],
           allowed_payment_method_types: ["card"],
@@ -181,7 +187,9 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           custom_text: {
             submit: {
               message:
-                once ? `Business or professional promotion. ${amounts} before applicable tax for one calendar month. Single payment, no automatic renewal.` : `Business or professional promotion. ${amounts} before applicable tax, renewing monthly. Cancel future renewal in Billing.`,
+                once ? `Business or professional promotion. ${amounts} before applicable tax for one calendar month. Single payment, no automatic renewal.` : input.renewal
+                  ? `Your paid month remains covered. ${amounts} before applicable tax, billed monthly starting ${input.renewal.startsAt.slice(0, 10)}. No charge for the remaining paid time. Cancel future renewal in Billing.`
+                  : `Business or professional promotion. ${amounts} before applicable tax, renewing monthly. Cancel future renewal in Billing.`,
             },
           },
           automatic_tax: {

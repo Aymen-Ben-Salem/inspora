@@ -75,6 +75,7 @@
 .notice { padding: 1rem 1.25rem; border: 1px solid #dce6f6; border-radius: .75rem; background: #f5f8fe; }
 .billingDetails { display: flex; align-items: flex-start; flex-wrap: wrap; justify-content: space-between; gap: 1.5rem; }
 .billingDetails > div { flex: 1 1 20rem; min-width: 0; }
+.billingSummary { display: grid; grid-template-columns: 1fr; }
 .billingPeriod { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .875rem; }
 .billingPeriod > div + div { border-left: 1px solid #e7ebf2; padding-left: .875rem; }
 .billingPeriod dt { margin-bottom: .5rem; color: #66758c; font-size: .6875rem; }

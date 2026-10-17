@@ -107,6 +107,7 @@ export function billingDecision(
   const valid = observation.invoices.filter(
     (i) =>
       i.paid &&
+      !(i.refunded && i.netBaseAmount === 0) &&
       !i.disputeState &&
       i.amountPaid >= observation.price.unitAmount! &&
       i.currency === observation.price.currency &&
@@ -114,6 +115,11 @@ export function billingDecision(
       validPaidPeriod(i, observation) &&
       i.periodStart <= now,
   );
+  const fullyRefunded = observation.invoices.find(i => i.refunded && i.netBaseAmount === 0 &&
+    i.currency === observation.price.currency && i.priceId === expectedPrice && validPaidPeriod(i, observation) &&
+    i.periodStart <= now && i.periodEnd >= Math.max(previous.paidThrough ?? 0, ...valid.map(invoice => invoice.periodEnd)));
+  if (fullyRefunded) return { state: "inactive", paidThrough: fullyRefunded.periodEnd,
+    periodStart: fullyRefunded.periodStart, invoiceId: null, recoveryDeadline: null, terminate: true };
   const disputed = observation.invoices.find(i => i.disputeState &&
     i.currency === observation.price.currency && i.priceId === expectedPrice &&
     validPaidPeriod(i, observation) && i.periodStart <= now &&

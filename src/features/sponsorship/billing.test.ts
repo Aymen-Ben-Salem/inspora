@@ -38,6 +38,12 @@ const paid: BillingObservation = {
   ],
 };
 describe("verified sponsor billing", () => {
+  it("withdraws fully refunded monthly coverage while preserving a later independently paid month", () => {
+    const refunded = {...paid.invoices[0],refunded:true,netBaseAmount:0};
+    expect(billingDecision({...paid,invoices:[refunded]},{periodStart:start,paidThrough:end},start+1000,price.id)).toMatchObject({state:"inactive",terminate:true,invoiceId:null});
+    const next = {...paid.invoices[0],id:"in_next",periodStart:end,periodEnd:end+30*86400000};
+    expect(billingDecision({...paid,invoices:[refunded,next]},{periodStart:end,paidThrough:next.periodEnd},end+1000,price.id)).toMatchObject({state:"active",paidThrough:next.periodEnd});
+  });
   it.each([45000, 50000])("reconciles pinned EUR %s terms and rejects underpayments", (amount) => {
     const observation: BillingObservation = { ...paid, billingMode: "one_time", subscriptionId: null,
       price: { ...price, currency: "eur", unitAmount: amount, interval: null, intervalCount: null },

@@ -71,6 +71,14 @@ export type SponsorPreparation = {
 // reservations omit it and keep their existing Stripe localization behavior.
 export type SponsorCheckoutSnapshot = OwnedCampaign & {
   checkoutCurrency?: import("./pricing").SponsorCurrency;
+  /** Server-only, immutable binding for renewal after a paid one-time month. */
+  renewal?: {
+    accountId: string;
+    sourceCheckoutId: string;
+    periodStart: string;
+    startsAt: string;
+    customerId: string;
+  };
 };
 export type SponsorUpload = {
   id: string;

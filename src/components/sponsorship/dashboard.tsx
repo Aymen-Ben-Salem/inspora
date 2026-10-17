@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { useSearchParams } from "next/navigation";
 import { PurchaseOptions } from "./purchase-options";
 import { SponsorCurrencySelect } from "./currency-select";
-import type { SponsorCurrency } from "@/features/sponsorship/pricing";
+import { SPONSOR_AMOUNTS, isSponsorCurrency, type SponsorCurrency } from "@/features/sponsorship/pricing";
 import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
 import { DashboardIcon } from "./dashboard-icon";
@@ -64,7 +64,9 @@ export function SponsorDashboard({
     [busy, setBusy] = useState(false),
     [refreshing, setRefreshing] = useState(true),
     [message, setMessage] = useState("");
+  const [reviewMonthly, setReviewMonthly] = useState(false);
   const refreshRequest = useRef<AbortController | null>(null);
+  const openRequest = useRef(false);
   const [previousInitial, setPreviousInitial] = useState(initial);
   if (initial !== previousInitial) {
     setPreviousInitial(initial);
@@ -122,7 +124,9 @@ export function SponsorDashboard({
     }, 5000);
     return () => clearInterval(timer);
   }, [data.checkout?.state, finishing, refresh]);
-  async function open(kind: "checkout" | "portal") {
+  async function open(kind: "checkout" | "portal" | "monthly") {
+    if (openRequest.current) return;
+    openRequest.current = true;
     setBusy(true);
     setMessage("");
     try {
@@ -144,6 +148,7 @@ export function SponsorDashboard({
         e instanceof Error ? e.message : "Billing unavailable. Try again.",
       );
     } finally {
+      openRequest.current = false;
       setBusy(false);
     }
   }
@@ -268,29 +273,20 @@ export function SponsorDashboard({
           </p>
           {account ? (
             <>
-              <dl className={styles.summaryGrid}>
+              <dl className={styles.billingSummary}>
                 <div className={styles.metric}>
-                <dt className={styles.metricHeader}>Status<span className={styles.metricIcon}><DashboardIcon name="billing" /></span></dt>
-                <dd className={`${styles.summaryValue} capitalize`}>{account.state}</dd>
-                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>{account.billingMode === "one_time" ? "One-time payment" : "Subscription"}</dd>
-                </div>
-                <div className={styles.metric}>
-                <dt className={styles.metricHeader}>Paid on<span className={styles.metricIcon}><DashboardIcon name="receipt" /></span></dt>
-                <dd className={styles.summaryValue}>{account.paidAt ? <BillingDate value={account.paidAt} /> : <span className="text-base">Not recorded</span>}</dd>
-                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>Payment received</dd>
-                </div>
-                <div className={styles.metric}>
-                <dt className={styles.metricHeader}>Paid period<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
+                <dt className={styles.metricHeader}>Subscription<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
                 <dd className="mt-4">
                   <dl className={styles.billingPeriod}>
                     <div><dt>Start date</dt><dd><BillingDate value={account.periodStart} /></dd></div>
                     <div><dt>End date</dt><dd><BillingDate value={account.paidThrough} /></dd></div>
                   </dl>
                 </dd>
-                <dd className={`mt-3 text-xs leading-5 ${styles.muted}`}>{account.cancelAtPeriodEnd && account.billingMode !== "one_time" ? "Cancellation scheduled · No automatic renewal" : account.billingMode === "one_time" || account.state === "inactive" ? "No automatic renewal" : account.billingInterval === "month" ? "Renews monthly" : "Renews every 30 days"}</dd>
+                <dd className={`mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 ${styles.muted}`}><span className={styles.statusBadge} data-active={account.state === "active"}><span className="capitalize">{account.state}</span> · {account.billingMode === "one_time" ? "One-time payment" : "Monthly"}</span><span>{account.cancelAtPeriodEnd && account.billingMode !== "one_time" ? "Cancellation scheduled · No automatic renewal" : account.billingMode === "one_time" || account.state === "inactive" ? "No automatic renewal" : account.billingInterval === "month" ? "Renews monthly" : "Renews every 30 days"}</span></dd>
                 </div>
               </dl>
               {account.recoveryDeadline ? <div className={styles.notice}><p className="text-sm font-medium">Recovery deadline</p><p className={`mt-1 text-sm ${styles.muted}`}>{date(account.recoveryDeadline)}</p></div> : null}
+              {account.monthlyStartsAt && !account.cancelAtPeriodEnd ? <div className={styles.notice}><p className="text-sm font-medium">Monthly billing scheduled</p><p className={`mt-1 text-sm leading-6 ${styles.muted}`}>Your first monthly charge is on {date(account.monthlyStartsAt)}. Your current paid period stays covered. You can cancel future renewal in Manage billing.</p></div> : null}
               <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="payment-details-title">
                 <div>
                   <h2 id="payment-details-title" className="flex items-center gap-3 text-lg font-medium"><span className={styles.metricIcon}><DashboardIcon name="receipt" /></span>Payment details</h2>
@@ -311,6 +307,18 @@ export function SponsorDashboard({
                 Manage billing<DashboardIcon name="external" />
               </button>
               </section>
+              {account.billingMode === "one_time" && account.state === "active" && <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="monthly-plan-title">
+                <div>
+                  <h2 id="monthly-plan-title" className="flex items-center gap-3 text-lg font-medium"><span className={styles.metricIcon}><DashboardIcon name="renewal" /></span>Continue with monthly billing</h2>
+                  <p className={`mt-4 max-w-2xl text-sm leading-6 ${styles.muted}`}>Keep your sponsorship running after this paid month. {isSponsorCurrency(account.billingCurrency) ? new Intl.NumberFormat("en-US", { style: "currency", currency: account.billingCurrency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(SPONSOR_AMOUNTS[account.billingCurrency] / 100) : "Monthly price"} per month, before applicable tax. Your first charge will be on {date(account.paidThrough)}.</p>
+                  {!account.monthlyAvailable && <p className={`mt-2 text-xs leading-5 ${styles.muted}`}>Plan changes are currently unavailable. You can review monthly options once this paid period ends.</p>}
+                  {reviewMonthly && account.monthlyAvailable && <div role="group" aria-label="Review monthly billing" className={`${styles.notice} mt-4`}>
+                    <p className="text-sm leading-6">Your remaining paid time is included. Monthly charges start after this period ends and continue until you cancel. Review and confirm these terms in checkout.</p>
+                    <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={busy || refreshing} onClick={() => void open("monthly")} className={`${sponsorButton.primary} ${styles.primaryButton}`}>{busy ? "Opening checkout…" : "Continue to monthly checkout"}<DashboardIcon name="external" /></button><button type="button" disabled={busy} onClick={() => setReviewMonthly(false)} className={`${sponsorButton.secondary} ${styles.secondaryButton}`}>Cancel</button></div>
+                  </div>}
+                </div>
+                {!reviewMonthly && <button type="button" disabled={busy || refreshing || !account.monthlyAvailable} onClick={() => setReviewMonthly(true)} className={`${sponsorButton.primary} ${styles.primaryButton} shrink-0`}>{data.checkout?.monthlyRenewal && data.checkout.state === "reserved" ? "Continue monthly setup" : "Switch to monthly"}<DashboardIcon name="right" /></button>}
+              </section>}
             </>
           ) : (
             <div className={`${styles.surface} ${styles.billingOptions}`}>

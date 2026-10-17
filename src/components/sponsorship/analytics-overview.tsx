@@ -24,16 +24,16 @@ function reportMoney(amount: number, currency?: string) {
 const surface = styles.surface;
 const select =
   "focus-ring min-h-11 cursor-pointer rounded-md bg-[#fafafa] px-3 text-sm text-[#262626] transition-colors hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-40";
-function ReportFilter({ label, value, options, onChange }: {
+function ReportFilter({ label, caption, value, options, onChange }: {
   label: string;
+  caption: string;
   value: string;
   options: { value: string; label: string }[];
   onChange(value: string): void;
 }) {
   return <div className={styles.filterField}>
-    <p>{label}</p>
     <NavbarMenu label={label} keepInViewport
-      trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><DashboardIcon name="chevron" /></>}
+      trigger={<><span className={styles.filterOptionText}><span className={styles.filterCaption}>{caption}</span><span className={styles.filterValue}>{options.find(option => option.value === value)?.label ?? value}</span></span><DashboardIcon name="chevron" /></>}
       triggerClassName={styles.filterOptionTrigger}
       menuClassName="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100dvh-2rem))] overflow-y-auto"
       items={options.map(option => ({ label: option.label, selected: option.value === value, onSelect: () => onChange(option.value) }))}
@@ -46,8 +46,11 @@ function ReportFilterMenu({ children, exportButton, activeCount }: { children: R
     <NavbarMenu label="Filters" openOnHover keepInViewport
       trigger={<><DashboardIcon name="filter" />Filters{activeCount > 0 && <span className={styles.filterCount}>{activeCount}</span>}</>}
       triggerClassName={`${sponsorButton.secondary} ${styles.secondaryButton} ${styles.filterTrigger}`}
-      menuClassName="w-[min(20rem,calc(100vw-2rem))]"
-      content={<div role="group" aria-label="Report filters" className={styles.filterPanel}>{children}</div>}
+      menuClassName={styles.filterPopover}
+      content={<div role="group" aria-label="Report filters" className={styles.filterPanel}>
+        <div className={styles.filterPanelHeader}><p>Filter report</p><span>{activeCount ? `${activeCount} active` : "All data"}</span></div>
+        <div className={styles.filterGrid}>{children}</div>
+      </div>}
     />
     {exportButton}
   </div>;
@@ -356,16 +359,16 @@ export function AnalyticsOverview() {
         }}>
           <DashboardIcon name="download" />Export CSV
         </button>}>
-          <ReportFilter label="Campaign report" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
+          <ReportFilter label="Campaign report" caption="Campaign" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
             { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
           ]} />
-          <ReportFilter label="Placement report" value={filter.placement ?? ""} onChange={value => update("placement", value)} options={[
+          <ReportFilter label="Placement report" caption="Placement" value={filter.placement ?? ""} onChange={value => update("placement", value)} options={[
             { value: "", label: "All placements" }, { value: "header", label: "Navbar" }, { value: "feed", label: "Feed" }, { value: "detail", label: "Detail sidebar" },
           ]} />
-          <ReportFilter label="Country report" value={filter.country ?? ""} onChange={value => update("country", value)} options={[
+          <ReportFilter label="Country report" caption="Country" value={filter.country ?? ""} onChange={value => update("country", value)} options={[
             { value: "", label: "All countries" }, ...(available?.country.map(c => ({ value: c.label, label: countryName(c.label) })) ?? []),
           ]} />
-          <ReportFilter label="Closed paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
+          <ReportFilter label="Closed paid period" caption="Paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
           ]} />
         </ReportFilterMenu>

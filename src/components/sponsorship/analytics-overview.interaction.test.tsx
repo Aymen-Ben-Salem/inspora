@@ -51,7 +51,7 @@ it("applies grouped filters and supports tap, Escape, and outside dismissal", as
   const options = container.querySelector('[role="menu"][aria-label="Placement report"]')!;
   await act(async () => Array.from(options.querySelectorAll("button")).find(option => option.textContent === "Feed")!.click());
   expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
-  expect(placement.textContent).toBe("Feed");
+  expect(placement.textContent).toContain("Feed");
   expect(options.getAttribute("aria-hidden")).toBe("true");
   expect(trigger.getAttribute("aria-expanded")).toBe("true");
   await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));

@@ -35,7 +35,7 @@ function BillingDate({ value }: { value: string | null }) {
   return <time dateTime={value}>{day}<span className={`mt-1 block text-xs font-normal tracking-normal ${styles.muted}`}> {time}</span></time>;
 }
 
-function MonthlyReviewDialog({ amount, startsAt, busy, refreshing, error, onConfirm, onDismiss }: {
+function MonthlyReviewToast({ amount, startsAt, busy, refreshing, error, onConfirm, onDismiss }: {
   amount: string;
   startsAt: string | null;
   busy: boolean;
@@ -44,49 +44,39 @@ function MonthlyReviewDialog({ amount, startsAt, busy, refreshing, error, onConf
   onConfirm(): void;
   onDismiss(): void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null), cancel = useRef<HTMLButtonElement>(null);
-  const titleId = useId(), descriptionId = useId();
+  const toast = useRef<HTMLElement>(null), previousFocus = useRef<HTMLElement | null>(null);
+  const descriptionId = useId();
   useEffect(() => {
-    const element = dialog.current!;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.documentElement.style.overflow;
-    element.showModal();
-    document.documentElement.style.overflow = "hidden";
-    cancel.current?.focus({ preventScroll: true });
-    return () => {
-      element.close();
-      document.documentElement.style.overflow = previousOverflow;
-      previousFocus?.focus({ preventScroll: true });
-    };
+    previousFocus.current = document.activeElement as HTMLElement | null;
   }, []);
-  return <dialog ref={dialog} tabIndex={-1} aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId}
-    className={`${styles.calendarDialog} ${styles.monthlyDialog}`}
-    onKeyDown={event => {
-      if (event.key !== "Tab") return;
-      const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
-      const first = buttons[0], last = buttons.at(-1);
-      if (!first) { event.preventDefault(); event.currentTarget.focus(); }
-      else if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }}
-    onCancel={event => { event.preventDefault(); if (!busy) onDismiss(); }}
-    onClick={event => { if (!busy && event.target === event.currentTarget) onDismiss(); }}>
-    <header className="flex items-start justify-between gap-4">
-      <div><span className={`${styles.metricIcon} mb-4`}><DashboardIcon name="renewal" /></span><h2 id={titleId} className="text-lg font-medium tracking-tight">Switch to monthly billing</h2></div>
-      <button type="button" disabled={busy} className={`${styles.iconButton} focus-ring -mr-2 -mt-2 shrink-0`} aria-label="Close monthly billing review" onClick={onDismiss}><DashboardIcon name="close" /></button>
+  const dismiss = useCallback(() => {
+    if (busy) return;
+    if (toast.current?.contains(document.activeElement)) previousFocus.current?.focus({ preventScroll: true });
+    onDismiss();
+  }, [busy, onDismiss]);
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !event.defaultPrevented && !busy) {
+        event.preventDefault();
+        dismiss();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [busy, dismiss]);
+  return <section ref={toast} role="region" aria-label="Monthly billing confirmation" aria-describedby={descriptionId} className={styles.monthlyToast}>
+    <header className="flex items-center gap-3">
+      <span className={styles.metricIcon}><DashboardIcon name="renewal" /></span><h2 className="flex-1 text-sm font-medium">Switch to monthly billing?</h2>
+      <button type="button" disabled={busy} className={`${styles.iconButton} focus-ring -mr-2 shrink-0`} aria-label="Close monthly billing review" onClick={dismiss}><DashboardIcon name="close" /></button>
     </header>
-    <p id={descriptionId} className={`mt-3 text-sm leading-6 ${styles.muted}`}>Your remaining paid time is included. Monthly charges start after this period ends and continue until you cancel.</p>
-    <dl className={`${styles.notice} my-5 space-y-4 text-sm`}>
-      <div><dt className={`text-xs ${styles.muted}`}>Monthly amount</dt><dd className="mt-1 font-medium">{amount}<span className={`ml-1 font-normal ${styles.muted}`}>per month, before applicable tax</span></dd></div>
-      <div><dt className={`text-xs ${styles.muted}`}>First charge</dt><dd className="mt-1 font-medium">{date(startsAt)}</dd></div>
-    </dl>
-    <p className={`text-xs leading-5 ${styles.muted}`}>Review and confirm these terms in checkout. You can cancel future renewal in Manage billing.</p>
+    <p id={descriptionId} role="status" className={`mt-3 text-sm leading-6 ${styles.muted}`}><span className="font-medium text-[#293e5c]">{amount} per month</span> before tax, starting {date(startsAt)}. Your current paid time stays covered.</p>
+    <p className={`mt-2 text-xs leading-5 ${styles.muted}`}>Confirm in checkout. Renews monthly until you cancel in Manage billing.</p>
     {error && <p role="alert" className="mt-4 text-sm text-[#b42318]">{error}</p>}
-    <footer className="mt-5 flex flex-col-reverse gap-2 border-t border-[#e7ebf2] pt-5 sm:flex-row sm:justify-end">
-      <button ref={cancel} type="button" disabled={busy} onClick={onDismiss} className={`${sponsorButton.secondary} ${styles.secondaryButton}`}>Cancel</button>
-      <button type="button" disabled={busy || refreshing} aria-busy={busy} onClick={onConfirm} className={`${sponsorButton.primary} ${styles.primaryButton}`}>{busy ? "Opening checkout…" : "Continue to monthly checkout"}<DashboardIcon name="external" /></button>
+    <footer className="mt-4 flex flex-wrap justify-end gap-2">
+      <button type="button" disabled={busy} onClick={dismiss} className={`${sponsorButton.secondary} ${styles.secondaryButton}`}>Cancel</button>
+      <button type="button" disabled={busy || refreshing} aria-label="Continue to monthly checkout" aria-busy={busy} onClick={onConfirm} className={`${sponsorButton.primary} ${styles.primaryButton} min-w-28`}>{busy ? "Opening…" : "Continue"}<DashboardIcon name="external" /></button>
     </footer>
-  </dialog>;
+  </section>;
 }
 
 const sections = [
@@ -215,6 +205,7 @@ export function SponsorDashboard({
     (account ? "overview" : "billing");
   const monthlyAmount = account && isSponsorCurrency(account.billingCurrency) ? new Intl.NumberFormat("en-US", { style: "currency", currency: account.billingCurrency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(SPONSOR_AMOUNTS[account.billingCurrency] / 100) : "Monthly price";
   function changeSection(id: typeof sections[number]["id"]) {
+    setReviewMonthly(false);
     const url = new URL(window.location.href);
     url.searchParams.set("section", id);
     window.history.replaceState(null, "", url);
@@ -370,7 +361,7 @@ export function SponsorDashboard({
                   <p className={`mt-4 max-w-2xl text-sm leading-6 ${styles.muted}`}>Keep your sponsorship running after this paid month. {monthlyAmount} per month, before applicable tax. Your first charge will be on {date(account.paidThrough)}.</p>
                   {!account.monthlyAvailable && <p className={`mt-2 text-xs leading-5 ${styles.muted}`}>Plan changes are currently unavailable. You can review monthly options once this paid period ends.</p>}
                 </div>
-                <button type="button" aria-haspopup="dialog" disabled={busy || refreshing || !account.monthlyAvailable} onClick={() => { setMonthlyError(""); setReviewMonthly(true); }} className={`${sponsorButton.primary} ${styles.primaryButton} shrink-0`}>{data.checkout?.monthlyRenewal && data.checkout.state === "reserved" ? "Continue monthly setup" : "Switch to monthly"}<DashboardIcon name="right" /></button>
+                <button type="button" aria-expanded={reviewMonthly} disabled={busy || refreshing || !account.monthlyAvailable} onClick={() => { setMonthlyError(""); setReviewMonthly(true); }} className={`${sponsorButton.primary} ${styles.primaryButton} shrink-0`}>{data.checkout?.monthlyRenewal && data.checkout.state === "reserved" ? "Continue monthly setup" : "Switch to monthly"}<DashboardIcon name="right" /></button>
               </section>}
             </>
           ) : (
@@ -433,7 +424,7 @@ export function SponsorDashboard({
           {message}
         </p>
       ) : null}
-      {section === "billing" && reviewMonthly && account?.billingMode === "one_time" && account.state === "active" && account.monthlyAvailable && <MonthlyReviewDialog amount={monthlyAmount} startsAt={account.paidThrough} busy={busy} refreshing={refreshing} error={monthlyError} onConfirm={() => void open("monthly")} onDismiss={() => setReviewMonthly(false)} />}
+      {section === "billing" && reviewMonthly && account?.billingMode === "one_time" && account.state === "active" && account.monthlyAvailable && <MonthlyReviewToast amount={monthlyAmount} startsAt={account.paidThrough} busy={busy} refreshing={refreshing} error={monthlyError} onConfirm={() => void open("monthly")} onDismiss={() => setReviewMonthly(false)} />}
       </div>
     </main>
   );

@@ -93,6 +93,7 @@
 @keyframes pulse { 50% { opacity: .45; } }
 .calendarDialog { position: fixed; inset: 0; margin: auto; width: min(43rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); padding: 0; border: 1px solid #dfe6f1; border-radius: 1rem; color: #293e5c; background: white; box-shadow: 0 24px 80px -20px #16345c55, 0 2px 8px #19345c12; overflow: auto; }
 .calendarDialog::backdrop { background: #1e345325; backdrop-filter: blur(3px); }
+.monthlyDialog { width: min(32rem, calc(100vw - 2rem)); padding: 1.5rem; }
 .calendarContent { padding: 1.25rem; }
 .calendarHeader { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
 .calendarHeader h2 { font-size: 1rem; font-weight: 600; letter-spacing: -.025em; }

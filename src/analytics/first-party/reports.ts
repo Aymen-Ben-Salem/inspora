@@ -7,6 +7,7 @@ import {
   EMPTY_COUNTS,
   metricsFromCounts,
   rollingWindow,
+  reportWindow,
   type MetricsFilter,
   type ReportResult,
 } from "./query";
@@ -23,6 +24,7 @@ export function reportKey(scope: string, filter: MetricsFilter) {
         filter.placement ?? null,
         filter.country ?? null,
         filter.periodId ?? null,
+        ...(filter.endDate ? [filter.endDate] : []),
       ]),
     )
     .digest("hex");
@@ -36,6 +38,7 @@ export async function readMetricsReport(
   const scope = accountId ?? "site",
     key = reportKey(scope, filter);
   try {
+    const requestedWindow = reportWindow(filter, now);
     return await withWriteTransaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${`report:${scope}`},0))`,
@@ -106,8 +109,7 @@ export async function readMetricsReport(
           throw new Error("Refresh rate limit.");
         }
       }
-      const window = rollingWindow(filter.range, now),
-        data = await queryMetrics(tx, accountId, filter, window, now);
+      const data = await queryMetrics(tx, accountId, filter, requestedWindow, now);
       const values = {
         scope,
         filter,

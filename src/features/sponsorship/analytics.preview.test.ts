@@ -414,6 +414,26 @@ it("unions identities over the whole range and reconciles placement/country/vers
     { start: "2026-10-25T12:00:00Z", end: now.toISOString() }, now));
   expect(unknownCountry.summary).toMatchObject({ impressions: 1, clicks: 0, uniqueVisitors: 0, frequency: null });
 });
+it("loads isolated calendar-date reports and keeps neighboring dates out of their cached totals", async () => {
+  const f = await fixture(), other = await fixture();
+  await storeAnalyticsEvents([
+    f.event("sponsor_impression", "2026-10:A", "2026-10-10T12:00:00Z"),
+    f.event("sponsor_click", "2026-10:A", "2026-10-10T13:00:00Z"),
+    f.event("sponsor_impression", "2026-10:B", "2026-10-11T12:00:00Z"),
+    other.event("sponsor_impression", "2026-10:C", "2026-10-10T12:00:00Z"),
+  ], now);
+  const first = await readMetricsReport(f.accountId, { range: "1d", endDate: "2026-10-10" }, false, now);
+  expect(first.status).toBe("available");
+  if (first.status === "unavailable") throw Error("calendar report unavailable");
+  expect(first.start).toBe("2026-10-10T00:00:00.000Z");
+  expect(first.end).toBe("2026-10-11T00:00:00.000Z");
+  expect(first.summary).toMatchObject({ impressions: 1, clicks: 1 });
+  const second = await readMetricsReport(f.accountId, { range: "1d", endDate: "2026-10-11" }, false, now);
+  if (second.status === "unavailable") throw Error("neighboring report unavailable");
+  expect(second.summary).toMatchObject({ impressions: 1, clicks: 0 });
+  const cached = await readMetricsReport(f.accountId, { range: "1d", endDate: "2026-10-10" }, false, now);
+  expect(cached).toEqual(first);
+});
 it("rejects version/campaign mismatch at the database boundary", async () => {
   const f = await fixture(),
     other = await fixture();

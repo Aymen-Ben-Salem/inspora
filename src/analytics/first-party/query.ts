@@ -26,6 +26,7 @@ export type MetricsFilter = {
   placement?: Placement;
   country?: string;
   periodId?: string;
+  endDate?: string;
 };
 export type Breakdown = Metrics & { label: string };
 export type MetricsReport = {
@@ -79,12 +80,34 @@ export function metricsFromCounts(c: MetricCounts): Metrics {
       : null,
   };
 }
+export function dailyReportRows(observed: Breakdown[], start: string, end: string): Breakdown[] {
+  const byDay = new Map(observed.map(row => [row.label.slice(0, 10), row]));
+  const rows: Breakdown[] = [];
+  for (let day = Math.floor(Date.parse(start) / 86400000) * 86400000; day < Date.parse(end); day += 86400000) {
+    const label = new Date(day).toISOString().slice(0, 10);
+    rows.push({ ...(byDay.get(label) ?? metricsFromCounts(EMPTY_COUNTS)), label });
+  }
+  return rows;
+}
 export function rollingWindow(range: SponsorRange, now: Date) {
   const days = range === "1d" ? 1 : range === "7d" ? 7 : 30;
   return {
     start: new Date(now.getTime() - days * 86400000).toISOString(),
     end: now.toISOString(),
   };
+}
+export function reportWindow(filter: MetricsFilter, now: Date) {
+  if (!filter.endDate) return rollingWindow(filter.range, now);
+  const day = Date.parse(`${filter.endDate}T00:00:00Z`);
+  if (!Number.isFinite(day) || new Date(day).toISOString().slice(0, 10) !== filter.endDate ||
+      day > Date.parse(now.toISOString().slice(0, 10)) || filter.periodId)
+    throw new Error("Choose a valid report date.");
+  const end = new Date(Math.min(day + 86400000, now.getTime()));
+  const cutoff = now.getTime() - 90 * 86400000;
+  if (end.getTime() <= cutoff) throw new Error("Choose a date in the last 90 days.");
+  const window = rollingWindow(filter.range, end);
+  // Detailed events are retained for 90 days. Never label pruned days as zero.
+  return { ...window, start: new Date(Math.max(Date.parse(window.start), cutoff)).toISOString() };
 }
 type SpendPeriod = {
   startAt: string;

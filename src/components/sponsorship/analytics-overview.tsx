@@ -10,6 +10,9 @@ import type {
 } from "@/analytics/first-party/query";
 import type { readOwnAnalyticsCatalog } from "@/features/sponsorship/analytics";
 import { NavbarMenu } from "@/components/navbar-menu";
+import { dailyReportRows } from "@/analytics/first-party/query";
+import { sponsorReportCsv } from "@/analytics/first-party/csv";
+import { sponsorButton } from "./button-styles";
 const number = new Intl.NumberFormat("en");
 const surface = "min-w-0 rounded-md border border-[#f0f0f0] bg-white p-4 sm:p-5";
 const select =
@@ -94,11 +97,12 @@ export function AnalyticsTable({
     </section>
   );
 }
-export function DeliveryChart({ rows: observedRows, start, end, plain = false }: {
+export function DeliveryChart({ rows: observedRows, start, end, plain = false, onDateChange }: {
   rows: Breakdown[];
   start: string;
   end: string;
   plain?: boolean;
+  onDateChange?: (day: string) => void;
 }) {
   const chart = useRef<SVGSVGElement>(null);
   const [chartWidth, setChartWidth] = useState(800);
@@ -112,13 +116,10 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const dayMs = 86400000;
-  const byDay = new Map(observedRows.map(row => [row.label.slice(0, 10), row]));
-  const rows: Pick<Breakdown, "label" | "impressions" | "clicks">[] = [];
-  for (let day = Math.floor(Date.parse(start) / dayMs) * dayMs; day < Date.parse(end); day += dayMs) {
-    const label = new Date(day).toISOString().slice(0, 10), observed = byDay.get(label);
-    rows.push({ label, impressions: observed?.impressions ?? 0, clicks: observed?.clicks ?? 0 });
-  }
+  const rows = dailyReportRows(observedRows, start, end);
+  const today = new Date().toISOString().slice(0, 10);
+  const minimumDate = onDateChange ? new Date(Date.parse(`${today}T00:00:00Z`) - 89 * 86400000).toISOString().slice(0, 10) : rows[0]?.label;
+  const maximumDate = onDateChange ? today : rows.at(-1)?.label;
   const chosen = rows.findIndex(row => row.label === selectedDay);
   const selectedIndex = chosen < 0 ? rows.length - 1 : chosen;
   const selected = rows[selectedIndex];
@@ -201,9 +202,17 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
           <button type="button" aria-label="Previous day" disabled={selectedIndex === 0} onClick={() => setSelectedDay(rows[selectedIndex - 1].label)} className={`${select} flex size-11 shrink-0 items-center justify-center`}>
             <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} />
           </button>
-          <div aria-live="polite" aria-atomic="true" className="min-w-0 text-center text-xs tabular-nums">
-            <p className="text-[#767676]">{selected.label} · UTC</p>
-            <p className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <div className="min-w-0 text-center text-xs tabular-nums">
+            <label className="inline-flex max-w-full items-center gap-2 text-[#767676]">
+              <input type="date" aria-label="Performance date" value={selected.label} min={minimumDate} max={maximumDate} className={`${select} min-w-0 max-w-full text-center`} onChange={event => {
+                const day = event.currentTarget.value;
+                if (!day || !event.currentTarget.validity.valid || day < (minimumDate ?? day) || day > (maximumDate ?? day)) return;
+                setSelectedDay(day);
+                if (!rows.some(row => row.label === day)) onDateChange?.(day);
+              }} />
+              <span>UTC</span>
+            </label>
+            <p aria-live="polite" aria-atomic="true" className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1">
               <span>{number.format(selected.impressions)} impressions</span>
               <span>{number.format(selected.clicks)} clicks</span>
             </p>
@@ -219,6 +228,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
 type Catalog = Awaited<ReturnType<typeof readOwnAnalyticsCatalog>>;
 export function AnalyticsOverview() {
   const [filter, setFilter] = useState<MetricsFilter>({ range: "30d" }),
+    [loadedFilter, setLoadedFilter] = useState<MetricsFilter | null>(null),
     [data, setData] = useState<ReportResult | null>(null),
     [catalog, setCatalog] = useState<Catalog | null>(null),
     [busy, setBusy] = useState(false),
@@ -259,12 +269,15 @@ export function AnalyticsOverview() {
         if (!response.ok) throw new Error("Unavailable");
         if (!controller.signal.aborted) {
           setData(body.data);
+          setLoadedFilter(filter);
           if (body.catalog) setCatalog(body.catalog);
         }
       })
       .catch(() => {
-        if (!controller.signal.aborted)
+        if (!controller.signal.aborted) {
           setData({ status: "unavailable", source: "Inspora accepted events" });
+          setLoadedFilter(filter);
+        }
       })
       .finally(() => {
         clearTimeout(timer);
@@ -284,12 +297,13 @@ export function AnalyticsOverview() {
         `${campaigns[v.campaignId] ?? "Campaign"} · version ${v.revision}`,
       ]) ?? [],
     );
-  const available = data && data.status !== "unavailable" ? data : null,
+  const available = data && loadedFilter === filter && data.status !== "unavailable" ? data : null,
     current = catalog?.publicCreative;
   const update = (key: keyof MetricsFilter, value: string) =>
     setFilter((previous) => {
       const next = { ...previous, [key]: value || undefined };
       if (key === "campaignId") delete next.versionId;
+      if (key === "periodId") delete next.endDate;
       return next;
     });
   return (
@@ -312,6 +326,7 @@ export function AnalyticsOverview() {
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
           ]} />
         </div>
+        <div className="flex flex-wrap items-center gap-3">
         <div
           role="group"
           aria-label="Report range"
@@ -329,8 +344,23 @@ export function AnalyticsOverview() {
             </button>
           ))}
         </div>
+        <button type="button" disabled={busy || !available} className={`${sponsorButton.secondary} gap-2`} onClick={() => {
+          if (!available) return;
+          const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns, versions })], { type: "text/csv;charset=utf-8" }));
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `inspora-performance-${available.start.slice(0, 10)}-${available.end.slice(0, 10)}.csv`;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 0);
+        }}>
+          <Image src="/icons/detail/download.svg" alt="" aria-hidden width={16} height={16} />
+          Export CSV
+        </button>
+        </div>
       </div>
-      {busy || !data ? (
+      {busy || !data || loadedFilter !== filter ? (
         <p role="status" className="py-10 text-sm text-[#767676]">
           Loading performance…
         </p>
@@ -382,7 +412,8 @@ export function AnalyticsOverview() {
             </p>
           ) : null}
           <div id="report-performance" className={`${surface} scroll-mt-28`}>
-            <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain />
+            <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain onDateChange={filter.periodId ? undefined : endDate => setFilter(previous => ({ ...previous, endDate }))} />
+            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>Through {filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, endDate: undefined }))}>Back to recent activity</button></div> : null}
           </div>
           <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
             <h2 id="report-reach-title" className="text-lg font-medium">Reach, cost and video</h2>

@@ -7,7 +7,7 @@ it("plots sparse activity on its UTC dates and includes confirmed empty days", (
   const rows = [
     { label: "2026-07-01", ...metricsFromCounts({ ...EMPTY_COUNTS, impressions: 10 }) },
     { label: "2026-07-02", ...metricsFromCounts({ ...EMPTY_COUNTS, impressions: 20 }) },
-    { label: "2026-07-30", ...metricsFromCounts({ ...EMPTY_COUNTS, impressions: 5 }) },
+    { label: "2026-07-30 00:00:00", ...metricsFromCounts({ ...EMPTY_COUNTS, impressions: 5 }) },
   ];
   const html = renderToStaticMarkup(<DeliveryChart rows={rows} start="2026-07-01T00:00:00Z" end="2026-07-31T00:00:00Z" />);
   const points = html.match(/points="([^"]+)"/)![1].split(" ").map(point => point.split(",").map(Number));
@@ -17,6 +17,7 @@ it("plots sparse activity on its UTC dates and includes confirmed empty days", (
   expect(points[29][0]).toBe(780);
   expect(html).toContain("2026-07-30");
   expect(html).toContain("5 impressions");
+  expect(html).toContain('value="2026-07-30"');
   expect(html).not.toContain("<table");
 });
 it.each([

@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { NavbarMenu } from "@/components/navbar-menu";
 import { useEffect, useState } from "react";
 import type { OwnedCampaign } from "@/features/sponsorship/types";
 import { sponsorRequest } from "./upload-operations";
@@ -116,7 +115,11 @@ export function CampaignList({
                   <Link prefetch href={`/sponsor/campaigns/${c.id}` as Route} className={sponsorButton.secondary}>{readonly ? "View campaign" : "Edit campaign"}</Link>
                   {!readonly && c.state !== "published" && <>
                     <button type="button" className={sponsorButton.secondary} disabled={busy} onClick={() => setConfirm({kind:"publish",campaign:c})}>Make public</button>
-                    {!busy && <NavbarMenu label={`More actions for ${c.creative.title}`} trigger={<span aria-hidden="true">···</span>} triggerClassName="flex size-11 items-center justify-center rounded-md text-lg hover:bg-[#f0f0f0]" menuClassName="right-0 w-44" keepInViewport items={[{label:"Delete campaign",onSelect:()=>setConfirm({kind:"delete",campaign:c})}]} />}
+                    <button type="button" aria-label={`Delete ${c.creative.title}`} title="Delete campaign" disabled={busy} onClick={() => setConfirm({kind:"delete",campaign:c})} className={`${sponsorButton.secondary} size-11 p-0`}>
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
+                      </svg>
+                    </button>
                   </>}
                 </div>
               </div>

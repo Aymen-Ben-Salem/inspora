@@ -1,6 +1,11 @@
 import { expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { createSponsorAnalyticsService } from "./analytics-service";
+import { createSponsorAnalyticsService, metricsFilterSchema } from "./analytics-service";
+it("accepts actual calendar dates and rejects invalid or conflicting report dates", () => {
+  expect(metricsFilterSchema.safeParse({ range: "7d", endDate: "2024-02-29" }).success).toBe(true);
+  expect(metricsFilterSchema.safeParse({ range: "7d", endDate: "2026-02-30" }).success).toBe(false);
+  expect(metricsFilterSchema.safeParse({ range: "7d", endDate: "2026-10-10", periodId: "7e0f7447-bc5b-4daa-9fc7-77def961ff74" }).success).toBe(false);
+});
 it("denies foreign campaign and version filters before reading reports", async () => {
   const read = vi.fn(),
     service = createSponsorAnalyticsService({

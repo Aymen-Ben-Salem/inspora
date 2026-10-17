@@ -17,6 +17,11 @@ const remoteImageHostnames = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Sharp 0.35 loads native addons and libvips from separate optional packages.
+  // Keep both in server bundles even when the tracer misses their runtime paths.
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/sharp/**/*", "./node_modules/@img/sharp-*/**/*"],
+  },
   experimental: {
     // Reuse completed pages on repeat link navigation within this browser tab.
     // Saves/profile edits already call router.refresh() to invalidate this cache.

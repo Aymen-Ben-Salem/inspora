@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
@@ -9,7 +9,6 @@ import type {
   ReportResult,
 } from "@/analytics/first-party/query";
 import type { readOwnAnalyticsCatalog } from "@/features/sponsorship/analytics";
-import { NavbarMenu } from "@/components/navbar-menu";
 import { dailyReportRows, metricChange } from "@/analytics/first-party/query";
 import { sponsorReportCsv } from "@/analytics/first-party/csv";
 import { sponsorButton } from "./button-styles";
@@ -30,14 +29,61 @@ function ReportFilter({ label, value, options, onChange }: {
   options: { value: string; label: string }[];
   onChange(value: string): void;
 }) {
-  return <NavbarMenu
-    keepInViewport
-    label={label}
-    trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><DashboardIcon name="chevron" /></>}
-    triggerClassName={`${select} inline-flex max-w-[min(280px,calc(100vw-2rem))] items-center gap-3`}
-    menuClassName="left-0 w-max min-w-full max-w-[min(340px,calc(100vw-2rem))] max-h-80 overflow-y-auto"
-    items={options.map(option => ({ label: option.label, selected: option.value === value, onSelect: () => onChange(option.value) }))}
-  />;
+  const id = useId();
+  return <div className={styles.filterField}>
+    <label htmlFor={id}>{label}</label>
+    <select id={id} value={value} onChange={event => onChange(event.target.value)}>
+      {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  </div>;
+}
+
+function ReportFilterMenu({ children, exportButton, activeCount }: { children: ReactNode; exportButton: ReactNode; activeCount: number }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  useEffect(() => {
+    if (!open) return;
+    function outside(event: Event) {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      trigger.current?.focus();
+    }
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("focusin", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("focusin", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return <div ref={root} className={styles.reportActions} onPointerLeave={event => {
+    if (event.pointerType === "mouse" && !root.current?.contains(document.activeElement)) setOpen(false);
+  }}>
+    <button ref={trigger} type="button" aria-expanded={open} aria-controls={panelId}
+      className={`${sponsorButton.secondary} ${styles.secondaryButton} ${styles.filterTrigger}`}
+      onPointerEnter={event => { if (event.pointerType === "mouse") setOpen(true); }}
+      onClick={() => setOpen(true)}
+      onKeyDown={event => {
+        if (event.key !== "ArrowDown") return;
+        event.preventDefault();
+        setOpen(true);
+        requestAnimationFrame(() => root.current?.querySelector("select")?.focus());
+      }}>
+      <DashboardIcon name="filter" />Filters{activeCount > 0 && <span className={styles.filterCount}>{activeCount}</span>}
+    </button>
+    {exportButton}
+    {open && <div id={panelId} className={styles.filterPopover}>
+      <div role="group" aria-label="Report filters" className={styles.filterPanel}>
+        <p className="text-sm font-medium">Filter report</p>
+        {children}
+      </div>
+    </div>}
+  </div>;
 }
 export const VISITOR_DEFINITION =
   "Visitors counted anonymously without cookies. Shared networks may count together; changing networks or browsers can count again. Identifiers reset monthly, so a range crossing months can count a returning visitor again. Missing trusted identity is excluded from reach. Blockers, opt-out and network failures reduce coverage.";
@@ -327,9 +373,22 @@ export function AnalyticsOverview() {
     });
   return (
     <section aria-label="Sponsorship performance" className={`${styles.report} space-y-6`}>
-      <ReportDateRange filter={filter} onChange={setFilter} />
       <div className={`${styles.filters} flex flex-wrap items-center justify-between gap-3`}>
-        <div role="group" aria-label="Report filters" className="flex min-w-0 flex-wrap gap-2">
+        <ReportDateRange filter={filter} onChange={setFilter} />
+        <ReportFilterMenu activeCount={[filter.campaignId, filter.placement, filter.country, filter.periodId].filter(Boolean).length} exportButton={
+        <button type="button" disabled={busy || !available} className={`${sponsorButton.primary} ${styles.primaryButton}`} onClick={() => {
+          if (!available) return;
+          const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns })], { type: "text/csv;charset=utf-8" }));
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `inspora-performance-${available.start.slice(0, 10)}-${available.end.slice(0, 10)}.csv`;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 0);
+        }}>
+          <DashboardIcon name="download" />Export CSV
+        </button>}>
           <ReportFilter label="Campaign report" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
             { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
           ]} />
@@ -342,23 +401,7 @@ export function AnalyticsOverview() {
           <ReportFilter label="Closed paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
           ]} />
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-        <button type="button" disabled={busy || !available} className={`${sponsorButton.secondary} gap-2`} onClick={() => {
-          if (!available) return;
-          const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns })], { type: "text/csv;charset=utf-8" }));
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `inspora-performance-${available.start.slice(0, 10)}-${available.end.slice(0, 10)}.csv`;
-          document.body.append(link);
-          link.click();
-          link.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 0);
-        }}>
-          <DashboardIcon name="download" />
-          Export CSV
-        </button>
-        </div>
+        </ReportFilterMenu>
       </div>
       {busy || !data || loadedFilter !== filter ? (
         <div role="status" aria-label="Loading performance" className="space-y-6">

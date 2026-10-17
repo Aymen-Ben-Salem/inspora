@@ -28,6 +28,33 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 const button = (label: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === label)!;
 const selectedDate = () => container.querySelector("time")?.dateTime;
 
+it("opens grouped filters on hover and closes after the pointer leaves", async () => {
+  await act(async () => root.render(<AnalyticsOverview />));
+  const trigger = button("Filters");
+  expect(container.querySelector('[aria-label="Report filters"]')).toBeNull();
+  await act(async () => trigger.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  expect(container.querySelectorAll('[aria-label="Report filters"] select')).toHaveLength(4);
+  await act(async () => trigger.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, pointerType: "mouse", relatedTarget: document.body })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("applies grouped filters and supports tap, Escape, and outside dismissal", async () => {
+  await act(async () => root.render(<AnalyticsOverview />));
+  const trigger = button("Filters");
+  await act(async () => trigger.click());
+  const placement = Array.from(container.querySelectorAll("label")).find(label => label.textContent === "Placement report")!.control as HTMLSelectElement;
+  await act(async () => { placement.value = "feed"; placement.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
+  expect(placement.value).toBe("feed");
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(trigger);
+  await act(async () => trigger.click());
+  await act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+});
+
 it.each([["usd", "$"], ["eur", "€"]])("shows %s spend and cost metrics with currency symbols", async (currency, symbol) => {
   fetcher.mockResolvedValueOnce(Response.json({ data: { ...report, spend: { amount: 450, currency }, cpc: 0.61, cpm: 18.1 } }));
   await act(async () => root.render(<AnalyticsOverview />));

@@ -18,6 +18,8 @@ function navigate(search: string) {
 }
 beforeEach(() => {
   navigate("");
+  vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
+  vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
   vi.spyOn(window.history, "replaceState").mockImplementation((_state, _title, url) => {
     navigate(new URL(String(url), "http://localhost:3000/sponsor/dashboard").search);
   });
@@ -91,7 +93,7 @@ it("reuses loaded sections when switching tabs and keeps the selected overview r
   } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); }
 });
 
-it("reviews monthly billing in a toast without blocking the page and only opens checkout after confirmation", async () => {
+it("reviews monthly billing in a modal without replacing its trigger and only opens checkout after confirmation", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const data = { ...initial, account:{ ...initial.account!, billingMode:"one_time" as const, monthlyAvailable:true } };
   let finish!: (response: Response) => void;
@@ -108,45 +110,39 @@ it("reviews monthly billing in a toast without blocking the page and only opens 
     const trigger = Array.from(container.querySelectorAll("button")).find(b=>b.textContent==="Switch to monthly")!;
     trigger.focus();
     await act(async()=>trigger.click());
-    const toast = container.querySelector<HTMLElement>('[aria-label="Monthly billing confirmation"]')!;
-    expect(container.querySelector('dialog')).toBeNull();
-    expect(toast.textContent).toContain("current paid time stays covered");
-    expect(toast.textContent).toContain("$500");
-    expect(toast.textContent).toContain("9 Nov 2026, 20:31 UTC");
-    expect(toast.querySelector('[role="status"]')).not.toBeNull();
-    expect(document.activeElement).toBe(trigger);
-    expect(document.documentElement.style.overflow).not.toBe("hidden");
+    const dialog = container.querySelector<HTMLDialogElement>('dialog[aria-modal="true"]')!;
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain("remaining paid time is included");
+    expect(dialog.textContent).toContain("$500");
+    expect(dialog.textContent).toContain("9 Nov 2026, 20:31 UTC");
     expect(trigger.isConnected).toBe(true);
-    expect(container.querySelector('#monthly-plan-title')!.closest('section')!.contains(toast)).toBe(false);
-    const tab = new KeyboardEvent("keydown", {key:"Tab",bubbles:true,cancelable:true});
-    toast.querySelector('[aria-label="Continue to monthly checkout"]')!.dispatchEvent(tab);
-    expect(tab.defaultPrevented).toBe(false);
+    expect(container.querySelector('#monthly-plan-title')!.closest('section')!.contains(dialog)).toBe(false);
+    const close = dialog.querySelector<HTMLButtonElement>('[aria-label="Close monthly billing review"]')!;
+    close.focus();
+    await act(async()=>close.dispatchEvent(new KeyboardEvent("keydown", {key:"Tab",shiftKey:true,bubbles:true,cancelable:true})));
+    expect(document.activeElement?.textContent).toBe("Continue to monthly checkout");
+    await act(async()=>document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", {key:"Tab",bubbles:true,cancelable:true})));
+    expect(document.activeElement).toBe(close);
     expect(fetcher.mock.calls.some(([url])=>url.endsWith("/monthly"))).toBe(false);
     await act(async()=>click("Cancel"));
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"]')).toBeNull();
+    expect(container.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(trigger);
     expect(document.documentElement.style.overflow).not.toBe("hidden");
     await act(async()=>click("Switch to monthly"));
-    const confirm=container.querySelector<HTMLButtonElement>('[aria-label="Continue to monthly checkout"]')!;
+    const confirm=Array.from(container.querySelectorAll("button")).find(b=>b.textContent==="Continue to monthly checkout")!;
     await act(async()=>{confirm.click();confirm.click();});
     expect(fetcher.mock.calls.filter(([url])=>url.endsWith("/monthly"))).toHaveLength(1);
-    await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",cancelable:true})));
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"]')).not.toBeNull();
+    await act(async()=>container.querySelector('dialog')!.dispatchEvent(new Event("cancel",{cancelable:true})));
+    expect(container.querySelector('dialog')).not.toBeNull();
     await act(async()=>finish(Response.json({ok:false,message:"Checkout unavailable"},{status:503})));
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"] [role="alert"]')!.textContent).toBe("Checkout unavailable");
+    expect(container.querySelector('dialog [role="alert"]')!.textContent).toBe("Checkout unavailable");
     expect(confirm.disabled).toBe(false);
-    await act(async()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",cancelable:true})));
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"]')).toBeNull();
+    await act(async()=>container.querySelector('dialog')!.dispatchEvent(new Event("cancel",{cancelable:true})));
+    expect(container.querySelector('dialog')).toBeNull();
     await act(async()=>trigger.click());
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"] [role="alert"]')).toBeNull();
-    container.querySelector<HTMLButtonElement>('[aria-label="Close monthly billing review"]')!.focus();
+    expect(container.querySelector('dialog [role="alert"]')).toBeNull();
     await act(async()=>container.querySelector<HTMLButtonElement>('[aria-label="Close monthly billing review"]')!.click());
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"]')).toBeNull();
-    expect(document.activeElement).toBe(trigger);
-    await act(async()=>trigger.click());
-    await act(async()=>click("Overview"));
-    await act(async()=>click("Billing"));
-    expect(container.querySelector('[aria-label="Monthly billing confirmation"]')).toBeNull();
+    expect(container.querySelector('dialog')).toBeNull();
     expect(fetcher.mock.calls.filter(([url])=>url.endsWith("/monthly"))).toHaveLength(1);
   }finally{await act(async()=>root.unmount());container.remove();vi.unstubAllGlobals();}
 });

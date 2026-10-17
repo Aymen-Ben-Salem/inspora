@@ -269,7 +269,7 @@ export function SponsorDashboard({
           <h2 className="text-lg font-medium">Billing</h2>
           <p className="mt-2 text-sm text-[#767676]">
             {account
-              ? `${account.billingCurrency.toUpperCase()} billing · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}. View your exact charges in Manage billing.`
+              ? `Billed in ${account.billingCurrency === "eur" ? "€" : account.billingCurrency === "usd" ? "$" : account.billingCurrency.toUpperCase()} · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}. View your exact charges in Manage billing.`
               : "Choose how you’d like to pay."}
           </p>
           {account ? (

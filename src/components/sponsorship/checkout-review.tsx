@@ -22,7 +22,7 @@ export function CheckoutReview({ billingMode, disabled, busy }: {
         <dl className="border-t border-[#e6e6e6] bg-[#fafafa] p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
             <dt className="text-sm font-medium">Due today <span className="font-normal text-[#767676]">before tax</span></dt>
-            <dd className="text-base font-medium tracking-[-0.02em]">USD 500 / EUR 450</dd>
+            <dd className="text-base font-medium tracking-[-0.02em]">$500 / €450</dd>
           </div>
         </dl>
         <p className="border-t border-[#e6e6e6] px-5 py-4 text-xs leading-5 text-[#767676]">

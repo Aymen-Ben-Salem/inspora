@@ -204,12 +204,12 @@ export function SponsorPage({
             Only <span className="text-[#262626]">4 slots.</span>
           </p>
           <p className="flex items-end gap-[6px] font-bold leading-[normal]">
-            <span className="h-[39px] text-[40px] tracking-[-0.8px]">500$</span>
+            <span className="h-[39px] text-[40px] tracking-[-0.8px]">$500</span>
             <span className="text-base tracking-[-0.32px] text-[#767676]">
               / one month
             </span>
           </p>
-          <p className="text-sm leading-5 text-[#767676]">€450 for one month in euro billing.</p>
+          <p className="text-sm leading-5 text-[#767676]">Or €450 for one month.</p>
           <p className="max-w-[320px] text-xs leading-5 text-[#767676]">
             Before applicable tax. Pay once for one calendar month, or choose Monthly for automatic renewal until cancelled.
           </p>

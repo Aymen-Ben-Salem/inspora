@@ -85,7 +85,7 @@ it("shows the billed EUR monthly terms while keeping original USD 30-day terms f
   const html = renderToStaticMarkup(
     <SponsorDashboard initial={{ ...initial, account }} />,
   );
-  expect(html).toContain("EUR billing");
+  expect(html).toContain("Billed in €");
   expect(html).toContain("View your exact charges in Manage billing.");
   expect(html).toContain("monthly");
   expect(html.slice(html.indexOf('id="billing"'))).not.toContain("30 days");
@@ -102,7 +102,7 @@ it("shows the billed EUR monthly terms while keeping original USD 30-day terms f
       }}
     />,
   );
-  expect(legacy).toContain("USD billing");
+  expect(legacy).toContain("Billed in $");
   expect(legacy).toContain("every 30 days");
 });
 it("disables purchase entry for a prepared owner when all four seats are held", () => {

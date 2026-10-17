@@ -10,14 +10,15 @@ export function CheckoutReview({ billingMode, disabled, busy }: {
   return (
     <section aria-labelledby="checkout-review-title" className="space-y-5 border-t border-[#e6e6e6] pt-8">
       <div>
-        <h2 id="checkout-review-title" className="text-lg font-medium">Review your sponsorship</h2>
-        <p className="mt-2 text-sm leading-6 text-[#767676]">Your brand across Inspora, with all three placements included.</p>
+        <h2 id="checkout-review-title" className="text-lg font-medium">Review</h2>
       </div>
       <div className="overflow-hidden rounded-lg border border-[#e6e6e6]">
-        <div className="space-y-3 p-5">
-          <p className="text-sm font-medium">Inspora sponsorship</p>
-          <p className="text-xs leading-5 text-[#767676]">Navbar icon · Feed creative · Sidebar wordmark</p>
-          <p className="text-sm">{billingMode === "subscription" ? "Monthly subscription" : "One-time · One calendar month"}</p>
+        <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <p className="text-sm font-medium">Website sponsorship</p>
+            <p className="mt-1 text-sm text-[#767676]">{billingMode === "subscription" ? "Subscribe · Monthly" : "One-off · 1 calendar month"}</p>
+          </div>
+          <p className="text-sm font-medium">$500 / €450</p>
         </div>
         <dl className="border-t border-[#e6e6e6] bg-[#fafafa] p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
@@ -26,10 +27,10 @@ export function CheckoutReview({ billingMode, disabled, busy }: {
           </div>
         </dl>
         <p className="border-t border-[#e6e6e6] px-5 py-4 text-xs leading-5 text-[#767676]">
-          {billingMode === "subscription" ? "Renews every calendar month. Cancel future renewal from your dashboard." : "A single payment. No automatic renewal."}
+          Navbar · Feed · Sidebar
         </p>
       </div>
-      <p className="text-sm leading-6 text-[#767676]">Checkout saves your campaign first. Confirm your currency and final total before paying, then manage your campaign from your sponsorship dashboard.</p>
+      <p className="pt-3 text-sm leading-6 text-[#767676]">Manage your campaign from your dashboard after checkout.</p>
       <button type="submit" name="action" value="checkout" disabled={disabled} aria-busy={busy} className={`${sponsorButton.primary} gap-2`}>
         {busy ? <SponsorSpinner className="size-4" /> : null}
         {busy ? "Opening checkout…" : "Checkout"}

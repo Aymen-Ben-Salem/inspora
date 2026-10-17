@@ -83,7 +83,7 @@ it("defaults to a single calendar month and sends the explicit monthly choice to
     await act(async () => root.render(<SponsorDashboard initial={data} />));
     const once = container.querySelector<HTMLInputElement>('input[value="one_time"]');
     expect(once?.checked).toBe(true);
-    expect(container.textContent).toContain("One calendar month");
+    expect(container.textContent).toContain("1 calendar month");
     const checkout = Array.from(container.querySelectorAll("button")).find(b => b.textContent === "Continue to test checkout")!;
     await act(async () => checkout.click());
     expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[0][1].body))).toEqual({ checkoutId: "checkout", billingMode: "one_time" });

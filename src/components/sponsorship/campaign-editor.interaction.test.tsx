@@ -114,8 +114,11 @@ it.each(["one_time", "subscription"] as const)("saves current creative before op
   await act(async () => root.render(<CampaignEditor />));
   if (billingMode === "subscription") {
     await act(async () => container.querySelector<HTMLInputElement>('input[value="subscription"]')!.click());
-    expect(container.textContent).toContain("Monthly subscription");
   }
+  const review = container.querySelector('[aria-labelledby="checkout-review-title"]')!;
+  expect(review.textContent).toContain(billingMode === "subscription" ? "Subscribe · Monthly" : "One-off · 1 calendar month");
+  expect(review.textContent).toContain("$500 / €450");
+  expect(container.querySelector<HTMLInputElement>(`input[value="${billingMode}"]`)?.checked).toBe(true);
   let finishSave!: (response: Response) => void;
   fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { finishSave = resolve; }));
   fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/session" } }));
@@ -179,9 +182,9 @@ it("keeps checkout unavailable before verification and out of the paid editor", 
   expect(checkoutButton().disabled).toBe(true);
   await act(async () => { submitCheckout(); });
   expect(fetchMock).not.toHaveBeenCalled();
-  await act(async () => root.render(<CampaignEditor paid={{ readonly: false }} />));
+  await act(async () => root.render(<CampaignEditor key="paid-page" paid={{ readonly: false }} />));
   expect(checkoutButton()).toBeNull();
-  expect(container.textContent).toContain("Save changes");
+  expect(container.querySelector('button[type="submit"]')?.textContent).toBe("Save changes");
 });
 
 it("invalidates prefetched dashboard data after saving a private preparation", async () => {
@@ -218,7 +221,7 @@ it("clears an owner's private campaign when switching to another owner or signin
   state.auth = { isLoaded: true, isSignedIn: false, userId: null };
   await act(async () => root.render(<CampaignEditor />));
   expect(container.textContent).toContain("Continue with account setup");
-  expect(container.textContent).not.toContain("Save private preparation");
+  expect(container.textContent).not.toContain("Save for later");
   expect(container.textContent).not.toContain("Sign out");
 });
 

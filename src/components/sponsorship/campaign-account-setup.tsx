@@ -24,16 +24,15 @@ export function CampaignAccountSetup({ id, ready, signedIn, onContinue }: {
       </div>
       <p className="text-sm leading-6 text-[#767676]">
         {signedIn
-          ? "Complete account setup to upload your creative, save your campaign and continue to checkout."
-          : "Sign in or create an account to upload your creative, save your campaign and continue to checkout."}
+          ? "Finish setup to upload, save and check out."
+          : "Sign in or create an account to upload, save and check out."}
       </p>
       <button type="button" onClick={onContinue} className={`${sponsorButton.primary} gap-2`}>
         {signedIn ? "Continue setup" : "Continue with account setup"}
         <span aria-hidden="true">→</span>
       </button>
       <p className="text-xs leading-5 text-[#767676]">
-        {signedIn ? "Setup includes email verification and two-step verification with an authenticator app." : "You’ll verify your email and set up two-step verification with an authenticator app."}
-        {" "}No payment is required at this step.
+        Email verification and authenticator setup required.
       </p>
     </section>
   );

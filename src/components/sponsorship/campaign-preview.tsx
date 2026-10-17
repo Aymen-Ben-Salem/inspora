@@ -35,7 +35,7 @@ export function CampaignPreview({
       <div>
         <h2 className="text-lg font-medium">Your three placements</h2>
         <p className="mt-1 text-sm text-[#767676]">
-          {paid ? "Preview your saved creative or proposed changes across the site." : "Private preview. Nothing is public or paid."}
+          {paid ? "Preview your changes." : "Only visible to you."}
         </p>
       </div>
       <section className="rounded-md border border-[#e6e6e6] p-4">

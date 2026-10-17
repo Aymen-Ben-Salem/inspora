@@ -25,8 +25,8 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).toContain("Feed · image, video or brand card");
   expect(html).toContain("Detail sidebar · full wordmark");
   expect(html).toContain("Wordmark not imported");
-  expect(html).toContain("Review your sponsorship");
+  expect(html).toContain('id="checkout-review-title"');
   expect(html).toContain("$500 / €450");
-  expect(html).toContain("No automatic renewal.");
+  expect(html).toContain("Never");
   expect(html).not.toContain("Open sponsorship dashboard");
 });

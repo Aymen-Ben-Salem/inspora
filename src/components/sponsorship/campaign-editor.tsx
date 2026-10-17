@@ -311,7 +311,7 @@ function CampaignEditorContent({
           {paid ? paid.readonly ? "Campaign history" : paid.campaign ? "Edit campaign" : "Create campaign" : "Prepare your campaign"}
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-6 text-[#767676]">
-          {paid ? paid.readonly ? "Your past creative remains available to view. Campaign history is read-only." : "Review all three placements. Save changes applies a complete public edit immediately; Cancel leaves the saved campaign intact." : "Start with your website, then review your icon, feed creative and full wordmark. A saved preparation lasts 24 hours and uses no paid seat."}
+          {paid ? paid.readonly ? "View your past campaign." : "Saved changes go live immediately." : "Add your details and creative, then check out."}
         </p>
       </div>
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
@@ -366,7 +366,7 @@ function CampaignEditorContent({
           }}
         >
           {!paid ? <CampaignAccountSetup id={accountSetupId} ready={ready} signedIn={isSignedIn} onContinue={verify} /> : null}
-          <div><h2 className="text-lg font-medium">Campaign details</h2><p className="mt-2 text-sm leading-6 text-[#767676]">Your public name and the website visitors will open.</p></div>
+          <h2 className="text-lg font-medium">Campaign details</h2>
           <label className="block text-sm font-medium">
             Public name
             <span className="relative mt-2 block">
@@ -417,7 +417,7 @@ function CampaignEditorContent({
                     failed: false,
                     message: s.missingAssets?.length
                       ? `Website suggestions imported. Could not import: ${s.missingAssets.join(", ")}. Upload these below.`
-                      : "Website suggestions imported. Review your three placement previews.",
+                      : "Website suggestions imported. Review below.",
                   });
                 })
               }
@@ -445,9 +445,7 @@ function CampaignEditorContent({
             </label>
           ) : null}
           <p className="text-xs leading-5 text-[#767676]">
-            Uses the website icon, its brand wordmark when available and its OG
-            image for the feed. Review the previews or upload replacements
-            below.
+            Imports your website’s name and images. You can replace them below.
           </p>
           <fieldset
             disabled={!ready || Boolean(busy) || paid?.readonly}
@@ -455,13 +453,7 @@ function CampaignEditorContent({
             className="grid gap-4 border-t border-[#e6e6e6] pt-8 disabled:opacity-50 sm:grid-cols-2"
           >
             <legend className="sr-only">Creative assets</legend>
-            <div className="sm:col-span-2"><h2 className="text-lg font-medium">Creative assets</h2>
-            <p className="mt-2 text-xs leading-5 text-[#767676]">
-              Images: PNG, JPEG, WebP, AVIF or GIF, up to 10 MiB. Brand assets
-              and posters must be static. Videos: MP4 or WebM up to 50 MiB; 20
-              MiB recommended. SVG uploads are not supported. A video gets a
-              verified preview and poster before saving.
-            </p></div>
+            <h2 className="text-lg font-medium sm:col-span-2">Creative assets</h2>
             {(
               [
                 ["media", "Feed image or video (optional)"],
@@ -480,7 +472,7 @@ function CampaignEditorContent({
                   failed={uploads[kind]?.failed}
                   asset={assets.find((asset) => asset.id === fields[uploadRoles[kind].field])}
                   large={kind === "media"}
-                  hint={kind === "media" ? "PNG, JPG, WebP, AVIF or GIF · 10 MiB max. MP4 or WebM · 50 MiB max." : kind === "icon" ? "Static image · 10 MiB max. Shown beside the profile in the navbar." : kind === "wordmark" ? "Static image · 10 MiB max. Your full brand name in the detail sidebar." : "Static image · 10 MiB max. Optional replacement for a video's poster."}
+                  hint={kind === "media" ? "PNG, JPG, WebP, AVIF, GIF · 10 MiB. MP4, WebM · 50 MiB." : "PNG, JPG, WebP, AVIF · Static · 10 MiB max."}
                   accept={
                     kind === "media"
                       ? "image/png,image/jpeg,image/webp,image/avif,image/gif,video/mp4,video/webm"
@@ -510,22 +502,21 @@ function CampaignEditorContent({
             ) : null}
           </fieldset>
           {!ready ? <AccountSetupHint id={uploadSetupHintId} setupId={accountSetupId} /> : null}
-          {!paid ? <PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} /> : null}
           {ready && !paid?.readonly ? (
             <button
               disabled={!ready || Boolean(busy) || uploading}
               type="submit"
               className={paid ? sponsorButton.primary : sponsorButton.secondary}
             >
-              {paid ? "Save changes" : "Save private preparation"}
+              {paid ? "Save changes" : "Save for later"}
             </button>
           ) : null}
           {expiresAt ? (
             <p className="text-xs text-[#767676]">
-              Expires {new Date(expiresAt).toLocaleString()}. Saving does not
-              extend this deadline.
+              Draft expires {new Date(expiresAt).toLocaleString()}.
             </p>
           ) : null}
+          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} /></div> : null}
           {!paid ? <CheckoutReview billingMode={billingMode} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
           <p
             role={failed ? "alert" : "status"}

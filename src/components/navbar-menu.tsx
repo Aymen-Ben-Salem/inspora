@@ -18,6 +18,9 @@ export type NavbarMenuItem = {
   onSelect?: () => void;
   wrap?: (button: ReactNode) => ReactNode;
 };
+function CustomMenuContent({ render, onDismiss }: { render: (dismiss: () => void) => ReactNode; onDismiss(): void }) {
+  return render(onDismiss);
+}
 export function NavbarMenu({
   label,
   trigger,
@@ -34,7 +37,7 @@ export function NavbarMenu({
   menuClassName: string;
   keepInViewport?: boolean;
   openOnHover?: boolean;
-  content?: ReactNode;
+  content?: ReactNode | ((dismiss: () => void) => ReactNode);
   items?: NavbarMenuItem[];
 }) {
   const [open, setOpen] = useState(false),
@@ -47,6 +50,10 @@ export function NavbarMenu({
     setOpen(false);
     setHighlighted(0);
   }, []);
+  const dismiss = useCallback(() => {
+    close();
+    button.current?.focus();
+  }, [close]);
   useLayoutEffect(() => {
     if (!open || !focusFirstOnOpen.current) return;
     let frame = 0;
@@ -157,7 +164,7 @@ export function NavbarMenu({
         inert={!open}
         className={`archive-menu-type absolute top-[calc(100%+var(--archive-menu-offset,8px))] z-50 ${content === undefined ? "overflow-hidden" : ""} rounded-[var(--archive-menu-radius,3px)] bg-[#fafafa] p-[var(--archive-menu-padding,4px)] font-normal tracking-[0.2px] transition-[opacity,transform,visibility] duration-150 motion-reduce:transition-none ${menuClassName} ${open ? "visible translate-y-0 opacity-100" : "invisible pointer-events-none -translate-y-1 opacity-0"}`}
       >
-        {content ?? <><span
+        {typeof content === "function" ? (open ? <CustomMenuContent render={content} onDismiss={dismiss} /> : null) : content ?? <><span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-[var(--archive-menu-padding,4px)] top-[var(--archive-menu-padding,4px)] h-[var(--archive-menu-item-height,41px)] rounded-[var(--archive-menu-radius,3px)] bg-[#f0f0f0] transition-transform duration-150 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
           style={{

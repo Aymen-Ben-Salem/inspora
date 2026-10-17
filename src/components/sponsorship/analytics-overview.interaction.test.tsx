@@ -28,17 +28,21 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 const button = (label: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === label)!;
 const selectedDate = () => container.querySelector("time")?.dateTime;
 
-it("opens grouped filters on hover and closes after the pointer leaves", async () => {
+it("opens filters only on click and keeps them open after the pointer leaves", async () => {
   await act(async () => root.render(<AnalyticsOverview />));
   const trigger = button("Filters");
-  const group = container.querySelector('[aria-label="Report filters"]')!;
-  expect(group.closest("[inert]")).not.toBeNull();
   await act(async () => trigger.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(container.querySelector('[aria-label="Report filters"]')).toBeNull();
+  await act(async () => trigger.click());
+  const group = container.querySelector('[aria-label="Report filters"]')!;
   expect(trigger.getAttribute("aria-expanded")).toBe("true");
   expect(group.closest("[inert]")).toBeNull();
   expect(group.querySelectorAll('button[aria-haspopup="menu"]')).toHaveLength(4);
   expect(group.querySelector("select")).toBeNull();
   await act(async () => trigger.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, pointerType: "mouse", relatedTarget: document.body })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  await act(async () => trigger.click());
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
 });
 
@@ -49,17 +53,52 @@ it("applies grouped filters and supports tap, Escape, and outside dismissal", as
   const placement = container.querySelector<HTMLButtonElement>('button[aria-label="Placement report"]')!;
   await act(async () => placement.click());
   const options = container.querySelector('[role="menu"][aria-label="Placement report"]')!;
+  const requests = fetcher.mock.calls.length;
   await act(async () => Array.from(options.querySelectorAll("button")).find(option => option.textContent === "Feed")!.click());
-  expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
+  expect(fetcher).toHaveBeenCalledTimes(requests);
   expect(placement.textContent).toContain("Feed");
   expect(options.getAttribute("aria-hidden")).toBe("true");
   expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  await act(async () => container.querySelector<HTMLFormElement>('form[aria-label="Report filters"]')!.requestSubmit());
+  expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(trigger);
+  await act(async () => trigger.click());
   await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
   expect(document.activeElement).toBe(trigger);
   await act(async () => trigger.click());
   await act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("clears and resets drafts, and discards changes when the panel closes", async () => {
+  await act(async () => root.render(<AnalyticsOverview />));
+  const trigger = button("Filters");
+  const placement = () => container.querySelector<HTMLButtonElement>('button[aria-label="Placement report"]')!;
+  const chooseFeed = async () => {
+    await act(async () => placement().click());
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[role="menu"][aria-label="Placement report"] button')).find(option => option.textContent === "Feed")!.click());
+  };
+  await act(async () => trigger.click());
+  await chooseFeed();
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close filters"]')!.click());
+  await act(async () => trigger.click());
+  expect(placement().textContent).toBe("All placements");
+  await chooseFeed();
+  await act(async () => button("Apply filters").click());
+  expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
+  await act(async () => trigger.click());
+  expect(placement().textContent).toBe("Feed");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Clear placement"]')!.click());
+  expect(placement().textContent).toBe("All placements");
+  expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
+  await chooseFeed();
+  await act(async () => button("Reset").click());
+  expect(placement().textContent).toBe("All placements");
+  await act(async () => button("Apply filters").click());
+  expect(fetcher.mock.lastCall![0]).not.toContain("placement=");
+  expect(fetcher.mock.lastCall![0]).toContain("range=30d");
 });
 
 it("dismisses an option menu before its parent and navigates options with the keyboard", async () => {

@@ -32,8 +32,9 @@ function ReportFilter({ label, caption, value, options, onChange }: {
   onChange(value: string): void;
 }) {
   return <div className={styles.filterField}>
+    <div className={styles.filterFieldHeader}><p>{caption}</p><button type="button" aria-label={`Clear ${caption.toLowerCase()}`} disabled={!value} onClick={() => onChange("")} className={styles.clearFilter}>Clear</button></div>
     <NavbarMenu label={label} keepInViewport
-      trigger={<><span className={styles.filterOptionText}><span className={styles.filterCaption}>{caption}</span><span className={styles.filterValue}>{options.find(option => option.value === value)?.label ?? value}</span></span><DashboardIcon name="chevron" /></>}
+      trigger={<><span className={styles.filterValue}>{options.find(option => option.value === value)?.label ?? value}</span><DashboardIcon name="chevron" /></>}
       triggerClassName={styles.filterOptionTrigger}
       menuClassName="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100dvh-2rem))] overflow-y-auto"
       items={options.map(option => ({ label: option.label, selected: option.value === value, onSelect: () => onChange(option.value) }))}
@@ -41,16 +42,27 @@ function ReportFilter({ label, caption, value, options, onChange }: {
   </div>;
 }
 
-function ReportFilterMenu({ children, exportButton, activeCount }: { children: ReactNode; exportButton: ReactNode; activeCount: number }) {
+type ReportFilterKey = "campaignId" | "placement" | "country" | "periodId";
+type FilterFields = (draft: MetricsFilter, update: (key: ReportFilterKey, value: string) => void) => ReactNode;
+function ReportFilterPanel({ filter, onApply, onClose, children }: { filter: MetricsFilter; onApply(filter: MetricsFilter): void; onClose(): void; children: FilterFields }) {
+  const [draft, setDraft] = useState(filter);
+  return <form role="group" aria-label="Report filters" className={styles.filterPanel} onSubmit={event => { event.preventDefault(); onApply(draft); onClose(); }}>
+    <div className={styles.filterPanelHeader}><h2>Filters</h2><button type="button" aria-label="Close filters" className={styles.filterClose} onClick={onClose}><DashboardIcon name="close" /></button></div>
+    <div className={styles.filterGrid}>{children(draft, (key, value) => setDraft(previous => ({ ...previous, [key]: value || undefined })))}</div>
+    <div className={styles.filterFooter}>
+      <button type="button" className={`${sponsorButton.secondary} ${styles.secondaryButton}`} onClick={() => setDraft(previous => ({ ...previous, campaignId: undefined, placement: undefined, country: undefined, periodId: undefined }))}>Reset</button>
+      <button type="submit" className={`${sponsorButton.primary} ${styles.primaryButton}`}>Apply filters</button>
+    </div>
+  </form>;
+}
+function ReportFilterMenu({ children, exportButton, filter, onApply }: { children: FilterFields; exportButton: ReactNode; filter: MetricsFilter; onApply(filter: MetricsFilter): void }) {
+  const activeCount = [filter.campaignId, filter.placement, filter.country, filter.periodId].filter(Boolean).length;
   return <div className={styles.reportActions}>
-    <NavbarMenu label="Filters" openOnHover keepInViewport
+    <NavbarMenu label="Filters" keepInViewport
       trigger={<><DashboardIcon name="filter" />Filters{activeCount > 0 && <span className={styles.filterCount}>{activeCount}</span>}</>}
       triggerClassName={`${sponsorButton.secondary} ${styles.secondaryButton} ${styles.filterTrigger}`}
       menuClassName={styles.filterPopover}
-      content={<div role="group" aria-label="Report filters" className={styles.filterPanel}>
-        <div className={styles.filterPanelHeader}><p>Filter report</p><span>{activeCount ? `${activeCount} active` : "All data"}</span></div>
-        <div className={styles.filterGrid}>{children}</div>
-      </div>}
+      content={close => <ReportFilterPanel filter={filter} onApply={onApply} onClose={close}>{children}</ReportFilterPanel>}
     />
     {exportButton}
   </div>;
@@ -334,18 +346,18 @@ export function AnalyticsOverview() {
   );
   const available = data && loadedFilter === filter && data.status !== "unavailable" ? data : null,
     current = catalog?.publicCreative;
-  const update = (key: keyof MetricsFilter, value: string) =>
-    setFilter((previous) => {
-      const next = { ...previous, [key]: value || undefined };
-      if (key === "campaignId") delete next.versionId;
-      if (key === "periodId") { delete next.endDate; delete next.startDate; }
-      return next;
-    });
   return (
     <section aria-label="Sponsorship performance" className={`${styles.report} space-y-6`}>
       <div className={`${styles.filters} flex flex-wrap items-center justify-between gap-3`}>
         <ReportDateRange filter={filter} onChange={setFilter} />
-        <ReportFilterMenu activeCount={[filter.campaignId, filter.placement, filter.country, filter.periodId].filter(Boolean).length} exportButton={
+        <ReportFilterMenu filter={filter} onApply={draft => setFilter(previous => {
+          const keys: ReportFilterKey[] = ["campaignId", "placement", "country", "periodId"];
+          if (keys.every(key => previous[key] === draft[key])) return previous;
+          const next = { ...previous, ...Object.fromEntries(keys.map(key => [key, draft[key]])) };
+          if (draft.campaignId !== previous.campaignId) delete next.versionId;
+          if (draft.periodId !== previous.periodId) { delete next.startDate; delete next.endDate; }
+          return next;
+        })} exportButton={
         <button type="button" disabled={busy || !available} className={`${sponsorButton.primary} ${styles.primaryButton}`} onClick={() => {
           if (!available) return;
           const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns })], { type: "text/csv;charset=utf-8" }));
@@ -358,19 +370,20 @@ export function AnalyticsOverview() {
           setTimeout(() => URL.revokeObjectURL(url), 0);
         }}>
           <DashboardIcon name="download" />Export CSV
-        </button>}>
-          <ReportFilter label="Campaign report" caption="Campaign" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
+        </button>}>{(draft, update) => <>
+          <ReportFilter label="Campaign report" caption="Campaign" value={draft.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
             { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
           ]} />
-          <ReportFilter label="Placement report" caption="Placement" value={filter.placement ?? ""} onChange={value => update("placement", value)} options={[
+          <ReportFilter label="Placement report" caption="Placement" value={draft.placement ?? ""} onChange={value => update("placement", value)} options={[
             { value: "", label: "All placements" }, { value: "header", label: "Navbar" }, { value: "feed", label: "Feed" }, { value: "detail", label: "Detail sidebar" },
           ]} />
-          <ReportFilter label="Country report" caption="Country" value={filter.country ?? ""} onChange={value => update("country", value)} options={[
+          <ReportFilter label="Country report" caption="Country" value={draft.country ?? ""} onChange={value => update("country", value)} options={[
             { value: "", label: "All countries" }, ...(available?.country.map(c => ({ value: c.label, label: countryName(c.label) })) ?? []),
           ]} />
-          <ReportFilter label="Closed paid period" caption="Paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
+          <ReportFilter label="Closed paid period" caption="Paid period" value={draft.periodId ?? ""} onChange={value => update("periodId", value)} options={[
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
           ]} />
+        </>}
         </ReportFilterMenu>
       </div>
       {busy || !data || loadedFilter !== filter ? (

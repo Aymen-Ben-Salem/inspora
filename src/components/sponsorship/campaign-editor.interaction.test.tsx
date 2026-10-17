@@ -90,6 +90,25 @@ const submitCheckout = () => container.querySelector("form")!.dispatchEvent(
   new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: checkoutButton() }),
 );
 
+it.each([false, true])("opens account setup without submitting the campaign (signed in: %s)", async (signedIn) => {
+  state.auth = { isLoaded: true, isSignedIn: signedIn, userId: signedIn ? "owner-a" : null };
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "Verify sponsor access before saving or uploading." }, { status: 401 }));
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor />));
+  const setup = container.querySelector("form")!.firstElementChild!;
+  expect(setup.textContent).toContain(signedIn ? "Finish setting up your sponsor account" : "Set up your sponsor account");
+  expect(nameInput().disabled).toBe(false);
+  const button = setup.querySelector("button")!;
+  expect(button.textContent).toContain(signedIn ? "Continue setup" : "Continue with account setup");
+  const hintLinks = container.querySelectorAll(`a[href]`);
+  expect(Array.from(hintLinks).filter((link) => link.getAttribute("href") === `#${setup.id}`)).toHaveLength(2);
+  fetchMock.mockClear();
+  await act(async () => button.click());
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("/api/sponsorship/intent");
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(JSON.parse(sessionStorage.getItem("inspora:sponsor-typed")!).ownerUserId).toBe(signedIn ? "owner-a" : null);
+});
+
 it.each(["one_time", "subscription"] as const)("saves current creative before opening %s checkout directly", async (billingMode) => {
   const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
   await act(async () => root.render(<CampaignEditor />));
@@ -187,6 +206,8 @@ it("keeps the current route intact when saving a preparation fails", async () =>
 
 it("clears an owner's private campaign when switching to another owner or signing out", async () => {
   await act(async () => root.render(<CampaignEditor />));
+  expect(container.querySelector("form")!.firstElementChild?.textContent).toContain("Account ready");
+  expect(container.textContent).not.toContain("Complete account setup above");
   expect(nameInput().value).toBe("Owner A private campaign");
   expect(container.textContent).not.toContain("Sign out");
   state.auth = { isLoaded: true, isSignedIn: true, userId: "owner-b" };
@@ -196,7 +217,7 @@ it("clears an owner's private campaign when switching to another owner or signin
   expect(container.innerHTML).not.toContain("/api/sponsorship/assets/icon-a");
   state.auth = { isLoaded: true, isSignedIn: false, userId: null };
   await act(async () => root.render(<CampaignEditor />));
-  expect(container.textContent).toContain("Verify sponsor access to save");
+  expect(container.textContent).toContain("Continue with account setup");
   expect(container.textContent).not.toContain("Save private preparation");
   expect(container.textContent).not.toContain("Sign out");
 });

@@ -19,6 +19,7 @@ import { SponsorLoading, SponsorSpinner } from "./sponsor-loading";
 import { sponsorButton } from "./button-styles";
 import { PurchaseOptions } from "./purchase-options";
 import { CheckoutReview } from "./checkout-review";
+import { AccountSetupHint, CampaignAccountSetup } from "./campaign-account-setup";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
   title: "",
@@ -92,6 +93,9 @@ function CampaignEditorContent({
     [failed, setFailed] = useState(false);
   const [suggestionFeedback, setSuggestionFeedback] = useState<{ message: string; failed: boolean }>();
   const suggestionStatusId = useId();
+  const accountSetupId = useId();
+  const suggestionSetupHintId = useId();
+  const uploadSetupHintId = useId();
   const suggesting = busy === "suggest";
   const suggestingTitle = suggesting && !fields.title;
   const loaded = useRef<string | undefined>(undefined);
@@ -310,22 +314,6 @@ function CampaignEditorContent({
           {paid ? paid.readonly ? "Your past creative remains available to view. Campaign history is read-only." : "Review all three placements. Save changes applies a complete public edit immediately; Cancel leaves the saved campaign intact." : "Start with your website, then review your icon, feed creative and full wordmark. A saved preparation lasts 24 hours and uses no paid seat."}
         </p>
       </div>
-      {!ready ? (
-        <div className="mb-8 space-y-3 rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4">
-          <p className="text-sm leading-6 text-[#767676]">
-            Verify your email and secure your account with authenticator 2FA to
-            use website suggestions, upload assets and save your private
-            preparation. You can enter details before verifying.
-          </p>
-          <button
-            type="button"
-            onClick={verify}
-            className={sponsorButton.primary}
-          >
-            Verify sponsor access to save
-          </button>
-        </div>
-      ) : null}
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <form
           className="space-y-6"
@@ -377,6 +365,7 @@ function CampaignEditorContent({
             });
           }}
         >
+          {!paid ? <CampaignAccountSetup id={accountSetupId} ready={ready} signedIn={isSignedIn} onContinue={verify} /> : null}
           <div><h2 className="text-lg font-medium">Campaign details</h2><p className="mt-2 text-sm leading-6 text-[#767676]">Your public name and the website visitors will open.</p></div>
           <label className="block text-sm font-medium">
             Public name
@@ -403,7 +392,7 @@ function CampaignEditorContent({
             <button
               type="button"
               aria-busy={suggesting}
-              aria-describedby={suggesting || suggestionFeedback ? suggestionStatusId : undefined}
+              aria-describedby={!ready ? suggestionSetupHintId : suggesting || suggestionFeedback ? suggestionStatusId : undefined}
               disabled={!ready || Boolean(busy) || uploading || !fields.url || paid?.readonly}
               className={sponsorButton.secondary}
               onClick={() =>
@@ -435,6 +424,7 @@ function CampaignEditorContent({
             >
               Suggest from website (optional)
             </button>
+            {!ready ? <AccountSetupHint id={suggestionSetupHintId} setupId={accountSetupId} /> : null}
             {suggesting || suggestionFeedback ? (
               <p id={suggestionStatusId} role={suggestionFeedback?.failed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-sm ${suggestionFeedback?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
                 {suggesting ? "Finding suggestions…" : suggestionFeedback?.message}
@@ -461,6 +451,7 @@ function CampaignEditorContent({
           </p>
           <fieldset
             disabled={!ready || Boolean(busy) || paid?.readonly}
+            aria-describedby={!ready ? uploadSetupHintId : undefined}
             className="grid gap-4 border-t border-[#e6e6e6] pt-8 disabled:opacity-50 sm:grid-cols-2"
           >
             <legend className="sr-only">Creative assets</legend>
@@ -518,6 +509,7 @@ function CampaignEditorContent({
               </button>
             ) : null}
           </fieldset>
+          {!ready ? <AccountSetupHint id={uploadSetupHintId} setupId={accountSetupId} /> : null}
           {!paid ? <PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} /> : null}
           {ready && !paid?.readonly ? (
             <button

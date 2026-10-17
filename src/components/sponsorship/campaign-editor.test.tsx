@@ -16,7 +16,8 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).not.toContain("Tagline");
   expect(html).not.toContain("Sign out");
   expect(html).toContain("Full wordmark");
-  expect(html).toContain("Verify sponsor access to save");
+  expect(html).toContain("Set up your sponsor account");
+  expect(html).toContain("Continue with account setup");
   expect(html).toContain("disabled");
   expect(html).toContain("10 MiB");
   expect(html).toContain("50 MiB");

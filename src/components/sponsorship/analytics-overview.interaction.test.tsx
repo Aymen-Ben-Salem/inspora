@@ -31,10 +31,13 @@ const selectedDate = () => container.querySelector("time")?.dateTime;
 it("opens grouped filters on hover and closes after the pointer leaves", async () => {
   await act(async () => root.render(<AnalyticsOverview />));
   const trigger = button("Filters");
-  expect(container.querySelector('[aria-label="Report filters"]')).toBeNull();
+  const group = container.querySelector('[aria-label="Report filters"]')!;
+  expect(group.closest("[inert]")).not.toBeNull();
   await act(async () => trigger.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" })));
   expect(trigger.getAttribute("aria-expanded")).toBe("true");
-  expect(container.querySelectorAll('[aria-label="Report filters"] select')).toHaveLength(4);
+  expect(group.closest("[inert]")).toBeNull();
+  expect(group.querySelectorAll('button[aria-haspopup="menu"]')).toHaveLength(4);
+  expect(group.querySelector("select")).toBeNull();
   await act(async () => trigger.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, pointerType: "mouse", relatedTarget: document.body })));
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
 });
@@ -43,16 +46,40 @@ it("applies grouped filters and supports tap, Escape, and outside dismissal", as
   await act(async () => root.render(<AnalyticsOverview />));
   const trigger = button("Filters");
   await act(async () => trigger.click());
-  const placement = Array.from(container.querySelectorAll("label")).find(label => label.textContent === "Placement report")!.control as HTMLSelectElement;
-  await act(async () => { placement.value = "feed"; placement.dispatchEvent(new Event("change", { bubbles: true })); });
+  const placement = container.querySelector<HTMLButtonElement>('button[aria-label="Placement report"]')!;
+  await act(async () => placement.click());
+  const options = container.querySelector('[role="menu"][aria-label="Placement report"]')!;
+  await act(async () => Array.from(options.querySelectorAll("button")).find(option => option.textContent === "Feed")!.click());
   expect(fetcher.mock.lastCall![0]).toContain("placement=feed");
-  expect(placement.value).toBe("feed");
+  expect(placement.textContent).toBe("Feed");
+  expect(options.getAttribute("aria-hidden")).toBe("true");
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
   await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
   expect(document.activeElement).toBe(trigger);
   await act(async () => trigger.click());
   await act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
   expect(trigger.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("dismisses an option menu before its parent and navigates options with the keyboard", async () => {
+  await act(async () => root.render(<AnalyticsOverview />));
+  const trigger = button("Filters");
+  await act(async () => trigger.click());
+  const placement = container.querySelector<HTMLButtonElement>('button[aria-label="Placement report"]')!;
+  await act(async () => placement.click());
+  const options = container.querySelector('[role="menu"][aria-label="Placement report"]')!;
+  const first = options.querySelector<HTMLButtonElement>('button')!;
+  await act(async () => first.focus());
+  await act(async () => first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
+  expect(document.activeElement?.textContent).toBe("Navbar");
+  await act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(placement.getAttribute("aria-expanded")).toBe("false");
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  expect(document.activeElement).toBe(placement);
+  await act(async () => placement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(trigger);
 });
 
 it.each([["usd", "$"], ["eur", "€"]])("shows %s spend and cost metrics with currency symbols", async (currency, symbol) => {

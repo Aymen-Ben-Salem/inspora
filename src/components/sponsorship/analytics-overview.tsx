@@ -9,6 +9,7 @@ import type {
   ReportResult,
 } from "@/analytics/first-party/query";
 import type { readOwnAnalyticsCatalog } from "@/features/sponsorship/analytics";
+import { NavbarMenu } from "@/components/navbar-menu";
 import { dailyReportRows, metricChange } from "@/analytics/first-party/query";
 import { sponsorReportCsv } from "@/analytics/first-party/csv";
 import { sponsorButton } from "./button-styles";
@@ -29,60 +30,26 @@ function ReportFilter({ label, value, options, onChange }: {
   options: { value: string; label: string }[];
   onChange(value: string): void;
 }) {
-  const id = useId();
   return <div className={styles.filterField}>
-    <label htmlFor={id}>{label}</label>
-    <select id={id} value={value} onChange={event => onChange(event.target.value)}>
-      {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-    </select>
+    <p>{label}</p>
+    <NavbarMenu label={label} keepInViewport
+      trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><DashboardIcon name="chevron" /></>}
+      triggerClassName={styles.filterOptionTrigger}
+      menuClassName="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100dvh-2rem))] overflow-y-auto"
+      items={options.map(option => ({ label: option.label, selected: option.value === value, onSelect: () => onChange(option.value) }))}
+    />
   </div>;
 }
 
 function ReportFilterMenu({ children, exportButton, activeCount }: { children: ReactNode; exportButton: ReactNode; activeCount: number }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
-  const panelId = useId();
-  useEffect(() => {
-    if (!open) return;
-    function outside(event: Event) {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      trigger.current?.focus();
-    }
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("focusin", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("focusin", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
-  return <div ref={root} className={styles.reportActions} onPointerLeave={event => {
-    if (event.pointerType === "mouse" && !root.current?.contains(document.activeElement)) setOpen(false);
-  }}>
-    <button ref={trigger} type="button" aria-expanded={open} aria-controls={panelId}
-      className={`${sponsorButton.secondary} ${styles.secondaryButton} ${styles.filterTrigger}`}
-      onPointerEnter={event => { if (event.pointerType === "mouse") setOpen(true); }}
-      onClick={() => setOpen(true)}
-      onKeyDown={event => {
-        if (event.key !== "ArrowDown") return;
-        event.preventDefault();
-        setOpen(true);
-        requestAnimationFrame(() => root.current?.querySelector("select")?.focus());
-      }}>
-      <DashboardIcon name="filter" />Filters{activeCount > 0 && <span className={styles.filterCount}>{activeCount}</span>}
-    </button>
+  return <div className={styles.reportActions}>
+    <NavbarMenu label="Filters" openOnHover keepInViewport
+      trigger={<><DashboardIcon name="filter" />Filters{activeCount > 0 && <span className={styles.filterCount}>{activeCount}</span>}</>}
+      triggerClassName={`${sponsorButton.secondary} ${styles.secondaryButton} ${styles.filterTrigger}`}
+      menuClassName="w-[min(20rem,calc(100vw-2rem))]"
+      content={<div role="group" aria-label="Report filters" className={styles.filterPanel}>{children}</div>}
+    />
     {exportButton}
-    {open && <div id={panelId} className={styles.filterPopover}>
-      <div role="group" aria-label="Report filters" className={styles.filterPanel}>
-        <p className="text-sm font-medium">Filter report</p>
-        {children}
-      </div>
-    </div>}
   </div>;
 }
 export const VISITOR_DEFINITION =

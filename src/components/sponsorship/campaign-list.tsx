@@ -7,6 +7,11 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import type { OwnedCampaign } from "@/features/sponsorship/types";
 import { sponsorRequest } from "./upload-operations";
+import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
+import styles from "./dashboard.module.css";
+
+const primaryButton = `${sponsorButton.primary} ${styles.primaryButton}`;
+const secondaryButton = `${sponsorButton.secondary} ${styles.secondaryButton}`;
 
 export function CampaignList({
   initial,
@@ -66,59 +71,57 @@ export function CampaignList({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="max-w-xl text-sm leading-6 text-[#767676]">
+        <p className="max-w-xl text-sm leading-6 text-[#66758c]">
           {readonly
             ? "Your campaign history is read-only. Your past creative stays available to view."
             : "Manage your creative in one place. One campaign is public at a time; drafts stay private."}
         </p>
-        {!readonly && <Link prefetch className={`${sponsorButton.primary} shrink-0`} href={"/sponsor/campaigns/new" as Route}>Create campaign</Link>}
+        {!readonly && <Link prefetch className={`${primaryButton} shrink-0`} href={"/sponsor/campaigns/new" as Route}><DashboardIcon name="plus" />Create campaign</Link>}
       </div>
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <dl className={styles.summaryGrid}>
         {[
-          { label: paused ? "Promotion paused" : "Published campaign", value: current?.creative.title || "None yet", detail: current ? paused ? "Your creative is saved" : "Navbar, feed and detail placements" : "Publish a draft when you're ready" },
-          { label: "Private drafts", value: drafts, detail: "Not visible to visitors" },
-          { label: "Previous campaigns", value: data.campaigns.filter(c => c.state === "archived").length, detail: "Your creative history" },
-        ].map(item => <div key={item.label} className="min-w-0 rounded-md border border-[#f0f0f0] bg-white p-5 first:col-span-2 sm:first:col-span-1">
-          <dt className="text-xs text-[#767676]">{item.label}</dt>
-          <dd className="mt-3 truncate text-xl font-medium tracking-[-0.02em]" title={String(item.value)}>{item.value}</dd>
-          <dd className="mt-2 text-xs leading-5 text-[#767676]">{item.detail}</dd>
+          { icon: "eye", label: paused ? "Promotion paused" : "Published campaign", value: current?.creative.title || "None yet", detail: current ? paused ? "Your creative is saved" : "Navbar, feed and detail placements" : "Publish a draft when you're ready" },
+          { icon: "draft", label: "Private drafts", value: drafts, detail: "Not visible to visitors" },
+          { icon: "archive", label: "Previous campaigns", value: data.campaigns.filter(c => c.state === "archived").length, detail: "Your creative history" },
+        ].map(item => <div key={item.label} className={styles.metric}>
+          <dt className={styles.metricHeader}>{item.label}<span className={styles.metricIcon}><DashboardIcon name={item.icon as DashboardIconName} className="size-[18px]" /></span></dt>
+          <dd className={`${styles.summaryValue} truncate`} title={String(item.value)}>{item.value}</dd>
+          <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>{item.detail}</dd>
         </div>)}
       </dl>
-      <section aria-labelledby="campaign-library-title" className="rounded-md border border-[#f0f0f0] bg-white">
-        <div className="flex items-center gap-3 border-b border-[#f0f0f0] px-4 py-5 sm:px-5">
+      <section aria-labelledby="campaign-library-title" className={`${styles.surface} ${styles.library}`}>
+        <div className={styles.libraryHeader}>
           <h2 id="campaign-library-title" className="text-lg font-medium">All campaigns</h2>
-          <span className="rounded bg-[#f5f5f5] px-2 py-1 text-xs tabular-nums text-[#767676]">{data.campaigns.length}</span>
+          <span className={`${styles.statusBadge} tabular-nums`}>{data.campaigns.length}</span>
         </div>
-        <ul className="divide-y divide-[#f0f0f0]">
+        <ul className="divide-y divide-[#e7ebf2]">
           {data.campaigns.map(c => {
             const thumbnail = c.creative.assets.find(asset => asset.id === (c.creative.posterId || c.creative.mediaId || c.creative.iconId));
             return <li key={c.id}>
-              <div className="grid min-w-0 gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_112px_320px] xl:items-center">
+              <div className={`${styles.campaignRow} grid min-w-0 gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_100px_320px] xl:items-center`}>
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-[#fafafa] text-xl text-[#999] sm:h-20 sm:w-28">
-                    {thumbnail && thumbnail.contentType.startsWith("image/") ? <Image src={thumbnail.url} alt="" fill unoptimized sizes="112px" className="object-cover" /> : <span aria-hidden="true">{c.creative.title.slice(0, 1).toUpperCase()}</span>}
+                  <div className={`${styles.thumbnail} relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden sm:h-20 sm:w-28`}>
+                    {thumbnail && thumbnail.contentType.startsWith("image/") ? <Image src={thumbnail.url} alt="" fill unoptimized sizes="112px" className="object-cover" /> : <DashboardIcon name="campaigns" className="size-6" />}
                   </div>
                   <div className="min-w-0">
                     <Link prefetch href={`/sponsor/campaigns/${c.id}` as Route} className="focus-ring block break-words text-sm font-medium leading-6 hover:underline">{c.creative.title}</Link>
-                    {c.creative.tagline && <p className="mt-1 truncate text-xs text-[#767676]" title={c.creative.tagline}>{c.creative.tagline}</p>}
-                    <p className="mt-1 truncate text-xs text-[#767676]" title={c.creative.url}>{c.creative.url}</p>
+                    {c.creative.tagline && <p className="mt-1 truncate text-xs text-[#66758c]" title={c.creative.tagline}>{c.creative.tagline}</p>}
+                    <p className="mt-1 truncate text-xs text-[#66758c]" title={c.creative.url}>{c.creative.url}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 xl:block">
-                  <span className={`inline-flex items-center gap-2 rounded px-2 py-1 text-xs ${c.state === "published" ? "bg-[#f0f0f0] text-[#262626]" : "bg-[#fafafa] text-[#767676]"}`}>
-                    {c.state === "published" && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: paused ? "currentColor" : "#16a34a" }} />}
+                  <span className={styles.statusBadge} data-active={c.state === "published" && !paused}>
+                    {c.state === "published" && <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />}
                     {c.state === "published" ? paused ? "Paused" : "Published" : c.state === "archived" ? "Previous" : "Draft"}
                   </span>
-                  <p className="text-xs text-[#767676] xl:mt-2 xl:px-2">Version {c.revision}</p>
+                  <p className="text-xs text-[#66758c] xl:mt-2 xl:px-2">Version {c.revision}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                  <Link prefetch href={`/sponsor/campaigns/${c.id}` as Route} className={sponsorButton.secondary}>{readonly ? "View campaign" : "Edit campaign"}</Link>
+                  <Link prefetch href={`/sponsor/campaigns/${c.id}` as Route} className={secondaryButton}>{readonly ? "View campaign" : "Edit campaign"}</Link>
                   {!readonly && c.state !== "published" && <>
-                    <button type="button" className={sponsorButton.secondary} disabled={busy} onClick={() => setConfirm({kind:"publish",campaign:c})}>Make public</button>
-                    <button type="button" aria-label={`Delete ${c.creative.title}`} title="Delete campaign" disabled={busy} onClick={() => setConfirm({kind:"delete",campaign:c})} className={`${sponsorButton.secondary} size-11 p-0`}>
-                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
-                      </svg>
+                    <button type="button" className={secondaryButton} disabled={busy} onClick={() => setConfirm({kind:"publish",campaign:c})}>Make public</button>
+                    <button type="button" aria-label={`Delete ${c.creative.title}`} title="Delete campaign" disabled={busy} onClick={() => setConfirm({kind:"delete",campaign:c})} className={`${secondaryButton} size-11 p-0`}>
+                      <DashboardIcon name="delete" />
                     </button>
                   </>}
                 </div>
@@ -128,14 +131,14 @@ export function CampaignList({
               role="dialog"
               aria-modal="false"
               aria-labelledby="campaign-confirm-title"
-              className="m-4 rounded-md border border-[#e6e6e6] bg-[#fafafa] p-5 sm:m-5"
+              className={`${styles.notice} m-4 sm:m-5`}
             >
               <h2 id="campaign-confirm-title" className="font-medium">
                 {confirm.kind === "publish"
                   ? `Make “${confirm.campaign.creative.title}” public?`
                   : `Delete “${confirm.campaign.creative.title}”?`}
               </h2>
-              <p className="mt-3 text-sm leading-6 text-[#767676]">
+              <p className="mt-3 text-sm leading-6 text-[#66758c]">
                 {confirm.kind === "publish"
                   ? current
                     ? `This replaces “${current.creative.title}” across the navbar, feed and detail wordmarks. All creative and the destination change together.`
@@ -144,7 +147,7 @@ export function CampaignList({
               </p>
               <div className="mt-4 flex gap-3">
                 <button
-                  className={`${sponsorButton.primary}`}
+                  className={primaryButton}
                   disabled={busy}
                   onClick={() => void apply()}
                 >
@@ -155,7 +158,7 @@ export function CampaignList({
                       : "Confirm deletion"}
                 </button>
                 <button
-                  className={sponsorButton.secondary}
+                  className={secondaryButton}
                   disabled={busy}
                   onClick={() => setConfirm(undefined)}
                 >
@@ -168,11 +171,12 @@ export function CampaignList({
           })}
         </ul>
         {!data.campaigns.length && <div className="px-5 py-12 text-center">
+          <span className={`${styles.brandMark} mx-auto mb-4`}><DashboardIcon name="campaigns" className="size-5" /></span>
           <h3 className="text-base font-medium">No saved campaigns yet</h3>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#767676]">{readonly ? "Your saved campaigns will appear here." : "Create your first draft to preview your creative across all three placements."}</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#66758c]">{readonly ? "Your saved campaigns will appear here." : "Create your first draft to preview your creative across all three placements."}</p>
         </div>}
       </section>
-      <p role="status" aria-live="polite" className="text-sm text-[#767676]">{message}</p>
+      <p role="status" aria-live="polite" className="text-sm text-[#66758c]">{message}</p>
     </div>
   );
 }
@@ -194,7 +198,7 @@ export function CampaignsPanel({ ownerUserId, readonly, paused }: { ownerUserId:
       .catch(error => { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Campaigns could not be loaded."); });
     return () => controller.abort();
   }, [ownerUserId, attempt]);
-  if (error) return <div className="rounded-md border border-[#f0f0f0] p-5"><p role="alert" className="text-sm text-[#767676]">{error}</p><button type="button" className={`${sponsorButton.secondary} mt-4`} onClick={() => {setError(""); setAttempt(value => value + 1);}}>Try again</button></div>;
-  if (!data) return <p role="status" className="py-8 text-sm text-[#767676]">Loading campaigns…</p>;
+  if (error) return <div className={styles.notice}><p role="alert" className={`text-sm ${styles.muted}`}>{error}</p><button type="button" className={`${secondaryButton} mt-4`} onClick={() => {setError(""); setAttempt(value => value + 1);}}>Try again</button></div>;
+  if (!data) return <div role="status" className="space-y-6"><span className="sr-only">Loading campaigns…</span><div aria-hidden="true" className={styles.summaryGrid}>{[0, 1, 2].map(item => <div key={item} className={`${styles.surface} space-y-5`}><div className={`${styles.skeleton} w-1/2`} /><div className={`${styles.skeleton} w-3/4`} /></div>)}</div></div>;
   return <CampaignList initial={data} forceReadonly={readonly} paused={paused} />;
 }

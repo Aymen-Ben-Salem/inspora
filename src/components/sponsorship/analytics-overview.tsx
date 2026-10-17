@@ -18,6 +18,9 @@ import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
 import { CountryLabel, countryName } from "./country-label";
 const number = new Intl.NumberFormat("en");
+function reportMoney(amount: number, currency?: string) {
+  return currency ? new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(amount) : "—";
+}
 const surface = styles.surface;
 const select =
   "focus-ring min-h-11 cursor-pointer rounded-md bg-[#fafafa] px-3 text-sm text-[#262626] transition-colors hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-40";
@@ -405,13 +408,13 @@ export function AnalyticsOverview() {
                   "Effective CPC",
                   available.cpc === null
                     ? "—"
-                    : `${available.spend?.currency.toUpperCase()} ${available.cpc.toFixed(2)}`,
+                    : reportMoney(available.cpc, available.spend?.currency),
                 ],
                 [
                   "Effective CPM",
                   available.cpm === null
                     ? "—"
-                    : `${available.spend?.currency.toUpperCase()} ${available.cpm.toFixed(2)}`,
+                    : reportMoney(available.cpm, available.spend?.currency),
                 ],
               ].map(([label, value]) => (
                 <div key={label}>
@@ -423,7 +426,7 @@ export function AnalyticsOverview() {
             <p className="mt-auto pt-5 text-xs leading-5 text-[#767676]">
               Base spend allocated by campaign-active time:{" "}
               {available.spend
-                ? `${available.spend.currency.toUpperCase()} ${available.spend.amount.toFixed(2)}`
+                ? reportMoney(available.spend.amount, available.spend.currency)
                 : "unavailable for this filter or incomplete history"}
               . Verified refunds are reflected; spend is unavailable when their
               fee/tax split is unknown. Tax and fees are excluded. A click does not establish a

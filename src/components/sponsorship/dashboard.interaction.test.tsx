@@ -161,7 +161,9 @@ it("shows refresh progress and then renders cancellation without removing the pa
     expect(refresh.disabled).toBe(false);
     expect(refresh.textContent).toBe("Refresh");
     expect(container.textContent).toContain("Cancellation");
-    expect(container.textContent).toContain("Ends 9 Nov 2026, 20:31 UTC");
+    expect(container.textContent).toContain("No automatic renewal");
+    expect(container.querySelector('#billing time')?.textContent).toBe("9 Nov 2026 20:31 UTC");
+    expect(container.querySelector('#billing time')?.getAttribute("datetime")).toBe(initial.account!.paidThrough);
     expect(container.textContent).not.toContain("Promotion is paused");
   } finally {
     await act(async () => root.unmount());

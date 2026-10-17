@@ -3,6 +3,7 @@ import {
   ArrowDownRight, ArrowUpRight, CalendarDays, ChartNoAxesColumnIncreasing,
   ChevronDown, ChevronLeft, ChevronRight, CreditCard, Download, Eye,
   Layers, LayoutDashboard, LoaderCircle, MousePointer2, Users, X,
+  Plus, Trash2, Archive, FilePenLine, ExternalLink, ReceiptText, RefreshCw,
 } from "lucide-react";
 
 const icons = {
@@ -22,6 +23,13 @@ const icons = {
   close: X,
   download: Download,
   loading: LoaderCircle,
+  plus: Plus,
+  delete: Trash2,
+  archive: Archive,
+  draft: FilePenLine,
+  external: ExternalLink,
+  receipt: ReceiptText,
+  renewal: RefreshCw,
 };
 export type DashboardIconName = keyof typeof icons;
 

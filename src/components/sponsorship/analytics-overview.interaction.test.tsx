@@ -28,6 +28,16 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 const button = (label: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === label)!;
 const selectedDate = () => container.querySelector("time")?.dateTime;
 
+it.each([["usd", "$"], ["eur", "€"]])("shows %s spend and cost metrics with currency symbols", async (currency, symbol) => {
+  fetcher.mockResolvedValueOnce(Response.json({ data: { ...report, spend: { amount: 450, currency }, cpc: 0.61, cpm: 18.1 } }));
+  await act(async () => root.render(<AnalyticsOverview />));
+  const reach = container.querySelector("#report-reach-video")!;
+  expect(reach.textContent).toContain(`${symbol}0.61`);
+  expect(reach.textContent).toContain(`${symbol}18.10`);
+  expect(reach.textContent).toContain(`${symbol}450.00`);
+  expect(reach.textContent).not.toContain(currency.toUpperCase());
+});
+
 it("keeps daily figures synchronized with the chart arrows", async () => {
   await act(async () => root.render(<DeliveryChart rows={report.daily} start={report.start} end={report.end} />));
   expect(selectedDate()).toBe("2026-10-12");

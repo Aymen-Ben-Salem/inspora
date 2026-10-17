@@ -29,6 +29,12 @@ function date(value: string | null) {
     : "—";
 }
 
+function BillingDate({ value }: { value: string | null }) {
+  if (!value) return <>—</>;
+  const [day, time] = date(value).split(", ");
+  return <time dateTime={value}>{day}<span className={`mt-1 block text-xs font-normal tracking-normal ${styles.muted}`}> {time}</span></time>;
+}
+
 const sections = [
   { id: "overview", label: "Overview" },
   { id: "campaigns", label: "Campaigns" },
@@ -164,7 +170,7 @@ export function SponsorDashboard({
               aria-current={section === item.id ? "page" : undefined}
               aria-controls={item.id}
               onClick={() => changeSection(item.id)}
-              className={`${styles.navItem} focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "font-medium" : "text-[#767676] hover:bg-[#f3f6fc] hover:text-[#262626]"}`}
+              className={`${styles.navItem} focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "font-medium" : "text-[#66758c] hover:bg-[#f3f6fc] hover:text-[#262626]"}`}
             >
               <DashboardIcon name={item.id} />
               {item.label}
@@ -173,9 +179,9 @@ export function SponsorDashboard({
         </nav>
         {section === "overview" && account ? (
           <nav aria-label="On this report" className="mt-10 hidden border-t border-[#f0f0f0] pt-5 lg:block">
-            <p className="mb-2 px-3 text-xs text-[#767676]">On this report</p>
+            <p className="mb-2 px-3 text-xs text-[#66758c]">On this report</p>
             {[["performance", "Performance"], ["reach-video", "Reach, cost & video"], ["audience", "Audience & delivery"]].map(([id, label]) => (
-              <a key={id} href={`#report-${id}`} className="focus-ring flex min-h-11 items-center rounded-md px-3 text-xs text-[#767676] transition-colors hover:bg-[#fafafa] hover:text-[#262626]">{label}</a>
+              <a key={id} href={`#report-${id}`} className="focus-ring flex min-h-11 items-center rounded-md px-3 text-xs text-[#66758c] transition-colors hover:bg-[#fafafa] hover:text-[#262626]">{label}</a>
             ))}
           </nav>
         ) : null}
@@ -191,7 +197,7 @@ export function SponsorDashboard({
         <button
           type="button"
           hidden={section !== "billing"}
-          className={`${sponsorButton.secondary} ${section === "billing" ? "inline-flex" : "hidden"} items-center gap-2`}
+          className={`${sponsorButton.secondary} ${styles.secondaryButton} ${section === "billing" ? "inline-flex" : "hidden"} items-center gap-2`}
           disabled={busy || refreshing}
           aria-busy={refreshing}
           onClick={() => {
@@ -207,7 +213,7 @@ export function SponsorDashboard({
       <p
         role="status"
         aria-live="polite"
-        className="mt-3 text-sm leading-6 text-[#767676]"
+        className="mt-3 text-sm leading-6 text-[#66758c]"
       >
         {data.checkout?.exceptionCode === "payment_dispute"
           ? "A payment dispute has paused this sponsorship. Review the payment in Billing."
@@ -220,7 +226,7 @@ export function SponsorDashboard({
               : account?.state === "recovery"
                 ? "Your paid period has ended. Promotion is paused while payment recovers."
                 : account
-                  ? section === "campaigns" ? "Your campaigns, from first draft to publication." : "Your delivery, audience and billing."
+                  ? section === "campaigns" ? "Your campaigns, from first draft to publication." : section === "billing" ? "Your plan, payment details and renewal." : "Your delivery, audience and billing."
                   : "Your preparation is private until payment is verified."}
       </p>
       <div className="mt-6">
@@ -228,24 +234,24 @@ export function SponsorDashboard({
           <section id="overview" aria-label="Overview" hidden={section !== "overview"}>
             <h2 className="sr-only">Overview</h2>
             {account ? <AnalyticsOverview key={data.ownerUserId} /> : (
-              <div className="mt-5 rounded-md border border-[#e6e6e6] p-6">
-                <p className="text-sm text-[#767676]">Performance appears after verified payment. Your campaign preparation stays private.</p>
-                <button type="button" onClick={() => changeSection("billing")} className={`${sponsorButton.secondary} mt-5 cursor-pointer`}>Review payment</button>
+              <div className={`${styles.empty} mt-5`}>
+                <p className="text-sm text-[#66758c]">Performance appears after verified payment. Your campaign preparation stays private.</p>
+                <button type="button" onClick={() => changeSection("billing")} className={`${sponsorButton.secondary} ${styles.secondaryButton} mt-5 cursor-pointer`}>Review payment</button>
               </div>
             )}
           </section>
         <section id="campaigns" aria-label="Campaigns" hidden={section !== "campaigns"}>
           {account ? section === "campaigns" && <CampaignsPanel key={data.ownerUserId} ownerUserId={data.ownerUserId} readonly={readonly} paused={account.state !== "active"} /> : (
-            <div className="rounded-md border border-[#f0f0f0] p-6">
+            <div className={styles.surface}>
               <h2 className="text-lg font-medium">{data.campaigns.length ? "Your prepared campaigns" : "Your first campaign"}</h2>
-              <p className="mt-3 text-sm text-[#767676]">{finishing ? "Publication is being completed." : "No public campaign yet. Your preparation stays private until payment is verified."}</p>
+              <p className="mt-3 text-sm text-[#66758c]">{finishing ? "Publication is being completed." : "No public campaign yet. Your preparation stays private until payment is verified."}</p>
               {data.campaigns.length > 0 && <ul className="mt-5 divide-y divide-[#f0f0f0] border-t border-[#f0f0f0]">
                 {data.campaigns.map(c => <li key={c.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-4">
-                  <div className="min-w-0"><h3 className="break-words text-sm font-medium">{c.title}</h3><p className="mt-1 break-all text-xs text-[#767676]">{c.url}</p></div>
-                  <span className="rounded bg-[#fafafa] px-2 py-1 text-xs text-[#767676]">{c.state === "archived" ? "Previous" : "Private preparation"}</span>
+                  <div className="min-w-0"><h3 className="break-words text-sm font-medium">{c.title}</h3><p className="mt-1 break-all text-xs text-[#66758c]">{c.url}</p></div>
+                  <span className={styles.statusBadge}>{c.state === "archived" ? "Previous" : "Private preparation"}</span>
                 </li>)}
               </ul>}
-              {data.checkout?.state !== "reserved" && <Link href={"/sponsor/start" as Route} className={`${sponsorButton.secondary} mt-6 inline-flex items-center`}>Prepare campaign</Link>}
+              {data.checkout?.state !== "reserved" && <Link href={"/sponsor/start" as Route} className={`${sponsorButton.primary} ${styles.primaryButton} mt-6 inline-flex items-center`}><DashboardIcon name="plus" />Prepare campaign</Link>}
             </div>
           )}
         </section>
@@ -253,63 +259,67 @@ export function SponsorDashboard({
           id="billing"
           aria-label="Billing"
           hidden={section !== "billing"}
-          className="max-w-[760px] scroll-mt-8 py-2"
+          className="scroll-mt-8 space-y-6"
         >
-          <h2 className="text-lg font-medium">Billing</h2>
-          <p className="mt-2 text-sm text-[#767676]">
+          <p className={`text-sm leading-6 ${styles.muted}`}>
             {account
               ? `Billed in ${account.billingCurrency === "eur" ? "€" : account.billingCurrency === "usd" ? "$" : account.billingCurrency.toUpperCase()} · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}. View your exact charges in Manage billing.`
               : "Choose how you’d like to pay."}
           </p>
           {account ? (
             <>
-              <dl className="mt-8 grid grid-cols-[auto_1fr] gap-x-6 gap-y-4 text-sm">
-                <dt className="text-[#767676]">Status</dt>
-                <dd className="capitalize">{account.state}</dd>
-                <dt className="text-[#767676]">Paid through</dt>
-                <dd>{date(account.paidThrough)}</dd>
-                <dt className="text-[#767676]">
+              <dl className={styles.summaryGrid}>
+                <div className={styles.metric}>
+                <dt className={styles.metricHeader}>Status<span className={styles.metricIcon}><DashboardIcon name="billing" /></span></dt>
+                <dd className={`${styles.summaryValue} capitalize`}>{account.state}</dd>
+                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>{account.billingMode === "one_time" ? "One-time payment" : "Subscription"}</dd>
+                </div>
+                <div className={styles.metric}>
+                <dt className={styles.metricHeader}>Paid through<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
+                <dd className={styles.summaryValue}><BillingDate value={account.paidThrough} /></dd>
+                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>Current paid period</dd>
+                </div>
+                <div className={styles.metric}>
+                <dt className={styles.metricHeader}>
                   {account.billingMode === "one_time"
                     ? "End date"
                     : account.cancelAtPeriodEnd
                       ? "Cancellation"
-                      : "Renewal"}
+                      : "Renewal"}<span className={styles.metricIcon}><DashboardIcon name="renewal" /></span>
                 </dt>
-                <dd>
-                  {account.billingMode === "one_time"
-                    ? `Ends ${date(account.paidThrough)}`
-                    : account.cancelAtPeriodEnd
-                      ? `Ends ${date(account.paidThrough)}`
-                      : account.state === "inactive"
-                        ? "Stopped"
-                        : date(account.paidThrough)}
+                <dd className={styles.summaryValue}>
+                  {account.billingMode !== "one_time" && !account.cancelAtPeriodEnd && account.state === "inactive"
+                    ? "Stopped"
+                    : <BillingDate value={account.paidThrough} />}
                 </dd>
-                {account.recoveryDeadline ? (
-                  <>
-                    <dt className="text-[#767676]">Recovery deadline</dt>
-                    <dd>{date(account.recoveryDeadline)}</dd>
-                  </>
-                ) : null}
+                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>{account.billingMode === "one_time" || account.cancelAtPeriodEnd || account.state === "inactive" ? "No automatic renewal" : account.billingInterval === "month" ? "Renews monthly" : "Renews every 30 days"}</dd>
+                </div>
               </dl>
+              {account.recoveryDeadline ? <div className={styles.notice}><p className="text-sm font-medium">Recovery deadline</p><p className={`mt-1 text-sm ${styles.muted}`}>{date(account.recoveryDeadline)}</p></div> : null}
+              <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="payment-details-title">
+                <div>
+                  <h2 id="payment-details-title" className="flex items-center gap-3 text-lg font-medium"><span className={styles.metricIcon}><DashboardIcon name="receipt" /></span>Payment details</h2>
+                  <p className={`mt-4 max-w-2xl text-sm leading-6 ${styles.muted}`}>
+                    {account.billingMode === "one_time"
+                      ? "View your invoice in Billing. Your sponsorship ends at the end of the paid calendar month, with no automatic renewal."
+                      : "View invoices, update your payment method or cancel future renewal. Cancellation preserves your paid period. A failed renewal pauses promotion at expiry and holds your seat for 72 hours."}
+                  </p>
+                </div>
               <button
-                className={`${sponsorButton.primary} mt-8`}
+                className={`${sponsorButton.primary} ${styles.primaryButton} shrink-0`}
                 type="button"
                 disabled={busy || refreshing || !account.billingAvailable}
                 onClick={() => {
                   void open("portal");
                 }}
               >
-                Manage billing
+                Manage billing<DashboardIcon name="external" />
               </button>
-              <p className="mt-4 text-sm leading-6 text-[#767676]">
-                {account.billingMode === "one_time"
-                  ? "View your invoice in Billing. Your sponsorship ends at the end of the paid calendar month, with no automatic renewal."
-                  : "View invoices, update your payment method or cancel future renewal. Cancellation preserves your paid period. A failed renewal pauses promotion at expiry and holds your seat for 72 hours."}
-              </p>
+              </section>
             </>
           ) : (
-            <>
-              <div className="mt-6">
+            <div className={`${styles.surface} ${styles.billingOptions}`}>
+              <div>
                 <PurchaseOptions
                   currency={currency}
                   value={billingMode}
@@ -322,13 +332,13 @@ export function SponsorDashboard({
                 {data.checkout?.state !== "reserved" ? <SponsorCurrencySelect value={currency} onChange={setCurrencyChoice} disabled={busy || refreshing} /> : null}
               </div>
               {data.checkout?.state === "reserved" ? (
-                <p className="mt-3 text-xs text-[#767676]">
+                <p className="mt-3 text-xs text-[#66758c]">
                   This checkout’s payment choice is reserved. Finish it or wait
                   for it to expire before changing terms.
                 </p>
               ) : null}
               <button
-                className={`${sponsorButton.primary} mt-8`}
+                className={`${sponsorButton.primary} ${styles.primaryButton} mt-8`}
                 type="button"
                 disabled={
                   busy ||
@@ -344,14 +354,14 @@ export function SponsorDashboard({
               >
                 Continue to test checkout
               </button>
-              <p className="mt-4 text-sm leading-6 text-[#767676]">
+              <p className="mt-4 text-sm leading-6 text-[#66758c]">
                 {!data.checkoutEnabled
                   ? "Test checkout is not configured yet. Your saved preparation remains private."
                   : !data.capacityAvailable
                     ? "All four seats are occupied or reserved. Your preparation remains private; refresh to check availability."
                     : "Checkout reserves an available seat for 30 minutes. Only verified payment creates your paid account."}
               </p>
-            </>
+            </div>
           )}
           {data.checkout?.exceptionCode === "late_payment_refund_review" ? (
             <p className="mt-4 text-sm text-[#b42318]">

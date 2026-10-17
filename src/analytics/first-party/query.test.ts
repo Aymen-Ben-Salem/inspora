@@ -1,5 +1,25 @@
 import { expect, it } from "vitest";
-import { allocateSpend, metricsFromCounts, rollingWindow, reportWindow } from "./query";
+import { allocateSpend, metricsFromCounts, rollingWindow, reportWindow, comparisonWindow, metricChange } from "./query";
+it("includes both selected UTC dates and caps today at the current time", () => {
+  const now = new Date("2026-10-17T12:00:00Z");
+  expect(reportWindow({ range: "30d", startDate: "2026-10-03", endDate: "2026-10-05" }, now)).toEqual({ start: "2026-10-03T00:00:00.000Z", end: "2026-10-06T00:00:00.000Z" });
+  expect(reportWindow({ range: "30d", startDate: "2026-10-17", endDate: "2026-10-17" }, now)).toEqual({ start: "2026-10-17T00:00:00.000Z", end: now.toISOString() });
+  for (const [startDate, endDate] of [["2026-10-10", "2026-10-09"], ["2026-10-17", "2026-10-18"], ["2026-01-01", "2026-10-10"], ["2026-09-31", "2026-10-10"], ["2026-10-01", undefined]]) {
+    expect(() => reportWindow({ range: "30d", startDate, endDate }, now)).toThrow();
+  }
+});
+it("compares equal non-overlapping periods and refuses pruned history", () => {
+  const now = new Date("2026-10-17T12:00:00Z");
+  expect(comparisonWindow(rollingWindow("7d", now), now)).toEqual({ start: "2026-10-03T12:00:00.000Z", end: "2026-10-10T12:00:00.000Z" });
+  expect(comparisonWindow({ start: "2026-07-20T00:00:00Z", end: "2026-08-20T00:00:00Z" }, now)).toBeNull();
+  expect(metricChange(121, 100)).toBe(21);
+  expect(metricChange(75, 100)).toBe(-25);
+  expect(metricChange(100, 100)).toBe(0);
+  expect(metricChange(10, 0)).toBeNull();
+  expect(metricChange(0, 0)).toBeNull();
+  expect(metricChange(null, 10)).toBeNull();
+  expect(metricChange(10, undefined)).toBeNull();
+});
 it("loads a UTC window ending on a selected date and clips to retained detail", () => {
   const now = new Date("2026-10-17T12:00:00Z");
   expect(reportWindow({ range: "7d", endDate: "2026-10-10" }, now)).toEqual({ start: "2026-10-04T00:00:00.000Z", end: "2026-10-11T00:00:00.000Z" });

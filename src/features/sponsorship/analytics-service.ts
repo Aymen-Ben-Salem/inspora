@@ -16,12 +16,15 @@ export const metricsFilterSchema = z
       .regex(/^(?:[A-Z]{2}|Unknown)$/)
       .optional(),
     periodId: z.uuid().optional(),
+    startDate: z.iso.date().optional(),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
       const day = Date.parse(`${value}T00:00:00Z`);
       return Number.isFinite(day) && new Date(day).toISOString().slice(0, 10) === value;
     }).optional(),
   })
-  .strict().refine(filter => !filter.endDate || !filter.periodId, "Choose a date or a closed paid period.");
+  .strict()
+  .refine(filter => !(filter.startDate || filter.endDate) || !filter.periodId, "Choose dates or a closed paid period.")
+  .refine(filter => !filter.startDate || (!!filter.endDate && filter.startDate <= filter.endDate), "Choose an end date on or after the start date.");
 export function createSponsorAnalyticsService(deps: {
   actor(): Promise<SponsorActor>;
   owns(actor: SponsorActor, filter: MetricsFilter): Promise<boolean>;

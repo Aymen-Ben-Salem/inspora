@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
-import { DeliveryChart } from "./analytics-overview";
+import { DeliveryChart, MetricCard } from "./analytics-overview";
 import { EMPTY_COUNTS, metricsFromCounts } from "@/analytics/first-party/query";
 
 it("plots sparse activity on its UTC dates and includes confirmed empty days", () => {
@@ -17,8 +17,13 @@ it("plots sparse activity on its UTC dates and includes confirmed empty days", (
   expect(points[29][0]).toBe(780);
   expect(html).toContain("2026-07-30");
   expect(html).toContain("5 impressions");
-  expect(html).toContain('value="2026-07-30"');
+  expect(html).toContain('dateTime="2026-07-30"');
   expect(html).not.toContain("<table");
+});
+it.each([[121, 100, "+21%"], [75, 100, "-25%"], [100, 100, "0%"], [1, 0, "No activity in previous period"], [5, undefined, "Comparison unavailable"]])("renders honest change indicators (%s, %s)", (value, previous, expected) => {
+  const html = renderToStaticMarkup(<MetricCard label="Impressions" icon="eye" value={value as number} previous={previous as number | undefined} comparisonLabel="vs. previous 7 days" />);
+  expect(html).toContain(expected);
+  expect(html).not.toContain("Infinity");
 });
 it.each([
   ["2026-07-01T12:00:00Z", "2026-07-02T12:00:00Z", 2, "2026-07-02"],

@@ -5,6 +5,10 @@ it("accepts actual calendar dates and rejects invalid or conflicting report date
   expect(metricsFilterSchema.safeParse({ range: "7d", endDate: "2024-02-29" }).success).toBe(true);
   expect(metricsFilterSchema.safeParse({ range: "7d", endDate: "2026-02-30" }).success).toBe(false);
   expect(metricsFilterSchema.safeParse({ range: "7d", endDate: "2026-10-10", periodId: "7e0f7447-bc5b-4daa-9fc7-77def961ff74" }).success).toBe(false);
+  expect(metricsFilterSchema.safeParse({ range: "30d", startDate: "2026-10-01", endDate: "2026-10-10" }).success).toBe(true);
+  expect(metricsFilterSchema.safeParse({ range: "30d", startDate: "2026-10-11", endDate: "2026-10-10" }).success).toBe(false);
+  expect(metricsFilterSchema.safeParse({ range: "30d", startDate: "2026-02-30", endDate: "2026-10-10" }).success).toBe(false);
+  expect(metricsFilterSchema.safeParse({ range: "30d", startDate: "2026-10-01" }).success).toBe(false);
 });
 it("denies foreign campaign and version filters before reading reports", async () => {
   const read = vi.fn(),

@@ -35,6 +35,7 @@ export async function queryMetrics(
   filter: MetricsFilter,
   window: { start: string; end: string },
   now: Date,
+  summaryOnly = false,
 ): Promise<MetricsReport> {
   const conditions = [
     sql`e.occurred_at >= ${window.start}::timestamptz and e.occurred_at < ${window.end}::timestamptz`,
@@ -56,7 +57,9 @@ export async function queryMetrics(
     `e.placement,e.campaign_id,e.version_id,e.country_code,e.device,e.referrer_domain,date_trunc('day',e.occurred_at at time zone 'UTC')`,
   );
   const rows = await tx.execute(
-    sql`select ${dimension}, grouping(${dimension}) as grouping, ${columns} from ${analyticsEvents} e left join ${sponsors} s on s.id=e.campaign_id where ${sql.join(conditions, sql` and `)} group by grouping sets ((),(e.placement),(e.campaign_id),(e.version_id),(e.country_code),(e.device),(e.referrer_domain),(date_trunc('day',e.occurred_at at time zone 'UTC')))`,
+    summaryOnly
+      ? sql`select 127 as grouping, ${columns} from ${analyticsEvents} e left join ${sponsors} s on s.id=e.campaign_id where ${sql.join(conditions, sql` and `)}`
+      : sql`select ${dimension}, grouping(${dimension}) as grouping, ${columns} from ${analyticsEvents} e left join ${sponsors} s on s.id=e.campaign_id where ${sql.join(conditions, sql` and `)} group by grouping sets ((),(e.placement),(e.campaign_id),(e.version_id),(e.country_code),(e.device),(e.referrer_domain),(date_trunc('day',e.occurred_at at time zone 'UTC')))`,
   );
   const result: MetricsReport = {
     source: "Inspora accepted events",
@@ -129,7 +132,7 @@ export async function queryMetrics(
         ? a.label.localeCompare(b.label)
         : b.impressions + b.pageviews - (a.impressions + a.pageviews),
     );
-  return accountId ? refreshReportMoney(tx, accountId, filter, result) : result;
+  return accountId && !summaryOnly ? refreshReportMoney(tx, accountId, filter, result) : result;
 }
 
 /** Billing adjustments remain live even after finalized delivery rows are pruned. */

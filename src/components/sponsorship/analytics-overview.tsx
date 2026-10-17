@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
@@ -10,11 +10,14 @@ import type {
 } from "@/analytics/first-party/query";
 import type { readOwnAnalyticsCatalog } from "@/features/sponsorship/analytics";
 import { NavbarMenu } from "@/components/navbar-menu";
-import { dailyReportRows } from "@/analytics/first-party/query";
+import { dailyReportRows, metricChange } from "@/analytics/first-party/query";
 import { sponsorReportCsv } from "@/analytics/first-party/csv";
 import { sponsorButton } from "./button-styles";
+import { ReportDateRange } from "./report-date-range";
+import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
+import styles from "./dashboard.module.css";
 const number = new Intl.NumberFormat("en");
-const surface = "min-w-0 rounded-md border border-[#f0f0f0] bg-white p-4 sm:p-5";
+const surface = styles.surface;
 const select =
   "focus-ring min-h-11 cursor-pointer rounded-md bg-[#fafafa] px-3 text-sm text-[#262626] transition-colors hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-40";
 function ReportFilter({ label, value, options, onChange }: {
@@ -34,6 +37,28 @@ function ReportFilter({ label, value, options, onChange }: {
 }
 export const VISITOR_DEFINITION =
   "Visitors counted anonymously without cookies. Shared networks may count together; changing networks or browsers can count again. Identifiers reset monthly, so a range crossing months can count a returning visitor again. Missing trusted identity is excluded from reach. Blockers, opt-out and network failures reduce coverage.";
+export function MetricCard({ label, icon, value, previous, percent, comparisonLabel, comparisonTitle }: {
+  label: string; icon: DashboardIconName; value: number | null; previous?: number | null; percent?: boolean; comparisonLabel: string; comparisonTitle?: string;
+}) {
+  const change = metricChange(value, previous);
+  const rounded = change === null ? null : Math.round(change * 10) / 10;
+  return <article className={styles.metric}>
+    <div className={styles.metricHeader}>
+      <p title={label === "Unique visitors" ? VISITOR_DEFINITION : percent ? "Outbound clicks divided by qualifying impressions from the same accepted events." : undefined}>{label}</p>
+      <span className={styles.metricIcon}><DashboardIcon name={icon} /></span>
+    </div>
+    <p className={styles.metricValue}>{value === null ? "—" : percent ? `${value.toFixed(2)}%` : number.format(value)}</p>
+    <p className={styles.trend} title={comparisonTitle}>
+      {rounded === null ? <span>{previous === 0 ? "No activity in previous period" : "Comparison unavailable"}</span> : <>
+        <span className={`${styles.trendBadge} ${rounded > 0 ? styles.positive : rounded < 0 ? styles.negative : styles.neutral}`}>
+          {rounded !== 0 && <DashboardIcon name={rounded > 0 ? "up" : "down"} className="size-3" />}
+          {rounded > 0 ? "+" : ""}{rounded}%
+        </span>
+        <span>{comparisonLabel}</span>
+      </>}
+    </p>
+  </article>;
+}
 export function AnalyticsTable({
   title,
   rows,
@@ -51,7 +76,7 @@ export function AnalyticsTable({
     <section className={plain ? "min-w-0 py-4" : surface}>
       <h3 className="text-lg font-medium">{title}</h3>
       <div className="mt-5 max-h-80 overflow-auto">
-        <table className="w-full text-left text-sm">
+        <table className={`${styles.table} w-full text-left text-sm`}>
           <thead>
             <tr className="text-xs text-[#767676]">
               <th className="pb-3 pr-4 font-normal">{title}</th>
@@ -97,14 +122,14 @@ export function AnalyticsTable({
     </section>
   );
 }
-export function DeliveryChart({ rows: observedRows, start, end, plain = false, onDateChange }: {
+export function DeliveryChart({ rows: observedRows, start, end, plain = false }: {
   rows: Breakdown[];
   start: string;
   end: string;
   plain?: boolean;
-  onDateChange?: (day: string) => void;
 }) {
   const chart = useRef<SVGSVGElement>(null);
+  const gradientId = useId();
   const [chartWidth, setChartWidth] = useState(800);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   useEffect(() => {
@@ -117,9 +142,6 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false, o
     return () => observer.disconnect();
   }, []);
   const rows = dailyReportRows(observedRows, start, end);
-  const today = new Date().toISOString().slice(0, 10);
-  const minimumDate = onDateChange ? new Date(Date.parse(`${today}T00:00:00Z`) - 89 * 86400000).toISOString().slice(0, 10) : rows[0]?.label;
-  const maximumDate = onDateChange ? today : rows.at(-1)?.label;
   const chosen = rows.findIndex(row => row.label === selectedDay);
   const selectedIndex = chosen < 0 ? rows.length - 1 : chosen;
   const selected = rows[selectedIndex];
@@ -146,8 +168,8 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false, o
       <div className="flex flex-wrap justify-between gap-2">
         <h3 className="text-lg font-medium">Performance</h3>
         <div className="flex items-center gap-4 text-xs text-[#767676]">
-          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-[#262626]" />Impressions</span>
-          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-dashed border-[#999]" />Clicks</span>
+          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-[#168575]" />Impressions</span>
+          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-dashed border-[#c18b44]" />Clicks</span>
         </div>
       </div>
       <p className="mt-1 text-xs text-[#767676]">
@@ -162,18 +184,20 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false, o
         onPointerMove={event => selectAt(event.clientX)}
         onPointerDown={event => selectAt(event.clientX)}
       >
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#168575" stopOpacity=".17" /><stop offset="100%" stopColor="#168575" stopOpacity=".015" /></linearGradient></defs>
         {[30, 80, 130, 180].map((y) => (
           <line key={y} x1="20" y1={y} x2={chartWidth - 20} y2={y} stroke="#f0f0f0" />
         ))}
         <polyline
           fill="none"
-          stroke="#262626"
-          strokeWidth="2"
+          stroke="#168575"
+          strokeWidth="2.5"
           points={points("impressions")}
         />
+        {rows.length > 0 && <path d={`M ${points("impressions").replaceAll(" ", " L ")} L ${rows.length > 1 ? chartWidth - 20 : 20},180 L 20,180 Z`} fill={`url(#${gradientId})`} />}
         <polyline
           fill="none"
-          stroke="#999"
+          stroke="#c18b44"
           strokeWidth="2"
           strokeDasharray="5 4"
           points={points("clicks")}
@@ -182,7 +206,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false, o
           <g aria-hidden="true">
             <line x1={selectedX} x2={selectedX} y1="20" y2="180" stroke="#d4d4d4" strokeDasharray="3 4" />
             {(["impressions", "clicks"] as const).map(metric => (
-              <circle key={metric} cx={selectedX} cy={180 - (selected[metric] / max) * 150} r="3" fill={metric === "impressions" ? "#262626" : "#999"} stroke="white" strokeWidth="1.5" />
+              <circle key={metric} cx={selectedX} cy={180 - (selected[metric] / max) * 150} r="4" fill={metric === "impressions" ? "#168575" : "#c18b44"} stroke="white" strokeWidth="2" />
             ))}
           </g>
         ) : null}
@@ -203,15 +227,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false, o
             <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} />
           </button>
           <div className="min-w-0 text-center text-xs tabular-nums">
-            <label className="inline-flex max-w-full items-center gap-2 text-[#767676]">
-              <input type="date" aria-label="Performance date" value={selected.label} min={minimumDate} max={maximumDate} className={`${select} min-w-0 max-w-full text-center`} onChange={event => {
-                const day = event.currentTarget.value;
-                if (!day || !event.currentTarget.validity.valid || day < (minimumDate ?? day) || day > (maximumDate ?? day)) return;
-                setSelectedDay(day);
-                if (!rows.some(row => row.label === day)) onDateChange?.(day);
-              }} />
-              <span>UTC</span>
-            </label>
+            <p className="text-[#65786b]"><time dateTime={selected.label}>{new Date(`${selected.label}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</time> · UTC</p>
             <p aria-live="polite" aria-atomic="true" className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1">
               <span>{number.format(selected.impressions)} impressions</span>
               <span>{number.format(selected.clicks)} clicks</span>
@@ -297,12 +313,13 @@ export function AnalyticsOverview() {
     setFilter((previous) => {
       const next = { ...previous, [key]: value || undefined };
       if (key === "campaignId") delete next.versionId;
-      if (key === "periodId") delete next.endDate;
+      if (key === "periodId") { delete next.endDate; delete next.startDate; }
       return next;
     });
   return (
-    <section aria-label="Sponsorship performance" className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f0f0f0] pb-5">
+    <section aria-label="Sponsorship performance" className={`${styles.report} space-y-6`}>
+      <ReportDateRange filter={filter} onChange={setFilter} />
+      <div className={`${styles.filters} flex flex-wrap items-center justify-between gap-3`}>
         <div role="group" aria-label="Report filters" className="flex min-w-0 flex-wrap gap-2">
           <ReportFilter label="Campaign report" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
             { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
@@ -318,23 +335,6 @@ export function AnalyticsOverview() {
           ]} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-        <div
-          role="group"
-          aria-label="Report range"
-          className="flex gap-1"
-        >
-          {(["1d", "7d", "30d"] as const).map((range) => (
-            <button
-              key={range}
-              type="button"
-              aria-pressed={filter.range === range}
-              onClick={() => setFilter((previous) => ({ ...previous, range }))}
-              className={`focus-ring min-h-11 cursor-pointer rounded-md px-3 text-sm transition-colors ${filter.range === range ? "bg-[#f0f0f0] text-[#262626]" : "text-[#767676] hover:bg-[#fafafa]"}`}
-            >
-              {range === "1d" ? "1 day" : range === "7d" ? "7 days" : "30 days"}
-            </button>
-          ))}
-        </div>
         <button type="button" disabled={busy || !available} className={`${sponsorButton.secondary} gap-2`} onClick={() => {
           if (!available) return;
           const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns })], { type: "text/csv;charset=utf-8" }));
@@ -352,9 +352,11 @@ export function AnalyticsOverview() {
         </div>
       </div>
       {busy || !data || loadedFilter !== filter ? (
-        <p role="status" className="py-10 text-sm text-[#767676]">
-          Loading performance…
-        </p>
+        <div role="status" aria-label="Loading performance" className="space-y-6">
+          <span className="sr-only">Loading performance…</span>
+          <div className={styles.metricGrid}>{[0, 1, 2, 3].map(index => <div key={index} className={styles.metric} aria-hidden="true"><div className={`${styles.skeleton} w-24`} /><div className={`${styles.skeleton} mt-5 h-9 w-20`} /><div className={`${styles.skeleton} mt-5 w-32 max-w-full`} /></div>)}</div>
+          <div className={surface} aria-hidden="true"><div className={`${styles.skeleton} w-32`} /><div className={`${styles.skeleton} mt-6 h-64 w-full`} /></div>
+        </div>
       ) : !available ? (
         <p role="status" className={surface}>
           Performance is unavailable. Refresh to try again; this does not mean
@@ -362,52 +364,26 @@ export function AnalyticsOverview() {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-            {[
-              ["Impressions", number.format(available.summary.impressions)],
-              ["Clicks", number.format(available.summary.clicks)],
-              [
-                "CTR",
-                available.summary.ctr === null
-                  ? "—"
-                  : `${available.summary.ctr.toFixed(2)}%`,
-              ],
-              [
-                "Unique visitors",
-                number.format(available.summary.uniqueVisitors),
-              ],
-            ].map(([label, value]) => (
-              <article key={label} className={surface}>
-                <p
-                  className="text-xs text-[#767676]"
-                  title={
-                    label === "Unique visitors"
-                      ? VISITOR_DEFINITION
-                      : label === "CTR"
-                        ? "Outbound clicks divided by qualifying impressions from the same accepted events."
-                        : undefined
-                  }
-                >
-                  {label}
-                </p>
-                <p className="mt-2 break-words text-[28px] leading-tight tracking-[-0.03em] tabular-nums sm:text-[32px]">
-                  {value}
-                </p>
-              </article>
-            ))}
+          <div className={styles.metricGrid}>
+            {([
+              { key: "impressions", label: "Impressions", icon: "eye" },
+              { key: "clicks", label: "Clicks", icon: "click" },
+              { key: "ctr", label: "CTR", icon: "chart" },
+              { key: "uniqueVisitors", label: "Unique visitors", icon: "people" },
+            ] as const).map(({ key, label, icon }) => <MetricCard key={key} label={label} icon={icon} value={available.summary[key]} previous={available.comparison?.summary[key]} percent={key === "ctr"} comparisonLabel={filter.startDate || filter.endDate || filter.periodId ? "vs. previous period" : `vs. previous ${filter.range === "1d" ? "day" : filter.range === "7d" ? "7 days" : "30 days"}`} comparisonTitle={available.comparison ? `${available.comparison.start} – ${available.comparison.end} (UTC)` : undefined} />)}
           </div>
           {!available.summary.impressions && !available.summary.clicks ? (
-            <p className="text-sm text-[#767676]">
+            <p className={styles.empty}>
               No accepted delivery yet. Results appear after public placements
               qualify.
             </p>
           ) : null}
           <div id="report-performance" className={`${surface} scroll-mt-28`}>
-            <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain onDateChange={filter.periodId ? undefined : endDate => setFilter(previous => ({ ...previous, endDate }))} />
-            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>Through {filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, endDate: undefined }))}>Back to recent activity</button></div> : null}
+            <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain />
+            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>{filter.startDate ? `${filter.startDate} – ` : "Through "}{filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, startDate: undefined, endDate: undefined }))}>Back to recent activity</button></div> : null}
           </div>
           <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
-            <h2 id="report-reach-title" className="text-lg font-medium">Reach, cost and video</h2>
+            <h2 id="report-reach-title" className={`${styles.sectionHeading} text-lg font-medium`}>Reach, cost and video</h2>
             <div className="mt-4 grid items-start gap-4 xl:grid-cols-2">
           <section className={surface}>
             <h3 className="text-lg font-medium">Reach and efficiency</h3>
@@ -474,7 +450,7 @@ export function AnalyticsOverview() {
             </div>
           </section>
           <section id="report-audience" aria-labelledby="report-audience-title" className="scroll-mt-28">
-            <h2 id="report-audience-title" className="text-lg font-medium">Audience and delivery</h2>
+            <h2 id="report-audience-title" className={`${styles.sectionHeading} text-lg font-medium`}>Audience and delivery</h2>
             <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
             <AnalyticsTable
               title="Placements"
@@ -575,8 +551,7 @@ export function AnalyticsOverview() {
               limitations. Unknown means no trustworthy country was available.
             </p>
             <p className="mt-2">
-              Ranges are rolling 24 hours, 7 days or 30 days, with UTC graph
-              buckets. Impressions require at least 50% visibility continuously
+              Presets use rolling 24 hours, 7 days or 30 days. Yesterday and custom ranges use UTC calendar dates, including the selected end date up to the current time. Changes compare the preceding period of equal length with the same filters; a zero baseline or unavailable history has no percentage. Closed paid periods have no comparison. Impressions require at least 50% visibility continuously
               for one foreground second. CTR is unavailable with no impressions
               and can exceed 100% when activations outnumber qualifying
               exposures.

@@ -26,33 +26,29 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 const button = (label: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === label)!;
-const dateInput = () => container.querySelector<HTMLInputElement>('input[aria-label="Performance date"]')!;
-async function chooseDate(day: string) { await act(async () => {
-  const input = dateInput();
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, day);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new Event("change", { bubbles: true }));
-}); }
+const selectedDate = () => container.querySelector("time")?.dateTime;
 
-it("selects a chart day from the calendar and keeps the arrows synchronized", async () => {
+it("keeps daily figures synchronized with the chart arrows", async () => {
   await act(async () => root.render(<DeliveryChart rows={report.daily} start={report.start} end={report.end} />));
-  expect(dateInput().value).toBe("2026-10-12");
-  await chooseDate("2026-10-10");
+  expect(selectedDate()).toBe("2026-10-12");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Previous day"]')!.click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Previous day"]')!.click());
   expect(container.querySelector('[aria-live="polite"]')?.textContent).toContain("10 impressions");
   expect(container.querySelector<HTMLButtonElement>('[aria-label="Previous day"]')!.disabled).toBe(true);
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Next day"]')!.click());
-  expect(dateInput().value).toBe("2026-10-11");
+  expect(selectedDate()).toBe("2026-10-11");
   expect(container.querySelector('[aria-live="polite"]')?.textContent).toContain("0 impressions");
 });
-it("loads older dates outside the graph and blocks exporting the previous report while loading", async () => {
+it("loads yesterday from the top controls and blocks exporting the previous report while loading", async () => {
   await act(async () => root.render(<AnalyticsOverview />));
   let finish!: (value: Response) => void;
   fetcher.mockReturnValueOnce(new Promise<Response>(resolve => { finish = resolve; }));
-  await chooseDate("2026-10-01");
-  expect(fetcher.mock.lastCall![0]).toContain("endDate=2026-10-01");
+  await act(async () => button("Yesterday").click());
+  expect(fetcher.mock.lastCall![0]).toContain("endDate=2026-10-16");
+  expect(fetcher.mock.lastCall![0]).toContain("range=1d");
   expect(button("Export CSV").disabled).toBe(true);
-  await act(async () => finish(Response.json({ data: { ...report, start: "2026-09-02T00:00:00Z", end: "2026-10-02T00:00:00Z", daily: [] } })));
-  expect(dateInput().value).toBe("2026-10-01");
+  await act(async () => finish(Response.json({ data: { ...report, start: "2026-10-16T00:00:00Z", end: "2026-10-17T00:00:00Z", daily: [] } })));
+  expect(selectedDate()).toBe("2026-10-16");
   expect(button("Export CSV").disabled).toBe(false);
   await act(async () => button("Back to recent activity").click());
   expect(fetcher.mock.lastCall![0]).not.toContain("endDate");

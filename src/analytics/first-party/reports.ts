@@ -8,6 +8,7 @@ import {
   metricsFromCounts,
   rollingWindow,
   reportWindow,
+  comparisonWindow,
   type MetricsFilter,
   type ReportResult,
 } from "./query";
@@ -16,7 +17,7 @@ export function reportKey(scope: string, filter: MetricsFilter) {
   return createHash("sha256")
     .update(
       JSON.stringify([
-        "accepted-v1",
+        filter.periodId ? "accepted-v1" : "accepted-v2-comparison",
         scope,
         filter.range,
         filter.campaignId ?? null,
@@ -25,6 +26,7 @@ export function reportKey(scope: string, filter: MetricsFilter) {
         filter.country ?? null,
         filter.periodId ?? null,
         ...(filter.endDate ? [filter.endDate] : []),
+        ...(filter.startDate ? [filter.startDate] : []),
       ]),
     )
     .digest("hex");
@@ -110,6 +112,13 @@ export async function readMetricsReport(
         }
       }
       const data = await queryMetrics(tx, accountId, filter, requestedWindow, now);
+      if (accountId) {
+        const previousWindow = comparisonWindow(requestedWindow, now);
+        data.comparison = previousWindow ? {
+          ...previousWindow,
+          summary: (await queryMetrics(tx, accountId, filter, previousWindow, now, true)).summary,
+        } : null;
+      }
       const values = {
         scope,
         filter,

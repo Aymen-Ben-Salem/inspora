@@ -9,6 +9,8 @@ import { SponsorCurrencySelect } from "./currency-select";
 import type { SponsorCurrency } from "@/features/sponsorship/pricing";
 import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
+import { DashboardIcon } from "./dashboard-icon";
+import styles from "./dashboard.module.css";
 import {
   isSponsorBillingMode,
   type SponsorBillingMode,
@@ -150,10 +152,10 @@ export function SponsorDashboard({
     window.history.replaceState(null, "", url);
   }
   return (
-    <main className="archive-frame grid min-h-[80dvh] items-start gap-6 pb-16 pt-6 text-[#262626] lg:grid-cols-[184px_minmax(0,1fr)] lg:gap-8">
+    <main className={`${styles.shell} archive-frame grid min-h-[80dvh] items-start gap-6 pb-16 pt-8 lg:grid-cols-[184px_minmax(0,1fr)] lg:gap-8`}>
       <aside className="min-w-0 lg:min-h-[calc(100dvh-140px)] lg:self-stretch lg:border-r lg:border-[#f0f0f0] lg:pr-5">
         <div className="lg:sticky lg:top-28">
-        <p className="mb-5 text-base font-medium tracking-[-0.02em]">Your sponsorship</p>
+        <p className={styles.sidebarTitle}><span className={styles.brandMark}><DashboardIcon name="chart" className="size-5" /></span>Your sponsorship</p>
         <nav aria-label="Sponsorship sections" className="flex gap-1 lg:flex-col">
           {sections.map(item => (
             <button
@@ -162,8 +164,9 @@ export function SponsorDashboard({
               aria-current={section === item.id ? "page" : undefined}
               aria-controls={item.id}
               onClick={() => changeSection(item.id)}
-              className={`focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-md px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "bg-[#f0f0f0] font-medium text-[#262626]" : "text-[#767676] hover:bg-[#fafafa] hover:text-[#262626]"}`}
+              className={`${styles.navItem} focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "font-medium" : "text-[#767676] hover:bg-[#f3f7f4] hover:text-[#262626]"}`}
             >
+              <DashboardIcon name={item.id} />
               {item.label}
             </button>
           ))}
@@ -181,7 +184,7 @@ export function SponsorDashboard({
       <div className="min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-[26px] font-medium leading-[1.2] tracking-[-0.02em]">
+          <h1 className={styles.heading}>
             {sections.find(item => item.id === section)?.label}
           </h1>
         </div>
@@ -380,7 +383,7 @@ export function SponsorDashboard({
         </div>
       </div>
       {message ? (
-        <p role="alert" className="mt-6 text-sm text-[#b42318]">
+        <p role={message === "Billing updated." ? "status" : "alert"} className={`mt-6 text-sm ${message === "Billing updated." ? "text-[#477965]" : "text-[#b42318]"}`}>
           {message}
         </p>
       ) : null}

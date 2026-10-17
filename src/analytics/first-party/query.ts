@@ -27,6 +27,7 @@ export type MetricsFilter = {
   country?: string;
   periodId?: string;
   endDate?: string;
+  startDate?: string;
 };
 export type Breakdown = Metrics & { label: string };
 export type MetricsReport = {
@@ -47,6 +48,7 @@ export type MetricsReport = {
   spend: { amount: number; currency: string } | null;
   cpc: number | null;
   cpm: number | null;
+  comparison?: { start: string; end: string; summary: Metrics } | null;
 };
 export type ReportResult =
   MetricsReport | { status: "unavailable"; source: "Inspora accepted events" };
@@ -97,6 +99,17 @@ export function rollingWindow(range: SponsorRange, now: Date) {
   };
 }
 export function reportWindow(filter: MetricsFilter, now: Date) {
+  if (filter.startDate) {
+    const start = Date.parse(`${filter.startDate}T00:00:00Z`);
+    const last = Date.parse(`${filter.endDate}T00:00:00Z`);
+    const today = Date.parse(now.toISOString().slice(0, 10));
+    if (!Number.isFinite(start) || !Number.isFinite(last) ||
+        new Date(start).toISOString().slice(0, 10) !== filter.startDate ||
+        new Date(last).toISOString().slice(0, 10) !== filter.endDate ||
+        start > last || last > today || start < today - 89 * 86400000 || filter.periodId)
+      throw new Error("Choose a valid range within the last 90 days.");
+    return { start: new Date(start).toISOString(), end: new Date(Math.min(last + 86400000, now.getTime())).toISOString() };
+  }
   if (!filter.endDate) return rollingWindow(filter.range, now);
   const day = Date.parse(`${filter.endDate}T00:00:00Z`);
   if (!Number.isFinite(day) || new Date(day).toISOString().slice(0, 10) !== filter.endDate ||
@@ -108,6 +121,18 @@ export function reportWindow(filter: MetricsFilter, now: Date) {
   const window = rollingWindow(filter.range, end);
   // Detailed events are retained for 90 days. Never label pruned days as zero.
   return { ...window, start: new Date(Math.max(Date.parse(window.start), cutoff)).toISOString() };
+}
+/** Only compare complete, equally sized windows within retained detail. */
+export function comparisonWindow(window: { start: string; end: string }, now: Date) {
+  const end = Date.parse(window.start);
+  const start = end - (Date.parse(window.end) - end);
+  return start < now.getTime() - 90 * 86400000 || start >= end
+    ? null : { start: new Date(start).toISOString(), end: window.start };
+}
+
+export function metricChange(current: number | null, previous: number | null | undefined) {
+  if (current === null || previous == null || previous === 0) return null;
+  return ((current - previous) / previous) * 100;
 }
 type SpendPeriod = {
   startAt: string;

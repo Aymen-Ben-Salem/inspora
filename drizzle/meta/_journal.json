@@ -260,6 +260,13 @@
       "when": 1791760645773,
       "tag": "0036_analytics_refund_amounts",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792280000000,
+      "tag": "0037_sponsor_payment_date",
+      "breakpoints": true
     }
   ]
 }

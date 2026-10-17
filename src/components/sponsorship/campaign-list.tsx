@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { OwnedCampaign } from "@/features/sponsorship/types";
 import { sponsorRequest } from "./upload-operations";
 import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
@@ -181,24 +181,40 @@ export function CampaignList({
   );
 }
 
-// Mounted only while Campaigns is selected. The protected endpoint remains the
-// authority for campaign ownership, assets, revisions and read-only access.
-export function CampaignsPanel({ ownerUserId, readonly, paused }: { ownerUserId: string; readonly: boolean; paused: boolean }) {
+// Keep the loaded library while switching tabs. The protected endpoint still
+// checks ownership and access whenever the cached view needs refreshing.
+export function CampaignsPanel({ ownerUserId, readonly, paused, active = true }: { ownerUserId: string; readonly: boolean; paused: boolean; active?: boolean }) {
   const [data, setData] = useState<{ownerUserId: string; campaigns: OwnedCampaign[]; readonly: boolean} | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const loadedAt = useRef(0);
+  const loadedOwner = useRef<string | null>(null);
   useEffect(() => {
+    const invalidate = () => { loadedAt.current = 0; };
+    window.addEventListener("sponsorship-changed", invalidate);
+    return () => {
+      window.removeEventListener("sponsorship-changed", invalidate);
+      // Returning from an editor or restored route must check for saved changes.
+      loadedAt.current = 0;
+    };
+  }, []);
+  useEffect(() => {
+    if (!active || (loadedOwner.current === ownerUserId && loadedAt.current && Date.now() - loadedAt.current < 60000)) return;
     const controller = new AbortController();
     sponsorRequest<NonNullable<typeof data>>("campaigns", "GET", undefined, controller.signal)
       .then(result => {
         if (controller.signal.aborted) return;
         if (result.ownerUserId !== ownerUserId) throw new Error("Your account changed. Reload the dashboard to continue.");
         setData(result);
+        setError("");
+        loadedAt.current = Date.now();
+        loadedOwner.current = ownerUserId;
       })
       .catch(error => { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Campaigns could not be loaded."); });
     return () => controller.abort();
-  }, [ownerUserId, attempt]);
-  if (error) return <div className={styles.notice}><p role="alert" className={`text-sm ${styles.muted}`}>{error}</p><button type="button" className={`${secondaryButton} mt-4`} onClick={() => {setError(""); setAttempt(value => value + 1);}}>Try again</button></div>;
-  if (!data) return <div role="status" className="space-y-6"><span className="sr-only">Loading campaigns…</span><div aria-hidden="true" className={styles.summaryGrid}>{[0, 1, 2].map(item => <div key={item} className={`${styles.surface} space-y-5`}><div className={`${styles.skeleton} w-1/2`} /><div className={`${styles.skeleton} w-3/4`} /></div>)}</div></div>;
-  return <CampaignList initial={data} forceReadonly={readonly} paused={paused} />;
+  }, [ownerUserId, attempt, active]);
+  const failure = error ? <div className={styles.notice}><p role="alert" className={`text-sm ${styles.muted}`}>{error}</p><button type="button" className={`${secondaryButton} mt-4`} onClick={() => {setError(""); setAttempt(value => value + 1);}}>Try again</button></div> : null;
+  if (error && data?.ownerUserId !== ownerUserId) return failure;
+  if (data?.ownerUserId !== ownerUserId) return <div role="status" className="space-y-6"><span className="sr-only">Loading campaigns…</span><div aria-hidden="true" className={styles.summaryGrid}>{[0, 1, 2].map(item => <div key={item} className={`${styles.surface} space-y-5`}><div className={`${styles.skeleton} w-1/2`} /><div className={`${styles.skeleton} w-3/4`} /></div>)}</div></div>;
+  return <>{failure}<CampaignList initial={data} forceReadonly={readonly} paused={paused} /></>;
 }

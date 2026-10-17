@@ -382,6 +382,23 @@ async function saveDuringSponsorMediaDeletion(save: (key: string, creatorId: str
   }
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it("records the verified payment date separately from coverage and updates it on renewal", async () => {
+    const f = await fixture("Payment date");
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    const paidAt = f.now.getTime() + 90000;
+    f.observation.invoices[0].paidAt = paidAt;
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, new Date(paidAt));
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.account).toMatchObject({ periodStart: f.now.toISOString(), paidAt: new Date(paidAt).toISOString() });
+    const nextPaidAt = f.end.getTime() + 3600000;
+    f.observation.invoices.push({ ...f.observation.invoices[0], id: "in_payment_date_renewal", periodStart: f.end.getTime(), periodEnd: f.end.getTime() + 30 * 86400000, paidAt: nextPaidAt });
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, new Date(nextPaidAt));
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, new Date(nextPaidAt + 60000));
+    expect((await readOwnSponsorDashboard())?.account).toMatchObject({ periodStart: f.end.toISOString(), paidAt: new Date(nextPaidAt).toISOString() });
+  });
   it.each([
     ["one_time", "eur"], ["one_time", "usd"],
     ["subscription", "eur"], ["subscription", "usd"],

@@ -156,6 +156,15 @@ it("loads yesterday from the top controls and blocks exporting the previous repo
   await act(async () => button("Back to recent activity").click());
   expect(fetcher.mock.lastCall![0]).not.toContain("endDate");
 });
+it("keeps the current overview visible while refreshing its data", async () => {
+  await act(async () => root.render(<AnalyticsOverview />));
+  let finish!: (response: Response) => void;
+  fetcher.mockReturnValueOnce(new Promise<Response>(resolve => { finish = resolve; }));
+  await act(async () => button("Refresh performance").click());
+  expect(container.querySelector('[aria-label="Loading performance"]')).toBeNull();
+  expect(container.querySelectorAll('article')).toHaveLength(4);
+  await act(async () => finish(Response.json({ data: report })));
+});
 it("downloads the loaded report as CSV with a date-based filename", async () => {
   const downloads: string[] = [];
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download); });

@@ -1028,6 +1028,7 @@ export const sponsorAccounts = pgTable("sponsor_accounts", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   paidThrough: timestamp("paid_through", { withTimezone: true, mode: "date" }),
+  paidAt: timestamp("paid_at", { withTimezone: true, mode: "date" }),
   periodStart: timestamp("period_start", { withTimezone: true, mode: "date" }),
   recoveryDeadline: timestamp("recovery_deadline", { withTimezone: true, mode: "date" }),
   cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),

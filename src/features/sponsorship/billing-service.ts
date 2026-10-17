@@ -172,6 +172,7 @@ export async function readOwnSponsorDashboard() {
             state: account.state,
             paidThrough: account.paidThrough?.toISOString() ?? null,
             periodStart: account.periodStart?.toISOString() ?? null,
+            ...(account.paidAt ? { paidAt: account.paidAt.toISOString() } : {}),
             recoveryDeadline: account.recoveryDeadline?.toISOString() ?? null,
             cancelAtPeriodEnd: account.cancelAtPeriodEnd,
             billingAvailable: Boolean(account.stripeCustomerId),

@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { CampaignsPanel } from "./campaign-list";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 const campaign = {id:"draft",state:"draft",revision:1,creative:{title:"Private draft",url:"https://example.com",tagline:"",assets:[]}};
 it("shows a retryable failure rather than an empty library and honors endpoint read-only access", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -33,6 +33,21 @@ it("rejects another owner's response", async () => {
     expect(container.textContent).not.toContain("Private draft");
   } finally { await act(async () => root.unmount()); }
 });
+it("discards the cached view immediately when the owner changes", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ok:true,value:{ownerUserId:"owner",readonly:false,campaigns:[campaign]}}))
+    .mockImplementationOnce(() => new Promise(() => {}));
+  vi.stubGlobal("fetch", fetcher);
+  const container = document.createElement("div"), root = createRoot(container);
+  try {
+    await act(async () => root.render(<CampaignsPanel ownerUserId="owner" readonly={false} paused={false} />));
+    expect(container.textContent).toContain("Private draft");
+    await act(async () => root.render(<CampaignsPanel ownerUserId="other" readonly={false} paused={false} />));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(container.textContent).not.toContain("Private draft");
+    expect(container.textContent).toContain("Loading campaigns");
+  } finally { await act(async () => root.unmount()); }
+});
 it("aborts loading when leaving Campaigns", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   let signal: AbortSignal | undefined;
@@ -42,6 +57,33 @@ it("aborts loading when leaving Campaigns", async () => {
   expect(container.textContent).toContain("Loading campaigns");
   await act(async () => root.unmount());
   expect(signal?.aborted).toBe(true);
+});
+it("loads on first visit, reuses fresh results, and keeps them visible during a stale refresh", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1800000000000);
+  let finish!: (response: Response) => void;
+  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ok:true,value:{ownerUserId:"owner",readonly:false,campaigns:[campaign]}}))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
+  vi.stubGlobal("fetch", fetcher);
+  const container = document.createElement("div"), root = createRoot(container);
+  const render = (active: boolean) => root.render(<CampaignsPanel ownerUserId="owner" readonly={false} paused={false} active={active} />);
+  try {
+    await act(async () => render(false));
+    expect(fetcher).not.toHaveBeenCalled();
+    await act(async () => render(true));
+    expect(container.textContent).toContain("Private draft");
+    await act(async () => render(false));
+    await act(async () => render(true));
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await act(async () => render(false));
+    clock.mockReturnValue(1800000061000);
+    await act(async () => render(true));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain("Private draft");
+    expect(container.textContent).not.toContain("Loading campaigns");
+    await act(async () => finish(Response.json({ok:true,value:{ownerUserId:"owner",readonly:false,campaigns:[]}})));
+    expect(container.textContent).toContain("No saved campaigns yet");
+  } finally { await act(async () => root.unmount()); }
 });
 it("keeps a published result when the dashboard rerenders, then removes mutation controls if access becomes read-only", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

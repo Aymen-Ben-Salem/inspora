@@ -241,7 +241,7 @@ export function SponsorDashboard({
             )}
           </section>
         <section id="campaigns" aria-label="Campaigns" hidden={section !== "campaigns"}>
-          {account ? section === "campaigns" && <CampaignsPanel key={data.ownerUserId} ownerUserId={data.ownerUserId} readonly={readonly} paused={account.state !== "active"} /> : (
+          {account ? <CampaignsPanel key={data.ownerUserId} ownerUserId={data.ownerUserId} active={section === "campaigns"} readonly={readonly} paused={account.state !== "active"} /> : (
             <div className={styles.surface}>
               <h2 className="text-lg font-medium">{data.campaigns.length ? "Your prepared campaigns" : "Your first campaign"}</h2>
               <p className="mt-3 text-sm text-[#66758c]">{finishing ? "Publication is being completed." : "No public campaign yet. Your preparation stays private until payment is verified."}</p>
@@ -275,24 +275,19 @@ export function SponsorDashboard({
                 <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>{account.billingMode === "one_time" ? "One-time payment" : "Subscription"}</dd>
                 </div>
                 <div className={styles.metric}>
-                <dt className={styles.metricHeader}>Paid through<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
-                <dd className={styles.summaryValue}><BillingDate value={account.paidThrough} /></dd>
-                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>Current paid period</dd>
+                <dt className={styles.metricHeader}>Paid on<span className={styles.metricIcon}><DashboardIcon name="receipt" /></span></dt>
+                <dd className={styles.summaryValue}>{account.paidAt ? <BillingDate value={account.paidAt} /> : <span className="text-base">Not recorded</span>}</dd>
+                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>Payment received</dd>
                 </div>
                 <div className={styles.metric}>
-                <dt className={styles.metricHeader}>
-                  {account.billingMode === "one_time"
-                    ? "End date"
-                    : account.cancelAtPeriodEnd
-                      ? "Cancellation"
-                      : "Renewal"}<span className={styles.metricIcon}><DashboardIcon name="renewal" /></span>
-                </dt>
-                <dd className={styles.summaryValue}>
-                  {account.billingMode !== "one_time" && !account.cancelAtPeriodEnd && account.state === "inactive"
-                    ? "Stopped"
-                    : <BillingDate value={account.paidThrough} />}
+                <dt className={styles.metricHeader}>Paid period<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
+                <dd className="mt-4">
+                  <dl className={styles.billingPeriod}>
+                    <div><dt>Start date</dt><dd><BillingDate value={account.periodStart} /></dd></div>
+                    <div><dt>End date</dt><dd><BillingDate value={account.paidThrough} /></dd></div>
+                  </dl>
                 </dd>
-                <dd className={`mt-2 text-xs leading-5 ${styles.muted}`}>{account.billingMode === "one_time" || account.cancelAtPeriodEnd || account.state === "inactive" ? "No automatic renewal" : account.billingInterval === "month" ? "Renews monthly" : "Renews every 30 days"}</dd>
+                <dd className={`mt-3 text-xs leading-5 ${styles.muted}`}>{account.cancelAtPeriodEnd && account.billingMode !== "one_time" ? "Cancellation scheduled · No automatic renewal" : account.billingMode === "one_time" || account.state === "inactive" ? "No automatic renewal" : account.billingInterval === "month" ? "Renews monthly" : "Renews every 30 days"}</dd>
                 </div>
               </dl>
               {account.recoveryDeadline ? <div className={styles.notice}><p className="text-sm font-medium">Recovery deadline</p><p className={`mt-1 text-sm ${styles.muted}`}>{date(account.recoveryDeadline)}</p></div> : null}

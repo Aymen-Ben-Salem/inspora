@@ -31,6 +31,7 @@ const initial: SponsorDashboardData = {
     state: "active",
     paidThrough: "2026-11-09T20:31:20Z",
     periodStart: "2026-10-10T20:31:20Z",
+    paidAt: "2026-10-10T20:35:20Z",
     recoveryDeadline: null,
     cancelAtPeriodEnd: false,
     billingAvailable: true,
@@ -65,6 +66,28 @@ it("switches three dashboard sections while preserving payment choice and hiding
     await act(async () => select("Campaigns").click());
     expect(container.querySelector<HTMLElement>('#campaigns')!.hidden).toBe(false);
     expect(container.querySelector<HTMLElement>('#billing')!.hidden).toBe(true);
+  } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); }
+});
+
+it("reuses loaded sections when switching tabs and keeps the selected overview range", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetcher = vi.fn(async (url: string) => Response.json(url.endsWith("/dashboard") ? {ok:true,value:initial} : url.endsWith("/campaigns") ? {ok:true,value:{ownerUserId:"owner",campaigns:[],readonly:false}} : { data: { status: "unavailable", source: "Inspora accepted events" } }));
+  vi.stubGlobal("fetch", fetcher);
+  const container = document.createElement("div"), root = createRoot(container);
+  try {
+    await act(async () => root.render(<SponsorDashboard initial={initial} />));
+    const nav = container.querySelector('nav[aria-label="Sponsorship sections"]')!;
+    const select = (label: string) => Array.from(nav.querySelectorAll("button")).find(b => b.textContent === label)!;
+    const overview = container.querySelector('#overview')!;
+    await act(async () => Array.from(overview.querySelectorAll("button")).find(b => b.textContent === "7 days")!.click());
+    await act(async () => select("Campaigns").click());
+    await act(async () => select("Billing").click());
+    await act(async () => select("Overview").click());
+    await act(async () => select("Campaigns").click());
+    expect(fetcher.mock.calls.filter(([url]) => url.endsWith("/campaigns"))).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([url]) => url.includes("/analytics"))).toHaveLength(2);
+    expect(Array.from(overview.querySelectorAll("button")).find(b => b.textContent === "7 days")?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector('#campaigns')!.textContent).not.toContain("Loading campaigns");
   } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); }
 });
 
@@ -162,8 +185,11 @@ it("shows refresh progress and then renders cancellation without removing the pa
     expect(refresh.textContent).toBe("Refresh");
     expect(container.textContent).toContain("Cancellation");
     expect(container.textContent).toContain("No automatic renewal");
-    expect(container.querySelector('#billing time')?.textContent).toBe("9 Nov 2026 20:31 UTC");
-    expect(container.querySelector('#billing time')?.getAttribute("datetime")).toBe(initial.account!.paidThrough);
+    const paidOn = Array.from(container.querySelectorAll('#billing dt')).find(label => label.textContent === "Paid on")!.parentElement!;
+    expect(paidOn.querySelector('time')?.getAttribute("datetime")).toBe(initial.account!.paidAt);
+    const period = Array.from(container.querySelectorAll('#billing > dl > div')).find(card => card.querySelector('dt')?.textContent === "Paid period")!;
+    expect(Array.from(period.querySelectorAll('time')).map(time => time.dateTime)).toEqual([initial.account!.periodStart, initial.account!.paidThrough]);
+    expect(container.querySelector('#billing')!.textContent).not.toContain("Paid through");
     expect(container.textContent).not.toContain("Promotion is paused");
   } finally {
     await act(async () => root.unmount());

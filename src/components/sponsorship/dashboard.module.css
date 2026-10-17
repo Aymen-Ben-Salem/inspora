@@ -75,6 +75,10 @@
 .notice { padding: 1rem 1.25rem; border: 1px solid #dce6f6; border-radius: .75rem; background: #f5f8fe; }
 .billingDetails { display: flex; align-items: flex-start; flex-wrap: wrap; justify-content: space-between; gap: 1.5rem; }
 .billingDetails > div { flex: 1 1 20rem; min-width: 0; }
+.billingPeriod { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .875rem; }
+.billingPeriod > div + div { border-left: 1px solid #e7ebf2; padding-left: .875rem; }
+.billingPeriod dt { margin-bottom: .5rem; color: #66758c; font-size: .6875rem; }
+.billingPeriod dd { color: #1f385d; font-size: .9375rem; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; }
 .billingOptions label:has(input[type="radio"]) { border-radius: .75rem; border-color: #dce4f0; color: #2b3c56; }
 .billingOptions label:has(input:checked) { border-color: #7095d5; background: #f5f8fe; box-shadow: 0 0 0 1px #7095d5; }
 .billingOptions input[type="radio"] { accent-color: #356ac3; }

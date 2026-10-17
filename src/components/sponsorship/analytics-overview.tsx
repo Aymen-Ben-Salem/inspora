@@ -304,7 +304,6 @@ export function AnalyticsOverview() {
     manual.current = false;
     const timer = setTimeout(() => {
       setBusy(true);
-      setData(null);
     }, 0);
     const params = new URLSearchParams(
       Object.entries(filter).filter(
@@ -386,7 +385,7 @@ export function AnalyticsOverview() {
         </>}
         </ReportFilterMenu>
       </div>
-      {busy || !data || loadedFilter !== filter ? (
+      {!data || loadedFilter !== filter ? (
         <div role="status" aria-label="Loading performance" className="space-y-6">
           <span className="sr-only">Loading performance…</span>
           <div className={styles.metricGrid}>{[0, 1, 2, 3].map(index => <div key={index} className={styles.metric} aria-hidden="true"><div className={`${styles.skeleton} w-24`} /><div className={`${styles.skeleton} mt-5 h-9 w-20`} /><div className={`${styles.skeleton} mt-5 w-32 max-w-full`} /></div>)}</div>

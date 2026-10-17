@@ -332,12 +332,22 @@ export async function reconcileSponsorCheckout(
     }
     if (!decision.paidThrough || !decision.periodStart)
       throw new Error("Paid period unavailable.");
+    const paidInvoice = observation.invoices.find(
+      (invoice) => invoice.id === decision.invoiceId && invoice.paid,
+    );
     const values = {
       state: decision.state,
       stripeCustomerId: observation.customerId,
       stripeSubscriptionId: observation.subscriptionId,
       paidThrough: new Date(decision.paidThrough),
       periodStart: new Date(decision.periodStart),
+      // Payment can arrive after a subscription period starts. Keep Stripe's
+      // verified payment timestamp separate from the coverage dates.
+      paidAt: paidInvoice?.paidAt && Number.isFinite(paidInvoice.paidAt)
+        ? new Date(paidInvoice.paidAt)
+        : ownedAccount?.periodStart?.getTime() === decision.periodStart
+          ? ownedAccount.paidAt
+          : null,
       recoveryDeadline: decision.recoveryDeadline
         ? new Date(decision.recoveryDeadline)
         : null,
@@ -376,10 +386,6 @@ export async function reconcileSponsorCheckout(
         reservedUntil: null,
       })
       .where(eq(sponsorSeats.slot, seat.slot));
-    const paidInvoice = observation.invoices.find(
-      (invoice) =>
-        invoice.id === decision.invoiceId && invoice.paid,
-    );
     if (paidInvoice)
       await tx
         .insert(sponsorDeliveryPeriods)

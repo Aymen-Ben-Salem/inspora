@@ -289,14 +289,8 @@ export function AnalyticsOverview() {
     };
   }, [filter, refresh]);
   const campaigns = Object.fromEntries(
-      catalog?.campaigns.map((c) => [c.id, c.title]) ?? [],
-    ),
-    versions = Object.fromEntries(
-      catalog?.versions.map((v) => [
-        v.id,
-        `${campaigns[v.campaignId] ?? "Campaign"} · version ${v.revision}`,
-      ]) ?? [],
-    );
+    catalog?.campaigns.map((c) => [c.id, c.title]) ?? [],
+  );
   const available = data && loadedFilter === filter && data.status !== "unavailable" ? data : null,
     current = catalog?.publicCreative;
   const update = (key: keyof MetricsFilter, value: string) =>
@@ -312,9 +306,6 @@ export function AnalyticsOverview() {
         <div role="group" aria-label="Report filters" className="flex min-w-0 flex-wrap gap-2">
           <ReportFilter label="Campaign report" value={filter.campaignId ?? ""} onChange={value => update("campaignId", value)} options={[
             { value: "", label: "All campaigns" }, ...(catalog?.campaigns.map(c => ({ value: c.id, label: c.title })) ?? []),
-          ]} />
-          <ReportFilter label="Creative version" value={filter.versionId ?? ""} onChange={value => update("versionId", value)} options={[
-            { value: "", label: "All versions" }, ...(catalog?.versions.filter(v => !filter.campaignId || v.campaignId === filter.campaignId).map(v => ({ value: v.id, label: versions[v.id] })) ?? []),
           ]} />
           <ReportFilter label="Placement report" value={filter.placement ?? ""} onChange={value => update("placement", value)} options={[
             { value: "", label: "All placements" }, { value: "header", label: "Navbar" }, { value: "feed", label: "Feed" }, { value: "detail", label: "Detail sidebar" },
@@ -346,7 +337,7 @@ export function AnalyticsOverview() {
         </div>
         <button type="button" disabled={busy || !available} className={`${sponsorButton.secondary} gap-2`} onClick={() => {
           if (!available) return;
-          const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns, versions })], { type: "text/csv;charset=utf-8" }));
+          const url = URL.createObjectURL(new Blob([sponsorReportCsv(available, filter, { campaigns })], { type: "text/csv;charset=utf-8" }));
           const link = document.createElement("a");
           link.href = url;
           link.download = `inspora-performance-${available.start.slice(0, 10)}-${available.end.slice(0, 10)}.csv`;
@@ -496,16 +487,10 @@ export function AnalyticsOverview() {
             />
             <AnalyticsTable title="Countries" rows={available.country} />
             <AnalyticsTable title="Devices" rows={available.device} />
-            <AnalyticsTable title="Referring sites" rows={available.referrer} />
             <AnalyticsTable
               title="Campaigns"
               rows={available.campaign}
               labels={campaigns}
-            />
-            <AnalyticsTable
-              title="Creative versions"
-              rows={available.version}
-              labels={versions}
             />
           </div>
           </section>

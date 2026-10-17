@@ -8,7 +8,7 @@ import { EMPTY_COUNTS, metricsFromCounts, type MetricsReport } from "@/analytics
 const metrics = metricsFromCounts({ ...EMPTY_COUNTS, impressions: 10, clicks: 2 });
 const report: MetricsReport = { source: "Inspora accepted events", status: "available", asOf: "2026-10-17T12:00:00Z",
   start: "2026-10-10T00:00:00Z", end: "2026-10-13T00:00:00Z", range: "30d", summary: metrics,
-  daily: [{ label: "2026-10-10 00:00:00", ...metrics }], placement: [], country: [], device: [], referrer: [], campaign: [], version: [], spend: null, cpc: null, cpm: null };
+  daily: [{ label: "2026-10-10 00:00:00", ...metrics }], placement: [], country: [], device: [], referrer: [{ label: "referrer.example", ...metrics }], campaign: [], version: [{ label: "internal-version-id", ...metrics }], spend: null, cpc: null, cpm: null };
 let container: HTMLDivElement, root: Root;
 const fetcher = vi.fn(), createUrl = vi.fn(), revokeUrl = vi.fn();
 beforeEach(() => {
@@ -62,11 +62,17 @@ it("downloads the loaded report as CSV with a date-based filename", async () => 
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download); });
   await act(async () => root.render(<AnalyticsOverview />));
   await act(async () => button("Export CSV").click());
+  expect(container.textContent).not.toContain("Referring sites");
+  expect(container.textContent).not.toContain("Creative versions");
+  expect(container.textContent).not.toContain("All versions");
   expect(downloads).toEqual(["inspora-performance-2026-10-10-2026-10-13.csv"]);
   expect(createUrl).toHaveBeenCalledTimes(1);
   const blob = createUrl.mock.calls[0][0] as Blob;
   expect(blob.type).toBe("text/csv;charset=utf-8");
-  expect(await blob.text()).toContain('"Summary","All matching activity","10","2"');
+  const csv = await blob.text();
+  expect(csv).toContain('"Summary","All matching activity","10","2"');
+  expect(csv).not.toContain("referrer.example");
+  expect(csv).not.toContain("internal-version-id");
 });
 it("keeps export disabled and reports an unavailable request instead of loading forever", async () => {
   fetcher.mockRejectedValueOnce(new Error("Offline"));

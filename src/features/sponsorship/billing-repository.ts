@@ -71,6 +71,7 @@ async function storedSession(
     expiresAt: reservedUntil.getTime(),
     billingMode: p.billingMode,
     pinned: true,
+    ...(p.snapshot?.checkoutCurrency ? { currency: p.snapshot.checkoutCurrency } : {}),
   });
   if (session.checkoutId !== p.id || session.billingMode !== p.billingMode)
     throw new Error("Checkout binding mismatch.");
@@ -213,6 +214,8 @@ export async function reconcileSponsorCheckout(
       (observation.billingMode ?? "subscription") !== p.billingMode
     )
       throw new Error("Subscription ownership mismatch.");
+    if (p.snapshot.checkoutCurrency && observation.price.currency !== p.snapshot.checkoutCurrency)
+      throw new Error("Checkout currency mismatch.");
     validateSponsorPrice(observation.price, p.priceId, false, p.billingMode);
     const ownedAccount =
       account &&

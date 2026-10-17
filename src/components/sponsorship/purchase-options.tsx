@@ -1,10 +1,12 @@
 "use client";
 import { campaignType } from "./campaign-typography";
+import { sponsorPriceLabel, type SponsorCurrency } from "@/features/sponsorship/pricing";
 import { useId } from "react";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 
-export function PurchaseOptions({ value, onChange, disabled = false, reserved = false }: {
+export function PurchaseOptions({ value, onChange, disabled = false, reserved = false, currency = "usd" }: {
   value: SponsorBillingMode; onChange: (mode: SponsorBillingMode) => void; disabled?: boolean; reserved?: boolean;
+  currency?: SponsorCurrency;
 }) {
   const name = useId();
   return (
@@ -23,7 +25,7 @@ export function PurchaseOptions({ value, onChange, disabled = false, reserved = 
               </span>
               <span className={`${campaignType.body} text-[#767676]`}>{copy}</span>
               <span className={`${campaignType.label} mt-auto`}>
-                {reserved ? "Reserved price" : "$500 / €450"}
+                {reserved ? "Reserved price" : sponsorPriceLabel(currency)}
                 {mode === "subscription" ? <span className="font-normal text-[#767676]"> / month</span> : null}
               </span>
             </span>
@@ -34,7 +36,7 @@ export function PurchaseOptions({ value, onChange, disabled = false, reserved = 
           </label>
         ))}
       </div>
-      <p className={`${campaignType.caption} text-[#767676]`}>{reserved ? "Confirm your reserved total at checkout." : "Before tax. Choose your currency at checkout."}</p>
+      <p className={`${campaignType.caption} text-[#767676]`}>{reserved ? "Confirm your reserved total at checkout." : "Before applicable tax."}</p>
     </fieldset>
   );
 }

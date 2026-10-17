@@ -1,5 +1,6 @@
 "use client";
 import { campaignType } from "./campaign-typography";
+import type { SponsorCurrency } from "@/features/sponsorship/pricing";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
@@ -45,17 +46,19 @@ export type PaidEditorMode = { campaign?: OwnedCampaign; readonly: boolean };
 export function CampaignEditor({
   authenticationEnabled = true,
   paid,
+  initialCurrency = "usd",
 }: {
   authenticationEnabled?: boolean;
   paid?: PaidEditorMode;
+  initialCurrency?: SponsorCurrency;
 }) {
   return authenticationEnabled ? (
-    <AuthenticatedCampaignEditor paid={paid} />
+    <AuthenticatedCampaignEditor paid={paid} initialCurrency={initialCurrency} />
   ) : (
-    <CampaignEditorContent isSignedIn={false} isLoaded paid={paid} />
+    <CampaignEditorContent isSignedIn={false} isLoaded paid={paid} initialCurrency={initialCurrency} />
   );
 }
-function AuthenticatedCampaignEditor({ paid }: { paid?: PaidEditorMode }) {
+function AuthenticatedCampaignEditor({ paid, initialCurrency }: { paid?: PaidEditorMode; initialCurrency: SponsorCurrency }) {
   const { isSignedIn, isLoaded, userId } = useAuth();
   return (
     <CampaignEditorContent
@@ -64,6 +67,7 @@ function AuthenticatedCampaignEditor({ paid }: { paid?: PaidEditorMode }) {
       isLoaded={isLoaded}
       ownerUserId={isSignedIn ? (userId ?? undefined) : undefined}
       paid={paid}
+      initialCurrency={initialCurrency}
     />
   );
 }
@@ -72,15 +76,18 @@ function CampaignEditorContent({
   isLoaded,
   ownerUserId,
   paid,
+  initialCurrency,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
   ownerUserId?: string;
   paid?: PaidEditorMode;
+  initialCurrency: SponsorCurrency;
 }) {
   const initial = paid?.campaign?.creative;
   const router = useRouter();
   const [billingMode, setBillingMode] = useState<SponsorBillingMode>("one_time");
+  const [currency, setCurrency] = useState(initialCurrency);
   const [fields, setFields] = useState<PreviewFields>(() => ({ ...empty, ...initial, mediaId: initial?.mediaId ?? "", posterId: initial?.posterId ?? "", videoPreviewId: initial?.videoPreviewId ?? "" })),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>(initial?.assets ?? []),
     [variants, setVariants] = useState<string[]>(initial?.variantIds ?? []),
@@ -324,7 +331,7 @@ function CampaignEditorContent({
             const submitter = (event.nativeEvent as SubmitEvent).submitter;
             const checkout = !paid && submitter instanceof HTMLButtonElement && submitter.value === "checkout";
             void run(checkout ? "checkout" : "save", async (signal) => {
-              const signature = JSON.stringify({ fields, variants, billingMode });
+              const signature = JSON.stringify({ fields, variants, billingMode, currency });
               // Checkout may reserve the saved preparation before its response
               // reaches us. Retry that checkout without trying to edit it again.
               const retry = checkout && checkoutRetry.current?.signature === signature
@@ -354,7 +361,7 @@ function CampaignEditorContent({
               if (checkout) {
                 checkoutRetry.current = { signature, campaign: c };
                 const result = await sponsorRequest<{ url: string }>(
-                  "checkout", "POST", { checkoutId: c.checkoutId, billingMode }, signal,
+                  "checkout", "POST", { checkoutId: c.checkoutId, billingMode, currency }, signal,
                 );
                 window.location.assign(result.url);
                 return;
@@ -517,8 +524,8 @@ function CampaignEditorContent({
               Draft expires {new Date(expiresAt).toLocaleString()}.
             </p>
           ) : null}
-          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} /></div> : null}
-          {!paid ? <CheckoutReview billingMode={billingMode} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
+          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} currency={currency} /></div> : null}
+          {!paid ? <CheckoutReview billingMode={billingMode} currency={currency} onCurrencyChange={setCurrency} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
           <p
             role={failed ? "alert" : "status"}
             aria-live="polite"

@@ -67,6 +67,11 @@ export type SponsorPreparation = {
   revision: number;
   campaign: OwnedCampaign | null;
 };
+// Currency is pinned alongside the campaign when its seat is reserved. Older
+// reservations omit it and keep their existing Stripe localization behavior.
+export type SponsorCheckoutSnapshot = OwnedCampaign & {
+  checkoutCurrency?: import("./pricing").SponsorCurrency;
+};
 export type SponsorUpload = {
   id: string;
   ownerUserId: string;

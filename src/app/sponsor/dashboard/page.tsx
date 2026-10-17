@@ -7,6 +7,7 @@ import { SponsorLoading } from "@/components/sponsorship/sponsor-loading";
 import { SponsorOwnerBoundary } from "@/components/sponsorship/sponsor-owner-boundary";
 import { readOwnSponsorDashboard } from "@/features/sponsorship/billing-service";
 import { isSponsorBillingMode } from "@/features/sponsorship/purchase-mode";
+import { readSponsorCurrency } from "@/features/sponsorship/request-currency";
 export const metadata: Metadata = {
   title: "Your sponsorship",
   robots: { index: false, follow: false, nocache: true },
@@ -16,7 +17,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ billing?: str
   const data = await readOwnSponsorDashboard();
   const { billing } = await searchParams;
   return data ? (
-    <SponsorOwnerBoundary key={data.ownerUserId} ownerUserId={data.ownerUserId}><SponsorDashboard initial={data} initialMode={isSponsorBillingMode(billing) ? billing : "one_time"} /></SponsorOwnerBoundary>
+    <SponsorOwnerBoundary key={data.ownerUserId} ownerUserId={data.ownerUserId}><SponsorDashboard initial={data} initialCurrency={await readSponsorCurrency()} initialMode={isSponsorBillingMode(billing) ? billing : "one_time"} /></SponsorOwnerBoundary>
   ) : (
     <main className="mx-auto max-w-[1120px] px-4 py-16">
       <h1 className="text-3xl">Private sponsorship</h1>

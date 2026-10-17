@@ -1051,7 +1051,7 @@ export const sponsorCheckouts = pgTable("sponsor_checkouts", {
   campaignId: uuid("campaign_id").references(() => sponsors.id),
   state: text("state").default("preparing").notNull(),
   revision: integer("revision").default(0).notNull(),
-  snapshot: jsonb("snapshot").$type<import("@/features/sponsorship/types").OwnedCampaign>(),
+  snapshot: jsonb("snapshot").$type<import("@/features/sponsorship/types").SponsorCheckoutSnapshot>(),
   stripeSessionId: text("stripe_session_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   priceId: text("price_id"),

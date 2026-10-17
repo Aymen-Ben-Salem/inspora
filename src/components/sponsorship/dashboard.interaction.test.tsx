@@ -86,11 +86,11 @@ it("defaults to a single calendar month and sends the explicit monthly choice to
     expect(container.textContent).toContain("1 calendar month");
     const checkout = Array.from(container.querySelectorAll("button")).find(b => b.textContent === "Continue to test checkout")!;
     await act(async () => checkout.click());
-    expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[0][1].body))).toEqual({ checkoutId: "checkout", billingMode: "one_time" });
+    expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[0][1].body))).toEqual({ checkoutId: "checkout", billingMode: "one_time", currency: "usd" });
     const monthly = container.querySelector<HTMLInputElement>('input[value="subscription"]')!;
     await act(async () => monthly.click());
     await act(async () => checkout.click());
-    expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[1][1].body))).toEqual({ checkoutId: "checkout", billingMode: "subscription" });
+    expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[1][1].body))).toEqual({ checkoutId: "checkout", billingMode: "subscription", currency: "usd" });
   } finally {
     await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals();
   }

@@ -7,6 +7,7 @@ import {
 } from "./billing";
 import { validatePreviewSponsorshipEnvironment } from "../../../scripts/lib/sponsorship-environment";
 import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
+import { isSponsorCurrency, type SponsorCurrency } from "./pricing";
 
 export type CheckoutSession = {
   id: string;
@@ -27,6 +28,7 @@ export type BillingProvider = {
     billingMode?: SponsorBillingMode;
     /** Only set for an existing server-owned seat reservation. */
     pinned?: boolean;
+    currency?: SponsorCurrency;
   }): Promise<CheckoutSession>;
   session(id: string): Promise<CheckoutSession>;
   findCheckout(
@@ -144,13 +146,22 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       const once = input.billingMode === "one_time";
       const price = priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] }));
       validateSponsorPrice(price, input.priceId, !input.pinned, input.billingMode);
+      if (input.currency !== undefined) {
+        if (!isSponsorCurrency(input.currency)) throw new Error("A supported checkout currency is required.");
+        validateSponsorPrice({ ...price,
+          currency: input.currency,
+          unitAmount: price.currencyOptions?.[input.currency]?.unitAmount ?? (input.currency === price.currency ? price.unitAmount : null),
+          taxBehavior: price.currencyOptions?.[input.currency]?.taxBehavior ?? price.taxBehavior,
+        }, input.priceId, false, input.billingMode);
+      }
       const amounts = Object.entries(price.currencyOptions ?? { [price.currency]: { unitAmount: price.unitAmount } })
-        .filter(([currency]) => currency === "usd" || currency === "eur")
+        .filter(([currency]) => input.currency ? currency === input.currency : currency === "usd" || currency === "eur")
         .map(([currency, option]) => `${currency.toUpperCase()} ${option.unitAmount! / 100}`).join(" or ");
       const session = await stripe.checkout.sessions.create(
         {
           mode: once ? "payment" : "subscription",
           adaptive_pricing: { enabled: false },
+          ...(input.currency ? { currency: input.currency } : {}),
           client_reference_id: input.checkoutId,
           metadata: { sponsor_checkout_id: input.checkoutId },
           ...(once ? { customer_creation: "always" as const,

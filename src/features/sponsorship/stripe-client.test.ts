@@ -39,6 +39,9 @@ it.each([
     if (path === "/v1/checkout/sessions") {
       const body = new URLSearchParams(String(options?.body));
       expect(body.get("mode")).toBe("payment");
+      expect(body.get("currency")).toBe(currency);
+      expect(body.get("custom_text[submit][message]")).toContain(`${currency.toUpperCase()} ${amount / 100}`);
+      expect(body.get("custom_text[submit][message]")).not.toContain(currency === "eur" ? "USD" : "EUR");
       expect(body.has("subscription_data[metadata][sponsor_checkout_id]")).toBe(false);
       expect(body.get("payment_intent_data[metadata][sponsor_checkout_id]")).toBe("checkout_once");
       expect(body.get("invoice_creation[enabled]")).toBe("true");
@@ -53,7 +56,7 @@ it.each([
     throw Error("Unexpected single-payment request: " + path);
   };
   const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
-  await provider.createCheckout({ checkoutId: "checkout_once", priceId: price.id, key: "once", expiresAt: 1800000000000, billingMode: "one_time", pinned: scenario === "legacy" });
+  await provider.createCheckout({ checkoutId: "checkout_once", priceId: price.id, key: "once", expiresAt: 1800000000000, billingMode: "one_time", currency: currency === "eur" ? "eur" : "usd", pinned: scenario === "legacy" });
   if (scenario === "valid" || scenario === "legacy") expect(await provider.observePayment("cs_once")).toMatchObject({ billingMode: "one_time", subscriptionId: null, price: { currency },
     invoices: [{ paid: true, periodStart: 1769868916000, periodEnd: 1772288116000 }] });
   else if (scenario.startsWith("dispute_")) expect((await provider.observePayment("cs_once")).invoices).toMatchObject([{ disputeState: scenario === "dispute_won" ? undefined : scenario === "dispute_unknown" ? "open" : scenario.replace("dispute_", ""), netBaseAmount: scenario === "dispute_won" ? amount : null }]);
@@ -94,6 +97,8 @@ it.each([["eur", 0, null, 0, false, "open"], ["eur", 0, null, 0, false, "lost"],
     if (path === "/v1/checkout/sessions") {
       const body = new URLSearchParams(String(options?.body));
       expect(body.get("adaptive_pricing[enabled]")).toBe("false");
+      expect(body.get("currency")).toBe(currency);
+      expect(body.get("custom_text[submit][message]")).toContain(`${currency.toUpperCase()} ${amount / 100}`);
       expect(body.get("custom_text[submit][message]")).toContain("monthly");
       return Response.json({ id: "cs_monthly", livemode: false, mode: "subscription", status: "open", client_reference_id: "checkout_test", expires_at: 1800000000, url: "https://checkout.stripe.com/test" });
     }
@@ -117,7 +122,7 @@ it.each([["eur", 0, null, 0, false, "open"], ["eur", 0, null, 0, false, "lost"],
   const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
   if (legacy) await expect(provider.price(price.id)).rejects.toThrow();
   else await provider.price(price.id);
-  await provider.createCheckout({ checkoutId: "checkout_test", priceId: price.id, key: "fixture", expiresAt: 1800000000000, pinned: legacy });
+  await provider.createCheckout({ checkoutId: "checkout_test", priceId: price.id, key: "fixture", expiresAt: 1800000000000, currency, pinned: legacy });
   expect(await provider.observe("sub_test")).toMatchObject({ price: { currency, unitAmount: amount, interval: "month" },
     billingAnchor: 1769817600000, invoices: [{ paid: true, amountPaid: amount + tax, currency, refunded: refunded > 0, disputeState: dispute === "won" ? undefined : dispute, netBaseAmount }] });
 });

@@ -382,6 +382,41 @@ async function saveDuringSponsorMediaDeletion(save: (key: string, creatorId: str
   }
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it.each([
+    ["one_time", "eur"], ["one_time", "usd"],
+    ["subscription", "eur"], ["subscription", "usd"],
+  ] as const)("pins checkout currency across failed responses and retries for %s in %s", async (mode, currency) => {
+    const f = await fixture("Regional currency reservation", mode);
+    const now = new Date();
+    vi.spyOn(Date, "now").mockReturnValue(now.getTime());
+    const reserved = await reserveSponsorSeat(f.owner, f.id, "price_fixture", now, mode, currency);
+    expect(reserved).toMatchObject({ ok: true, value: { snapshot: { checkoutCurrency: currency } } });
+    const create = vi.spyOn(f.provider, "createCheckout");
+    create.mockRejectedValueOnce(new Error("Lost provider response"));
+    await expect(ensureSponsorCheckoutSession(f.id, f.provider)).rejects.toThrow("Lost provider response");
+    expect(await reserveSponsorSeat(f.owner, f.id, "price_fixture", now, mode, currency === "eur" ? "usd" : "eur"))
+      .toMatchObject({ ok: false, code: "conflict" });
+    expect((await reserveSponsorSeat(f.owner, f.id, "price_fixture", now, mode, currency)).ok).toBe(true);
+    await expect(ensureSponsorCheckoutSession(f.id, f.provider)).resolves.toBe("https://checkout.stripe.com/fixture");
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0][0]).toEqual(create.mock.calls[1][0]);
+    expect(create.mock.calls[1][0]).toMatchObject({ checkoutId: f.id, billingMode: mode, currency, pinned: true });
+    const [stored] = await withSponsorWrite(tx => tx.select().from(sponsorCheckouts).where(eq(sponsorCheckouts.id, f.id)));
+    expect(stored.snapshot?.checkoutCurrency).toBe(currency);
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.checkout).toMatchObject({ currency, billingMode: mode });
+    f.complete();
+    f.observation.price = { ...f.observation.price, currency: currency === "eur" ? "usd" : "eur" };
+    await expect(reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now)).rejects.toThrow("Checkout currency mismatch.");
+    expect((await readOwnSponsorDashboard())?.account).toBeNull();
+    f.observation.price = { ...f.observation.price, currency, unitAmount: currency === "eur" ? 45000 : 50000,
+      interval: mode === "subscription" ? "month" : null, intervalCount: mode === "subscription" ? 1 : null };
+    f.observation.billingAnchor = f.now.getTime();
+    f.observation.invoices[0] = { ...f.observation.invoices[0], currency, amountPaid: f.observation.price.unitAmount!,
+      periodEnd: calendarMonthEnd(f.now.getTime()) };
+    await expect(reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now)).resolves.toBe(true);
+    expect((await readOwnSponsorDashboard())?.account).toMatchObject({ state: "active", billingCurrency: currency, billingMode: mode });
+  });
   it.each(["one_time", "subscription"] as const)("restores a dispute won before initial activation for %s", async (mode) => {
     const f = await fixture("Dispute before activation", mode);
     vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());

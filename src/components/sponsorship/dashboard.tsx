@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useSearchParams } from "next/navigation";
 import { PurchaseOptions } from "./purchase-options";
+import { SponsorCurrencySelect } from "./currency-select";
+import type { SponsorCurrency } from "@/features/sponsorship/pricing";
 import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
 import {
@@ -33,11 +35,14 @@ const sections = [
 export function SponsorDashboard({
   initial,
   initialMode = "one_time",
+  initialCurrency = "usd",
 }: {
   initial: SponsorDashboardData;
   initialMode?: SponsorBillingMode;
+  initialCurrency?: SponsorCurrency;
 }) {
   const params = useSearchParams();
+  const [currencyChoice, setCurrencyChoice] = useState(initialCurrency);
   const queryMode = params.get("billing");
   const choice = isSponsorBillingMode(queryMode) ? queryMode : initialMode;
   function setChoice(mode: SponsorBillingMode) {
@@ -59,6 +64,7 @@ export function SponsorDashboard({
   }
   const billingMode =
     data.checkout?.state === "reserved" ? data.checkout.billingMode : choice;
+  const currency = data.checkout?.state === "reserved" && data.checkout.currency ? data.checkout.currency : currencyChoice;
   const refresh = useCallback(async () => {
     if (refreshRequest.current) return;
     const controller = new AbortController();
@@ -117,7 +123,7 @@ export function SponsorDashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           kind === "checkout"
-            ? { checkoutId: data.checkout?.id, billingMode }
+            ? { checkoutId: data.checkout?.id, billingMode, currency }
             : {},
         ),
       });
@@ -322,6 +328,7 @@ export function SponsorDashboard({
             <>
               <div className="mt-6">
                 <PurchaseOptions
+                  currency={currency}
                   value={billingMode}
                   reserved={data.checkout?.state === "reserved"}
                   onChange={setChoice}
@@ -329,6 +336,7 @@ export function SponsorDashboard({
                     busy || refreshing || data.checkout?.state === "reserved"
                   }
                 />
+                {data.checkout?.state !== "reserved" ? <SponsorCurrencySelect value={currency} onChange={setCurrencyChoice} disabled={busy || refreshing} /> : null}
               </div>
               {data.checkout?.state === "reserved" ? (
                 <p className="mt-3 text-xs text-[#767676]">

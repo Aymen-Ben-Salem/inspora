@@ -5,7 +5,7 @@ it("links to sponsorship policy and returning access without sample audience cla
   const html = renderToStaticMarkup(<SponsorPage availability={2} enabled />);
   expect(html).toContain("2 available spots");
   expect(html).toContain("$500");
-  expect(html).toContain("Or €450 for one month.");
+  expect(html).not.toContain("€450");
   expect(html).toContain("choose Monthly for automatic renewal until cancelled.");
   expect(html).toContain('href="/info#sponsorship"');
   expect(html.match(/href="\/api\/sponsorship\/intent"/g)).toHaveLength(2);
@@ -20,4 +20,9 @@ it("links to sponsorship policy and returning access without sample audience cla
     <SponsorPage availability={null} enabled />,
   );
   expect(unavailable).toContain("Seat availability unavailable");
+});
+it("shows only the regional euro price for European visitors", () => {
+  const html = renderToStaticMarkup(<SponsorPage availability={2} enabled currency="eur" />);
+  expect(html).toContain("€450");
+  expect(html).not.toContain("$500");
 });

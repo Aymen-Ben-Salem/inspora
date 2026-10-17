@@ -5,6 +5,7 @@ import { lockSponsorOwner, withSponsorWrite } from "./repository";
 import { queueSponsorJob } from "./jobs-store";
 import type { SponsorshipResult } from "./types";
 import type { SponsorBillingMode } from "./purchase-mode";
+import type { SponsorCurrency } from "./pricing";
 export type ReservedCheckout = typeof sponsorCheckouts.$inferSelect & {
   reservedUntil: Date;
 };
@@ -15,6 +16,7 @@ export async function reserveSponsorSeat(
   priceId: string,
   now = new Date(),
   billingMode: SponsorBillingMode = "subscription",
+  currency?: SponsorCurrency,
 ): Promise<SponsorshipResult<ReservedCheckout>> {
   return withSponsorWrite(async (tx) => {
     await lockSponsorOwner(tx, owner);
@@ -64,7 +66,8 @@ export async function reserveSponsorSeat(
       existing.reservedUntil &&
       existing.reservedUntil > now
     ) {
-      if (p.billingMode !== billingMode || p.priceId !== priceId)
+      if (p.billingMode !== billingMode || p.priceId !== priceId ||
+        (p.snapshot.checkoutCurrency && p.snapshot.checkoutCurrency !== currency))
         return { ok: false, code: "conflict", message: "This checkout already has reserved payment terms." };
       return {
         ok: true,
@@ -98,7 +101,8 @@ export async function reserveSponsorSeat(
       .where(eq(sponsorSeats.slot, free.slot));
     const [pinned] = await tx
       .update(sponsorCheckouts)
-      .set({ state: "reserved", priceId, billingMode })
+      .set({ state: "reserved", priceId, billingMode,
+        snapshot: currency ? { ...p.snapshot, checkoutCurrency: currency } : p.snapshot })
       .where(eq(sponsorCheckouts.id, p.id))
       .returning();
     await queueSponsorJob(tx, "reconcile", p.id, `checkout:${p.id}`);

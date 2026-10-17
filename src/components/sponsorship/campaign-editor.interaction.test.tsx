@@ -117,7 +117,8 @@ it.each(["one_time", "subscription"] as const)("saves current creative before op
   }
   const review = container.querySelector('[aria-labelledby="checkout-review-title"]')!;
   expect(review.textContent).toContain(billingMode === "subscription" ? "Subscribe · Monthly" : "One-off · 1 calendar month");
-  expect(review.textContent).toContain("$500 / €450");
+  expect(review.textContent).toContain("$500");
+  expect(review.textContent).not.toContain("€450");
   expect(container.querySelector<HTMLInputElement>(`input[value="${billingMode}"]`)?.checked).toBe(true);
   let finishSave!: (response: Response) => void;
   fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { finishSave = resolve; }));
@@ -131,7 +132,7 @@ it.each(["one_time", "subscription"] as const)("saves current creative before op
   expect(JSON.parse(saves[0][1].body)).toMatchObject({ title: "Owner A private campaign", expectedRevision: 4 });
   await act(async () => finishSave(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } })));
   const checkout = fetchMock.mock.calls.find(([url]) => url.endsWith("/checkout"))!;
-  expect(JSON.parse(checkout[1].body)).toEqual({ checkoutId: "checkout-a", billingMode });
+  expect(JSON.parse(checkout[1].body)).toEqual({ checkoutId: "checkout-a", billingMode, currency: "usd" });
   expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/session");
 });
 
@@ -145,6 +146,26 @@ it("shows save failures below checkout without starting payment", async () => {
   expect(checkoutButton().disabled).toBe(false);
   expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/checkout"))).toBe(false);
   expect(navigate).not.toHaveBeenCalled();
+});
+
+it("lets a European visitor change currency before payment and sends the displayed selection", async () => {
+  vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor initialCurrency="eur" />));
+  const review = container.querySelector('[aria-labelledby="checkout-review-title"]')!;
+  expect(review.textContent).toContain("€450");
+  expect(review.textContent).not.toContain("$500");
+  const select = container.querySelector<HTMLSelectElement>("select")!;
+  expect(select.value).toBe("eur");
+  await act(async () => { select.value = "usd"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(review.textContent).toContain("$500");
+  expect(review.textContent).not.toContain("€450");
+  const cards = container.querySelector('input[value="subscription"]')!.closest("fieldset")!;
+  expect(cards.textContent).toContain("$500");
+  expect(cards.textContent).not.toContain("€450");
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } }));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/session" } }));
+  await act(async () => { submitCheckout(); });
+  expect(JSON.parse(fetchMock.mock.lastCall![1].body)).toEqual({ checkoutId: "checkout-a", billingMode: "one_time", currency: "usd" });
 });
 
 it("preserves the saved revision when checkout is unavailable", async () => {
@@ -172,7 +193,7 @@ it("retries checkout without editing a preparation reserved before a lost respon
     : Response.json({ ok: true, value: { url: "https://checkout.stripe.com/reserved" } }));
   await act(async () => { submitCheckout(); });
   expect(fetchMock.mock.calls.filter(([, options]) => options.method === "PUT")).toHaveLength(1);
-  expect(JSON.parse(fetchMock.mock.lastCall![1].body)).toEqual({ checkoutId: "checkout-a", billingMode: "one_time" });
+  expect(JSON.parse(fetchMock.mock.lastCall![1].body)).toEqual({ checkoutId: "checkout-a", billingMode: "one_time", currency: "usd" });
   expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/reserved");
 });
 

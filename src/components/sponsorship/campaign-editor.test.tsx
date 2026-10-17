@@ -26,7 +26,13 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).toContain("Detail sidebar · full wordmark");
   expect(html).toContain("Wordmark not imported");
   expect(html).toContain('id="checkout-review-title"');
-  expect(html).toContain("$500 / €450");
+  expect(html).toContain("$500");
+  expect(html).not.toContain("€450");
   expect(html).toContain("Never");
   expect(html).not.toContain("Open sponsorship dashboard");
+});
+it("uses the regional euro price for both payment options and order review", () => {
+  const html = renderToStaticMarkup(<CampaignEditor initialCurrency="eur" />);
+  expect(html.match(/€450/g)).toHaveLength(4);
+  expect(html).not.toContain("$500");
 });

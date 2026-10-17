@@ -19,6 +19,7 @@ import {
 } from "@/db/schema";
 import type { SponsorshipResult } from "./types";
 import type { SponsorBillingMode } from "./purchase-mode";
+import { isSponsorCurrency, type SponsorCurrency } from "./pricing";
 export function sponsorCheckoutEnabled(mode: SponsorBillingMode = "subscription") {
   return (
     sponsorshipWritesEnabled() &&
@@ -29,7 +30,10 @@ export function sponsorCheckoutEnabled(mode: SponsorBillingMode = "subscription"
 export async function startSponsorCheckout(
   checkoutId: string,
   billingMode: SponsorBillingMode,
+  currency?: SponsorCurrency,
 ): Promise<SponsorshipResult<{ url: string }>> {
+  if (currency !== undefined && !isSponsorCurrency(currency))
+    return { ok: false, code: "invalid_input", message: "Choose a supported currency." };
   const owner = await verifiedSponsorOwner("write");
   if (!owner)
     return {
@@ -72,7 +76,7 @@ export async function startSponsorCheckout(
     pinned = own.state === "reserved" && own.priceId,
     priceId = pinned || (billingMode === "one_time" ? process.env.STRIPE_SPONSOR_ONE_TIME_PRICE_ID : process.env.STRIPE_SPONSOR_PRICE_ID)!;
   if (!pinned) await provider.price(priceId, billingMode);
-  const reserved = await reserveSponsorSeat(owner, checkoutId, priceId, new Date(), billingMode);
+  const reserved = await reserveSponsorSeat(owner, checkoutId, priceId, new Date(), billingMode, currency);
   if (!reserved.ok) return reserved;
   return {
     ok: true,
@@ -182,6 +186,7 @@ export async function readOwnSponsorDashboard() {
             id: checkout.id,
             state: checkout.state,
             billingMode: checkout.billingMode,
+            ...(checkout.snapshot?.checkoutCurrency ? { currency: checkout.snapshot.checkoutCurrency } : {}),
             paymentReceived: Boolean(checkout.paymentReceivedAt),
             exceptionCode: checkout.exceptionCode,
           }

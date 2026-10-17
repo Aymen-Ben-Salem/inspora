@@ -7,9 +7,10 @@ import { SponsorLoading } from "@/components/sponsorship/sponsor-loading";
 import { readSeatAvailability } from "@/features/sponsorship/repository";
 import { sponsorshipWritesEnabled } from "@/features/sponsorship/config";
 import { SITE_NAME, SITE_OG_IMAGE } from "@/lib/seo";
+import { readSponsorCurrency } from "@/features/sponsorship/request-currency";
 
 const description =
-  "Prepare a private sponsorship campaign for Inspora. Four seats, USD 500 or EUR 500 for one calendar month. One-time or Monthly.";
+  "Prepare a private sponsorship campaign for Inspora. Four seats, one calendar month. Pay once or subscribe monthly.";
 
 export const metadata: Metadata = {
   title: "Sponsor Inspora",
@@ -36,6 +37,7 @@ async function Offer() {
     <SponsorPage
       availability={await readSeatAvailability()}
       enabled={sponsorshipWritesEnabled()}
+      currency={await readSponsorCurrency()}
     />
   );
 }

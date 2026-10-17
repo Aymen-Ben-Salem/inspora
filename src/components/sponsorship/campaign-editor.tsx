@@ -1,4 +1,5 @@
 "use client";
+import { campaignType } from "./campaign-typography";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
@@ -300,17 +301,17 @@ function CampaignEditorContent({
   }
   if (!isLoaded || (isSignedIn && !paid && !ready && !failed)) return <SponsorLoading label="Loading campaign…" />;
   return (
-    <main className="mx-auto max-w-[1120px] px-4 pb-20 pt-6 text-[#262626] sm:px-8 sm:pt-10">
+    <main className={`${campaignType.body} mx-auto max-w-[1120px] px-4 pb-20 pt-6 text-[#262626] sm:px-8 sm:pt-10`}>
       <div className="mb-10 border-b border-[#e6e6e6] pb-8">
         <div className="flex items-center justify-between gap-4">
-          <Link href={(paid || (ready && isSignedIn) ? "/sponsor/dashboard" : "/sponsor") as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center text-sm text-[#767676]">
+          <Link href={(paid || (ready && isSignedIn) ? "/sponsor/dashboard" : "/sponsor") as Route} prefetch={true} className={`${campaignType.body} focus-ring inline-flex min-h-11 items-center text-[#767676]`}>
             {paid || (ready && isSignedIn) ? "← Back to dashboard" : "← Sponsorship"}
           </Link>
         </div>
-        <h1 className="mt-4 text-[32px] font-medium tracking-[-0.03em]">
+        <h1 className={`${campaignType.title} mt-4`}>
           {paid ? paid.readonly ? "Campaign history" : paid.campaign ? "Edit campaign" : "Create campaign" : "Prepare your campaign"}
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-[#767676]">
+        <p className={`${campaignType.body} mt-3 max-w-xl text-[#767676]`}>
           {paid ? paid.readonly ? "View your past campaign." : "Saved changes go live immediately." : "Add your details and creative, then check out."}
         </p>
       </div>
@@ -366,15 +367,15 @@ function CampaignEditorContent({
           }}
         >
           {!paid ? <CampaignAccountSetup id={accountSetupId} ready={ready} signedIn={isSignedIn} onContinue={verify} /> : null}
-          <h2 className="text-lg font-medium">Campaign details</h2>
-          <label className="block text-sm font-medium">
+          <h2 className={campaignType.heading}>Campaign details</h2>
+          <label className={`${campaignType.label} block`}>
             Public name
             <span className="relative mt-2 block">
               <input className={`${fieldClass} ${suggestingTitle ? "pr-11" : ""}`} required maxLength={160} aria-busy={suggestingTitle} aria-describedby={suggestingTitle ? suggestionStatusId : undefined} disabled={paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
               {suggestingTitle ? <SponsorSpinner className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#767676]" /> : null}
             </span>
           </label>
-          <label className="block text-sm font-medium">
+          <label className={`${campaignType.label} block`}>
             Website destination
             <input
               className={`${fieldClass} mt-2`}
@@ -426,13 +427,13 @@ function CampaignEditorContent({
             </button>
             {!ready ? <AccountSetupHint id={suggestionSetupHintId} setupId={accountSetupId} /> : null}
             {suggesting || suggestionFeedback ? (
-              <p id={suggestionStatusId} role={suggestionFeedback?.failed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-sm ${suggestionFeedback?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
+              <p id={suggestionStatusId} role={suggestionFeedback?.failed ? "alert" : "status"} aria-live="polite" className={`${campaignType.body} mt-3 ${suggestionFeedback?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
                 {suggesting ? "Finding suggestions…" : suggestionFeedback?.message}
               </p>
             ) : null}
           </div>
           {fields.iconId || fields.wordmarkId || fields.mediaId ? (
-            <label className="flex items-center gap-2 text-sm text-[#767676]">
+            <label className={`${campaignType.body} flex items-center gap-2 text-[#767676]`}>
               <input
                 type="checkbox"
                 checked={replaceWebsiteAssets}
@@ -444,7 +445,7 @@ function CampaignEditorContent({
               Replace current assets with website suggestions
             </label>
           ) : null}
-          <p className="text-xs leading-5 text-[#767676]">
+          <p className={`${campaignType.caption} text-[#767676]`}>
             Imports your website’s name and images. You can replace them below.
           </p>
           <fieldset
@@ -453,7 +454,7 @@ function CampaignEditorContent({
             className="grid gap-4 border-t border-[#e6e6e6] pt-8 disabled:opacity-50 sm:grid-cols-2"
           >
             <legend className="sr-only">Creative assets</legend>
-            <h2 className="text-lg font-medium sm:col-span-2">Creative assets</h2>
+            <h2 className={`${campaignType.heading} sm:col-span-2`}>Creative assets</h2>
             {(
               [
                 ["media", "Feed image or video (optional)"],
@@ -484,7 +485,7 @@ function CampaignEditorContent({
             ))}
             {fields.mediaId ? (
               <button
-                className="focus-ring min-h-11 cursor-pointer text-sm underline disabled:cursor-not-allowed"
+                className={`${campaignType.body} focus-ring min-h-11 cursor-pointer underline disabled:cursor-not-allowed`}
                 type="button"
                 disabled={uploads.media?.busy || uploads.poster?.busy}
                 onClick={() => {
@@ -512,7 +513,7 @@ function CampaignEditorContent({
             </button>
           ) : null}
           {expiresAt ? (
-            <p className="text-xs text-[#767676]">
+            <p className={`${campaignType.caption} text-[#767676]`}>
               Draft expires {new Date(expiresAt).toLocaleString()}.
             </p>
           ) : null}
@@ -521,16 +522,16 @@ function CampaignEditorContent({
           <p
             role={failed ? "alert" : "status"}
             aria-live="polite"
-            className={`min-h-6 text-sm ${failed ? "text-[#b42318]" : "text-[#767676]"}`}
+            className={`${campaignType.body} min-h-6 ${failed ? "text-[#b42318]" : "text-[#767676]"}`}
           >
             {busy === "checkout" ? "Saving your campaign and opening checkout…" : busy === "save" ? paid ? "Saving changes…" : "Saving preparation…" : message}
           </p>
           {!paid && failed && checkoutRetry.current ? (
-            <Link href={`/sponsor/dashboard?billing=${billingMode}` as Route} className="focus-ring inline-flex min-h-11 cursor-pointer items-center text-sm underline">
+            <Link href={`/sponsor/dashboard?billing=${billingMode}` as Route} className={`${campaignType.body} focus-ring inline-flex min-h-11 cursor-pointer items-center underline`}>
               Manage pending checkout
             </Link>
           ) : null}
-          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : null}
+          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className={`${campaignType.body} focus-ring inline-flex min-h-11 items-center px-3 underline`}>{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : null}
         </form>
         <CampaignPreview fields={fields} assets={assets} paid={Boolean(paid)} />
       </div>

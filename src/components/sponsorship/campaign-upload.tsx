@@ -1,4 +1,5 @@
 "use client";
+import { campaignType } from "./campaign-typography";
 import Image from "next/image";
 import { useId, useState } from "react";
 import type { VerifiedSponsorAsset } from "@/features/sponsorship/types";
@@ -17,7 +18,7 @@ export function CampaignUpload({ label, accept, hint, asset, disabled = false, b
     onDrop={(event) => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (!locked && file) onUpload(file); }}
     className={`relative flex min-w-0 flex-col rounded-lg border p-4 transition-colors focus-within:ring-2 focus-within:ring-[#262626] focus-within:ring-offset-2 ${locked ? "cursor-default" : "cursor-pointer hover:border-[#b8b8b8]"} ${dragging ? "border-[#262626] bg-[#f0f0f0]" : "border-dashed border-[#d7d7d7] bg-[#fafafa]"}`}
   >
-    <span className="text-sm font-medium text-[#262626]">{label}</span>
+    <span className={`${campaignType.label} text-[#262626]`}>{label}</span>
     <input aria-label={label} aria-describedby={hintId} aria-busy={busy || suggesting} type="file" disabled={locked} accept={accept} className="sr-only" onChange={(event) => {
       const file = event.target.files?.[0]; if (file) onUpload(file); event.target.value = "";
     }} />
@@ -29,11 +30,11 @@ export function CampaignUpload({ label, accept, hint, asset, disabled = false, b
         </svg>}
       {suggesting ? <span className="absolute inset-0 grid place-items-center bg-[#fafafa]/90"><SponsorSpinner className="size-6 text-[#767676]" /></span> : null}
     </span>
-    <span id={hintId} className="text-xs leading-5 text-[#767676]">{hint}</span>
+    <span id={hintId} className={`${campaignType.caption} text-[#767676]`}>{hint}</span>
     <span className="mt-4 flex flex-wrap items-center justify-between gap-2">
-      <span className="text-xs text-[#767676]">{suggesting ? "Finding website suggestion…" : busy ? "Uploading…" : asset ? "Drop a replacement" : "Drop a file here"}</span>
-      <span aria-hidden="true" className={`rounded border border-[#e6e6e6] bg-white px-3 py-1.5 text-xs text-[#262626] ${locked ? "opacity-40" : ""}`}>{asset ? "Replace" : "Browse"}</span>
+      <span className={`${campaignType.caption} text-[#767676]`}>{suggesting ? "Finding website suggestion…" : busy ? "Uploading…" : asset ? "Drop a replacement" : "Drop a file here"}</span>
+      <span aria-hidden="true" className={`rounded border border-[#e6e6e6] bg-white px-3 py-1.5 ${campaignType.body} text-[#262626] ${locked ? "opacity-40" : ""}`}>{asset ? "Replace" : "Browse"}</span>
     </span>
-    {message ? <span role={failed ? "alert" : "status"} aria-live="polite" className={`mt-3 text-xs leading-5 ${failed ? "text-[#b42318]" : "text-[#767676]"}`}>{message}</span> : null}
+    {message ? <span role={failed ? "alert" : "status"} aria-live="polite" className={`${campaignType.caption} mt-3 ${failed ? "text-[#b42318]" : "text-[#767676]"}`}>{message}</span> : null}
   </label>;
 }

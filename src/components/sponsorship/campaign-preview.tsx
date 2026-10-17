@@ -1,3 +1,4 @@
+import { campaignType } from "./campaign-typography";
 import Image from "next/image";
 import { SponsoredPostCard } from "@/components/sponsored-post-card";
 import type { VerifiedSponsorAsset } from "@/features/sponsorship/types";
@@ -33,13 +34,13 @@ export function CampaignPreview({
       className="space-y-6 lg:sticky lg:top-28 lg:self-start"
     >
       <div>
-        <h2 className="text-lg font-medium">Your three placements</h2>
-        <p className="mt-1 text-sm text-[#767676]">
+        <h2 className={campaignType.heading}>Your three placements</h2>
+        <p className={`${campaignType.body} mt-1 text-[#767676]`}>
           {paid ? "Preview your changes." : "Only visible to you."}
         </p>
       </div>
       <section className="rounded-md border border-[#e6e6e6] p-4">
-        <h3 className="mb-3 text-xs text-[#767676]">Navbar · compact icon</h3>
+        <h3 className={`${campaignType.caption} mb-3 text-[#767676]`}>Navbar · compact icon</h3>
         <div className="flex h-12 items-center justify-end gap-2">
           {icon ? (
             <Image
@@ -51,7 +52,7 @@ export function CampaignPreview({
               className="size-[35px] rounded-md border border-[#e6e6e6] object-contain p-1"
             />
           ) : (
-            <span className="flex size-[35px] items-center justify-center rounded-md bg-[#f0f0f0] text-xs">
+            <span className={`${campaignType.caption} flex size-[35px] items-center justify-center rounded-md bg-[#f0f0f0]`}>
               Icon
             </span>
           )}
@@ -62,7 +63,7 @@ export function CampaignPreview({
         </div>
       </section>
       <section className="rounded-md border border-[#e6e6e6] p-4">
-        <h3 className="mb-3 text-xs text-[#767676]">
+        <h3 className={`${campaignType.caption} mb-3 text-[#767676]`}>
           Feed · image, video or brand card
         </h3>
         <SponsoredPostCard
@@ -93,7 +94,7 @@ export function CampaignPreview({
         />
       </section>
       <section className="rounded-md border border-[#e6e6e6] p-4">
-        <h3 className="mb-3 text-xs text-[#767676]">
+        <h3 className={`${campaignType.caption} mb-3 text-[#767676]`}>
           Detail sidebar · full wordmark
         </h3>
         <div className="flex h-12 items-center justify-center">
@@ -107,7 +108,7 @@ export function CampaignPreview({
               className="max-h-7 max-w-[160px] object-contain"
             />
           ) : (
-            <span className="text-sm text-[#767676]">Wordmark not imported</span>
+            <span className={`${campaignType.body} text-[#767676]`}>Wordmark not imported</span>
           )}
         </div>
       </section>

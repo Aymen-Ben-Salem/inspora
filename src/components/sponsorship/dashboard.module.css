@@ -40,11 +40,7 @@
 .sectionHeading { display: flex; align-items: center; gap: .65rem; }
 .sectionHeading::before { content: ""; width: .25rem; height: 1rem; border-radius: 2px; background: #7095d5; }
 .empty { border: 1px dashed #bed0ee; border-radius: .75rem; padding: 1rem 1.25rem; background: #f5f8fe; color: #5b7294; font-size: .8125rem; }
-.primaryButton { gap: .5rem; border-color: #356ac3; border-radius: .6rem; background: #356ac3; color: #fff; }
-.primaryButton:hover:not(:disabled) { border-color: #2c59a6; background: #2c59a6; }
-.primaryButton:disabled:hover { border-color: #356ac3; background: #356ac3; color: #fff; }
-.secondaryButton { gap: .5rem; border-color: #dce4f0; border-radius: .6rem; background: #fff; color: #405a7e; }
-.secondaryButton:hover:not(:disabled) { border-color: #9db6de; background: #f1f5fd; color: #315da5; }
+.primaryButton, .secondaryButton { gap: .5rem; border-radius: .6rem; }
 .summaryGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .875rem; }
 .summaryValue { margin-top: 1rem; overflow-wrap: anywhere; font-size: clamp(1.25rem, 2vw, 1.6rem); font-weight: 600; line-height: 1.3; letter-spacing: -.035em; color: #1f385d; font-variant-numeric: tabular-nums; }
 .muted { color: #66758c; }
@@ -100,8 +96,8 @@
 .calendarFooter p { font-size: .75rem; color: #6f8098; }
 .calendarFooter > div { display: flex; gap: .5rem; flex-shrink: 0; }
 .calendarFooter button { padding: .55rem .85rem; font-size: .75rem; border-radius: .5rem; min-height: 2.5rem; cursor: pointer; }
-.calendarFooter .applyButton { color: #fff; background: #356ac3; }
-.calendarFooter .applyButton:hover { background: #2c59a6; }
+.calendarFooter .applyButton { color: #fff; background: #262626; }
+.calendarFooter .applyButton:hover:not(:disabled) { background: #000; }
 .calendarFooter button:disabled { opacity: .4; cursor: not-allowed; }
 .dateToolbar button:focus-visible, .calendarDialog button:focus-visible, .dateInputs input:focus-visible { outline: 2px solid #4275ce; outline-offset: 3px; z-index: 1; }
 @media (max-width: 1100px) { .metric { padding: 1rem; } .metricHeader { font-size: .75rem; } }

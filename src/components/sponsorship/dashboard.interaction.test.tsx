@@ -47,7 +47,7 @@ const initial: SponsorDashboardData = {
 
 it("switches three dashboard sections while preserving payment choice and hiding unrelated panels", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("/campaigns") ? {ok:true,value:{ownerUserId:"owner",campaigns:[],readonly:false}} : { data: { status: "unavailable", source: "Inspora accepted events" } })));
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("/dashboard") ? {ok:true,value:initial} : url.endsWith("/campaigns") ? {ok:true,value:{ownerUserId:"owner",campaigns:[],readonly:false}} : { data: { status: "unavailable", source: "Inspora accepted events" } })));
   navigate("?billing=subscription");
   const container = document.createElement("div"), root = createRoot(container);
   try {
@@ -70,24 +70,27 @@ it("switches three dashboard sections while preserving payment choice and hiding
 
 it("defaults to a single calendar month and sends the explicit monthly choice to checkout", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  const fetcher = vi.fn<(url: string, options: RequestInit) => Promise<Response>>(async () => Response.json({ ok: false, message: "Review captured" }));
+  const data = { ...initial, account: null,
+    checkout: { ...initial.checkout!, state: "ready", paymentReceived: false } };
+  const fetcher = vi.fn<(url: string, options: RequestInit) => Promise<Response>>(async (url) => Response.json(
+    url === "/api/sponsorship/dashboard" ? { ok: true, value: data } : { ok: false, message: "Review captured" },
+  ));
   vi.stubGlobal("fetch", fetcher);
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(async () => root.render(<SponsorDashboard initial={{ ...initial, account: null,
-      checkout: { ...initial.checkout!, state: "ready", paymentReceived: false } }} />));
+    await act(async () => root.render(<SponsorDashboard initial={data} />));
     const once = container.querySelector<HTMLInputElement>('input[value="one_time"]');
     expect(once?.checked).toBe(true);
     expect(container.textContent).toContain("One calendar month");
     const checkout = Array.from(container.querySelectorAll("button")).find(b => b.textContent === "Continue to test checkout")!;
     await act(async () => checkout.click());
-    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({ checkoutId: "checkout", billingMode: "one_time" });
+    expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[0][1].body))).toEqual({ checkoutId: "checkout", billingMode: "one_time" });
     const monthly = container.querySelector<HTMLInputElement>('input[value="subscription"]')!;
     await act(async () => monthly.click());
     await act(async () => checkout.click());
-    expect(JSON.parse(String(fetcher.mock.calls[1][1].body))).toEqual({ checkoutId: "checkout", billingMode: "subscription" });
+    expect(JSON.parse(String(fetcher.mock.calls.filter(([url]) => url === "/api/sponsorship/checkout")[1][1].body))).toEqual({ checkoutId: "checkout", billingMode: "subscription" });
   } finally {
     await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals();
   }
@@ -95,10 +98,12 @@ it("defaults to a single calendar month and sends the explicit monthly choice to
 
 it("displays pinned monthly terms despite a one-time review query", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const data = { ...initial, account: null,
+    checkout: { ...initial.checkout!, state: "reserved", paymentReceived: false } };
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, value: data })));
   const container = document.createElement("div"), root = createRoot(container);
   try {
-    await act(async () => root.render(<SponsorDashboard initial={{ ...initial, account: null,
-      checkout: { ...initial.checkout!, state: "reserved", paymentReceived: false } }} initialMode="one_time" />));
+    await act(async () => root.render(<SponsorDashboard initial={data} initialMode="one_time" />));
     const once = container.querySelector<HTMLInputElement>('input[value="one_time"]')!,
       monthly = container.querySelector<HTMLInputElement>('input[value="subscription"]')!;
     expect(monthly.checked).toBe(true); expect(once.closest("fieldset")!.disabled).toBe(true);
@@ -109,6 +114,7 @@ it("updates a revisited review to the choice carried from the campaign editor", 
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div"), root = createRoot(container);
   const data = { ...initial, account: null, checkout: { ...initial.checkout!, state: "ready" } };
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, value: data })));
   try {
     await act(async () => root.render(<SponsorDashboard initial={data} initialMode="one_time" />));
     await act(async () => navigate("?billing=subscription"));
@@ -121,6 +127,7 @@ it("reapplies an editor choice even when it matches the original review query", 
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div"), root = createRoot(container);
   const data = { ...initial, account: null, checkout: { ...initial.checkout!, state: "ready" } };
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, value: data })));
   try {
     await act(async () => root.render(<SponsorDashboard initial={data} initialMode="one_time" />));
     await act(async () => container.querySelector<HTMLInputElement>('input[value="subscription"]')!.click());
@@ -133,7 +140,12 @@ it("reapplies an editor choice even when it matches the original review query", 
 it("shows refresh progress and then renders cancellation without removing the paid campaign", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   let resolve!: (value: Response) => void;
-  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(done => { resolve = done; })));
+  const dashboardRequests = vi.fn()
+    .mockResolvedValueOnce(Response.json({ ok: true, value: initial }))
+    .mockImplementation(() => new Promise<Response>(done => { resolve = done; }));
+  vi.stubGlobal("fetch", vi.fn((url: string) => url === "/api/sponsorship/dashboard"
+    ? dashboardRequests()
+    : Promise.resolve(Response.json({ data: { status: "unavailable", source: "Inspora accepted events" } }))));
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -160,7 +172,12 @@ it("shows refresh progress and then renders cancellation without removing the pa
 
 it("releases the refresh loading state after a failed request and keeps the saved billing view", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+  const dashboardRequests = vi.fn()
+    .mockResolvedValueOnce(Response.json({ ok: true, value: initial }))
+    .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  vi.stubGlobal("fetch", vi.fn((url: string) => url === "/api/sponsorship/dashboard"
+    ? dashboardRequests()
+    : Promise.resolve(Response.json({ data: { status: "unavailable", source: "Inspora accepted events" } }))));
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);

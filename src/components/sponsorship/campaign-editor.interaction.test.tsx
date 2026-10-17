@@ -4,13 +4,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
+  refresh: vi.fn(),
   auth: {
     isLoaded: true,
     isSignedIn: true,
     userId: "owner-a" as string | null,
   },
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/sponsor/start" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: state.refresh }), usePathname: () => "/sponsor/start" }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => state.auth,
   SignOutButton: ({
@@ -56,6 +57,7 @@ const preparation = (owner: string, saved = false) => ({
     : null,
 });
 beforeEach(() => {
+  state.refresh.mockReset();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.auth = { isLoaded: true, isSignedIn: true, userId: "owner-a" };
   fetchMock.mockImplementation(async () => ({
@@ -81,6 +83,26 @@ const nameInput = () =>
   container.querySelector<HTMLInputElement>(
     'input[placeholder="Your product"]',
   )!;
+
+it("invalidates prefetched dashboard data after saving a private preparation", async () => {
+  await act(async () => root.render(<CampaignEditor />));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { revision: 5 } }));
+  await act(async () => container.querySelector("form")!.dispatchEvent(
+    new Event("submit", { bubbles: true, cancelable: true }),
+  ));
+  expect(container.textContent).toContain("Preparation saved.");
+  expect(state.refresh).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the current route intact when saving a preparation fails", async () => {
+  await act(async () => root.render(<CampaignEditor />));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "Save unavailable." }, { status: 503 }));
+  await act(async () => container.querySelector("form")!.dispatchEvent(
+    new Event("submit", { bubbles: true, cancelable: true }),
+  ));
+  expect(container.textContent).toContain("Save unavailable.");
+  expect(state.refresh).not.toHaveBeenCalled();
+});
 
 it("clears an owner's private campaign when switching to another owner or signing out", async () => {
   await act(async () => root.render(<CampaignEditor />));

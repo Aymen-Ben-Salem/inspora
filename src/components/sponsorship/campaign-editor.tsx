@@ -348,8 +348,8 @@ function CampaignEditorContent({
               if (paid) {
                 setCampaignId(c.id);
                 window.dispatchEvent(new Event("sponsorship-changed"));
-                router.refresh();
               }
+              router.refresh();
               setMessage(
                 paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Open your sponsorship dashboard to continue to checkout.",
               );

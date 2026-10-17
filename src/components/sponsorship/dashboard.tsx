@@ -49,9 +49,9 @@ export function SponsorDashboard({
   }
   const [data, setData] = useState(initial),
     [busy, setBusy] = useState(false),
-    [refreshing, setRefreshing] = useState(false),
+    [refreshing, setRefreshing] = useState(true),
     [message, setMessage] = useState("");
-  const refreshInFlight = useRef(false);
+  const refreshRequest = useRef<AbortController | null>(null);
   const [previousInitial, setPreviousInitial] = useState(initial);
   if (initial !== previousInitial) {
     setPreviousInitial(initial);
@@ -60,28 +60,44 @@ export function SponsorDashboard({
   const billingMode =
     data.checkout?.state === "reserved" ? data.checkout.billingMode : choice;
   const refresh = useCallback(async () => {
-    if (refreshInFlight.current) return;
-    refreshInFlight.current = true;
+    if (refreshRequest.current) return;
+    const controller = new AbortController();
+    refreshRequest.current = controller;
     setRefreshing(true);
     setMessage("");
     try {
       const r = await fetch("/api/sponsorship/dashboard", {
         cache: "no-store",
+        signal: controller.signal,
       });
       const body = await r.json();
+      if (controller.signal.aborted) return;
       if (!r.ok || !body.ok)
         throw new Error(body.message ?? "Sponsorship unavailable.");
       setData(body.value);
       setMessage("Billing updated.");
     } catch {
-      setMessage(
-        "Your latest billing state could not be loaded. Try refreshing.",
-      );
+      if (!controller.signal.aborted)
+        setMessage(
+          "Your latest billing state could not be loaded. Try refreshing.",
+        );
     } finally {
-      refreshInFlight.current = false;
-      setRefreshing(false);
+      if (refreshRequest.current === controller) {
+        refreshRequest.current = null;
+        setRefreshing(false);
+      }
     }
   }, []);
+  useEffect(() => {
+    // A prefetched or restored route can predate the campaign's latest save.
+    // Activation must reset loading as well as synchronize with the server.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
+    return () => {
+      refreshRequest.current?.abort();
+      refreshRequest.current = null;
+    };
+  }, [refresh]);
   const finishing =
     data.checkout?.paymentReceived &&
     data.checkout.exceptionCode === "activation_pending";

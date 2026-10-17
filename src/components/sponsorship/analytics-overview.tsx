@@ -16,6 +16,7 @@ import { sponsorButton } from "./button-styles";
 import { ReportDateRange } from "./report-date-range";
 import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
+import { CountryLabel, countryName } from "./country-label";
 const number = new Intl.NumberFormat("en");
 const surface = styles.surface;
 const select =
@@ -29,7 +30,7 @@ function ReportFilter({ label, value, options, onChange }: {
   return <NavbarMenu
     keepInViewport
     label={label}
-    trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><Image src="/icons/logos-filter-chevron.svg" alt="" aria-hidden width={9.2} height={5.2} className="h-[5.2px] w-[9.2px] shrink-0" /></>}
+    trigger={<><span className="min-w-0 truncate">{options.find(option => option.value === value)?.label ?? value}</span><DashboardIcon name="chevron" /></>}
     triggerClassName={`${select} inline-flex max-w-[min(280px,calc(100vw-2rem))] items-center gap-3`}
     menuClassName="left-0 w-max min-w-full max-w-[min(340px,calc(100vw-2rem))] max-h-80 overflow-y-auto"
     items={options.map(option => ({ label: option.label, selected: option.value === value, onSelect: () => onChange(option.value) }))}
@@ -65,17 +66,22 @@ export function AnalyticsTable({
   labels = {},
   site = false,
   plain = false,
+  fixedHeight = false,
+  countryLabels = false,
 }: {
   title: string;
   rows: Breakdown[];
   labels?: Record<string, string>;
   site?: boolean;
   plain?: boolean;
+  fixedHeight?: boolean;
+  countryLabels?: boolean;
 }) {
+  const titleId = useId();
   return (
-    <section className={plain ? "min-w-0 py-4" : surface}>
-      <h3 className="text-lg font-medium">{title}</h3>
-      <div className="mt-5 max-h-80 overflow-auto">
+    <section className={`${plain ? "min-w-0 py-4" : surface} ${fixedHeight ? styles.reportCard : ""}`}>
+      <h3 id={titleId} className="shrink-0 text-lg font-medium">{title}</h3>
+      <div className={fixedHeight ? `${styles.cardBody} ${styles.tableScroll}` : "mt-5 max-h-80 overflow-auto"} role="region" aria-labelledby={titleId} tabIndex={0}>
         <table className={`${styles.table} w-full text-left text-sm`}>
           <thead>
             <tr className="text-xs text-[#767676]">
@@ -96,7 +102,7 @@ export function AnalyticsTable({
                   scope="row"
                   className="max-w-60 break-words py-3 pr-4 font-normal"
                 >
-                  {labels[row.label] ?? row.label}
+                  {countryLabels ? <CountryLabel code={row.label} /> : labels[row.label] ?? row.label}
                 </th>
                 <td className="py-3 pr-4 tabular-nums">
                   {number.format(site ? row.pageviews : row.impressions)}
@@ -113,12 +119,12 @@ export function AnalyticsTable({
             ))}
           </tbody>
         </table>
-      </div>
       {!rows.length ? (
         <p className="mt-4 text-sm text-[#767676]">
           No activity recorded for these dates and filters yet.
         </p>
       ) : null}
+      </div>
     </section>
   );
 }
@@ -224,7 +230,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
       {selected ? (
         <div role="group" aria-label="Daily figures" className="mt-3 flex items-center justify-between gap-3 border-t border-[#f0f0f0] pt-3">
           <button type="button" aria-label="Previous day" disabled={selectedIndex === 0} onClick={() => setSelectedDay(rows[selectedIndex - 1].label)} className={`${select} flex size-11 shrink-0 items-center justify-center`}>
-            <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} />
+            <DashboardIcon name="left" />
           </button>
           <div className="min-w-0 text-center text-xs tabular-nums">
             <p className="text-[#657a98]"><time dateTime={selected.label}>{new Date(`${selected.label}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</time> · UTC</p>
@@ -234,7 +240,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
             </p>
           </div>
           <button type="button" aria-label="Next day" disabled={selectedIndex === rows.length - 1} onClick={() => setSelectedDay(rows[selectedIndex + 1].label)} className={`${select} flex size-11 shrink-0 items-center justify-center`}>
-            <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} className="rotate-180" />
+            <DashboardIcon name="right" />
           </button>
         </div>
       ) : null}
@@ -328,7 +334,7 @@ export function AnalyticsOverview() {
             { value: "", label: "All placements" }, { value: "header", label: "Navbar" }, { value: "feed", label: "Feed" }, { value: "detail", label: "Detail sidebar" },
           ]} />
           <ReportFilter label="Country report" value={filter.country ?? ""} onChange={value => update("country", value)} options={[
-            { value: "", label: "All countries" }, ...(available?.country.map(c => ({ value: c.label, label: c.label })) ?? []),
+            { value: "", label: "All countries" }, ...(available?.country.map(c => ({ value: c.label, label: countryName(c.label) })) ?? []),
           ]} />
           <ReportFilter label="Closed paid period" value={filter.periodId ?? ""} onChange={value => update("periodId", value)} options={[
             { value: "", label: "Recent activity" }, ...(catalog?.periods.map(p => ({ value: p.id, label: `${p.start.slice(0, 10)} – ${p.end.slice(0, 10)}` })) ?? []),
@@ -346,7 +352,7 @@ export function AnalyticsOverview() {
           link.remove();
           setTimeout(() => URL.revokeObjectURL(url), 0);
         }}>
-          <Image src="/icons/detail/download.svg" alt="" aria-hidden width={16} height={16} />
+          <DashboardIcon name="download" />
           Export CSV
         </button>
         </div>
@@ -385,9 +391,10 @@ export function AnalyticsOverview() {
           <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
             <h2 id="report-reach-title" className={`${styles.sectionHeading} text-lg font-medium`}>Reach, cost and video</h2>
             <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-2">
-          <section className={`${surface} flex flex-col`}>
-            <h3 className="text-lg font-medium">Reach and efficiency</h3>
-            <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-2">
+          <section className={`${surface} ${styles.reportCard}`}>
+            <h3 id="reach-efficiency-title" className="shrink-0 text-lg font-medium">Reach and efficiency</h3>
+            <div className={`${styles.cardBody} flex flex-col`} role="region" aria-labelledby="reach-efficiency-title" tabIndex={0}>
+            <dl className="grid grid-cols-2 gap-5 sm:grid-cols-2">
               {[
                 [
                   "Unique clickers",
@@ -422,10 +429,12 @@ export function AnalyticsOverview() {
               fee/tax split is unknown. Tax and fees are excluded. A click does not establish a
               destination visit, signup or sale.
             </p>
+            </div>
           </section>
-          <section className={`${surface} flex flex-col`}>
-            <h3 className="text-lg font-medium">Video preview performance</h3>
-            <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-3">
+          <section className={`${surface} ${styles.reportCard}`}>
+            <h3 id="video-performance-title" className="shrink-0 text-lg font-medium">Video preview performance</h3>
+            <div className={`${styles.cardBody} flex flex-col`} role="region" aria-labelledby="video-performance-title" tabIndex={0}>
+            <dl className="grid grid-cols-2 gap-5 sm:grid-cols-3">
               {[
                 ["Preview starts", available.summary.previewStarts],
                 ["2-second playback", available.summary.previewViews],
@@ -446,6 +455,7 @@ export function AnalyticsOverview() {
               Measures the displayed preview while visible, with loops excluded.
               Playback is separate from the one-second placement impression.
             </p>
+            </div>
           </section>
             </div>
           </section>
@@ -453,6 +463,7 @@ export function AnalyticsOverview() {
             <h2 id="report-audience-title" className={`${styles.sectionHeading} text-lg font-medium`}>Audience and delivery</h2>
             <div className="mt-4 grid items-stretch gap-4 md:auto-rows-fr md:grid-cols-2">
             <AnalyticsTable
+              fixedHeight
               title="Placements"
               rows={available.placement}
               labels={{
@@ -461,9 +472,10 @@ export function AnalyticsOverview() {
                 detail: "Detail sidebar",
               }}
             />
-            <AnalyticsTable title="Countries" rows={available.country} />
-            <AnalyticsTable title="Devices" rows={available.device} />
+            <AnalyticsTable fixedHeight countryLabels title="Countries" rows={available.country} />
+            <AnalyticsTable fixedHeight title="Devices" rows={available.device} />
             <AnalyticsTable
+              fixedHeight
               title="Campaigns"
               rows={available.campaign}
               labels={campaigns}

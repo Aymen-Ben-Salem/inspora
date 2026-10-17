@@ -78,11 +78,92 @@ afterEach(async () => {
   container.remove();
   fetchMock.mockReset();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 const nameInput = () =>
   container.querySelector<HTMLInputElement>(
     'input[placeholder="Your product"]',
   )!;
+
+const checkoutButton = () => container.querySelector<HTMLButtonElement>('button[value="checkout"]')!;
+const submitCheckout = () => container.querySelector("form")!.dispatchEvent(
+  new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: checkoutButton() }),
+);
+
+it.each(["one_time", "subscription"] as const)("saves current creative before opening %s checkout directly", async (billingMode) => {
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor />));
+  if (billingMode === "subscription") {
+    await act(async () => container.querySelector<HTMLInputElement>('input[value="subscription"]')!.click());
+    expect(container.textContent).toContain("Monthly subscription");
+  }
+  let finishSave!: (response: Response) => void;
+  fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { finishSave = resolve; }));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/session" } }));
+  await act(async () => { submitCheckout(); submitCheckout(); });
+  expect(checkoutButton().disabled).toBe(true);
+  expect(checkoutButton().textContent).toContain("Opening checkout");
+  expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/checkout"))).toHaveLength(0);
+  const saves = fetchMock.mock.calls.filter(([, options]) => options.method === "PUT");
+  expect(saves).toHaveLength(1);
+  expect(JSON.parse(saves[0][1].body)).toMatchObject({ title: "Owner A private campaign", expectedRevision: 4 });
+  await act(async () => finishSave(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } })));
+  const checkout = fetchMock.mock.calls.find(([url]) => url.endsWith("/checkout"))!;
+  expect(JSON.parse(checkout[1].body)).toEqual({ checkoutId: "checkout-a", billingMode });
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/session");
+});
+
+it("shows save failures below checkout without starting payment", async () => {
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor />));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "Upload your wordmark first." }, { status: 400 }));
+  await act(async () => { submitCheckout(); });
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe("Upload your wordmark first.");
+  expect(container.querySelector('[role="alert"]')?.previousElementSibling?.contains(checkoutButton())).toBe(true);
+  expect(checkoutButton().disabled).toBe(false);
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/checkout"))).toBe(false);
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+it("preserves the saved revision when checkout is unavailable", async () => {
+  await act(async () => root.render(<CampaignEditor />));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } }));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "No sponsorship seats available." }, { status: 409 }));
+  await act(async () => { submitCheckout(); });
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe("No sponsorship seats available.");
+  expect(nameInput().value).toBe("Owner A private campaign");
+  expect(checkoutButton().disabled).toBe(false);
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "Try again." }, { status: 503 }));
+  await act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+  expect(JSON.parse(fetchMock.mock.lastCall![1].body).expectedRevision).toBe(5);
+});
+
+it("retries checkout without editing a preparation reserved before a lost response", async () => {
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor />));
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } }));
+  fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  await act(async () => { submitCheckout(); });
+  expect(container.textContent).toContain("Manage pending checkout");
+  fetchMock.mockImplementation(async (url, options) => options.method === "PUT"
+    ? Response.json({ ok: false, message: "Checkout has pinned this preparation." }, { status: 409 })
+    : Response.json({ ok: true, value: { url: "https://checkout.stripe.com/reserved" } }));
+  await act(async () => { submitCheckout(); });
+  expect(fetchMock.mock.calls.filter(([, options]) => options.method === "PUT")).toHaveLength(1);
+  expect(JSON.parse(fetchMock.mock.lastCall![1].body)).toEqual({ checkoutId: "checkout-a", billingMode: "one_time" });
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/reserved");
+});
+
+it("keeps checkout unavailable before verification and out of the paid editor", async () => {
+  state.auth = { isLoaded: true, isSignedIn: false, userId: null };
+  await act(async () => root.render(<CampaignEditor />));
+  expect(checkoutButton().disabled).toBe(true);
+  await act(async () => { submitCheckout(); });
+  expect(fetchMock).not.toHaveBeenCalled();
+  await act(async () => root.render(<CampaignEditor paid={{ readonly: false }} />));
+  expect(checkoutButton()).toBeNull();
+  expect(container.textContent).toContain("Save changes");
+});
 
 it("invalidates prefetched dashboard data after saving a private preparation", async () => {
   await act(async () => root.render(<CampaignEditor />));

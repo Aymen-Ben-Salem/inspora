@@ -18,6 +18,7 @@ import { CampaignUpload } from "./campaign-upload";
 import { SponsorLoading, SponsorSpinner } from "./sponsor-loading";
 import { sponsorButton } from "./button-styles";
 import { PurchaseOptions } from "./purchase-options";
+import { CheckoutReview } from "./checkout-review";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
   title: "",
@@ -86,7 +87,7 @@ function CampaignEditorContent({
   const [revision, setRevision] = useState(paid?.campaign?.revision ?? 0),
     [expiresAt, setExpiresAt] = useState<string>(),
     [ready, setReady] = useState(Boolean(paid)),
-    [busy, setBusy] = useState<"save" | "suggest">(),
+    [busy, setBusy] = useState<"save" | "suggest" | "checkout">(),
     [message, setMessage] = useState(""),
     [failed, setFailed] = useState(false);
   const [suggestionFeedback, setSuggestionFeedback] = useState<{ message: string; failed: boolean }>();
@@ -95,6 +96,8 @@ function CampaignEditorContent({
   const suggestingTitle = suggesting && !fields.title;
   const loaded = useRef<string | undefined>(undefined);
   const pending = useRef(new Set<AbortController>());
+  const actionInFlight = useRef(false);
+  const checkoutRetry = useRef<{ signature: string; campaign: OwnedCampaign } | null>(null);
   const activeUploads = useRef(new Set<UploadRole>());
   const manualPosterRevision = useRef(0);
   const [uploads, setUploads] = useState<
@@ -173,10 +176,11 @@ function CampaignEditorContent({
     setSuggestionFeedback(undefined);
   }
   async function run(
-    action: "save" | "suggest",
+    action: "save" | "suggest" | "checkout",
     work: (signal: AbortSignal) => Promise<void>,
   ) {
-    if (busy || activeUploads.current.size) return;
+    if (actionInFlight.current || activeUploads.current.size) return;
+    actionInFlight.current = true;
     const controller = new AbortController();
     pending.current.add(controller);
     setBusy(action);
@@ -194,6 +198,7 @@ function CampaignEditorContent({
         setMessage(message);
       }
     } finally {
+      actionInFlight.current = false;
       pending.current.delete(controller);
       if (!controller.signal.aborted) setBusy(undefined);
     }
@@ -326,9 +331,16 @@ function CampaignEditorContent({
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            if (paid?.readonly || activeUploads.current.size) return;
-            void run("save", async (signal) => {
-              const c = await sponsorRequest<OwnedCampaign>(
+            if (!ready || paid?.readonly || activeUploads.current.size) return;
+            const submitter = (event.nativeEvent as SubmitEvent).submitter;
+            const checkout = !paid && submitter instanceof HTMLButtonElement && submitter.value === "checkout";
+            void run(checkout ? "checkout" : "save", async (signal) => {
+              const signature = JSON.stringify({ fields, variants, billingMode });
+              // Checkout may reserve the saved preparation before its response
+              // reaches us. Retry that checkout without trying to edit it again.
+              const retry = checkout && checkoutRetry.current?.signature === signature
+                ? checkoutRetry.current.campaign : null;
+              const c = retry ?? await sponsorRequest<OwnedCampaign>(
                 paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
                 paid && !campaignId ? "POST" : "PUT",
                 {
@@ -350,8 +362,17 @@ function CampaignEditorContent({
                 window.dispatchEvent(new Event("sponsorship-changed"));
               }
               router.refresh();
+              if (checkout) {
+                checkoutRetry.current = { signature, campaign: c };
+                const result = await sponsorRequest<{ url: string }>(
+                  "checkout", "POST", { checkoutId: c.checkoutId, billingMode }, signal,
+                );
+                window.location.assign(result.url);
+                return;
+              }
+              checkoutRetry.current = null;
               setMessage(
-                paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Open your sponsorship dashboard to continue to checkout.",
+                paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Continue to checkout when you're ready.",
               );
             });
           }}
@@ -502,7 +523,7 @@ function CampaignEditorContent({
             <button
               disabled={!ready || Boolean(busy) || uploading}
               type="submit"
-              className={sponsorButton.primary}
+              className={paid ? sponsorButton.primary : sponsorButton.secondary}
             >
               {paid ? "Save changes" : "Save private preparation"}
             </button>
@@ -513,20 +534,20 @@ function CampaignEditorContent({
               extend this deadline.
             </p>
           ) : null}
+          {!paid ? <CheckoutReview billingMode={billingMode} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
           <p
             role={failed ? "alert" : "status"}
             aria-live="polite"
             className={`min-h-6 text-sm ${failed ? "text-[#b42318]" : "text-[#767676]"}`}
           >
-            {busy === "save" ? paid ? "Saving changes…" : "Saving preparation…" : message}
+            {busy === "checkout" ? "Saving your campaign and opening checkout…" : busy === "save" ? paid ? "Saving changes…" : "Saving preparation…" : message}
           </p>
-          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : <div className="rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 text-sm leading-6">
-            <Link prefetch={true} href={`/sponsor/dashboard?billing=${billingMode}` as Route} className="focus-ring font-medium underline">Open sponsorship dashboard</Link>
-            <p className="text-[#767676]">
-              No payment, paid account, public campaign or seat reservation is
-              created by this preparation.
-            </p>
-          </div>}
+          {!paid && failed && checkoutRetry.current ? (
+            <Link href={`/sponsor/dashboard?billing=${billingMode}` as Route} className="focus-ring inline-flex min-h-11 cursor-pointer items-center text-sm underline">
+              Manage pending checkout
+            </Link>
+          ) : null}
+          {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className="focus-ring inline-flex min-h-11 items-center px-3 text-sm underline">{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : null}
         </form>
         <CampaignPreview fields={fields} assets={assets} paid={Boolean(paid)} />
       </div>

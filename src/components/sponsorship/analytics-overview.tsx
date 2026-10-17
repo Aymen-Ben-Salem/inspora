@@ -45,7 +45,7 @@ export function MetricCard({ label, icon, value, previous, percent, comparisonLa
   return <article className={styles.metric}>
     <div className={styles.metricHeader}>
       <p title={label === "Unique visitors" ? VISITOR_DEFINITION : percent ? "Outbound clicks divided by qualifying impressions from the same accepted events." : undefined}>{label}</p>
-      <span className={styles.metricIcon}><DashboardIcon name={icon} /></span>
+      <span className={styles.metricIcon}><DashboardIcon name={icon} className="size-[18px]" /></span>
     </div>
     <p className={styles.metricValue}>{value === null ? "—" : percent ? `${value.toFixed(2)}%` : number.format(value)}</p>
     <p className={styles.trend} title={comparisonTitle}>
@@ -168,7 +168,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
       <div className="flex flex-wrap justify-between gap-2">
         <h3 className="text-lg font-medium">Performance</h3>
         <div className="flex items-center gap-4 text-xs text-[#767676]">
-          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-[#168575]" />Impressions</span>
+          <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-[#4275ce]" />Impressions</span>
           <span className="inline-flex items-center gap-2"><span aria-hidden className="w-4 border-t-2 border-dashed border-[#c18b44]" />Clicks</span>
         </div>
       </div>
@@ -184,13 +184,13 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
         onPointerMove={event => selectAt(event.clientX)}
         onPointerDown={event => selectAt(event.clientX)}
       >
-        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#168575" stopOpacity=".17" /><stop offset="100%" stopColor="#168575" stopOpacity=".015" /></linearGradient></defs>
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4275ce" stopOpacity=".17" /><stop offset="100%" stopColor="#4275ce" stopOpacity=".015" /></linearGradient></defs>
         {[30, 80, 130, 180].map((y) => (
           <line key={y} x1="20" y1={y} x2={chartWidth - 20} y2={y} stroke="#f0f0f0" />
         ))}
         <polyline
           fill="none"
-          stroke="#168575"
+          stroke="#4275ce"
           strokeWidth="2.5"
           points={points("impressions")}
         />
@@ -206,7 +206,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
           <g aria-hidden="true">
             <line x1={selectedX} x2={selectedX} y1="20" y2="180" stroke="#d4d4d4" strokeDasharray="3 4" />
             {(["impressions", "clicks"] as const).map(metric => (
-              <circle key={metric} cx={selectedX} cy={180 - (selected[metric] / max) * 150} r="4" fill={metric === "impressions" ? "#168575" : "#c18b44"} stroke="white" strokeWidth="2" />
+              <circle key={metric} cx={selectedX} cy={180 - (selected[metric] / max) * 150} r="4" fill={metric === "impressions" ? "#4275ce" : "#c18b44"} stroke="white" strokeWidth="2" />
             ))}
           </g>
         ) : null}
@@ -227,7 +227,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
             <Image src="/icons/detail/arrow-left.svg" alt="" width={16} height={16} />
           </button>
           <div className="min-w-0 text-center text-xs tabular-nums">
-            <p className="text-[#65786b]"><time dateTime={selected.label}>{new Date(`${selected.label}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</time> · UTC</p>
+            <p className="text-[#657a98]"><time dateTime={selected.label}>{new Date(`${selected.label}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</time> · UTC</p>
             <p aria-live="polite" aria-atomic="true" className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1">
               <span>{number.format(selected.impressions)} impressions</span>
               <span>{number.format(selected.clicks)} clicks</span>
@@ -384,8 +384,8 @@ export function AnalyticsOverview() {
           </div>
           <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
             <h2 id="report-reach-title" className={`${styles.sectionHeading} text-lg font-medium`}>Reach, cost and video</h2>
-            <div className="mt-4 grid items-start gap-4 xl:grid-cols-2">
-          <section className={surface}>
+            <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-2">
+          <section className={`${surface} flex flex-col`}>
             <h3 className="text-lg font-medium">Reach and efficiency</h3>
             <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-2">
               {[
@@ -413,7 +413,7 @@ export function AnalyticsOverview() {
                 </div>
               ))}
             </dl>
-            <p className="mt-5 text-xs leading-5 text-[#767676]">
+            <p className="mt-auto pt-5 text-xs leading-5 text-[#767676]">
               Base spend allocated by campaign-active time:{" "}
               {available.spend
                 ? `${available.spend.currency.toUpperCase()} ${available.spend.amount.toFixed(2)}`
@@ -423,7 +423,7 @@ export function AnalyticsOverview() {
               destination visit, signup or sale.
             </p>
           </section>
-          <section className={surface}>
+          <section className={`${surface} flex flex-col`}>
             <h3 className="text-lg font-medium">Video preview performance</h3>
             <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-3">
               {[
@@ -442,7 +442,7 @@ export function AnalyticsOverview() {
                 </div>
               ))}
             </dl>
-            <p className="mt-5 text-xs text-[#767676]">
+            <p className="mt-auto pt-5 text-xs leading-5 text-[#767676]">
               Measures the displayed preview while visible, with loops excluded.
               Playback is separate from the one-second placement impression.
             </p>
@@ -451,7 +451,7 @@ export function AnalyticsOverview() {
           </section>
           <section id="report-audience" aria-labelledby="report-audience-title" className="scroll-mt-28">
             <h2 id="report-audience-title" className={`${styles.sectionHeading} text-lg font-medium`}>Audience and delivery</h2>
-            <div className="mt-4 grid items-start gap-4 md:grid-cols-2">
+            <div className="mt-4 grid items-stretch gap-4 md:auto-rows-fr md:grid-cols-2">
             <AnalyticsTable
               title="Placements"
               rows={available.placement}

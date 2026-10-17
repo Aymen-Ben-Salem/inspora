@@ -164,7 +164,7 @@ export function SponsorDashboard({
               aria-current={section === item.id ? "page" : undefined}
               aria-controls={item.id}
               onClick={() => changeSection(item.id)}
-              className={`${styles.navItem} focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "font-medium" : "text-[#767676] hover:bg-[#f3f7f4] hover:text-[#262626]"}`}
+              className={`${styles.navItem} focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "font-medium" : "text-[#767676] hover:bg-[#f3f6fc] hover:text-[#262626]"}`}
             >
               <DashboardIcon name={item.id} />
               {item.label}
@@ -383,7 +383,7 @@ export function SponsorDashboard({
         </div>
       </div>
       {message ? (
-        <p role={message === "Billing updated." ? "status" : "alert"} className={`mt-6 text-sm ${message === "Billing updated." ? "text-[#477965]" : "text-[#b42318]"}`}>
+        <p role={message === "Billing updated." ? "status" : "alert"} className={`mt-6 text-sm ${message === "Billing updated." ? "text-[#526f9c]" : "text-[#b42318]"}`}>
           {message}
         </p>
       ) : null}

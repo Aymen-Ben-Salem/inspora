@@ -39,7 +39,7 @@ export function ReportDateRange({ filter, onChange }: { filter: MetricsFilter; o
     <button ref={trigger} type="button" className={styles.dateTrigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
       <DashboardIcon name="calendar" />
       <span>{filter.periodId ? "Select date range" : `${shortDate(start)} – ${shortDate(end)}, ${end.slice(0, 4)}`}</span>
-      <DashboardIcon name="down" className="size-3 rotate-45" />
+      <DashboardIcon name="chevron" className="size-4" />
     </button>
     <span className={styles.timezone}>UTC</span>
     {open && <RangeCalendar start={start} end={end} today={today} onClose={close} onApply={(startDate, endDate) => {

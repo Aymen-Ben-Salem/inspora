@@ -25,6 +25,8 @@ export type BillingProvider = {
     key: string;
     expiresAt: number;
     billingMode?: SponsorBillingMode;
+    /** Only set for an existing server-owned seat reservation. */
+    pinned?: boolean;
   }): Promise<CheckoutSession>;
   session(id: string): Promise<CheckoutSession>;
   findCheckout(
@@ -118,6 +120,20 @@ function sessionView(s: Stripe.Checkout.Session): CheckoutSession {
   };
 }
 export function createStripeProvider(stripe: Stripe): BillingProvider {
+  async function disputeState(charge: Stripe.Charge): Promise<"open" | "lost" | undefined> {
+    if (!charge.disputed) return undefined;
+    const disputes = await stripe.disputes.list({ charge: charge.id, limit: 100 });
+    if (disputes.has_more || !disputes.data.length) throw new Error("Complete dispute history is required.");
+    let state: "open" | "lost" | undefined;
+    for (const dispute of disputes.data) {
+      testObject(dispute);
+      if (idOf(dispute.charge) !== charge.id || dispute.currency !== charge.currency)
+        throw new Error("Dispute charge binding mismatch.");
+      if (dispute.status === "lost") state = "lost";
+      else if (!["won", "warning_closed", "warning_needs_response", "warning_under_review", "prevented"].includes(dispute.status) && state !== "lost") state = "open";
+    }
+    return state;
+  }
   return {
     async price(id, billingMode = "subscription") {
       const p = priceView(await stripe.prices.retrieve(id, { expand: ["currency_options"] }));
@@ -126,7 +142,11 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
     },
     async createCheckout(input) {
       const once = input.billingMode === "one_time";
-      validateSponsorPrice(priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] })), input.priceId, true, input.billingMode);
+      const price = priceView(await stripe.prices.retrieve(input.priceId, { expand: ["currency_options"] }));
+      validateSponsorPrice(price, input.priceId, !input.pinned, input.billingMode);
+      const amounts = Object.entries(price.currencyOptions ?? { [price.currency]: { unitAmount: price.unitAmount } })
+        .filter(([currency]) => currency === "usd" || currency === "eur")
+        .map(([currency, option]) => `${currency.toUpperCase()} ${option.unitAmount! / 100}`).join(" or ");
       const session = await stripe.checkout.sessions.create(
         {
           mode: once ? "payment" : "subscription",
@@ -150,7 +170,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           custom_text: {
             submit: {
               message:
-                once ? "Business or professional promotion. USD 500 or EUR 500 before applicable tax for one calendar month. Single payment, no automatic renewal." : "Business or professional promotion. USD 500 or EUR 500 before applicable tax, renewing monthly. Cancel future renewal in Billing.",
+                once ? `Business or professional promotion. ${amounts} before applicable tax for one calendar month. Single payment, no automatic renewal.` : `Business or professional promotion. ${amounts} before applicable tax, renewing monthly. Cancel future renewal in Billing.`,
             },
           },
           automatic_tax: {
@@ -205,13 +225,14 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       const lines = await stripe.checkout.sessions.listLineItems(s.id, { limit: 100 });
       const line = lines.data[0];
       if (lines.has_more || lines.data.length !== 1 || line.quantity !== 1 || !line.price ||
-        line.amount_subtotal !== 50000 || line.amount_discount || s.amount_subtotal !== 50000 ||
-        s.total_details?.amount_discount || !s.currency || line.currency !== s.currency ||
-        s.amount_total !== 50000 + (s.total_details?.amount_tax ?? 0))
+        line.amount_discount || s.total_details?.amount_discount || !s.currency || line.currency !== s.currency)
         throw new Error("Unexpected single-payment amount or line items.");
       const source = await stripe.prices.retrieve(line.price.id, { expand: ["currency_options"] });
       const price = priceView(source, s.currency);
       validateSponsorPrice(price, line.price.id, false, "one_time");
+      if (line.amount_subtotal !== price.unitAmount || s.amount_subtotal !== price.unitAmount ||
+        s.amount_total !== price.unitAmount! + (s.total_details?.amount_tax ?? 0))
+        throw new Error("Unexpected single-payment amount or line items.");
       const result: BillingObservation = { billingMode: "one_time", subscriptionId: null,
         checkoutId: s.client_reference_id, customerId: idOf(s.customer) ?? "", livemode: false,
         price, status: "pending", cancelAtPeriodEnd: true, invoices: [] };
@@ -239,11 +260,15 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
         throw new Error("Verified captured single payment required.");
       const start = charge.created * 1000;
       const refunded = charge.amount_refunded > 0;
+      const dispute = await disputeState(charge);
       // Keep a verified refund receipt for audited resolution and replay checks.
       // It never qualifies as a paid invoice that grants entitlement.
       result.invoices = [{ id: refunded ? `refund:${intent.id}` : intent.id, paid: !refunded, refunded, amountPaid: intent.amount_received, currency: s.currency,
         priceId: source.id, periodStart: start, periodEnd: calendarMonthEnd(start), paidAt: start,
-        netBaseAmount: remainingBaseSpend(price.unitAmount!, charge.amount, charge.amount_refunded) }];
+        disputeState: dispute,
+        // Disputed funds may be partial and include tax. Keep spend unknown
+        // until resolved rather than count withdrawn funds as retained revenue.
+        netBaseAmount: dispute ? null : remainingBaseSpend(price.unitAmount!, charge.amount, charge.amount_refunded) }];
       return result;
     },
     async settlePayment(sessionId) {
@@ -274,6 +299,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       const sourcePrice = await stripe.prices.retrieve(sub.items.data[0].price.id, { expand: ["currency_options"] });
       testObject(sourcePrice);
       const price = priceView(sourcePrice, sub.currency);
+      validateSponsorPrice(price, sourcePrice.id, false, "subscription");
       const invoices: BillingObservation["invoices"] = [];
       // Reports expire relative to period end, not invoice creation. A creation
       // cutoff could hide refunds on a still-retained period. Keep the read
@@ -296,7 +322,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           lines.has_more ||
           recurring.length !== 1 ||
           recurring[0].quantity !== 1 ||
-          recurring[0].amount !== 50000 ||
+          recurring[0].amount !== price.unitAmount ||
           recurring[0].discount_amounts?.length
         )
           continue;
@@ -307,6 +333,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
         });
         if (payments.has_more) throw new Error("Complete invoice payments are required.");
         let confirmed = 0, refundedAmount = 0, refundSplitKnown = true;
+        let dispute: "open" | "lost" | undefined;
         for (const payment of payments.data) {
           testObject(payment);
           const intentId = idOf(payment.payment.payment_intent);
@@ -324,16 +351,19 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
             !Number.isSafeInteger(payment.amount_paid) || !payment.amount_paid || payment.amount_paid <= 0 || payment.amount_paid > charge.amount_captured)
             throw new Error("Verified captured monthly payment required.");
           confirmed += payment.amount_paid;
+          const state = await disputeState(charge);
+          if (state === "lost" || (state === "open" && !dispute)) dispute = state;
           refundedAmount += charge.amount_refunded;
           if (payment.amount_paid !== charge.amount_captured) refundSplitKnown = false;
         }
         const line = recurring[0];
         invoices.push({
           id: invoice.id,
-          paid: confirmed >= 50000,
+          paid: confirmed >= price.unitAmount!,
           amountPaid: confirmed,
           refunded: refundedAmount > 0,
-          netBaseAmount: confirmed >= price.unitAmount! && refundSplitKnown
+          disputeState: dispute,
+          netBaseAmount: !dispute && confirmed >= price.unitAmount! && refundSplitKnown
             ? remainingBaseSpend(price.unitAmount!, confirmed, refundedAmount)
             : null,
           currency: invoice.currency,
@@ -438,8 +468,14 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
       if (type.startsWith("checkout.session."))
         return (await this.session(objectId)).checkoutId || null;
       let subscriptionId: string | null = null;
-      if (type === "charge.refunded" || type === "refund.updated") {
-        const chargeId = type === "refund.updated"
+      if (type === "charge.refunded" || type === "refund.updated" || type.startsWith("charge.dispute.")) {
+        let disputeChargeId: string | null = null;
+        if (type.startsWith("charge.dispute.")) {
+          const dispute = await stripe.disputes.retrieve(objectId);
+          testObject(dispute);
+          disputeChargeId = idOf(dispute.charge);
+        }
+        const chargeId = type.startsWith("charge.dispute.") ? disputeChargeId : type === "refund.updated"
           ? idOf((await stripe.refunds.retrieve(objectId)).charge)
           : objectId;
         if (!chargeId) return null;

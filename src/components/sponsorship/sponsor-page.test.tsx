@@ -5,7 +5,7 @@ it("links to sponsorship policy and returning access without sample audience cla
   const html = renderToStaticMarkup(<SponsorPage availability={2} enabled />);
   expect(html).toContain("2 available spots");
   expect(html).toContain("500$");
-  expect(html).toContain("€500 for one month in euro billing.");
+  expect(html).toContain("€450 for one month in euro billing.");
   expect(html).toContain("choose Monthly for automatic renewal until cancelled.");
   expect(html).toContain('href="/info#sponsorship"');
   expect(html.match(/href="\/api\/sponsorship\/intent"/g)).toHaveLength(2);

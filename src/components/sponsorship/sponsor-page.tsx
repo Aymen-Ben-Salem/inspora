@@ -209,7 +209,7 @@ export function SponsorPage({
               / one month
             </span>
           </p>
-          <p className="text-sm leading-5 text-[#767676]">€500 for one month in euro billing.</p>
+          <p className="text-sm leading-5 text-[#767676]">€450 for one month in euro billing.</p>
           <p className="max-w-[320px] text-xs leading-5 text-[#767676]">
             Before applicable tax. Pay once for one calendar month, or choose Monthly for automatic renewal until cancelled.
           </p>

@@ -38,6 +38,34 @@ const paid: BillingObservation = {
   ],
 };
 describe("verified sponsor billing", () => {
+  it.each([45000, 50000])("reconciles pinned EUR %s terms and rejects underpayments", (amount) => {
+    const observation: BillingObservation = { ...paid, billingMode: "one_time", subscriptionId: null,
+      price: { ...price, currency: "eur", unitAmount: amount, interval: null, intervalCount: null },
+      invoices: [{ ...paid.invoices[0], currency: "eur", amountPaid: amount, periodEnd: Date.UTC(2026, 10, 10) }] };
+    expect(billingDecision(observation, { paidThrough: null, periodStart: null }, start, price.id).state).toBe("active");
+    observation.invoices[0].amountPaid = amount - 1;
+    expect(billingDecision(observation, { paidThrough: null, periodStart: null }, start, price.id).state).toBe("pending");
+  });
+  it.each(["one_time", "subscription"] as const)("pauses open %s disputes, resumes wins, and ends losses", (mode) => {
+    const periodEnd = Date.UTC(2026, 10, 10);
+    const observation: BillingObservation = { ...paid, billingMode: mode, billingAnchor: start,
+      subscriptionId: mode === "one_time" ? null : "sub_1",
+      price: { ...price, currency: "eur", unitAmount: 45000, interval: mode === "one_time" ? null : "month", intervalCount: mode === "one_time" ? null : 1 },
+      invoices: [{ ...paid.invoices[0], currency: "eur", amountPaid: 45000, periodEnd, disputeState: "open" }] };
+    const previous = { paidThrough: periodEnd, periodStart: start };
+    expect(billingDecision(observation, previous, start, price.id)).toMatchObject({ state: "recovery", terminate: false, paidThrough: periodEnd });
+    observation.invoices[0].disputeState = undefined;
+    expect(billingDecision(observation, previous, start, price.id).state).toBe("active");
+    observation.invoices[0].disputeState = "lost";
+    expect(billingDecision(observation, previous, start, price.id)).toMatchObject({ state: "inactive", terminate: true });
+  });
+  it("does not let an old disputed invoice revoke a later paid period", () => {
+    const observation: BillingObservation = { ...paid, invoices: [
+      { ...paid.invoices[0], disputeState: "lost" },
+      { ...paid.invoices[0], id: "in_next", periodStart: end, periodEnd: end + 30 * 86400000 },
+    ] };
+    expect(billingDecision(observation, { paidThrough: end, periodStart: start }, end, price.id).state).toBe("active");
+  });
   it("expires a single payment at one calendar month without renewal recovery", () => {
     const monthEnd = Date.UTC(2026, 10, 10);
     const once = { ...paid, billingMode: "one_time" as const, subscriptionId: null,
@@ -127,8 +155,9 @@ describe("verified sponsor billing", () => {
     expect(() => validateSponsorPrice(price, price.id)).toThrow();
     expect(() => validateSponsorPrice(price, price.id, false)).not.toThrow();
     const monthly = { ...price, interval: "month", intervalCount: 1,
-      currencyOptions: { usd: { unitAmount: 50000, taxBehavior: "exclusive" }, eur: { unitAmount: 50000, taxBehavior: "exclusive" } } };
+      currencyOptions: { usd: { unitAmount: 50000, taxBehavior: "exclusive" }, eur: { unitAmount: 45000, taxBehavior: "exclusive" } } };
     expect(() => validateSponsorPrice(monthly, price.id)).not.toThrow();
+    expect(() => validateSponsorPrice({ ...monthly, currencyOptions: { ...monthly.currencyOptions, eur: { unitAmount: 50000, taxBehavior: "exclusive" } } }, price.id)).toThrow();
     for (const currencyOptions of [undefined, { eur: { unitAmount: 49900, taxBehavior: "exclusive" } },
       { ...monthly.currencyOptions, gbp: { unitAmount: 50000, taxBehavior: "exclusive" } }])
       expect(() => validateSponsorPrice({ ...monthly, currencyOptions }, price.id)).toThrow();

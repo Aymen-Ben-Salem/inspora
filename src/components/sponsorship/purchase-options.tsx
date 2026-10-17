@@ -2,8 +2,8 @@
 import { useId } from "react";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 
-export function PurchaseOptions({ value, onChange, disabled = false }: {
-  value: SponsorBillingMode; onChange: (mode: SponsorBillingMode) => void; disabled?: boolean;
+export function PurchaseOptions({ value, onChange, disabled = false, reserved = false }: {
+  value: SponsorBillingMode; onChange: (mode: SponsorBillingMode) => void; disabled?: boolean; reserved?: boolean;
 }) {
   const name = useId();
   return <fieldset disabled={disabled} className="space-y-4">
@@ -16,6 +16,6 @@ export function PurchaseOptions({ value, onChange, disabled = false }: {
           <span><span className="block text-sm font-medium">{title}</span><span className="mt-2 block text-xs leading-5 text-[#767676]">{copy}</span></span>
         </label>)}
     </div>
-    <p className="text-xs leading-5 text-[#767676]">USD 500 or EUR 500 before applicable tax. Review your currency and total in checkout.</p>
+    <p className="text-xs leading-5 text-[#767676]">{reserved ? "Review your reserved price, currency and total in checkout." : "USD 500 or EUR 450 before applicable tax. Review your currency and total in checkout."}</p>
   </fieldset>;
 }

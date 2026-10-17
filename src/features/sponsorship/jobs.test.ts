@@ -53,7 +53,7 @@ describe("durable signed billing ingress", () => {
       })("raw", "sig"),
     ).rejects.toThrow();
   });
-  it.each(["charge.refunded", "refund.updated"])("queues verified %s so historical spend can be corrected", async (type) => {
+  it.each(["charge.refunded", "refund.updated", "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed", "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated"])("queues verified %s so historical spend can be corrected", async (type) => {
     const record = vi.fn(async () => true);
     const receiver = createStripeWebhookReceiver({ verify: () => ({ ...event, type }), record });
     expect(await receiver("raw refund event", "sig")).toEqual({ accepted: true, duplicate: false });

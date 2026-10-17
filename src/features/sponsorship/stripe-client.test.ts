@@ -4,28 +4,29 @@ vi.mock("server-only", () => ({}));
 import { createStripeProvider } from "./stripe-client";
 
 it.each([
-  ["usd", "valid"], ["eur", "valid"], ["usd", "wrong_checkout"], ["usd", "wrong_customer"],
+  ["eur", "dispute_unknown"], ["eur", "dispute_open"], ["eur", "dispute_lost"], ["eur", "dispute_won"], ["usd", "valid"], ["eur", "valid"], ["eur", "legacy"], ["eur", "partial_amount"], ["eur", "refunded"], ["usd", "wrong_checkout"], ["usd", "wrong_customer"],
   ["usd", "wrong_currency"], ["usd", "partial_amount"], ["usd", "uncaptured"], ["usd", "live_charge"],
   ["usd", "discount"], ["usd", "processing"], ["usd", "refunded"], ["usd", "partial_refund"], ["usd", "taxed_partial_refund"],
 ])("creates and verifies a single %s payment (%s)", async (currency, scenario) => {
+  const amount = currency === "eur" && scenario !== "legacy" ? 45000 : 50000;
   const price = { id: "price_once", livemode: false, active: true, currency: "usd", unit_amount: 50000, recurring: null, tax_behavior: "exclusive",
-    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: 50000, tax_behavior: "exclusive" } } };
+    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: scenario === "legacy" ? 50000 : 45000, tax_behavior: "exclusive" } } };
   const session = { id: "cs_once", livemode: false, mode: "payment", status: "complete", payment_status: "paid", subscription: null,
     client_reference_id: "checkout_once", metadata: { sponsor_checkout_id: "checkout_once" }, expires_at: 1800000000,
-    currency, amount_subtotal: 50000, amount_total: 55000, total_details: { amount_tax: 5000, amount_discount: 0 }, customer: "cus_once", payment_intent: "pi_once" };
+    currency, amount_subtotal: amount, amount_total: amount + 5000, total_details: { amount_tax: 5000, amount_discount: 0 }, customer: "cus_once", payment_intent: "pi_once" };
   const intent = { id: "pi_once", livemode: false, status: "succeeded", currency,
-    amount: 55000, amount_received: 55000, customer: "cus_once", latest_charge: "ch_once", metadata: { sponsor_checkout_id: "checkout_once" } };
-  const charge = { id: "ch_once", livemode: false, status: "succeeded", paid: true, captured: true,
-    amount: 55000, amount_captured: 55000, amount_refunded: 0, currency, customer: "cus_once", payment_intent: "pi_once", created: 1769868916 };
+    amount: amount + 5000, amount_received: amount + 5000, customer: "cus_once", latest_charge: "ch_once", metadata: { sponsor_checkout_id: "checkout_once" } };
+  const charge = { id: "ch_once", disputed: scenario.startsWith("dispute_"), livemode: false, status: "succeeded", paid: true, captured: true,
+    amount: amount + 5000, amount_captured: amount + 5000, amount_refunded: 0, currency, customer: "cus_once", payment_intent: "pi_once", created: 1769868916 };
   if (scenario === "wrong_checkout") intent.metadata.sponsor_checkout_id = "another_owner";
   if (scenario === "wrong_customer") intent.customer = "another_customer";
   if (scenario === "wrong_currency") intent.currency = "eur";
-  if (scenario === "partial_amount") intent.amount_received = 49999;
+  if (scenario === "partial_amount") intent.amount_received = amount - 1;
   if (scenario === "uncaptured") charge.captured = false;
   if (scenario === "live_charge") charge.livemode = true;
   if (scenario === "discount") session.total_details.amount_discount = 100;
   if (scenario === "processing") intent.status = "processing";
-  if (scenario === "refunded") charge.amount_refunded = 55000;
+  if (scenario === "refunded") charge.amount_refunded = amount + 5000;
   if (scenario === "partial_refund") {
     session.amount_total = intent.amount = intent.amount_received = charge.amount = charge.amount_captured = 50000;
     session.total_details.amount_tax = 0;
@@ -45,15 +46,17 @@ it.each([
     }
     if (path === "/v1/checkout/sessions/cs_once") return Response.json(session);
     if (path === "/v1/checkout/sessions/cs_once/line_items") return Response.json({ object: "list", has_more: false,
-      data: [{ quantity: 1, price, currency, amount_subtotal: 50000, amount_discount: 0 }] });
+      data: [{ quantity: 1, price, currency, amount_subtotal: amount, amount_discount: 0 }] });
     if (path === "/v1/payment_intents/pi_once") return Response.json(intent);
+    if (path === "/v1/disputes") return Response.json({ has_more: false, data: [{ id: "dp_once", livemode: false, charge: "ch_once", currency, status: scenario === "dispute_open" ? "under_review" : scenario.replace("dispute_", "") }] });
     if (path === "/v1/charges/ch_once") return Response.json(charge);
     throw Error("Unexpected single-payment request: " + path);
   };
   const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
-  await provider.createCheckout({ checkoutId: "checkout_once", priceId: price.id, key: "once", expiresAt: 1800000000000, billingMode: "one_time" });
-  if (scenario === "valid") expect(await provider.observePayment("cs_once")).toMatchObject({ billingMode: "one_time", subscriptionId: null, price: { currency },
+  await provider.createCheckout({ checkoutId: "checkout_once", priceId: price.id, key: "once", expiresAt: 1800000000000, billingMode: "one_time", pinned: scenario === "legacy" });
+  if (scenario === "valid" || scenario === "legacy") expect(await provider.observePayment("cs_once")).toMatchObject({ billingMode: "one_time", subscriptionId: null, price: { currency },
     invoices: [{ paid: true, periodStart: 1769868916000, periodEnd: 1772288116000 }] });
+  else if (scenario.startsWith("dispute_")) expect((await provider.observePayment("cs_once")).invoices).toMatchObject([{ disputeState: scenario === "dispute_won" ? undefined : scenario === "dispute_unknown" ? "open" : scenario.replace("dispute_", ""), netBaseAmount: scenario === "dispute_won" ? amount : null }]);
   else if (scenario === "processing") expect((await provider.observePayment("cs_once")).invoices).toHaveLength(0);
   else if (scenario === "refunded") expect((await provider.observePayment("cs_once")).invoices)
     .toMatchObject([{ id: "refund:pi_once", paid: false, refunded: true }]);
@@ -78,12 +81,13 @@ it.each([["processing", false], ["requires_action", true]])("settles a single %s
   expect(cancel).toHaveBeenCalledTimes(safe ? 1 : 0);
 });
 
-it.each([["usd", 0, 50000, 0], ["eur", 0, 50000, 0], ["usd", 100, 49900, 0], ["usd", 50000, 0, 0],
+it.each([["eur", 0, null, 0, false, "open"], ["eur", 0, null, 0, false, "lost"], ["eur", 0, 45000, 0, false, "won"], ["usd", 0, 50000, 0], ["eur", 0, 45000, 0], ["eur", 0, 50000, 0, true], ["eur", 100, 44900, 0], ["eur", 100, null, 5000], ["usd", 100, 49900, 0], ["usd", 50000, 0, 0],
   ["usd", 100, null, 5000], ["usd", 55000, 0, 5000]] as const)(
-  "verifies monthly paid fee and refunds in %s (refund %s)", async (currency, refunded, netBaseAmount, tax) => {
+  "verifies monthly paid fee and refunds in %s (refund %s)", async (currency, refunded, netBaseAmount, tax, legacy = false, dispute?: string) => {
+  const amount = currency === "eur" && !legacy ? 45000 : 50000;
   const price = { id: "price_monthly", livemode: false, active: true, currency: "usd", unit_amount: 50000,
     recurring: { interval: "month", interval_count: 1 }, tax_behavior: "exclusive",
-    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: 50000, tax_behavior: "exclusive" } } };
+    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: legacy ? 50000 : 45000, tax_behavior: "exclusive" } } };
   const fetcher = async (url: RequestInfo | URL, options?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     if (path === "/v1/prices/price_monthly") return Response.json(price);
@@ -99,21 +103,23 @@ it.each([["usd", 0, 50000, 0], ["eur", 0, 50000, 0], ["usd", 100, 49900, 0], ["u
     if (path === "/v1/invoices") return Response.json({ object: "list", has_more: false,
       data: [{ id: "in_monthly", livemode: false, status: "paid", currency, status_transitions: { paid_at: 1769817600 } }] });
     if (path === "/v1/invoices/in_monthly/lines") return Response.json({ object: "list", has_more: false,
-      data: [{ parent: { type: "subscription_item_details" }, quantity: 1, amount: 50000, pricing: { price_details: { price: price.id } }, period: { start: 1769817600, end: 1772236800 } }] });
+      data: [{ parent: { type: "subscription_item_details" }, quantity: 1, amount, pricing: { price_details: { price: price.id } }, period: { start: 1769817600, end: 1772236800 } }] });
     if (path === "/v1/invoice_payments") return Response.json({ object: "list", has_more: false,
-      data: [{ livemode: false, amount_paid: 50000 + tax, payment: { payment_intent: "pi_test" } }] });
+      data: [{ livemode: false, amount_paid: amount + tax, payment: { payment_intent: "pi_test" } }] });
     if (path === "/v1/payment_intents/pi_test") return Response.json({ id: "pi_test", livemode: false, status: "succeeded", currency,
-      customer: "cus_test", amount_received: 50000 + tax, latest_charge: "ch_test" });
-    if (path === "/v1/charges/ch_test") return Response.json({ id: "ch_test", livemode: false, status: "succeeded", currency,
+      customer: "cus_test", amount_received: amount + tax, latest_charge: "ch_test" });
+    if (path === "/v1/disputes") return Response.json({ has_more: false, data: [{ id: "dp_monthly", livemode: false, charge: "ch_test", currency, status: dispute === "open" ? "needs_response" : dispute }] });
+    if (path === "/v1/charges/ch_test") return Response.json({ id: "ch_test", disputed: Boolean(dispute), livemode: false, status: "succeeded", currency,
       customer: "cus_test", payment_intent: "pi_test", paid: true, captured: true,
-      amount: 50000 + tax, amount_captured: 50000 + tax, amount_refunded: refunded });
+      amount: amount + tax, amount_captured: amount + tax, amount_refunded: refunded });
     throw Error("Unexpected monthly fixture request.");
   };
   const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
-  await provider.price(price.id);
-  await provider.createCheckout({ checkoutId: "checkout_test", priceId: price.id, key: "fixture", expiresAt: 1800000000000 });
-  expect(await provider.observe("sub_test")).toMatchObject({ price: { currency, unitAmount: 50000, interval: "month" },
-    billingAnchor: 1769817600000, invoices: [{ paid: true, amountPaid: 50000 + tax, currency, refunded: refunded > 0, netBaseAmount }] });
+  if (legacy) await expect(provider.price(price.id)).rejects.toThrow();
+  else await provider.price(price.id);
+  await provider.createCheckout({ checkoutId: "checkout_test", priceId: price.id, key: "fixture", expiresAt: 1800000000000, pinned: legacy });
+  expect(await provider.observe("sub_test")).toMatchObject({ price: { currency, unitAmount: amount, interval: "month" },
+    billingAnchor: 1769817600000, invoices: [{ paid: true, amountPaid: amount + tax, currency, refunded: refunded > 0, disputeState: dispute === "won" ? undefined : dispute, netBaseAmount }] });
 });
 
 it("observes refunds while period-end reports remain retained after invoice creation ages out", async () => {
@@ -202,10 +208,11 @@ it.each([
   });
 });
 
-it.each(["charge.refunded", "refund.updated"])("routes %s to the original one-time or monthly checkout", async type => {
+it.each(["charge.refunded", "refund.updated", "charge.dispute.created", "charge.dispute.closed"])("routes %s to the original one-time or monthly checkout", async type => {
   for (const mode of ["one_time", "subscription", "unrelated"]) {
     const fetcher = async (url: RequestInfo | URL) => {
       const path = new URL(String(url)).pathname;
+      if (path === "/v1/disputes/dp_old") return Response.json({ livemode: false, charge: "ch_old" });
       if (path === "/v1/refunds/re_old") return Response.json({ livemode: false, charge: "ch_old" });
       if (path === "/v1/charges/ch_old") return Response.json({ livemode: false, payment_intent: "pi_old" });
       if (path === "/v1/payment_intents/pi_old") return Response.json({ id: "pi_old", livemode: false,
@@ -217,7 +224,7 @@ it.each(["charge.refunded", "refund.updated"])("routes %s to the original one-ti
       throw Error("Unexpected refund target request: " + path);
     };
     const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
-    expect(await provider.eventTarget(type, type === "refund.updated" ? "re_old" : "ch_old")).toBe(mode === "unrelated" ? null : "old_checkout");
+    expect(await provider.eventTarget(type, type.startsWith("charge.dispute.") ? "dp_old" : type === "refund.updated" ? "re_old" : "ch_old")).toBe(mode === "unrelated" ? null : "old_checkout");
   }
 });
 

@@ -382,6 +382,59 @@ async function saveDuringSponsorMediaDeletion(save: (key: string, creatorId: str
   }
 }
 describe("guarded paid sponsorship lifecycle", () => {
+  it.each(["one_time", "subscription"] as const)("restores a dispute won before initial activation for %s", async (mode) => {
+    const f = await fixture("Dispute before activation", mode);
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, mode);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    f.observation.invoices[0].disputeState = "open";
+    f.observation.invoices[0].netBaseAmount = null;
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("recovery");
+    const campaigns = () => withSponsorWrite(tx => tx.select().from(sponsors).where(eq(sponsors.ownerUserId, f.owner)));
+    expect((await campaigns())[0].campaignState).toBe("prepared");
+    f.observation.invoices[0].disputeState = undefined;
+    f.observation.invoices[0].netBaseAmount = 50000;
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("active");
+    expect((await campaigns())[0].campaignState).toBe("published");
+  });
+  it.each(["one_time", "subscription"] as const)("reconciles EUR450 disputes and replay safely for %s", async (mode) => {
+    const f = await fixture("EUR450 dispute fixture", mode);
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
+    f.observation.price = { ...f.observation.price, currency: "eur", unitAmount: 45000,
+      interval: mode === "one_time" ? null : "month", intervalCount: mode === "one_time" ? null : 1 };
+    f.observation.billingAnchor = f.now.getTime();
+    f.observation.invoices[0] = { ...f.observation.invoices[0], currency: "eur", amountPaid: 45000,
+      periodEnd: calendarMonthEnd(f.now.getTime()) };
+    await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now, mode);
+    await ensureSponsorCheckoutSession(f.id, f.provider);
+    f.complete();
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    access.owner = f.owner;
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("active");
+    f.observation.invoices[0].disputeState = "open";
+    f.observation.invoices[0].netBaseAmount = null;
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    expect(await readOwnSponsorDashboard()).toMatchObject({ account: { state: "recovery" }, checkout: { exceptionCode: "payment_dispute" } });
+    const [account] = await withSponsorWrite(tx => tx.select().from(sponsorAccounts).where(eq(sponsorAccounts.ownerUserId, f.owner)));
+    const receipts = () => withSponsorWrite(tx => tx.select().from(sponsorDeliveryPeriods).where(eq(sponsorDeliveryPeriods.accountId, account.id)));
+    expect((await receipts())[0].baseAmount).toBeNull();
+    f.observation.invoices[0].disputeState = undefined;
+    f.observation.invoices[0].netBaseAmount = 45000;
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    expect(await readOwnSponsorDashboard()).toMatchObject({ account: { state: "active" }, checkout: { exceptionCode: null } });
+    expect((await receipts())[0].baseAmount).toBe(45000);
+    f.observation.invoices[0].disputeState = "lost";
+    f.observation.invoices[0].netBaseAmount = null;
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    await reconcileSponsorCheckout(f.id, f.provider, f.promote, f.now);
+    expect((await readOwnSponsorDashboard())?.account?.state).toBe("inactive");
+    expect(await withSponsorWrite(tx => tx.select().from(sponsorSeats).where(eq(sponsorSeats.checkoutId, f.id)))).toHaveLength(0);
+  });
   it("rejects a concurrent creator avatar save when sponsor cleanup removes the image", async () => {
     await saveDuringSponsorMediaDeletion((key, creatorId) => updateAdminCreator(creatorId, {
       name: "Concurrent editorial fixture", avatarUrl: getR2PublicUrl(key), avatarStorageProvider: "r2", avatarStorageKey: key,

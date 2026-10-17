@@ -1,4 +1,5 @@
 import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
+import { sponsorAmount, SPONSOR_AMOUNTS } from "./pricing";
 export const SPONSOR_RECOVERY_MS = 72 * 3600000;
 export type SponsorPrice = {
   id: string;
@@ -21,6 +22,7 @@ export type PaidInvoice = {
   periodEnd: number;
   paidAt?: number;
   refunded?: boolean;
+  disputeState?: "open" | "lost";
   /** Verified fee remaining after refunds, excluding tax; null means the split is unknown. */
   netBaseAmount?: number | null;
 };
@@ -57,21 +59,24 @@ export function validateSponsorPrice(
   // cannot start a new checkout with the retired 30-day price.
   const legacy = !requireActive && price.currency === "usd" &&
     price.interval === "day" && price.intervalCount === 30;
+  // Old EUR payments stay bound to their original immutable Stripe price.
+  // This exception is for reconciliation/resuming pinned checkouts only.
+  const historicalEuro = !requireActive && price.currency === "eur" && price.unitAmount === 50000;
   if (
     price.livemode ||
     price.id !== expectedId ||
     (requireActive && !price.active) ||
     !["usd", "eur"].includes(price.currency) ||
-    price.unitAmount !== 50000 ||
+    (price.unitAmount !== sponsorAmount(price.currency) && !historicalEuro) ||
     (billingMode === "one_time" ? !once : (!monthly && !legacy)) ||
     (requireActive && (price.currency !== "usd" ||
       !price.currencyOptions || Object.keys(price.currencyOptions).length !== 2 ||
-      ["usd", "eur"].some(currency => price.currencyOptions?.[currency]?.unitAmount !== 50000 ||
+      Object.entries(SPONSOR_AMOUNTS).some(([currency, amount]) => price.currencyOptions?.[currency]?.unitAmount !== amount ||
         price.currencyOptions?.[currency]?.taxBehavior !== "exclusive"))) ||
     price.taxBehavior !== "exclusive"
   )
     throw new Error(
-      "A test-mode USD 500 or EUR 500 price with matching payment terms is required.",
+      "A test-mode USD 500 or EUR 450 price with matching payment terms is required.",
     );
 }
 function validPaidPeriod(invoice: PaidInvoice, observation: BillingObservation) {
@@ -102,12 +107,23 @@ export function billingDecision(
   const valid = observation.invoices.filter(
     (i) =>
       i.paid &&
-      i.amountPaid >= 50000 &&
+      !i.disputeState &&
+      i.amountPaid >= observation.price.unitAmount! &&
       i.currency === observation.price.currency &&
       i.priceId === expectedPrice &&
       validPaidPeriod(i, observation) &&
       i.periodStart <= now,
   );
+  const disputed = observation.invoices.find(i => i.disputeState &&
+    i.currency === observation.price.currency && i.priceId === expectedPrice &&
+    validPaidPeriod(i, observation) && i.periodStart <= now &&
+    i.periodEnd >= Math.max(previous.paidThrough ?? 0, ...valid.map(invoice => invoice.periodEnd)));
+  if (disputed) {
+    const ended = disputed.disputeState === "lost" || disputed.periodEnd <= now;
+    return { state: ended ? "inactive" : "recovery", paidThrough: disputed.periodEnd,
+      periodStart: disputed.periodStart, invoiceId: null,
+      recoveryDeadline: ended ? null : disputed.periodEnd, terminate: ended };
+  }
   if (observation.billingMode === "one_time") {
     if (observation.subscriptionId || valid.length > 1) throw new Error("Unexpected single-payment billing.");
     const invoice = valid[0];

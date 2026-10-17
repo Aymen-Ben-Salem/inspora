@@ -49,7 +49,7 @@ export async function startSponsorCheckout(
     async (tx) =>
       (
         await tx
-          .select({ id: sponsorCheckouts.id })
+          .select({ id: sponsorCheckouts.id, state: sponsorCheckouts.state, priceId: sponsorCheckouts.priceId, billingMode: sponsorCheckouts.billingMode })
           .from(sponsorCheckouts)
           .where(
             and(
@@ -66,9 +66,12 @@ export async function startSponsorCheckout(
       message: "Owned preparation not found.",
     };
   await runSponsorMaintenance();
+  if (own.state === "reserved" && own.billingMode !== billingMode)
+    return { ok: false, code: "conflict", message: "This checkout already has reserved payment terms." };
   const provider = sponsorBillingProvider(),
-    priceId = (billingMode === "one_time" ? process.env.STRIPE_SPONSOR_ONE_TIME_PRICE_ID : process.env.STRIPE_SPONSOR_PRICE_ID)!;
-  await provider.price(priceId, billingMode);
+    pinned = own.state === "reserved" && own.priceId,
+    priceId = pinned || (billingMode === "one_time" ? process.env.STRIPE_SPONSOR_ONE_TIME_PRICE_ID : process.env.STRIPE_SPONSOR_PRICE_ID)!;
+  if (!pinned) await provider.price(priceId, billingMode);
   const reserved = await reserveSponsorSeat(owner, checkoutId, priceId, new Date(), billingMode);
   if (!reserved.ok) return reserved;
   return {

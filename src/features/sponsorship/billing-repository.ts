@@ -70,6 +70,7 @@ async function storedSession(
     key: `sponsor-checkout:${p.id}`,
     expiresAt: reservedUntil.getTime(),
     billingMode: p.billingMode,
+    pinned: true,
   });
   if (session.checkoutId !== p.id || session.billingMode !== p.billingMode)
     throw new Error("Checkout binding mismatch.");
@@ -260,6 +261,13 @@ export async function reconcileSponsorCheckout(
       now.getTime(),
       p.priceId,
     );
+    const disputedPeriod = observation.invoices.some(i => i.disputeState &&
+      i.priceId === p.priceId && i.currency === observation.price.currency &&
+      i.periodStart === decision.periodStart && i.periodEnd === decision.paidThrough);
+    if (disputedPeriod || p.exceptionCode === "payment_dispute")
+      await tx.update(sponsorCheckouts)
+        .set({ exceptionCode: disputedPeriod ? "payment_dispute" : null })
+        .where(eq(sponsorCheckouts.id, p.id));
     const refunded = once && observation.invoices.some((i) => i.refunded);
     if (
       denied ||
@@ -421,6 +429,7 @@ export async function reconcileSponsorCheckout(
         .where(eq(sponsorSeats.slot, seat.slot));
       return true;
     }
+    if (disputedPeriod) return false;
     const [campaign] = await tx
       .select()
       .from(sponsors)

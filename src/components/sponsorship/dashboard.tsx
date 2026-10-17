@@ -220,7 +220,9 @@ export function SponsorDashboard({
         aria-live="polite"
         className="mt-3 text-sm leading-6 text-[#767676]"
       >
-        {finishing
+        {data.checkout?.exceptionCode === "payment_dispute"
+          ? "A payment dispute has paused this sponsorship. Review the payment in Billing."
+          : finishing
           ? "Payment received. Finishing publication — we’ll retry automatically."
           : data.checkout?.state === "reserved" && !account
             ? "Waiting for verified payment. Returning from checkout does not activate sponsorship."
@@ -267,7 +269,7 @@ export function SponsorDashboard({
           <h2 className="text-lg font-medium">Billing</h2>
           <p className="mt-2 text-sm text-[#767676]">
             {account
-              ? `${account.billingCurrency.toUpperCase()} 500 before applicable tax · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}`
+              ? `${account.billingCurrency.toUpperCase()} billing · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}. View your exact charges in Manage billing.`
               : "Choose how you’d like to pay."}
           </p>
           {account ? (
@@ -321,6 +323,7 @@ export function SponsorDashboard({
               <div className="mt-6">
                 <PurchaseOptions
                   value={billingMode}
+                  reserved={data.checkout?.state === "reserved"}
                   onChange={setChoice}
                   disabled={
                     busy || refreshing || data.checkout?.state === "reserved"

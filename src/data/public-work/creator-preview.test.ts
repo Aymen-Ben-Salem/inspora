@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { loadPreviewEnvironment } from "../../../scripts/lib/preview-environment";
 import { requireDatabase, getDatabase, type Database } from "@/db/client";
@@ -119,7 +119,7 @@ suite("Preview eligible creator work", () => {
     expect(statements.at(-1)).not.toMatch(/jsonb_agg|limit/i);
     expect(new Set(identities.map(row => row.kind + ":" + row.id))).toEqual(new Set(expected.map(f => (f.kind === "post" ? "design" : f.kind) + ":" + f.id)));
     for (const item of items) {
-      if (item.kind === "website") expect(item.website).toMatchObject({ recording: { posterUrl: "/poster.webp" }, sections: [{ label: "First" }, { label: "Second" }] });
+      if (item.kind === "website") expect(item.website).toMatchObject({ recording: { posterUrl: "/poster.webp" } });
       else if (item.kind === "logo") expect(item.logo.media.url).toBe("/logo.webp");
       else expect(item).toMatchObject({ mediaCount: 2, media: [{ url: "/first.webp" }] });
     }
@@ -155,12 +155,12 @@ suite("Preview eligible creator work", () => {
   it("removes incomplete websites from pages/counts/identities and restores repaired work", async () => {
     const target = expected.find(f => f.kind === "website")!.id;
     try {
-      await db.update(schema.websiteSections).set({ imageUrl: "" }).where(eq(schema.websiteSections.websiteId, target));
+      await db.update(schema.websiteMedia).set({ posterUrl: "" }).where(and(eq(schema.websiteMedia.websiteId, target), eq(schema.websiteMedia.role, "recording")));
       expect((await traverse()).items.map(row => row.id)).toEqual(expected.filter(f => f.id !== target).map(f => f.id));
       expect((await readWorkCounts({ scope })).total).toBe(41);
       expect((await readWorkIdentities({ scope })).some(row => row.id === target)).toBe(false);
     } finally {
-      await db.update(schema.websiteSections).set({ imageUrl: "/repaired.webp" }).where(eq(schema.websiteSections.websiteId, target));
+      await db.update(schema.websiteMedia).set({ posterUrl: "/poster.webp" }).where(and(eq(schema.websiteMedia.websiteId, target), eq(schema.websiteMedia.role, "recording")));
     }
     expect((await readWorkCounts({ scope })).total).toBe(42);
     expect((await readWorkIdentities({ scope })).some(row => row.id === target)).toBe(true);

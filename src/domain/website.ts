@@ -36,21 +36,6 @@ export type WebsiteMedia = {
   height: number;
 };
 
-export type WebsiteSection = {
-  id: string;
-  label: string;
-  alt: string;
-  url: string;
-  storageProvider?: MediaStorageProvider;
-  mimeType?: string;
-  sourceMimeType?: string;
-  sizeBytes?: number;
-  variants: ImageVariant[];
-  width: number;
-  height: number;
-  position: number;
-};
-
 export type Website = {
   id: string;
   slug: string;
@@ -67,7 +52,6 @@ export type Website = {
   publishedAt: string;
   recording: WebsiteMedia & { posterUrl: string; videoPreview: VideoPreview };
   favicon: WebsiteMedia;
-  sections: WebsiteSection[];
 };
 
 export function isWebsiteStatus(value: string): value is WebsiteStatus {

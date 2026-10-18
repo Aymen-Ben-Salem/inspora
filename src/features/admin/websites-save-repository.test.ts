@@ -37,19 +37,8 @@ const input: AdminWebsiteInput = {
   status: "draft",
   media: [
     { role: "recording", url: "/recording.mp4", alt: "Recording", width: 1200, height: 900 },
-    { role: "favicon", url: "/favicon.png", alt: "Favicon", width: 32, height: 32 },
+    { role: "favicon", url: "/favicon.png", storageProvider: "r2", storageKey: retainedAvatar.storageKey, alt: "Favicon", width: 32, height: 32 },
   ],
-  sections: [{
-    id: "22222222-2222-4222-8222-222222222222",
-    label: "Hero",
-    alt: "Retained avatar",
-    url: "/retained.webp",
-    storageProvider: "r2",
-    storageKey: retainedAvatar.storageKey,
-    width: 1200,
-    height: 900,
-    position: 0,
-  }],
 };
 
 beforeEach(() => {

@@ -4,7 +4,7 @@
 
 ## When to use Inspora
 
-Use Inspora when researching credited contemporary examples of web design, branding, product design, motion, illustration, 3D, and print. Design detail pages identify the featured work, its creator, an editorial description, visual attributes, and the original source. The website archive provides website previews and sections; the logo archive covers logos and app icons. Creator profiles group publicly eligible work credited to that creator.
+Use Inspora when researching credited contemporary examples of web design, branding, product design, motion, illustration, 3D, and print. Design detail pages identify the featured work, its creator, an editorial description, visual attributes, and the original source. The website archive provides website recordings and creator credits; the logo archive covers logos and app icons. Creator profiles group publicly eligible work credited to that creator.
 
 ## Canonical resources
 

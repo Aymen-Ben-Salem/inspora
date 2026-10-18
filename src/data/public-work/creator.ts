@@ -4,7 +4,7 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { requireDatabase } from "@/db/client";
-import { creators, posts, postMedia, logos, logoMedia, websites, websiteMedia, websiteSections } from "@/db/schema";
+import { creators, posts, postMedia, logos, logoMedia, websites, websiteMedia } from "@/db/schema";
 import { isPostCategory } from "@/domain/post";
 import type { WorkCardData } from "@/domain/work-card";
 import type { ProfileWorkCounts } from "@/features/profiles/types";
@@ -85,8 +85,7 @@ function cardProjection() {
       'media', ${mediaJson(postMedia, sql`${postMedia.postId} = ${posts.id}`, sql`${postMedia.position}`)}) from ${posts} where ${posts.id} = candidate.id)
     when candidate.kind = 'website' then (select ${rowJson(websites)} || jsonb_build_object(
       'creator', ${creatorJson(sql`${websites.creatorId}`)},
-      'media', ${mediaJson(websiteMedia, sql`${websiteMedia.websiteId} = ${websites.id}`, sql`${websiteMedia.createdAt}`)},
-      'sections', coalesce((select jsonb_agg(${rowJson(websiteSections)} order by ${websiteSections.position}) from ${websiteSections} where ${websiteSections.websiteId} = ${websites.id}), '[]'::jsonb)) from ${websites} where ${websites.id} = candidate.id)
+      'media', ${mediaJson(websiteMedia, sql`${websiteMedia.websiteId} = ${websites.id}`, sql`${websiteMedia.createdAt}`)}) from ${websites} where ${websites.id} = candidate.id)
     else (select ${rowJson(logos)} || jsonb_build_object(
       'creator', ${creatorJson(sql`${logos.creatorId}`)},
       'media', ${mediaJson(logoMedia, sql`${logoMedia.logoId} = ${logos.id}`, sql`${logoMedia.createdAt}`)}) from ${logos} where ${logos.id} = candidate.id)
@@ -110,7 +109,7 @@ function mapCandidate(value: unknown, request: CreatorWorkCountRequest, now: Dat
   const keys = keysSchema.parse({ id: candidate.id, kind: candidate.kind, publishedAt: candidate.publishedAt });
   if (candidate.kind === "website") {
     const websiteRow = row as unknown as Parameters<typeof mapPublishedWebsite>[0];
-    if (!Array.isArray(websiteRow.sections) || !hasCompleteRecording(websiteRow)) throw new Error("Creator website has incomplete presentation.");
+    if (!hasCompleteRecording(websiteRow)) throw new Error("Creator website has incomplete presentation.");
     const website = mapPublishedWebsite(websiteRow);
     return { keys, item: { id: website.id, kind: "website", category: "Websites", website } };
   }

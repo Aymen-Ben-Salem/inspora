@@ -14,7 +14,7 @@ import {
 import type { AdminWebsiteInput } from "./types";
 
 const MAX_RECORDING_BYTES = 50 * 1024 * 1024;
-const MAX_SECTION_BYTES = 25 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const STATIC_IMAGE_TYPES = [
   "image/avif",
   "image/jpeg",
@@ -58,7 +58,7 @@ const imageVariantSchema = z.object({
   storageKey: z.string().trim().min(1).max(1024),
   width: z.coerce.number().int().positive().max(12000),
   height: z.coerce.number().int().positive().max(12000),
-  bytes: z.coerce.number().int().positive().max(MAX_SECTION_BYTES),
+  bytes: z.coerce.number().int().positive().max(MAX_IMAGE_BYTES),
   format: z.literal("webp"),
 });
 
@@ -99,36 +99,6 @@ const websiteMediaSchema = z
     { message: MANAGED_ASSET_URL_ERROR, path: ["url"] },
   );
 
-const sectionSchema = z
-  .object({
-    id: z.uuid(),
-    label: z.string().trim().min(1).max(120),
-    alt: z.string().trim().min(1).max(500),
-    url: imageUrlSchema,
-    storageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
-    storageKey: z.string().trim().min(1).max(1024).optional(),
-    mimeType: z.string().trim().min(1).max(255).optional(),
-    sourceMimeType: z.string().trim().min(1).max(255).optional(),
-    sizeBytes: z.coerce.number().int().positive().max(MAX_SECTION_BYTES).optional(),
-    variants: z.array(imageVariantSchema).max(4).optional(),
-    width: z.coerce.number().int().min(1).max(12000),
-    height: z.coerce.number().int().min(1).max(12000),
-    position: z.coerce.number().int().min(0).max(29),
-  })
-  .refine(
-    (section) => Boolean(section.storageProvider) === Boolean(section.storageKey),
-    "Managed website sections must include their storage provider and key.",
-  )
-  .refine(
-    (section) => !section.storageProvider || isAllowedManagedAssetUrl(section.url),
-    { message: MANAGED_ASSET_URL_ERROR, path: ["url"] },
-  )
-  .refine(
-    (section) =>
-      !section.mimeType || STATIC_IMAGE_TYPES.some((type) => type === section.mimeType),
-    "Website sections must use a supported static image type.",
-  );
-
 function commaSeparated(value: FormDataEntryValue | null) {
   return String(value ?? "")
     .split(",")
@@ -154,7 +124,6 @@ const websiteSchema = z
     isFeatured: z.boolean(),
     status: z.enum(["draft", "published"]),
     media: z.array(websiteMediaSchema).length(2),
-    sections: z.array(sectionSchema).min(1).max(30),
   })
   .superRefine((website, context) => {
     for (const role of WEBSITE_MEDIA_ROLES) {
@@ -210,33 +179,12 @@ const websiteSchema = z
         message: "Favicons must use a supported static image type.",
       });
     }
-
-    const ids = new Set(website.sections.map((section) => section.id));
-    const positions = new Set(website.sections.map((section) => section.position));
-    if (ids.size !== website.sections.length || positions.size !== website.sections.length) {
-      context.addIssue({
-        code: "custom",
-        path: ["sections"],
-        message: "Website sections must have unique identities and positions.",
-      });
-    }
-    website.sections.forEach((section, index) => {
-      if (section.position !== index) {
-        context.addIssue({
-          code: "custom",
-          path: ["sections", index, "position"],
-          message: "Website section positions must be contiguous and ordered.",
-        });
-      }
-    });
   });
 
 export function parseAdminWebsiteForm(formData: FormData): AdminWebsiteInput {
   let media: unknown = [];
-  let sections: unknown = [];
   try {
     media = JSON.parse(String(formData.get("media") ?? "[]"));
-    sections = JSON.parse(String(formData.get("sections") ?? "[]"));
   } catch {}
 
   return websiteSchema.parse({
@@ -265,6 +213,5 @@ export function parseAdminWebsiteForm(formData: FormData): AdminWebsiteInput {
     isFeatured: formData.get("isFeatured") === "on",
     status: formData.get("status"),
     media,
-    sections,
   });
 }

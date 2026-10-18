@@ -54,29 +54,6 @@ function validWebsiteForm() {
       height: 64,
     },
   ]));
-  formData.set("sections", JSON.stringify([
-    {
-      id: "00000000-0000-4000-8000-000000000010",
-      label: "Hero",
-      alt: "Paper hero",
-      url: `${base}/paper-hero.webp`,
-      storageProvider: "r2",
-      storageKey: "websites/00000000-0000-4000-8000-000000000010.webp",
-      mimeType: "image/webp",
-      sizeBytes: 2_000_000,
-      variants: [{
-        url: `${base}/paper-hero-small.webp`,
-        storageKey: "websites/00000000-0000-4000-8000-000000000011.webp",
-        width: 720,
-        height: 450,
-        bytes: 500_000,
-        format: "webp",
-      }],
-      width: 1440,
-      height: 900,
-      position: 0,
-    },
-  ]));
   return formData;
 }
 
@@ -86,23 +63,14 @@ afterEach(() => {
 });
 
 describe("admin website validation", () => {
-  it.each(["favicon", "section"] as const)("accepts a pasted external HTTPS %s image without upload metadata", (field) => {
+  it("accepts a pasted external HTTPS favicon without upload metadata", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validWebsiteForm();
-    const url = "https://cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg";
-    if (field === "favicon") {
-      const media = JSON.parse(String(form.get("media")));
-      media[1] = { role: "favicon", url, alt: "Paper icon", width: 160, height: 160 };
-      form.set("media", JSON.stringify(media));
-    } else {
-      form.set("sections", JSON.stringify([{
-        id: "00000000-0000-4000-8000-000000000010", label: "Hero", alt: "Paper hero",
-        url, width: 160, height: 160, position: 0,
-      }]));
-    }
-
-    const website = parseAdminWebsiteForm(form);
-    const image = field === "favicon" ? website.media[1] : website.sections[0];
+    const url = "https://cdn.dribbble.com/favicon.jpg";
+    const media = JSON.parse(String(form.get("media")));
+    media[1] = { role: "favicon", url, alt: "Paper icon", width: 160, height: 160 };
+    form.set("media", JSON.stringify(media));
+    const image = parseAdminWebsiteForm(form).media[1];
     expect(image.url).toBe(url);
     expect(image.storageProvider).toBeUndefined();
     expect(image.storageKey).toBeUndefined();
@@ -118,7 +86,7 @@ describe("admin website validation", () => {
     );
   });
 
-  it("keeps managed website media and sections restricted to configured hosts", () => {
+  it("keeps managed website media restricted to configured hosts", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validWebsiteForm();
     const media = JSON.parse(String(form.get("media")));
@@ -129,13 +97,6 @@ describe("admin website validation", () => {
       "Use a local path or an https URL from the configured media hostname.",
     );
 
-    const sectionForm = validWebsiteForm();
-    const sections = JSON.parse(String(sectionForm.get("sections")));
-    sections[0].url = "https://artwork.example.net/hero.png";
-    sectionForm.set("sections", JSON.stringify(sections));
-    expect(() => parseAdminWebsiteForm(sectionForm)).toThrow(
-      "Use a local path or an https URL from the configured media hostname.",
-    );
   });
 
   it("preserves complete avatar ownership metadata and rejects incomplete metadata", () => {
@@ -155,18 +116,12 @@ describe("admin website validation", () => {
     );
   });
 
-  it("parses recording metadata and independent section ownership", () => {
+  it("parses recording metadata without requiring sections", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const website = parseAdminWebsiteForm(validWebsiteForm());
 
     expect(website.media.map((media) => media.role)).toEqual(["recording", "favicon"]);
     expect(website.media[0]?.videoPreview?.format).toBe("mp4");
-    expect(website.sections[0]).toMatchObject({
-      label: "Hero",
-      url: `${base}/paper-hero.webp`,
-      position: 0,
-      variants: [{ width: 720 }],
-    });
   });
 
   it("rejects recordings without verified preview and poster ownership", () => {
@@ -178,14 +133,13 @@ describe("admin website validation", () => {
     expect(() => parseAdminWebsiteForm(formData)).toThrow();
   });
 
-  it("rejects oversized or non-image section uploads", () => {
+  it("ignores obsolete section fields when saving", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
-    const formData = validWebsiteForm();
-    const sections = JSON.parse(String(formData.get("sections")));
-    sections[0].mimeType = "video/mp4";
-    sections[0].sizeBytes = 26 * 1024 * 1024;
-    formData.set("sections", JSON.stringify(sections));
-    expect(() => parseAdminWebsiteForm(formData)).toThrow();
+    const form = validWebsiteForm();
+    form.set("sections", "obsolete invalid payload");
+    const website = parseAdminWebsiteForm(form);
+    expect(website).not.toHaveProperty("sections");
+    expect(website.media).toHaveLength(2);
   });
 
   it("marks a website as featured when selected", () => {

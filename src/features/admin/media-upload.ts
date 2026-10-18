@@ -1,7 +1,7 @@
 import type { AdminMediaInput } from "./types";
 export {
   ACCEPTED_MEDIA_MIME_TYPES, getMediaUploadLimit, isAcceptedUploadForKind,
-  MAX_IMAGE_UPLOAD_BYTES, MAX_VIDEO_UPLOAD_BYTES, MAX_WEBSITE_IMAGE_UPLOAD_BYTES,
+  MAX_IMAGE_UPLOAD_BYTES, MAX_VIDEO_UPLOAD_BYTES,
   RECOMMENDED_VIDEO_UPLOAD_BYTES,
 } from "../media/upload-policy";
 export type { AcceptedMediaMimeType, MediaUploadKind } from "../media/upload-policy";

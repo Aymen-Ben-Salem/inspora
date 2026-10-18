@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import type { Website } from "@/domain/website";
-import {
-  getDefaultWebsiteSectionId,
-  getWebsiteSectionFileName,
-  shouldClearWebsiteSectionSelection,
-} from "@/lib/website-media-actions";
-
 import {
   DetailArrowIcon,
   DetailCloseIcon,
@@ -19,7 +13,7 @@ import {
   DetailSidebarNavigation,
   detailOriginalLinkClassName,
 } from "../detail-sidebar-primitives";
-import { LoopingVideo } from "../looping-video";
+import { PostGallery } from "../post-gallery";
 import { MediaAssetActions } from "../media-asset-actions";
 import {
   PostCloseButton,
@@ -27,7 +21,6 @@ import {
 } from "../post-close-button";
 import { PostDialog } from "../post-dialog";
 import { WorkAnalytics } from "../work-analytics";
-import { WebsiteCropImage } from "./website-crop-image";
 
 export function WebsiteDetailDialog({
   website,
@@ -40,39 +33,11 @@ export function WebsiteDetailDialog({
   onPrevious: () => void;
   onNext: () => void;
 }) {
-  const [view, setView] = useState<"preview" | "sections">("preview");
-  const [sectionSelection, setSectionSelection] = useState<{
-    sectionId?: string;
-    websiteId: string;
-  }>({ websiteId: website.id });
-   const selectedSectionId =
-    view === "sections"
-      ? sectionSelection.websiteId === website.id
-        ? sectionSelection.sectionId
-        : getDefaultWebsiteSectionId(website.sections)
-      : undefined;
-  const selectedSection = website.sections.find(
-    (section) => section.id === selectedSectionId,
-  );
   const recordingAssetUrl = `/api/websites/${encodeURIComponent(website.id)}/asset`;
-  const sectionAssetUrl = selectedSection
-    ? `${recordingAssetUrl}?section=${encodeURIComponent(selectedSection.id)}`
-    : undefined;
   const canonicalUrl =
     typeof window === "undefined"
       ? `/websites?website=${website.slug}`
       : new URL(`/websites?website=${website.slug}`, window.location.origin).href;
-
-  function changeView(nextView: "preview" | "sections") {
-    setView(nextView);
-    setSectionSelection({
-      websiteId: website.id,
-      sectionId:
-        nextView === "sections"
-          ? getDefaultWebsiteSectionId(website.sections)
-          : undefined,
-    });
-  }
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -99,128 +64,11 @@ export function WebsiteDetailDialog({
         className="pointer-events-auto flex h-[100dvh] w-full max-w-full flex-col overflow-y-auto bg-transparent lg:flex-row lg:overflow-hidden"
       >
         <WorkAnalytics workId={website.id} workKind="website" />
-        <div
-          data-post-dialog-gallery
-          data-post-dialog-surface={view === "sections" ? "" : undefined}
-          className="relative min-h-[68dvh] min-w-0 flex-1 overflow-y-auto bg-transparent [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:h-[100dvh]"
-          onClick={(event) => {
-            if (view !== "sections") return;
-
-            const target = event.target;
-            const clickedSection =
-              target instanceof Element &&
-              Boolean(target.closest("[data-website-section-select]"));
-            const clickedMediaTab =
-              target instanceof Element &&
-              Boolean(target.closest("[data-website-media-tab]"));
-
-            if (
-              shouldClearWebsiteSectionSelection({
-                clickedMediaTab,
-                clickedSection,
-              })
-            ) {
-              setSectionSelection({ websiteId: website.id });
-            }
-          }}
-        >
-          <nav
-            className="sticky top-0 z-20 flex h-[72px] items-center gap-8 px-5 text-[16px] sm:px-8 lg:h-[88px] lg:px-11 xl:text-[18px]"
-            aria-label="Website media views"
-          >
-            {(["preview", "sections"] as const).map((option) => (
-              <button
-                data-website-media-tab
-                data-post-dialog-surface
-                key={option}
-                type="button"
-                aria-pressed={view === option}
-                onClick={() => changeView(option)}
-                className={`focus-ring cursor-pointer capitalize ${view === option ? "font-medium text-[#262626]" : "text-[#95959d]"}`}
-              >
-                {option}
-              </button>
-            ))}
-          </nav>
-
-          <div
-            aria-hidden={view !== "preview"}
-            className={
-              view === "preview"
-                ? "flex min-h-[calc(68dvh-72px)] items-center justify-center px-4 pb-12 sm:px-8 lg:min-h-[calc(100dvh-88px)] lg:px-11"
-                : "hidden"
-            }
-          >
-            <div
-              data-detail-media
-              data-post-dialog-surface
-              data-post-dialog-hero
-              data-post-dialog-animated-media
-              data-post-dialog-max-viewport-height="79"
-              className="relative aspect-video w-full max-w-[1108px] overflow-hidden bg-[#ececea]"
-            >
-              <LoopingVideo
-                src={website.recording.url}
-                poster={website.recording.posterUrl}
-                aria-label={website.recording.alt}
-                active={view === "preview"}
-                preservePositionWhileInactive
-                releaseWhenNotVisible
-                className="size-full object-contain"
-              />
-            </div>
-          </div>
-
-          {view === "sections" ? (
-            <div className="grid grid-cols-1 gap-x-7 gap-y-10 px-4 pb-12 sm:grid-cols-2 sm:px-8 lg:px-11">
-              {website.sections.map((section, index) => {
-                const selected = section.id === selectedSectionId;
-
-                return (
-                  <figure key={section.id} data-detail-media>
-                    <button
-                      data-website-section-select
-                      type="button"
-                      aria-pressed={selected}
-                      aria-label={`Select ${section.label} section`}
-                      onClick={() =>
-                        setSectionSelection({
-                          websiteId: website.id,
-                          sectionId: section.id,
-                        })
-                      }
-                      className="focus-ring block w-full text-left"
-                    >
-                      <div
-                        {...(index === 0
-                          ? {
-                              "data-post-dialog-surface": "",
-                              "data-post-dialog-hero": "",
-                              "data-post-dialog-match-feed-aspect": "",
-                              "data-post-dialog-proxy-object-position":
-                                "center top",
-                            }
-                          : {})}
-                        className={`overflow-hidden rounded-ui transition-shadow ${selected ? "ring-2 ring-[#262626] ring-offset-4" : ""}`}
-                      >
-                        <WebsiteCropImage
-                          website={website}
-                          section={section}
-                          className="w-full"
-                        />
-                      </div>
-                      <figcaption
-                        className={`mt-2.5 text-[17px] leading-normal tracking-[0.04px] text-[#262626] xl:text-[20px] ${selected ? "font-medium" : ""}`}
-                      >
-                        {section.label}
-                      </figcaption>
-                    </button>
-                  </figure>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
+        <PostGallery
+          post={{ media: [{ ...website.recording, type: "video", position: 0 }] }}
+          overlay
+          mediaFit="contain"
+        />
 
         <DetailSidebarLayout
           newsletterSource="website-detail"
@@ -247,12 +95,11 @@ export function WebsiteDetailDialog({
                 View Site
               </a>
               <MediaAssetActions
-                assetKey={view === "preview" ? `${website.id}:preview` : `${website.id}:section:${selectedSection?.id ?? "none"}`}
-                assetUrl={view === "preview" ? recordingAssetUrl : sectionAssetUrl}
-                copyText={view === "preview" ? canonicalUrl : undefined}
-                copyLabel={view === "preview" ? "Copy link" : "Copy section"}
-                downloadLabel={view === "preview" ? "Download video" : "Download section"}
-                downloadFileName={selectedSection ? getWebsiteSectionFileName(website.slug, selectedSection.label, selectedSection.mimeType) : undefined}
+                assetKey={`${website.id}:recording`}
+                assetUrl={recordingAssetUrl}
+                copyText={canonicalUrl}
+                copyLabel="Copy link"
+                downloadLabel="Download video"
               />
             </div>
           }

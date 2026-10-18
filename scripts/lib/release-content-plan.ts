@@ -75,7 +75,7 @@ export function buildReleaseContentPlan(source:ContentSnapshot,destination:Conte
   }
  }
  for(const logo of logos){if(!s.logo_media.some(r=>r.logo_id===logo.id))fail('missing logo media');add('logos',logo);}
- for(const website of websites){if(!s.website_media.some(r=>r.website_id===website.id)||!s.website_sections.some(r=>r.website_id===website.id))fail('missing website presentation');add('websites',website);}
+ for(const website of websites){if(!s.website_media.some(r=>r.website_id===website.id))fail('missing website presentation');add('websites',website);}
  for(const row of s.logo_media.filter(r=>logoIds.has(r.logo_id)))add('logo_media',row,true);
  for(const table of ['website_media','website_sections'])for(const row of s[table].filter(r=>websiteIds.has(r.website_id)))add(table,row,true);
  const plan={inserts,profileUpdates,mediaKeys:[...mediaKeys].sort(),selectedCreatorIds:[...creatorIds].map(String).sort(),selectedWorkIds:[...logoIds,...websiteIds].map(String).sort()};

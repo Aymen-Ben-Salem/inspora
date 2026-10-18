@@ -155,8 +155,7 @@ export function createAdminMediaUploadOperations(
           variants:
             isOptimizableStaticImage(bundle.source.file.type) &&
             (bundle.source.kind === "post-media" ||
-              bundle.source.kind === "logo-media" ||
-              bundle.source.kind === "website-section")
+              bundle.source.kind === "logo-media")
               ? uploaded
                   .filter((_, index) => uploadItems[index]?.role === "variant")
                   .map(({ media }) => ({

@@ -125,22 +125,6 @@ export type AdminWebsiteMediaInput = {
   height: number;
 };
 
-export type AdminWebsiteSectionInput = {
-  id: string;
-  label: string;
-  alt: string;
-  url: string;
-  storageProvider?: MediaStorageProvider;
-  storageKey?: string;
-  mimeType?: string;
-  sourceMimeType?: string;
-  sizeBytes?: number;
-  variants?: ImageVariant[];
-  width: number;
-  height: number;
-  position: number;
-};
-
 export type AdminWebsiteInput = {
   slug: string;
   title: string;
@@ -154,7 +138,6 @@ export type AdminWebsiteInput = {
   isFeatured: boolean;
   status: Exclude<WebsiteStatus, "archived">;
   media: AdminWebsiteMediaInput[];
-  sections: AdminWebsiteSectionInput[];
 };
 
 export type AdminWebsiteRecord = Omit<AdminWebsiteInput, "status" | "creator"> & {

@@ -87,28 +87,6 @@ export function websiteFixture(): Parameters<typeof mapPublishedWebsite>[0] {
           createdAt: date,
         },
       ],
-      sections: [
-        {
-          id: "hero",
-          websiteId: "website",
-          label: "Hero",
-          top: null,
-          height: null,
-          position: 0,
-          imageUrl: "/hero.webp",
-          imageStorageProvider: null,
-          imageStorageKey: null,
-          imageMimeType: "image/webp",
-          imageSourceMimeType: "image/png",
-          imageSizeBytes: 900,
-          imageVariants: [],
-          imageAlt: "Paper hero",
-          imageWidth: 1440,
-          imageHeight: 900,
-          createdAt: date,
-          updatedAt: date,
-        },
-      ],
     };
   return row;
 }

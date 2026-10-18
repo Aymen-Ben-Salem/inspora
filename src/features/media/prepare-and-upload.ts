@@ -41,7 +41,6 @@ function uploadError(kind: MediaUploadKind) {
   if (kind === "creator-avatar") return "Creator avatars must be images up to 10 MB.";
   if (kind === "logo-media") return "Logo assets must be static images up to 10 MB.";
   if (kind === "website-recording") return "Website recordings must be MP4 or WebM videos up to 50 MB.";
-  if (kind === "website-section") return "Website sections must be static images up to 25 MB.";
   if (kind === "website-favicon") return "Favicons must be supported static images up to 10 MB.";
   return "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.";
 }
@@ -54,7 +53,7 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
   onController?: (controller: AbortController) => void,
 ): Promise<TResult> {
   const contentType = ACCEPTED_MEDIA_MIME_TYPES.find((type) => type === file.type);
-  if (!contentType || !isAcceptedUploadForKind(kind, contentType) || file.size > getMediaUploadLimit(contentType, kind)) {
+  if (!contentType || !isAcceptedUploadForKind(kind, contentType) || file.size > getMediaUploadLimit(contentType)) {
     throw new Error(uploadError(kind));
   }
   const controller = new AbortController();

@@ -128,7 +128,7 @@ suite("Preview eligible saved work", () => {
     expect(statements.length).toBe(before + 1);
     expect(statements.at(-1)).not.toMatch(/lateral|limit/i);
     for (const item of items) {
-      if (item.kind === "website") expect(item.website).toMatchObject({ recording: { posterUrl: "/poster.webp" }, sections: [{ label: "First" }, { label: "Second" }] });
+      if (item.kind === "website") expect(item.website).toMatchObject({ recording: { posterUrl: "/poster.webp" } });
       else if (item.kind === "logo") expect(item.logo.media.url).toBe("/logo.webp");
       else expect(item).toMatchObject({ mediaCount: 2, media: [{ url: "/first.webp" }] });
     }

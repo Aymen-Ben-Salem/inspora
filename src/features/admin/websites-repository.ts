@@ -12,7 +12,6 @@ import {
   creators,
   websiteMedia,
   websites,
-  websiteSections,
 } from "@/db/schema";
 import { withWriteTransaction, type WriteTx } from "@/db/write-client";
 import { isWebsiteMediaRole } from "@/domain/website";
@@ -35,7 +34,6 @@ import { ADMIN_LIBRARY_PAGE_SIZE, getAdminLibraryPagination, type AdminLibraryOp
 
 type WebsiteRow = typeof websites.$inferSelect;
 type WebsiteMediaRow = typeof websiteMedia.$inferSelect;
-type WebsiteSectionRow = typeof websiteSections.$inferSelect;
 type CreatorRow = Parameters<typeof mapAdminCreatorAttribution>[0];
 
 function isStorageProvider(value: string | null) {
@@ -46,19 +44,13 @@ function mapAdminWebsite(
   row: WebsiteRow & {
     creator: CreatorRow;
     media: WebsiteMediaRow[];
-    sections: WebsiteSectionRow[];
   },
 ): AdminWebsiteRecord | null {
   const supportedMedia = row.media.filter((media) => isWebsiteMediaRole(media.role));
-  const hasCompleteSections = row.sections.every(
-    (section) =>
-      section.imageUrl && section.imageWidth && section.imageHeight,
-  );
   if (
     supportedMedia.length !== 2 ||
     !supportedMedia.some((media) => media.role === "recording") ||
-    !supportedMedia.some((media) => media.role === "favicon") ||
-    !hasCompleteSections
+    !supportedMedia.some((media) => media.role === "favicon")
   ) {
     return null;
   }
@@ -97,23 +89,6 @@ function mapAdminWebsite(
       alt: media.alt,
       width: media.width,
       height: media.height,
-    })),
-    sections: row.sections.map((section) => ({
-      id: section.id,
-      label: section.label,
-      alt: section.imageAlt,
-      url: section.imageUrl!,
-      storageProvider: isStorageProvider(section.imageStorageProvider)
-        ? (section.imageStorageProvider as AdminWebsiteRecord["sections"][number]["storageProvider"])
-        : undefined,
-      storageKey: section.imageStorageKey ?? undefined,
-      mimeType: section.imageMimeType ?? undefined,
-      sourceMimeType: section.imageSourceMimeType ?? undefined,
-      sizeBytes: section.imageSizeBytes ?? undefined,
-      variants: section.imageVariants,
-      width: section.imageWidth!,
-      height: section.imageHeight!,
-      position: section.position,
     })),
   };
 }
@@ -154,25 +129,6 @@ function mediaValues(websiteId: string, input: AdminWebsiteInput) {
   }));
 }
 
-function sectionValues(websiteId: string, input: AdminWebsiteInput) {
-  return input.sections.map((section) => ({
-    id: section.id,
-    websiteId,
-    label: section.label,
-    position: section.position,
-    imageUrl: section.url,
-    imageStorageProvider: section.storageProvider,
-    imageStorageKey: section.storageKey,
-    imageMimeType: section.mimeType,
-    imageSourceMimeType: section.sourceMimeType,
-    imageSizeBytes: section.sizeBytes,
-    imageVariants: section.variants ?? [],
-    imageAlt: section.alt,
-    imageWidth: section.width,
-    imageHeight: section.height,
-  }));
-}
-
 export async function insertAdminWebsiteInTransaction(
   tx: WriteTx,
   input: AdminWebsiteInput,
@@ -189,9 +145,8 @@ export async function insertAdminWebsiteInTransaction(
     createdBy: actorId,
     updatedBy: actorId,
   });
-  await protectPublicationMedia(tx, [...input.media, ...input.sections]);
+  await protectPublicationMedia(tx, input.media);
   await tx.insert(websiteMedia).values(mediaValues(id, input));
-  await tx.insert(websiteSections).values(sectionValues(id, input));
   return { id, slug: input.slug };
 }
 
@@ -199,7 +154,6 @@ function websiteRelations() {
   return {
     creator: true as const,
     media: { orderBy: [asc(websiteMedia.createdAt)] },
-    sections: { orderBy: [asc(websiteSections.position)] },
   };
 }
 
@@ -268,9 +222,8 @@ export async function createAdminWebsite(
       createdBy: adminPrincipal.userId,
       updatedBy: adminPrincipal.userId,
     });
-    await protectPublicationMedia(tx, [...input.media, ...input.sections]);
-  await tx.insert(websiteMedia).values(mediaValues(id, input));
-    await tx.insert(websiteSections).values(sectionValues(id, input));
+    await protectPublicationMedia(tx, input.media);
+    await tx.insert(websiteMedia).values(mediaValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "website.created",
@@ -308,11 +261,6 @@ export async function updateAdminWebsite(
       .from(websiteMedia)
       .where(eq(websiteMedia.websiteId, id))
       .for("update");
-    const existingSections = await tx
-      .select()
-      .from(websiteSections)
-      .where(eq(websiteSections.websiteId, id))
-      .for("update");
     const creator = await saveAdminCreatorForAttribution(
       tx,
       adminPrincipal,
@@ -332,7 +280,7 @@ export async function updateAdminWebsite(
     }
     const removedManagedMedia = unretainedWebsiteAssets(
       [
-        ...collectWebsiteManagedAssets(existingMedia, existingSections),
+        ...collectWebsiteManagedAssets(existingMedia),
         ...creator.displacedAvatarAssets,
       ],
       retainedKeys,
@@ -346,10 +294,8 @@ export async function updateAdminWebsite(
       updatedAt: now,
     }).where(eq(websites.id, id));
     await tx.delete(websiteMedia).where(eq(websiteMedia.websiteId, id));
-    await protectPublicationMedia(tx, [...input.media, ...input.sections]);
-  await tx.insert(websiteMedia).values(mediaValues(id, input));
-    await tx.delete(websiteSections).where(eq(websiteSections.websiteId, id));
-    await tx.insert(websiteSections).values(sectionValues(id, input));
+    await protectPublicationMedia(tx, input.media);
+    await tx.insert(websiteMedia).values(mediaValues(id, input));
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "website.updated",

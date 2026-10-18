@@ -4,7 +4,7 @@ import { and, asc, desc, eq, isNotNull, lt, lte, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { requireDatabase } from "@/db/client";
-import { logoMedia, logos, postMedia, posts, websiteMedia, websites, websiteSections } from "@/db/schema";
+import { logoMedia, logos, postMedia, posts, websiteMedia, websites } from "@/db/schema";
 import type { Logo } from "@/domain/logo";
 import { isPostCategory, type PostCardData, type PostCategory, type PostView } from "@/domain/post";
 import type { Website } from "@/domain/website";
@@ -123,7 +123,6 @@ async function readWebsiteArchive(view: "latest" | "featured"): Promise<WorkPage
     with: {
       creator: true,
       media: { orderBy: [asc(websiteMedia.createdAt)] },
-      sections: { orderBy: [asc(websiteSections.position)] },
     },
   });
   const items = rows.map((row) => {

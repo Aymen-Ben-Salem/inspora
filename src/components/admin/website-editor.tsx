@@ -1,5 +1,4 @@
 "use client";
-import { adminThumbnailUrl } from "@/features/admin/thumbnail";
 
 import type { Route } from "next";
 import Link from "next/link";
@@ -20,7 +19,6 @@ import {
   type AdminCreatorAttribution,
   type AdminWebsiteMediaInput,
   type AdminWebsiteRecord,
-  type AdminWebsiteSectionInput,
 } from "@/features/admin/types";
 
 type MediaDraft = Omit<AdminWebsiteMediaInput, "width" | "height"> & {
@@ -49,22 +47,6 @@ function mediaFor(
   return website?.media.find((media) => media.role === role) ?? blankMedia(role);
 }
 
-function blankSection(position: number): AdminWebsiteSectionInput {
-  return {
-    id: crypto.randomUUID(),
-    label: `Section ${position + 1}`,
-    alt: "",
-    url: "",
-    width: 1440,
-    height: 900,
-    position,
-  };
-}
-
-function normalizeSections(sections: AdminWebsiteSectionInput[]) {
-  return sections.map((section, position) => ({ ...section, position }));
-}
-
 export function WebsiteEditor({
   action,
   creators,
@@ -88,9 +70,6 @@ export function WebsiteEditor({
   );
   const [recording, setRecording] = useState<MediaDraft>(mediaFor(website, "recording"));
   const [favicon, setFavicon] = useState<MediaDraft>(mediaFor(website, "favicon"));
-  const [sections, setSections] = useState<AdminWebsiteSectionInput[]>(
-    website?.sections ?? [],
-  );
   const media = useMemo(() => [recording, favicon], [favicon, recording]);
 
   function updateMedia(
@@ -141,45 +120,9 @@ export function WebsiteEditor({
     else setFavicon(next);
   }
 
-  function updateSection(
-    id: string,
-    updates: Partial<AdminWebsiteSectionInput>,
-  ) {
-    setSections((current) =>
-      current.map((section) => (section.id === id ? { ...section, ...updates } : section)),
-    );
-  }
-
-  function applySectionUpload(id: string, uploaded: UploadedAdminMedia) {
-    if (uploaded.type !== "image") return;
-    updateSection(id, {
-      url: uploaded.url,
-      storageProvider: uploaded.storageProvider,
-      storageKey: uploaded.storageKey,
-      mimeType: uploaded.mimeType,
-      sourceMimeType: uploaded.sourceMimeType,
-      sizeBytes: uploaded.sizeBytes,
-      variants: uploaded.variants,
-      alt: uploaded.alt,
-      width: uploaded.width,
-      height: uploaded.height,
-    });
-  }
-
-  function moveSection(index: number, direction: -1 | 1) {
-    setSections((current) => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target]!, next[index]!];
-      return normalizeSections(next);
-    });
-  }
-
   return (
     <form ref={preserveFormDraft} action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <input type="hidden" name="media" value={JSON.stringify(media)} />
-      <input type="hidden" name="sections" value={JSON.stringify(normalizeSections(sections))} />
 
       <div className="grid gap-6">
         {state.status === "error" ? (
@@ -241,38 +184,6 @@ export function WebsiteEditor({
               </div>
             </div>
           ))}
-        </section>
-
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Sections</p>
-              <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Independent section images</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#777]">Upload 1–30 complete images. Their order, labels, and alternative text are saved independently from the recording.</p>
-            </div>
-            <button type="button" disabled={sections.length >= 30} className="focus-ring rounded-full border border-black/10 bg-white px-4 py-2 text-sm hover:bg-[#f3f3f1] disabled:opacity-50" onClick={() => setSections((current) => [...current, blankSection(current.length)])}>Add section</button>
-          </div>
-          <div className="grid gap-4">
-            {sections.map((section, index) => (
-              <div key={section.id} className="grid gap-4 rounded-xl border border-black/10 bg-[#f7f7f4] p-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-                <div className="flex min-h-40 items-center justify-center overflow-hidden bg-[#ececea]">
-                  {section.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={adminThumbnailUrl(section.url, section.variants ?? [])} alt={section.alt} loading="lazy" decoding="async" className="size-full object-contain" />
-                  ) : <span className="text-xs text-[#777]">No image yet</span>}
-                </div>
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3"><h3 className="font-medium">Section {index + 1}</h3><div className="flex gap-2"><button type="button" disabled={index === 0} className="text-xs disabled:opacity-30" onClick={() => moveSection(index, -1)}>Move up</button><button type="button" disabled={index === sections.length - 1} className="text-xs disabled:opacity-30" onClick={() => moveSection(index, 1)}>Move down</button><button type="button" className="text-xs text-red-700" onClick={() => setSections((current) => normalizeSections(current.filter((item) => item.id !== section.id)))}>Remove</button></div></div>
-                  <MediaUploadButton kind="website-section" label="Upload section image" onUploaded={(uploaded) => applySectionUpload(section.id, uploaded)} />
-                  <label className={labelClass}>Label<input className={inputClass} required maxLength={120} value={section.label} onChange={(event) => updateSection(section.id, { label: event.target.value })} /></label>
-                  <label className={labelClass}>Alternative text<input className={inputClass} required maxLength={500} value={section.alt} onChange={(event) => updateSection(section.id, { alt: event.target.value })} /></label>
-                  <label className={labelClass}>Image URL<input className={inputClass} required value={section.url} onChange={(event) => updateSection(section.id, { url: event.target.value, storageProvider: undefined, storageKey: undefined, mimeType: undefined, sourceMimeType: undefined, sizeBytes: undefined, variants: undefined })} /></label>
-                  <div className="grid grid-cols-2 gap-3"><label className={labelClass}>Width<input className={inputClass} type="number" min={1} max={12000} required value={section.width} onChange={(event) => updateSection(section.id, { width: Number(event.target.value) })} /></label><label className={labelClass}>Height<input className={inputClass} type="number" min={1} max={12000} required value={section.height} onChange={(event) => updateSection(section.id, { height: Number(event.target.value) })} /></label></div>
-                </div>
-              </div>
-            ))}
-          </div>
-          {sections.length === 0 ? <p className="text-sm text-amber-800">Add at least one section before saving.</p> : null}
         </section>
       </div>
 

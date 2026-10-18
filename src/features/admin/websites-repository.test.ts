@@ -61,12 +61,6 @@ describe("website media ownership", () => {
           variants: [{ storageKey: "media-variant" }],
         },
       ],
-      sections: [
-        {
-          storageKey: "section",
-          variants: [{ storageKey: "section-variant" }],
-        },
-      ],
     } as never);
 
     expect([...retained]).toEqual([
@@ -74,8 +68,6 @@ describe("website media ownership", () => {
       "poster",
       "preview",
       "media-variant",
-      "section",
-      "section-variant",
     ]);
   });
 });

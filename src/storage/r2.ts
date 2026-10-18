@@ -26,7 +26,6 @@ const PREFIXES: Record<MediaUploadKind, string> = {
   "logo-media": "logos",
   "website-recording": "websites",
   "website-poster": "websites",
-  "website-section": "websites",
   "website-favicon": "websites",
   "creator-avatar": "creators",
   "sponsor-media": "sponsors",

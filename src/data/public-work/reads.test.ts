@@ -39,12 +39,13 @@ beforeEach(() => {
 it("returns usable archive cards and complete-array continuation", async () => {
   const result = await readWorkPage(request);
   expect(result.nextCursor).toBeNull();
-  expect(result.items).toMatchObject([{ slug: "paper", recording: { posterUrl: "/poster.webp" }, sections: [{ url: "/hero.webp" }] }]);
+  expect(result.items).toMatchObject([{ slug: "paper", recording: { posterUrl: "/poster.webp" } }]);
   expect(await getPublishedWebsites()).toEqual(result.items);
+  expect(websiteFindMany.mock.calls[0][0].with).not.toHaveProperty("sections");
 });
 it("fails the whole read when a selected presentation becomes inconsistent", async () => {
   const incomplete = websiteFixture();
-  incomplete.sections = [];
+  incomplete.media[0].posterUrl = null;
   websiteFindMany.mockResolvedValue([websiteFixture(), incomplete]);
   await expect(readWorkPage(request)).rejects.toThrow(/incomplete/);
   await expect(getPublishedWebsites()).rejects.toThrow(/incomplete/);

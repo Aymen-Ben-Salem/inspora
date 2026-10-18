@@ -11,7 +11,8 @@ type StoredWebsiteMedia = {
   posterStorageKey: string | null;
 };
 
-type StoredWebsiteSection = {
+// Existing section uploads still need cleanup when a website is deleted.
+type LegacyWebsiteSection = {
   imageStorageProvider: string | null;
   imageStorageKey: string | null;
   imageVariants: Array<{ storageKey: string }>;
@@ -38,7 +39,7 @@ function managedKey(
 
 export function collectWebsiteManagedAssets(
   media: StoredWebsiteMedia[],
-  sections: StoredWebsiteSection[],
+  legacySections: LegacyWebsiteSection[] = [],
 ) {
   return [
     ...media.flatMap((item): ManagedMediaAsset[] => [
@@ -57,7 +58,7 @@ export function collectWebsiteManagedAssets(
       ),
       ...managedKey(item.storageProvider, item.posterStorageKey, "image"),
     ]),
-    ...sections.flatMap((section): ManagedMediaAsset[] => [
+    ...legacySections.flatMap((section): ManagedMediaAsset[] => [
       ...managedKey(
         section.imageStorageProvider,
         section.imageStorageKey,
@@ -82,10 +83,6 @@ export function getRetainedWebsiteStorageKeys(input: AdminWebsiteInput) {
         media.posterStorageKey,
         media.videoPreview?.storageKey,
         ...(media.variants ?? []).map((variant) => variant.storageKey),
-      ]),
-      ...input.sections.flatMap((section) => [
-        section.storageKey,
-        ...(section.variants ?? []).map((variant) => variant.storageKey),
       ]),
     ].filter((key): key is string => Boolean(key)),
   );

@@ -48,7 +48,6 @@ const logo: AdminLogoRecord = {
 const website: AdminWebsiteRecord = {
   ...base, tagline: "Original tagline", categories: ["Original"], themes: ["Original"], colors: ["Blue"],
   isFeatured: false, media: [{ ...image, role: "favicon" }],
-  sections: [{ ...image, id: "section-1", label: "Original hero", position: 0 }],
 };
 const commonFields = {
   title: "Keep this title", slug: "keep-this-slug", description: "Keep this description", sourceUrl: "https://example.com/new-work",
@@ -83,7 +82,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it("uses small lazy section previews and leaves the website recording unloaded until playback", async () => {
+it("keeps recording and favicon controls without section fields", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   const root = createRoot(container);
@@ -93,12 +92,14 @@ it("uses small lazy section previews and leaves the website recording unloaded u
       ...website,
       media: [...website.media, { role: "recording", url: "/original.mp4", posterUrl: "/poster.webp", width: 1200, height: 800, alt: "Recording" }],
     }} />));
-    const sectionImage = container.querySelector<HTMLImageElement>('img[src="/media/variant.webp"]');
-    expect(sectionImage?.loading).toBe("lazy");
-    expect(sectionImage?.decoding).toBe("async");
     expect(container.querySelector("video")?.preload).toBe("none");
-    const sections = JSON.parse(textField(container.querySelector("form")!, "sections").value);
-    expect(sections[0].url).toBe("/media/work.webp");
+    expect(container.querySelector('[name="sections"]')).toBeNull();
+    expect(container.textContent).not.toContain("Add section");
+    const media = JSON.parse(textField(container.querySelector("form")!, "media").value);
+    expect(media).toEqual(expect.arrayContaining([
+      expect.objectContaining({ role: "recording", url: "/original.mp4", posterUrl: "/poster.webp" }),
+      expect.objectContaining({ role: "favicon", url: image.url }),
+    ]));
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -144,7 +145,6 @@ for (const editor of editors) {
       const published = form.querySelector<HTMLInputElement>('input[type="radio"][name="status"][value="published"]');
       if (published) await act(async () => published.click());
       const media = textField(form, "media").value;
-      const sections = form.querySelector<HTMLInputElement>('input[name="sections"]')?.value;
       if (featured) expect(featured.checked).toBe(true);
       if (kind) expect(kind.value).toBe("icon");
       if (category) expect(category.value).toBe("Web");
@@ -160,7 +160,6 @@ for (const editor of editors) {
       if (category) expect(category.value).toBe("Web");
       if (published) expect(published.checked).toBe(true);
       expect(textField(form, "media").value).toBe(media);
-      if (sections !== undefined) expect(textField(form, "sections").value).toBe(sections);
 
       await enterText(textField(form, "title"), "Corrected title");
       await submit(form);
@@ -174,7 +173,6 @@ for (const editor of editors) {
       if (featured) expect(submitted[1].get("isFeatured")).toBe("on");
       if (kind) expect(submitted[1].get("kind")).toBe("icon");
       if (category) expect(submitted[1].get("category")).toBe("Web");
-      if (sections !== undefined) expect(submitted[1].get("sections")).toBe(sections);
     } finally {
       await act(async () => root.unmount());
       container.remove();

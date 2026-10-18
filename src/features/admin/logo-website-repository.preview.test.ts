@@ -117,17 +117,6 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
         height: 32,
       },
     ],
-    sections: [{
-      id: randomUUID(),
-      label: "Hero",
-      alt: "Hero",
-      url: "/ticket-07-section.webp",
-      storageProvider: "r2",
-      storageKey: `websites/ticket-07-section-${suffix}.webp`,
-      width: 1440,
-      height: 900,
-      position: 0,
-    }],
     ...overrides,
   });
 
@@ -322,7 +311,7 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       const [creator] = await tx.select().from(creators).where(eq(creators.id, website.creatorId));
       expect(creator).toMatchObject({ name: "Edited website creator", username: `t07_web_edit_${suffix}` });
       expect(await tx.select().from(websiteMedia).where(eq(websiteMedia.websiteId, created.id))).toHaveLength(2);
-      expect(await tx.select().from(websiteSections).where(eq(websiteSections.websiteId, created.id))).toHaveLength(1);
+      expect(await tx.select().from(websiteSections).where(eq(websiteSections.websiteId, created.id))).toHaveLength(0);
       const [mirror] = await tx.select().from(creators).where(eq(creators.id, mirroredId));
       expect(mirror).toMatchObject({ name: "Protected website mirror", username: `t07_web_m_${suffix}` });
       const [mirroredWebsite] = await tx.select().from(websites).where(eq(websites.id, attributed.id));
@@ -333,7 +322,7 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
     });
   }, 60_000);
 
-  it("rolls back website create and update identity, work, media, sections, and audit writes", async () => {
+  it("rolls back website create and update identity, work, media, and audit writes", async () => {
     const createInput = websiteInput({
       slug: `ticket-07-website-rollback-create-${suffix}`,
       creator: { name: "Rollback website", username: `t07_wrc_${suffix}`, avatarUrl: "/avatar.svg" },
@@ -355,7 +344,6 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
       expect(await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.username, `t07_wrc_${suffix}`))).toHaveLength(0);
       expect(await tx.select().from(websites).where(eq(websites.slug, createInput.slug))).toHaveLength(0);
       expect(await tx.select().from(websiteMedia).where(eq(websiteMedia.storageKey, createInput.media[0]!.storageKey!))).toHaveLength(0);
-      expect(await tx.select().from(websiteSections).where(eq(websiteSections.id, createInput.sections[0]!.id))).toHaveLength(0);
       expect((await tx.select({ id: adminAuditLogs.id }).from(adminAuditLogs).where(and(
         eq(adminAuditLogs.actorId, principal.userId),
         eq(adminAuditLogs.action, "website.created"),
@@ -377,7 +365,6 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
         { role: "recording", url: "/changed.mp4", storageKey: `websites/changed-${suffix}.mp4`, alt: "Changed", width: 1, height: 1 },
         { role: "favicon", url: "/changed.png", storageKey: `websites/changed-${suffix}.png`, alt: "Changed", width: 1, height: 1 },
       ],
-      sections: [{ id: randomUUID(), label: "Changed", alt: "Changed", url: "/changed.webp", storageKey: `websites/changed-section-${suffix}.webp`, width: 1, height: 1, position: 0 }],
     });
     external.rollbackNext = true;
     await expect(updateAdminWebsite(created.id, updateInput, principal)).rejects.toThrow("Forced failure");
@@ -393,10 +380,7 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
         )),
       );
       expect(await tx.select().from(websiteMedia).where(eq(websiteMedia.storageKey, updateInput.media[0]!.storageKey!))).toHaveLength(0);
-      expect(await tx.select().from(websiteSections).where(eq(websiteSections.websiteId, created.id))).toEqual([
-        expect.objectContaining({ id: originalInput.sections[0]!.id }),
-      ]);
-      expect(await tx.select().from(websiteSections).where(eq(websiteSections.id, updateInput.sections[0]!.id))).toHaveLength(0);
+      expect(await tx.select().from(websiteSections).where(eq(websiteSections.websiteId, created.id))).toHaveLength(0);
       expect(await tx.select().from(adminAuditLogs).where(and(eq(adminAuditLogs.resourceId, created.id), eq(adminAuditLogs.action, "website.updated")))).toHaveLength(0);
     });
   }, 60_000);

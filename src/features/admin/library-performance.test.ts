@@ -48,7 +48,7 @@ it("filters featured posts in SQL and clamps an excessive page before reading ro
   expect(result).toMatchObject({ page: 2, totalPages: 2 });
 });
 
-it("reads only recording thumbnails for website cards, leaving sections for the editor", async () => {
+it("reads only recording thumbnails for website cards, without loading legacy sections", async () => {
   await getAdminWebsites();
   const options = mocks.findWebsites.mock.calls[0][0];
   expect(options.with).not.toHaveProperty("sections");

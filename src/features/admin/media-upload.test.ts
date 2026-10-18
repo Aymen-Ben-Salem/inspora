@@ -5,16 +5,12 @@ import {
   isAcceptedUploadForKind,
   MAX_IMAGE_UPLOAD_BYTES,
   MAX_VIDEO_UPLOAD_BYTES,
-  MAX_WEBSITE_IMAGE_UPLOAD_BYTES,
 } from "./media-upload";
 
 describe("media upload limits", () => {
-  it("uses separate image, section, and video limits", () => {
+  it("uses separate image and video limits", () => {
     expect(getMediaUploadLimit("image/gif")).toBe(MAX_IMAGE_UPLOAD_BYTES);
     expect(getMediaUploadLimit("image/jpeg")).toBe(MAX_IMAGE_UPLOAD_BYTES);
-    expect(getMediaUploadLimit("image/jpeg", "website-section")).toBe(
-      MAX_WEBSITE_IMAGE_UPLOAD_BYTES,
-    );
     expect(getMediaUploadLimit("video/mp4")).toBe(MAX_VIDEO_UPLOAD_BYTES);
   });
 
@@ -22,8 +18,8 @@ describe("media upload limits", () => {
     expect(isAcceptedUploadForKind("website-recording", "video/mp4")).toBe(true);
     expect(isAcceptedUploadForKind("website-recording", "video/webm")).toBe(true);
     expect(isAcceptedUploadForKind("website-recording", "image/png")).toBe(false);
-    expect(isAcceptedUploadForKind("website-section", "image/webp")).toBe(true);
-    expect(isAcceptedUploadForKind("website-section", "image/gif")).toBe(false);
+    expect(isAcceptedUploadForKind("website-favicon", "image/webp")).toBe(true);
+    expect(isAcceptedUploadForKind("website-favicon", "image/gif")).toBe(false);
     expect(isAcceptedUploadForKind("website-favicon", "video/mp4")).toBe(false);
   });
 

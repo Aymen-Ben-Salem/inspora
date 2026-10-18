@@ -242,7 +242,6 @@ it("preserves website attribution and poster data in the collection", () => {
       videoPreview: { url: "https://media.example.com/preview.mp4", storageKey: "preview.mp4", format: "mp4", width: 600, height: 450, bytes: 1024 },
     },
     favicon: { id: "icon", role: "favicon", url: "https://example.com/favicon.ico", alt: "", width: 32, height: 32 },
-    sections: [],
   };
   expect(buildWebsiteCollectionStructuredData([website]).mainEntity).toMatchObject({
     numberOfItems: 1,

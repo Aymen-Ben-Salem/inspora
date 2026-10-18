@@ -100,7 +100,7 @@ it.each(["missing target", "missing creator", "incomplete website", "future", "m
   const bad = structuredClone(good);
   if (failure === "missing target") Object.assign(bad, { website: null });
   if (failure === "missing creator") Object.assign(bad.website, { creator: null });
-  if (failure === "incomplete website") bad.website.sections = [];
+  if (failure === "incomplete website") bad.website.media[0].posterUrl = null;
   if (failure === "future") bad.website.publishedAt = new Date("2026-09-02T00:00:00Z");
   if (failure === "missing publication") bad.website.publishedAt = null;
   if (failure === "draft") bad.website.status = "draft";

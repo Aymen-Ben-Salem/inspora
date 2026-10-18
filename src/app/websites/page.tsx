@@ -9,14 +9,14 @@ import { buildWebsiteCollectionStructuredData, serializeJsonLd, SITE_OG_IMAGE } 
 export const metadata: Metadata = {
   title: "Websites",
   description:
-    "Explore curated website design inspiration with full-page previews, individual sections, creator credits, themes, and colours.",
+    "Explore curated website design inspiration with website recordings, creator credits, themes, and colours.",
   alternates: { canonical: "/websites" },
   robots: { index: true, follow: true },
-  twitter: { card: "summary_large_image", title: "Website design inspiration", description: "Explore curated website design inspiration with full-page previews, individual sections, creator credits, themes, and colours.", images: [SITE_OG_IMAGE] },
+  twitter: { card: "summary_large_image", title: "Website design inspiration", description: "Explore curated website design inspiration with website recordings, creator credits, themes, and colours.", images: [SITE_OG_IMAGE] },
   openGraph: {
     url: "/websites",
     title: "Websites — Inspora",
-    description: "Curated website design inspiration with complete previews and section breakdowns.",
+    description: "Curated website design inspiration with website recordings and creator credits.",
     images: [SITE_OG_IMAGE],
   },
 };

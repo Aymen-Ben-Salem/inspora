@@ -118,7 +118,6 @@ suite("Preview website archive statements", () => {
       creator: { id: owner, name: "Public work isolated fixture", avatarUrl: "/fixture-avatar.svg" },
       recording: { url: "/fixture.webm", posterUrl: "/poster.webp", videoPreview: { url: "/preview.mp4" } },
       favicon: { url: "/favicon.webp" },
-      sections: [{ label: "First", url: "/first.webp" }, { label: "Second", url: "/second.webp" }],
     });
     const featured = await getPublishedWebsites({ view: "featured" });
     expect(featured.filter(item => item.creator.id === owner).map(item => item.id)).toEqual(ids.slice(1, 41).filter((_, i) => (i + 1) % 2 === 0));
@@ -199,21 +198,19 @@ suite("Preview website archive statements", () => {
     const legacy = websiteFixture();
     legacy.media.push({ ...legacy.media[1], role: "full_page" });
     rows.push(legacy);
-    // Virtual rows cover individual null/zero dimensions without weakening constraints.
+    // Virtual rows cover missing recording assets without weakening constraints.
     const media = rows.flatMap((row, i) => row.media.map(m => ({ website_id: i, role: m.role, poster_url: m.posterUrl, video_preview: m.videoPreview })));
-    const sections = rows.flatMap((row, i) => row.sections.map(s => ({ website_id: i, image_url: s.imageUrl, image_width: s.imageWidth, image_height: s.imageHeight })));
     const predicate = new PgDialect().sqlToQuery(completeWebsiteRecordingPredicate());
     const sql = "with websites as (select generate_series(0, $1::int) as id), " +
-      "website_media as (select * from jsonb_to_recordset($2::jsonb) as m(website_id int, role text, poster_url text, video_preview jsonb)), " +
-      "website_sections as (select * from jsonb_to_recordset($3::jsonb) as s(website_id int, image_url text, image_width int, image_height int)) " +
+      "website_media as (select * from jsonb_to_recordset($2::jsonb) as m(website_id int, role text, poster_url text, video_preview jsonb)) " +
       "select id from websites where " + predicate.sql + " order by id";
-    const selected = await client.query(sql, [rows.length - 1, JSON.stringify(media), JSON.stringify(sections)]);
+    const selected = await client.query(sql, [rows.length - 1, JSON.stringify(media)]);
     expect(selected.map(r => r.id)).toEqual([0, rows.length - 1]);
     expect(rows.map((r, i) => hasCompleteRecording(r) ? i : -1).filter(i => i >= 0)).toEqual([0, rows.length - 1]);
     // JSON scalar null and SQL NULL must both be excluded; arbitrary non-null
     // preview metadata stays eligible, without stronger shape validation.
     for (const preview of ["null::jsonb", "'null'::jsonb", "'{}'::jsonb", "'false'::jsonb", "'0'::jsonb", "'\"\"'::jsonb"]) {
-      const result = await client.query("with websites as (select 1 as id), website_media as (select 1 as website_id, 'recording' as role, '/p' as poster_url, " + preview + " as video_preview union all select 1, 'favicon', null, null), website_sections as (select 1 as website_id, '/s' as image_url, 1 as image_width, 1 as image_height) select id from websites where " + predicate.sql);
+      const result = await client.query("with websites as (select 1 as id), website_media as (select 1 as website_id, 'recording' as role, '/p' as poster_url, " + preview + " as video_preview union all select 1, 'favicon', null, null) select id from websites where " + predicate.sql);
       expect(result).toHaveLength(preview.includes("null") ? 0 : 1);
     }
   }, 30000);

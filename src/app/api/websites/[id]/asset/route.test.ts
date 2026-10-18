@@ -1,20 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getPublishedWebsiteAsset, getR2MediaAsset } = vi.hoisted(() => ({
+const { getPublishedWebsiteAsset } = vi.hoisted(() => ({
   getPublishedWebsiteAsset: vi.fn(),
-  getR2MediaAsset: vi.fn(),
 }));
 
 vi.mock("@/data/websites-repository", () => ({ getPublishedWebsiteAsset }));
-vi.mock("@/lib/website-media-actions", () => ({
-  getWebsiteSectionFileName: (slug: string, label: string) =>
-    slug + "-" + label.toLowerCase() + ".webp",
-}));
 vi.mock("@/lib/logo-asset", () => ({
   getAttachmentDisposition: (name: string) =>
     "attachment; filename=\"" + name + "\"",
 }));
-vi.mock("@/storage/r2", () => ({ getR2MediaAsset }));
 
 import { GET } from "./route";
 
@@ -23,7 +17,6 @@ const context = { params: Promise.resolve({ id: "website-id" }) };
 describe("GET /api/websites/[id]/asset", () => {
   beforeEach(() => {
     getPublishedWebsiteAsset.mockReset();
-    getR2MediaAsset.mockReset();
     vi.unstubAllGlobals();
   });
 
@@ -70,7 +63,6 @@ describe("GET /api/websites/[id]/asset", () => {
       new URL("https://media.example.com/paper.webm"),
       expect.objectContaining({ cache: "no-store" }),
     );
-    expect(getR2MediaAsset).not.toHaveBeenCalled();
   });
 
   it("forwards recording byte ranges while keeping attachment headers", async () => {
@@ -112,39 +104,13 @@ describe("GET /api/websites/[id]/asset", () => {
     );
   });
 
-  it("returns only the selected section as a direct image attachment", async () => {
-    getPublishedWebsiteAsset.mockResolvedValue({
-      kind: "section",
-      slug: "paper",
-      label: "Hero",
-      url: "https://media.example.com/hero.webp",
-      storageProvider: "r2",
-      storageKey: "websites/hero.webp",
-      mimeType: "image/webp",
-    });
-    getR2MediaAsset.mockResolvedValue({
-      bytes: new Uint8Array([1, 2, 3]),
-      contentType: "image/webp",
-    });
-
+  it("rejects obsolete section downloads without fetching an asset", async () => {
     const response = await GET(
-      new Request(
-        "http://localhost/api/websites/website-id/asset?section=section-id",
-      ),
+      new Request("http://localhost/api/websites/website-id/asset?section=section-id"),
       context,
     );
-
-    expect(getPublishedWebsiteAsset).toHaveBeenCalledWith(
-      "website-id",
-      "section-id",
-    );
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Disposition")).toContain(
-      "paper-hero.webp",
-    );
-    expect(new Uint8Array(await response.arrayBuffer())).toEqual(
-      new Uint8Array([1, 2, 3]),
-    );
+    expect(response.status).toBe(404);
+    expect(getPublishedWebsiteAsset).not.toHaveBeenCalled();
   });
 
   it("does not expose missing or unpublished website assets", async () => {

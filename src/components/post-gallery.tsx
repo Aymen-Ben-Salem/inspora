@@ -6,7 +6,15 @@ import { DetailMotion } from "./detail-motion";
 import { LoopingVideo } from "./looping-video";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 
-export function PostGallery({ post, overlay = false }: { post: Post; overlay?: boolean }) {
+export function PostGallery({
+  post,
+  overlay = false,
+  mediaFit = "cover",
+}: {
+  post: Pick<Post, "media">;
+  overlay?: boolean;
+  mediaFit?: "cover" | "contain";
+}) {
   return (
     <DetailMotion overlay={overlay}>
       {post.media.map((media) => {
@@ -60,7 +68,7 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
                   releaseWhenNotVisible
                   width={media.width}
                   height={media.height}
-                  className="size-full object-cover"
+                  className={`size-full ${mediaFit === "contain" ? "object-contain" : "object-cover"}`}
                 />
               ) : media.storageProvider === "r2" ? (
                 <ResponsiveR2Image
@@ -71,7 +79,7 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
                   variants={media.variants}
                   sizes="(min-width: 1024px) 48vw, 90vw"
                   priority={media.position === 0}
-                  className="size-full object-cover"
+                  className={`size-full ${mediaFit === "contain" ? "object-contain" : "object-cover"}`}
                 />
               ) : (
                 <Image
@@ -81,7 +89,7 @@ export function PostGallery({ post, overlay = false }: { post: Post; overlay?: b
                   unoptimized={isGifUrl(media.url)}
                   sizes="(min-width: 1024px) 48vw, 90vw"
                   priority={media.position === 0}
-                  className="object-cover"
+                  className={mediaFit === "contain" ? "object-contain" : "object-cover"}
                 />
               )}
             </div>

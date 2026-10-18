@@ -70,7 +70,6 @@ export async function readSavedPage(request: SavedWorkPageRequest) {
       website: { with: {
         creator: true,
         media: { orderBy: (media) => [asc(media.createdAt)] },
-        sections: { orderBy: (section) => [asc(section.position)] },
       } },
     },
   });

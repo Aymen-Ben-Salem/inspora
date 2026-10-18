@@ -18,6 +18,15 @@ describe('bounded release content',()=>{
   const {s,d}=make();s.rows.websites=[{id:EXCLUDED_WEBSITE_ID,creator_id:'unrelated',slug:'test'}];
   expect(buildReleaseContentPlan(s,d,options).inserts.websites).toEqual([]);
  });
+ it('includes websites with recording media and no sections',()=>{
+  const {s,d}=make();
+  s.rows.websites=[{id:'website',creator_id:'new',slug:'website'}];
+  s.rows.website_media=[{id:'recording',website_id:'website',role:'recording',url:'https://preview.example/websites/recording.mp4',storage_key:'websites/recording.mp4'}];
+  const plan=buildReleaseContentPlan(s,d,options);
+  expect(plan.inserts.websites).toHaveLength(1);
+  expect(plan.inserts.website_media[0].url).toBe('https://rehearsal.example/websites/recording.mp4');
+  expect(plan.inserts.website_sections).toEqual([]);
+ });
  it('stops on account ownership, slug collisions, unknown duplicate identity and missing media',()=>{
   for(const mutate of [(s:ContentSnapshot)=>{s.rows.creators[0].has_owner=true;},(_s:ContentSnapshot,d:ContentSnapshot)=>{d.rows.logos.push({id:'collision',slug:'auric'});},(s:ContentSnapshot,d:ContentSnapshot)=>{s.rows.creators[1].url='https://x.com/same';d.rows.creators.push({...profile('different',null),url:'https://x.com/same'});},(s:ContentSnapshot)=>{s.rows.logo_media=[];}]){
    const {s,d}=make();mutate(s,d);expect(()=>buildReleaseContentPlan(s,d,options)).toThrow(/Release content/);

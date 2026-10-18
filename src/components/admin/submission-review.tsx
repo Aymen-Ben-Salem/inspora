@@ -93,7 +93,6 @@ function websiteDraft(
     isFeatured: false,
     status: "draft",
     media: [],
-    sections: [],
     createdAt: submission.createdAt,
     updatedAt: submission.createdAt,
   };

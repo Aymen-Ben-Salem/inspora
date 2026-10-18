@@ -492,18 +492,12 @@ export function collectReviewedPublicationAssets(
         publicUrlForKey,
       );
     }
-    for (const section of input.content.sections) {
-      assertPublicManagedMedia(section, ["website-section"], publicUrlForKey);
-    }
     return [
       ...input.content.media.flatMap((media) =>
         managedAsset({
           ...media,
           type: media.role === "recording" ? "video" : "image",
         }),
-      ),
-      ...input.content.sections.flatMap((section) =>
-        managedAsset({ ...section, type: "image" }),
       ),
     ];
   }

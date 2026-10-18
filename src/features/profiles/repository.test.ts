@@ -80,12 +80,13 @@ describe("Neon raw-query response", () => {
         from websites where id <> 6
       ) select id from websites where ${predicate.sql} order by id
     `, predicate.params);
-    expect(rows.map((row) => row.id)).toEqual([2, 3]);
+    expect(rows.map((row) => row.id)).toEqual([2, 3, 6, 7]);
   }, 30000);
 
   it("fails instead of silently omitting selected incomplete creator work", async () => {
     const id = "33333333-3333-4333-8333-333333333333";
-    const payload = { ...websiteFixture(), id, creatorId, sections: [] };
+    const payload = { ...websiteFixture(), id, creatorId };
+    payload.media[0].posterUrl = null;
     vi.mocked(getDatabase).mockReturnValue({
       execute: vi.fn().mockResolvedValue({ rows: [{ id, kind: "website", filter: "websites", publishedAt: payload.publishedAt!.toISOString(), payload }] }),
     } as never);

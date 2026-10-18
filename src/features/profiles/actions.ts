@@ -95,7 +95,7 @@ export async function createOwnAvatarUploadSignature(
   const parsed = avatarRequestSchema.safeParse(input);
   if (
     !parsed.success ||
-    parsed.data.size > getMediaUploadLimit(parsed.data.contentType, "creator-avatar")
+    parsed.data.size > getMediaUploadLimit(parsed.data.contentType)
   ) {
     return { ok: false, message: "Choose one JPG or PNG image up to 10 MB." };
   }

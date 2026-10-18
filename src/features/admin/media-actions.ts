@@ -31,7 +31,6 @@ const uploadRequestSchema = z.object({
     "logo-media",
     "website-recording",
     "website-poster",
-    "website-section",
     "website-favicon",
     "creator-avatar",
     "sponsor-media",
@@ -51,7 +50,7 @@ export async function createMediaUploadSignatureAction(
   if (
     !parsed.success ||
     !isAcceptedUploadForKind(parsed.data.kind, parsed.data.contentType) ||
-    parsed.data.size > getMediaUploadLimit(parsed.data.contentType, parsed.data.kind)
+    parsed.data.size > getMediaUploadLimit(parsed.data.contentType)
   ) {
     return {
       ok: false,
@@ -62,11 +61,9 @@ export async function createMediaUploadSignatureAction(
             ? "Logo assets must be static images up to 10 MB."
             : parsed.success && parsed.data.kind === "website-recording"
               ? "Website recordings must be MP4 or WebM videos up to 50 MB."
-              : parsed.success && parsed.data.kind === "website-section"
-                ? "Website sections must be static images up to 25 MB."
-                : parsed.success && (parsed.data.kind === "website-favicon" || parsed.data.kind === "website-poster")
-                  ? "Website image assets must be supported static images up to 10 MB."
-          : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
+              : parsed.success && (parsed.data.kind === "website-favicon" || parsed.data.kind === "website-poster")
+                ? "Website image assets must be supported static images up to 10 MB."
+                : "Images and GIFs can be up to 10 MB; MP4 and WebM videos up to 50 MB.",
     };
   }
 
@@ -102,7 +99,7 @@ export async function completeMediaUploadAction(
   if (
     !parsed.success ||
     !isAcceptedUploadForKind(parsed.data.kind, parsed.data.contentType) ||
-    parsed.data.size > getMediaUploadLimit(parsed.data.contentType, parsed.data.kind)
+    parsed.data.size > getMediaUploadLimit(parsed.data.contentType)
   ) {
     return { ok: false, message: "The uploaded file details are invalid." };
   }
@@ -137,7 +134,6 @@ const discardSchema = z.object({
     "logo-media",
     "website-recording",
     "website-poster",
-    "website-section",
     "website-favicon",
     "creator-avatar",
     "sponsor-media",

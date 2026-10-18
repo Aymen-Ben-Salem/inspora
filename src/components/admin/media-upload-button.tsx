@@ -11,7 +11,6 @@ function acceptedTypes(kind: MediaUploadKind) {
   if (
     kind === "creator-avatar" ||
     kind === "logo-media" ||
-    kind === "website-section" ||
     kind === "website-favicon" ||
     kind === "website-poster"
   ) {

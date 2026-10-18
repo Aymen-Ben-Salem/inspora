@@ -1,17 +1,15 @@
 import "server-only";
 import { sql } from "drizzle-orm";
-import { creators, websiteMedia, websites, websiteSections } from "@/db/schema";
+import { creators, websiteMedia, websites } from "@/db/schema";
 import { isWebsiteMediaRole, type Website, type WebsiteMedia } from "@/domain/website";
 import { isMediaStorageProvider } from "@/storage/types";
 
 type WebsiteRow = typeof websites.$inferSelect;
 type CreatorRow = typeof creators.$inferSelect;
 type MediaRow = typeof websiteMedia.$inferSelect;
-type SectionRow = typeof websiteSections.$inferSelect;
 type PublicWebsiteRecord = WebsiteRow & {
   creator: CreatorRow;
   media: MediaRow[];
-  sections: SectionRow[];
 };
 
 function mapMedia(media: MediaRow): WebsiteMedia {
@@ -47,28 +45,6 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
   }
   if (!row.publishedAt) throw new Error(`Published website ${row.id} has no publish date.`);
 
-  const sections = row.sections.map((section) => {
-    if (!section.imageUrl || !section.imageWidth || !section.imageHeight) {
-      throw new Error(`Published website ${row.id} has incomplete section media.`);
-    }
-    return {
-      id: section.id,
-      label: section.label,
-      alt: section.imageAlt,
-      url: section.imageUrl,
-      storageProvider: isMediaStorageProvider(section.imageStorageProvider)
-        ? section.imageStorageProvider
-        : undefined,
-      mimeType: section.imageMimeType ?? undefined,
-      sourceMimeType: section.imageSourceMimeType ?? undefined,
-      sizeBytes: section.imageSizeBytes ?? undefined,
-      variants: section.imageVariants,
-      width: section.imageWidth,
-      height: section.imageHeight,
-      position: section.position,
-    };
-  });
-
   return {
     id: row.id,
     slug: row.slug,
@@ -95,7 +71,6 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
     publishedAt: row.publishedAt.toISOString(),
     recording: { ...recording, posterUrl: recording.posterUrl, videoPreview: recording.videoPreview },
     favicon,
-    sections,
   };
 }
 
@@ -104,11 +79,7 @@ export function hasCompleteRecording(row: PublicWebsiteRecord) {
   return Boolean(
     recording?.posterUrl &&
       recording.videoPreview != null &&
-      row.media.some((media) => media.role === "favicon") &&
-      row.sections.length > 0 &&
-      row.sections.every(
-        (section) => section.imageUrl && section.imageWidth && section.imageHeight,
-      ),
+      row.media.some((media) => media.role === "favicon"),
   );
 }
 
@@ -124,14 +95,5 @@ export function completeWebsiteRecordingPredicate() {
   ) and exists (
     select 1 from website_media favicon
     where favicon.website_id = ${websites.id} and favicon.role = 'favicon'
-  ) and exists (
-    select 1 from website_sections section
-    where section.website_id = ${websites.id}
-  ) and not exists (
-    select 1 from website_sections section
-    where section.website_id = ${websites.id}
-      and (coalesce(section.image_url, '') = ''
-        or coalesce(section.image_width, 0) = 0
-        or coalesce(section.image_height, 0) = 0)
   )`;
 }

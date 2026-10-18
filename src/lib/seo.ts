@@ -193,7 +193,7 @@ export function buildWebsiteCollectionStructuredData(websites: Website[]) {
     "@id": `${url}#collection`,
     url,
     name: "Curated website design inspiration",
-    description: "Website design inspiration with full-page previews, sections, and creator credits.",
+    description: "Website design inspiration with website recordings and creator credits.",
     inLanguage: "en",
     isPartOf: { "@id": absoluteUrl("/#website") },
     mainEntity: {

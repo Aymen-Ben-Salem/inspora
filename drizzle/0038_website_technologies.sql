@@ -1,0 +1,1 @@
+ALTER TABLE "websites" ADD COLUMN "technologies" text[] DEFAULT '{}'::text[] NOT NULL;

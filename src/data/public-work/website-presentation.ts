@@ -65,6 +65,7 @@ export function mapPublishedWebsite(row: PublicWebsiteRecord): Website {
     categories: row.categories,
     themes: row.themes,
     colors: row.colors,
+    technologies: row.technologies,
     sourceUrl: row.sourceUrl,
     isFeatured: row.isFeatured,
     createdAt: row.createdAt.toISOString(),

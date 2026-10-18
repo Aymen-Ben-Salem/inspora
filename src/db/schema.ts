@@ -630,6 +630,7 @@ export const websites = pgTable(
     categories: text("categories").array().default(sql`'{}'::text[]`).notNull(),
     themes: text("themes").array().default(sql`'{}'::text[]`).notNull(),
     colors: text("colors").array().default(sql`'{}'::text[]`).notNull(),
+    technologies: text("technologies").array().default(sql`'{}'::text[]`).notNull(),
     sourceUrl: text("source_url").notNull(),
     status: text("status").default("draft").notNull(),
     isFeatured: boolean("is_featured").default(false).notNull(),

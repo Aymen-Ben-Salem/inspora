@@ -19,6 +19,7 @@ describe("published websites repository", () => {
 
     expect(website).toMatchObject({
       slug: "paper",
+      technologies: ["React", "Next.js"],
       recording: {
         url: "/recording.webm",
         posterUrl: "/poster.webp",

@@ -21,8 +21,8 @@ Published work that meets the presentation requirements for its kind at the time
 _Avoid_: Published work as shorthand for all eligibility checks having passed.
 
 **Website presentation completeness**:
-The presence of a website recording with its poster and video preview, a favicon, and at least one section, with an image and dimensions for every section.
-_Avoid_: Recording completeness when the requirement also includes favicon and sections.
+The presence of a website recording with its poster and video preview, and a favicon.
+_Avoid_: Recording completeness when the requirement also includes a favicon.
 
 **Collection scope**:
 The membership restriction used to select work, such as an archive, a creator's work, or a viewer's saved collection. Public eligibility applies within that scope.
@@ -30,6 +30,10 @@ The membership restriction used to select work, such as an archive, a creator's 
 **Saved work**:
 Work a viewer has bookmarked. The bookmark can remain even when the work is temporarily ineligible for public display.
 _Avoid_: Saved post when referring to designs, logos, and websites together.
+
+**Technologies**:
+The key libraries, frameworks, platforms, or other tools used to build a website. This selection need not describe its entire technical stack.
+_Avoid_: Framework as the umbrella term for all website technologies.
 
 ## Creator identity
 

@@ -46,7 +46,7 @@ const logo: AdminLogoRecord = {
   ...base, kind: "logo", industry: "Original", shape: "Original", colors: ["Blue"], styles: ["Original"], media: image,
 };
 const website: AdminWebsiteRecord = {
-  ...base, tagline: "Original tagline", categories: ["Original"], themes: ["Original"], colors: ["Blue"],
+  ...base, tagline: "Original tagline", categories: ["Original"], themes: ["Original"], colors: ["Blue"], technologies: ["React"],
   isFeatured: false, media: [{ ...image, role: "favicon" }],
 };
 const commonFields = {
@@ -67,7 +67,7 @@ const editors: Array<{
     render: (action, mode) => <LogoEditor action={action} creators={[]} logo={mode === "create" ? undefined : logo} publicationOnly={mode === "review"} />,
   },
   {
-    name: "website", fields: { ...commonFields, tagline: "Keep this tagline", categories: "SaaS, Portfolio", themes: "Light, Editorial", colors: "White, Blue" },
+    name: "website", fields: { ...commonFields, tagline: "Keep this tagline", categories: "SaaS, Portfolio", themes: "Light, Editorial", colors: "White, Blue", technologies: "React, Next.js" },
     render: (action, mode) => <WebsiteEditor action={action} creators={[]} website={mode === "create" ? undefined : website} publicationOnly={mode === "review"} />,
   },
 ];

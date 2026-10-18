@@ -91,6 +91,7 @@ describe.skipIf(!enabled)("logo and website attribution transactions in guarded 
     description: "Ticket 07 fixture",
     categories: ["Portfolio"],
     themes: ["Minimal"],
+    technologies: ["React", "Next.js"],
     colors: ["White"],
     sourceUrl: "https://example.com/website",
     isFeatured: false,

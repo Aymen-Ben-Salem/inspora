@@ -233,7 +233,7 @@ it("preserves website attribution and poster data in the collection", () => {
   const website: Website = {
     id: "site-1", slug: "example", title: "Example website", tagline: "A portfolio",
     description: "An editorial portfolio", creator: { ...creator, username: "jane-current", url: "https://example.com" },
-    categories: ["Portfolio"], themes: ["Editorial"], colors: ["Black"],
+    categories: ["Portfolio"], themes: ["Editorial"], colors: ["Black"], technologies: [],
     sourceUrl: "https://example.com", isFeatured: false,
     createdAt: "2026-08-01T00:00:00.000Z", publishedAt: "2026-08-02T00:00:00.000Z",
     recording: {

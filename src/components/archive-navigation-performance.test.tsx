@@ -48,7 +48,7 @@ it("prioritizes the first logo row and keeps later images lazy", () => {
 const websites: Website[] = Array.from({ length: 5 }, (_, index) => ({
   id: `site-${index}`, slug: `site-${index}`, title: `Site ${index}`, tagline: "Website", description: "Website",
   creator: { id: "creator", name: "Creator", avatarUrl: "/avatar.svg" },
-  categories: ["Design"], themes: ["Light"], colors: ["Blue"], sourceUrl: "https://example.com", isFeatured: false,
+  categories: ["Design"], themes: ["Light"], colors: ["Blue"], technologies: [], sourceUrl: "https://example.com", isFeatured: false,
   createdAt: "2026-10-14T00:00:00Z", publishedAt: "2026-10-14T00:00:00Z",
   favicon: { id: `icon-${index}`, role: "favicon", url: `/icon-${index}.webp`, alt: "Icon", width: 64, height: 64 },
   recording: { id: `recording-${index}`, role: "recording", url: `/recording-${index}.mp4`, posterUrl: `/poster-${index}.webp`, alt: "Website", width: 1920, height: 1080,

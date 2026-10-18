@@ -142,6 +142,7 @@ export function WebsiteEditor({
             <label className={labelClass}>Categories<input className={inputClass} name="categories" required placeholder="SaaS, Portfolio" defaultValue={website?.categories.join(", ")} /></label>
             <label className={labelClass}>Themes<input className={inputClass} name="themes" required placeholder="Light, Editorial" defaultValue={website?.themes.join(", ")} /></label>
             <label className={labelClass}>Colours<input className={inputClass} name="colors" required placeholder="White, Blue" defaultValue={website?.colors.join(", ")} /></label>
+            <label className={labelClass}>Technologies<input className={inputClass} name="technologies" placeholder="React, Next.js" defaultValue={website?.technologies.join(", ")} /></label>
             <label className={labelClass}>Live website URL<input className={inputClass} name="sourceUrl" type="url" required placeholder="https://" defaultValue={website?.sourceUrl} /></label>
           </div>
         </section>

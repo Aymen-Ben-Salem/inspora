@@ -63,6 +63,23 @@ afterEach(() => {
 });
 
 describe("admin website validation", () => {
+  it("parses comma-separated technologies while preserving their names", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validWebsiteForm();
+    form.set("technologies", " React, Next.js, , three.js ");
+    expect(parseAdminWebsiteForm(form).technologies).toEqual(["React", "Next.js", "three.js"]);
+  });
+
+  it("allows websites without technologies and rejects oversized names", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validWebsiteForm();
+    expect(parseAdminWebsiteForm(form).technologies).toEqual([]);
+    form.set("technologies", " , ");
+    expect(parseAdminWebsiteForm(form).technologies).toEqual([]);
+    form.set("technologies", "x".repeat(81));
+    expect(() => parseAdminWebsiteForm(form)).toThrow();
+  });
+
   it("accepts a pasted external HTTPS favicon without upload metadata", () => {
     process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
     const form = validWebsiteForm();

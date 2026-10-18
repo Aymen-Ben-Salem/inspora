@@ -89,6 +89,7 @@ function websiteDraft(
     categories: [],
     themes: [],
     colors: [],
+    technologies: [],
     sourceUrl: submission.sourceUrl ?? "",
     isFeatured: false,
     status: "draft",

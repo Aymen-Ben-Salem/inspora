@@ -142,6 +142,7 @@ export function WebsiteDetailDialog({
               { label: "Categories", values: website.categories },
               { label: "Theme", values: website.themes },
               { label: "Colours", values: website.colors },
+              { label: "Technologies", values: website.technologies },
             ]}
           />
         </DetailSidebarLayout>

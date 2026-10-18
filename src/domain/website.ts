@@ -46,6 +46,7 @@ export type Website = {
   categories: string[];
   themes: string[];
   colors: string[];
+  technologies: string[];
   sourceUrl: string;
   isFeatured: boolean;
   createdAt: string;

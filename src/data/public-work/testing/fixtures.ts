@@ -13,6 +13,7 @@ export function websiteFixture(): Parameters<typeof mapPublishedWebsite>[0] {
       description: "A product website.",
       categories: ["SaaS"],
       themes: ["Light"],
+      technologies: ["React", "Next.js"],
       colors: ["White"],
       sourceUrl: "https://example.com",
       status: "published",

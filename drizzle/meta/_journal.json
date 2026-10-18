@@ -267,6 +267,13 @@
       "when": 1792280000000,
       "tag": "0037_sponsor_payment_date",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792326810380,
+      "tag": "0038_website_technologies",
+      "breakpoints": true
     }
   ]
 }

@@ -102,10 +102,10 @@ export function CampaignPreview({
             <Image
               src={wordmark.url}
               alt={title}
-              width={160}
-              height={28}
+              width={112}
+              height={18}
               unoptimized
-              className="max-h-7 max-w-[160px] object-contain"
+              className="max-h-[18px] w-auto max-w-[112px] object-contain"
             />
           ) : (
             <span className={`${campaignType.body} text-[#767676]`}>Wordmark not imported</span>

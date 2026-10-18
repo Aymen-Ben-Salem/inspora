@@ -46,7 +46,7 @@ export function SponsorMarquee() {
         style={
           {
             "--sponsor-loop-width": `${size.width}px`,
-            "--sponsor-loop-duration": `${Math.max(1, size.width / 24)}s`,
+            "--sponsor-loop-duration": `${Math.max(1, size.width / 18)}s`,
           } as CSSProperties
         }
       >
@@ -75,10 +75,10 @@ export function SponsorMarquee() {
                 <Image
                   src={s.wordmarkUrl!}
                   alt={s.title}
-                  width={160}
-                  height={28}
+                  width={112}
+                  height={18}
                   unoptimized
-                  className="max-h-7 w-auto max-w-[160px] object-contain"
+                  className="max-h-[18px] w-auto max-w-[112px] object-contain"
                 />
               </a>
             ))}
@@ -104,10 +104,10 @@ export function SponsorMarquee() {
                   <Image
                     src={s.wordmarkUrl!}
                     alt=""
-                    width={160}
-                    height={28}
+                    width={112}
+                    height={18}
                     unoptimized
-                    className="max-h-7 w-auto max-w-[160px] object-contain"
+                    className="max-h-[18px] w-auto max-w-[112px] object-contain"
                   />
                 </a>
               ))}

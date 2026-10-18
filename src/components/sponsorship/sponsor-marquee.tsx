@@ -46,7 +46,7 @@ export function SponsorMarquee() {
         style={
           {
             "--sponsor-loop-width": `${size.width}px`,
-            "--sponsor-loop-duration": `${Math.max(1, size.width / 18)}s`,
+            "--sponsor-loop-duration": `${Math.max(1, size.width / 13.5)}s`,
           } as CSSProperties
         }
       >

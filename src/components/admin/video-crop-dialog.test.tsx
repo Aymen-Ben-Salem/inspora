@@ -32,12 +32,48 @@ it("supports presets, keyboard resizing and moving, and applies source-pixel coo
     await act(async () => move.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
     await act(async () => button("Apply crop").click());
     expect(apply).toHaveBeenCalledWith({ crop: { x: 422, y: 0, width: 1070, height: 1070 }, sourceDimensions: { width: 1920, height: 1080 } });
+    await act(async () => button("Center crop").click());
+    expect(button("Square").getAttribute("aria-pressed")).toBe("true");
+    await act(async () => button("Apply crop").click());
+    expect(apply).toHaveBeenLastCalledWith({ crop: { x: 424, y: 4, width: 1070, height: 1070 }, sourceDimensions: { width: 1920, height: 1080 } });
     await act(async () => button("Reset crop").click());
     await act(async () => button("Apply crop").click());
     expect(apply).toHaveBeenLastCalledWith({ crop: { x: 0, y: 0, width: 1920, height: 1080 }, sourceDimensions: { width: 1920, height: 1080 } });
     await act(async () => container.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true })));
     expect(close).toHaveBeenCalledOnce();
   } finally { await act(async () => root.unmount()); container.remove(); }
+});
+
+it("centers numeric width and height edits without resetting the chosen size", async () => {
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const apply = vi.fn();
+  const props = { url: "/source.mp4", busy: false, status: "", error: "", onApply: apply, onClose: vi.fn() };
+  const button = (text: string) => Array.from(container.querySelectorAll("button")).find((item) => item.textContent === text)!;
+  try {
+    await act(async () => root.render(<VideoCropDialog {...props} />));
+    expect(button("Center crop").disabled).toBe(true);
+    const video = container.querySelector("video")!;
+    Object.defineProperties(video, { videoWidth: { value: 1920 }, videoHeight: { value: 1080 }, duration: { value: 10 } });
+    await act(async () => video.dispatchEvent(new Event("loadedmetadata")));
+    const changeNumber = async (index: number, value: string) => {
+      const input = container.querySelectorAll<HTMLInputElement>('input[type="number"]')[index];
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    };
+    await changeNumber(2, "1600");
+    await act(async () => button("Center crop").click());
+    await act(async () => button("Apply crop").click());
+    expect(apply).toHaveBeenLastCalledWith({ crop: { x: 160, y: 0, width: 1600, height: 1080 }, sourceDimensions: { width: 1920, height: 1080 } });
+    await changeNumber(3, "800");
+    await act(async () => button("Center crop").click());
+    await act(async () => button("Apply crop").click());
+    expect(apply).toHaveBeenLastCalledWith({ crop: { x: 160, y: 140, width: 1600, height: 800 }, sourceDimensions: { width: 1920, height: 1080 } });
+    await act(async () => root.render(<VideoCropDialog {...props} busy status="Cropping recording…" />));
+    expect(button("Center crop").disabled).toBe(true);
+  } finally { await act(async () => root.unmount()); }
 });
 
 it("converts pointer movement from displayed pixels to recording pixels", async () => {

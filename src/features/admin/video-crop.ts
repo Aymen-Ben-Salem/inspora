@@ -31,6 +31,10 @@ export function moveVideoCrop(crop: VideoCrop, dx: number, dy: number, bounds: V
   return constrainVideoCrop({ ...crop, x: clamp(crop.x + dx, 0, bounds.width - crop.width), y: clamp(crop.y + dy, 0, bounds.height - crop.height) }, bounds);
 }
 
+export function centerVideoCrop(crop: VideoCrop, bounds: VideoDimensions): VideoCrop {
+  return constrainVideoCrop({ ...crop, x: (bounds.width - crop.width) / 2, y: (bounds.height - crop.height) / 2 }, bounds);
+}
+
 export function resizeVideoCrop(crop: VideoCrop, corner: CropCorner, dx: number, dy: number, bounds: VideoDimensions, ratio?: number): VideoCrop {
   const east = corner.endsWith("e");
   const south = corner.startsWith("s");

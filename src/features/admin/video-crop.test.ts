@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, videoCropFilter } from "./video-crop";
+import { centerVideoCrop, constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, videoCropFilter } from "./video-crop";
 import { buildVideoCropFfmpegArgs, videoCropEncodingBudget } from "./video-crop-encoding";
 
 const bounds = { width: 1920, height: 1080 };
@@ -11,6 +11,16 @@ describe("website recording crop", () => {
   it("keeps a moved crop inside the video without changing its size", () => {
     const crop = { x: 400, y: 200, width: 800, height: 600 };
     expect(moveVideoCrop(crop, 9000, -9000, bounds)).toEqual({ x: 1120, y: 0, width: 800, height: 600 });
+  });
+  it("centers the existing crop on both axes without resetting its dimensions", () => {
+    expect(centerVideoCrop({ x: 0, y: 0, width: 1600, height: 1080 }, bounds)).toEqual({ x: 160, y: 0, width: 1600, height: 1080 });
+    const crop = { x: 800, y: 400, width: 800, height: 600 };
+    expect(centerVideoCrop(crop, bounds)).toEqual({ x: 560, y: 240, width: 800, height: 600 });
+  });
+  it("keeps centered crops aligned for encoding when equal margins need odd pixel offsets", () => {
+    const crop = centerVideoCrop({ x: 0, y: 0, width: 1598, height: 798 }, bounds);
+    expect(crop).toEqual({ x: 160, y: 140, width: 1598, height: 798 });
+    expect(videoCropFilter(crop)).toBe("crop=1598:798:160:140");
   });
   it("resizes from each corner while keeping the opposite corner anchored", () => {
     const crop = { x: 400, y: 200, width: 800, height: 600 };

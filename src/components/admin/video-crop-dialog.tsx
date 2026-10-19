@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
-import { constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, type CropCorner, type VideoCrop, type VideoCropSelection, type VideoDimensions } from "@/features/admin/video-crop";
+import { centerVideoCrop, constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, type CropCorner, type VideoCrop, type VideoCropSelection, type VideoDimensions } from "@/features/admin/video-crop";
 
 const ratios = [{ label: "Freeform", value: "free" }, { label: "16:9", value: "16/9" }, { label: "4:3", value: "4/3" }, { label: "Square", value: "1/1" }, { label: "9:16", value: "9/16" }];
 const corners: CropCorner[] = ["nw", "ne", "sw", "se"];
@@ -30,6 +30,7 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
   const titleId = useId();
   const helpId = useId();
   const ratio = ratioValue === "free" ? undefined : Number(ratioValue.split("/")[0]) / Number(ratioValue.split("/")[1]);
+  const cropStyle = crop && bounds ? { left: `${crop.x / bounds.width * 100}%`, top: `${crop.y / bounds.height * 100}%`, width: `${crop.width / bounds.width * 100}%`, height: `${crop.height / bounds.height * 100}%` } : undefined;
 
   useEffect(() => {
     const dialog = dialogRef.current!;
@@ -66,7 +67,7 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
           if (bounds) setCrop(cropForAspectRatio(bounds, option.value === "free" ? undefined : Number(option.value.split("/")[0]) / Number(option.value.split("/")[1])));
         }}>{option.label}</button>)}
       </div>
-      <div className="mt-4 flex min-h-40 items-center justify-center overflow-hidden rounded-xl bg-[#202020] p-4">
+      <div className="mt-4 flex min-h-40 items-center justify-center overflow-hidden rounded-xl bg-transparent p-4">
         <div ref={stageRef} className="relative isolate touch-none select-none" style={{ width: bounds ? `min(100%, ${50 * bounds.width / bounds.height}vh)` : "100%", aspectRatio: bounds ? `${bounds.width} / ${bounds.height}` : "16 / 9" }} onPointerMove={pointerMove} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}>
           <video ref={videoRef} src={url} muted playsInline loop preload="auto" aria-label="Recording crop preview" className="absolute inset-0 size-full object-contain" onLoadedMetadata={(event) => {
             const video = event.currentTarget;
@@ -75,7 +76,11 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
             setBounds(next); setCrop(cropForAspectRatio(next));
             setDuration(Number.isFinite(video.duration) ? video.duration : 0);
           }} onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onError={() => setDecodeError("The recording could not be opened. Upload an MP4 or WebM file and try again.")} />
-          {crop && bounds ? <div className="absolute border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]" style={{ left: `${crop.x / bounds.width * 100}%`, top: `${crop.y / bounds.height * 100}%`, width: `${crop.width / bounds.width * 100}%`, height: `${crop.height / bounds.height * 100}%` }}>
+          {crop && bounds ? <>
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]" style={cropStyle} />
+          </div>
+          <div className="absolute border-2 border-white ring-1 ring-black/30" style={cropStyle}>
             <button type="button" disabled={busy} aria-label="Move crop" className="focus-ring absolute inset-0 size-full cursor-move touch-none" onPointerDown={(event) => startDrag(event, "move")} onKeyDown={(event) => {
               const step = event.shiftKey ? 10 : 2;
               if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
@@ -89,7 +94,8 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
               if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
               event.preventDefault(); setCrop(resizeVideoCrop(crop, corner, event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0, event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0, bounds, ratio));
             }} />)}
-          </div> : null}
+          </div>
+          </> : null}
         </div>
       </div>
       <div className="mt-3 flex items-center gap-3">
@@ -101,7 +107,10 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
       </div> : null}
       {error || decodeError ? <p role="alert" className="mt-4 text-sm text-red-700">{error || decodeError}</p> : null}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4">
-        <button type="button" disabled={!bounds || busy} className={buttonClass} onClick={() => { setRatioValue("free"); if (bounds) setCrop(cropForAspectRatio(bounds)); }}>Reset crop</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!crop || !bounds || busy} title="Center the crop without changing its size" className={buttonClass} onClick={() => { if (crop && bounds) setCrop(centerVideoCrop(crop, bounds)); }}>Center crop</button>
+          <button type="button" disabled={!bounds || busy} className={buttonClass} onClick={() => { setRatioValue("free"); if (bounds) setCrop(cropForAspectRatio(bounds)); }}>Reset crop</button>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-[#777]" aria-live="polite">{busy ? status : crop ? `${crop.width} × ${crop.height} px` : "Loading recording…"}</span>
           <button type="button" disabled={!crop || !bounds || Boolean(decodeError) || busy} className="focus-ring rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50" onClick={() => { videoRef.current?.pause(); if (crop && bounds) onApply({ crop, sourceDimensions: bounds }); }}>{busy ? "Processing…" : "Apply crop"}</button>

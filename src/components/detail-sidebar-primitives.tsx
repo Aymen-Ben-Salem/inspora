@@ -129,7 +129,7 @@ export function DetailMetadataList({
               {row.label}
             </p>
             <div
-              className={`detail-fit-metadata-values flex min-w-0 flex-col items-end gap-2 text-right text-[14px] tracking-[0.028px] ${
+              className={`detail-fit-metadata-values flex min-w-0 flex-col items-end gap-1.5 text-right text-[14px] tracking-[0.028px] ${
                 capitalizeValues ? "capitalize" : ""
               }`}
             >

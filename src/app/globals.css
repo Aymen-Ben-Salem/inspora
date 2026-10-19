@@ -433,7 +433,7 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
     --detail-time-size: clamp(8px, min(calc(0.961538vw - 1.846px), calc(1.709402dvh - 1.846px)), 12px);
     --detail-meta-gap: clamp(6px, min(0.879792vw, 1.564074dvh), 12.669px);
     --detail-meta-size: clamp(10px, min(calc(0.961538vw + 0.154px), calc(1.709402dvh + 0.154px)), 14px);
-    --detail-meta-value-gap: clamp(4px, min(0.586528vw, 1.042716dvh), 8.446px);
+    --detail-meta-value-gap: calc(clamp(4px, min(0.586528vw, 1.042716dvh), 8.446px) * 0.75);
     --detail-action-height: clamp(28px, min(2.844444vw, 5.05679dvh), 40.96px);
     --detail-action-size: clamp(10px, min(calc(0.961538vw + 0.154px), calc(1.709402dvh + 0.154px)), 14px);
     --detail-action-gap: clamp(4px, min(0.586528vw, 1.042716dvh), 8.446px);

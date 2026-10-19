@@ -23,7 +23,7 @@ export function SponsorFeed({
   hasMore = false,
   emptyLabel,
 }: {
-  ordinary: { id: string; node: ReactNode }[];
+  ordinary: { id: string; node: ReactNode; mediaAspectRatio?: number }[];
   initialSponsors?: ActiveSponsor[];
   layout?: "masonry" | "websites";
   hasMore?: boolean;
@@ -77,16 +77,25 @@ export function SponsorFeed({
   ) {
     setSchedule({ ...schedule, placements: result.placements });
   }
-  const items = result.items.map((item) =>
-    item.kind === "ordinary" ? (
-      ordinary.find((o) => o.id === item.id)?.node
-    ) : (
+  const items = result.items.map((item, index) => {
+    if (item.kind === "ordinary") return ordinary.find((o) => o.id === item.id)?.node;
+
+    // Website recordings can have different crops. Match a recording in this
+    // row, or the nearest following/preceding recording on a single column.
+    const rowStart = index - (index % schedule.columns);
+    const referenceId = layout === "websites"
+      ? (result.items.slice(rowStart, rowStart + schedule.columns).find((entry) => entry.kind === "ordinary")
+        ?? result.items.slice(index + 1).find((entry) => entry.kind === "ordinary")
+        ?? result.items.findLast((entry) => entry.kind === "ordinary"))?.id
+      : undefined;
+    return (
       <SponsoredPostCard
         key={`sponsor-${item.id}`}
         sponsor={sponsors.find((s) => s.id === item.id)!}
+        mediaAspectRatio={ordinary.find((entry) => entry.id === referenceId)?.mediaAspectRatio}
       />
-    ),
-  );
+    );
+  });
   return (
     <div ref={ref}>
       {!items.length && emptyLabel && (

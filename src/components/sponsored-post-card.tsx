@@ -17,9 +17,11 @@ function getHostname(urlStr: string) {
 export function SponsoredPostCard({
   sponsor,
   priority = false,
+  mediaAspectRatio,
 }: {
   sponsor: ActiveSponsor;
   priority?: boolean;
+  mediaAspectRatio?: number;
 }) {
   const isVideo = sponsor.mediaType === "video";
   const mediaUrl = sponsor.mediaUrl;
@@ -36,7 +38,10 @@ export function SponsoredPostCard({
         rel="noopener noreferrer"
         aria-label={`Sponsored: ${sponsor.title}`}
         className="focus-ring group relative block overflow-hidden bg-[#f3f3f3]"
-        style={{ aspectRatio: `${sponsor.mediaWidth || 1200}/${sponsor.mediaHeight || 800}` }}
+        style={{
+          aspectRatio: mediaAspectRatio ?? `${sponsor.mediaWidth || 1200}/${sponsor.mediaHeight || 800}`,
+          minHeight: mediaAspectRatio ? 0 : undefined,
+        }}
       >
         {mediaUrl ? (
           isVideo ? (

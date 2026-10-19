@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, videoCropFilter } from "./video-crop";
-import { buildVideoPreviewFfmpegArgs } from "./gif-conversion";
+import { buildVideoCropFfmpegArgs, videoCropEncodingBudget } from "./video-crop-encoding";
 
 const bounds = { width: 1920, height: 1080 };
 describe("website recording crop", () => {
@@ -32,7 +32,7 @@ describe("website recording crop", () => {
     expect(() => videoCropFilter({ x: 1, y: 0, width: 50, height: 50 })).toThrow("even pixel");
   });
   it("crops the full recording without downscaling it or trimming its duration", () => {
-    const args = buildVideoPreviewFfmpegArgs("source.mp4", "cropped.mp4", { x: 40, y: 20, width: 1600, height: 900 });
+    const args = buildVideoCropFfmpegArgs("source.mp4", "cropped.mp4", { x: 40, y: 20, width: 1600, height: 900 }, videoCropEncodingBudget(15_000_000, 30, true));
     expect(args[args.indexOf("-vf") + 1]).toBe("crop=1600:900:40:20,fps=30,setsar=1");
     expect(args).not.toContain("-t");
     expect(args).not.toContain("-ss");

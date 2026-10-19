@@ -110,6 +110,7 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
       const crop = constrainVideoCrop(videoCrop.crop, originalDimensions);
       primary = await cropVideo({ file, crop, configuration, signal: preparationSignal, onStage: setStatus });
       if (primary.size > getMediaUploadLimit("video/mp4")) throw new Error("The cropped recording exceeds 50 MB. Try a smaller recording.");
+      if (primary.size > file.size) throw new Error("The cropped recording exceeds the original file size. No upload was made.");
       originalDimensions = { width: crop.width, height: crop.height };
     }
     const preview = await createVideoPreview({

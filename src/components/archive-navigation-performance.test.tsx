@@ -58,8 +58,8 @@ const websites: Website[] = Array.from({ length: 5 }, (_, index) => ({
 it("preloads only the first website posters without eagerly downloading every video", () => {
   const html = renderToStaticMarkup(<WebsiteArchive websites={websites} view="latest" />);
   for (let index = 0; index < websites.length; index++) {
-    expect(html.includes(`rel="preload" as="image" href="/poster-${index}.webp"`)).toBe(index < 3);
-    expect(html.includes(`poster="/poster-${index}.webp"`)).toBe(index < 3);
+    expect(html.includes(`rel="preload" as="image" href="/poster-${index}.webp"`)).toBe(index < 4);
+    expect(html.includes(`poster="/poster-${index}.webp"`)).toBe(index < 4);
   }
   expect(html).not.toContain('preload="auto"');
 });

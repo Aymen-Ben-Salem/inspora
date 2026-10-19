@@ -58,7 +58,7 @@ function WorkSkeleton({ square = false }: { square?: boolean }) {
 
 function WebsiteSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-x-5 gap-y-[var(--archive-card-gap)] sm:grid-cols-2 xl:grid-cols-4 xl:gap-x-[35px]">
+    <div className="grid grid-cols-1 gap-x-5 gap-y-[20px] sm:grid-cols-2 xl:grid-cols-4 xl:gap-x-[35px]">
       {Array.from({ length: 8 }, (_, index) => (
         <div key={index}>
           <Block className="aspect-video w-full" />

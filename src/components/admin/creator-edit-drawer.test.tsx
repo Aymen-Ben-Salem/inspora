@@ -142,6 +142,25 @@ it("keeps the current profile picture if an upload fails and accepts a file retr
   expect(input("creatorAvatarUrl").value).toBe("https://media.example.com/creators/new.webp");
 });
 
+it("keeps the sidebar and draft open when the photo file picker is canceled", async () => {
+  const save = await render(); await open();
+  await change("creatorName", "Unsaved studio name");
+  const photoInput = dialog().querySelector<HTMLInputElement>('input[type="file"]')!;
+  await act(async () => photoInput.dispatchEvent(new Event("cancel", { bubbles: true })));
+  expect(dialog()?.open).toBe(true);
+  expect(input("creatorName").value).toBe("Unsaved studio name");
+  expect(input("creatorAvatarUrl").value).toBe(creator.avatarUrl);
+  expect(upload.prepare).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+  expect(document.documentElement.style.overflow).toBe("hidden");
+
+  const file = new File(["image"], "profile.png", { type: "image/png" });
+  Object.defineProperty(photoInput, "files", { configurable: true, value: [file] });
+  await act(async () => photoInput.dispatchEvent(new Event("change", { bubbles: true })));
+  expect(input("creatorAvatarUrl").value).toBe("https://media.example.com/creators/new.webp");
+  expect(input("creatorName").value).toBe("Unsaved studio name");
+});
+
 it("opens the same sidebar with empty fields to create a new creator", async () => {
   const save = await render();
   await act(async () => button("Create a new creator").click());

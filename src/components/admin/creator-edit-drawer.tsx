@@ -39,7 +39,11 @@ function CreatorEditSurface({ creator: original, saveAction, onDismiss }: Props)
 
   return (
     <dialog ref={dialogRef} aria-labelledby={titleId} aria-busy={isSaving}
-      onCancel={(event) => { event.preventDefault(); if (!isSaving) onDismiss(); }}
+      onCancel={(event) => {
+        if (event.target !== event.currentTarget) return;
+        event.preventDefault();
+        if (!isSaving) onDismiss();
+      }}
       onClick={(event) => {
         if (isSaving || event.target !== event.currentTarget) return;
         const rect = event.currentTarget.getBoundingClientRect();

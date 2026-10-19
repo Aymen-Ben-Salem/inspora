@@ -118,8 +118,7 @@ function textField(form: HTMLFormElement, name: string) {
   return form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)!;
 }
 
-async function submit(form: HTMLFormElement) {
-  const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+async function submit(form: HTMLFormElement, button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!) {
   await act(async () => form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: button })));
 }
 
@@ -245,17 +244,20 @@ it("submits a pasted Dribbble logo through the real parser and retains it after 
 
 it("retains the creator profile details when saving returns an error", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
+  vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
   const action = vi.fn<SaveAction>().mockResolvedValue({ status: "error", message: "Save failed." });
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   try {
     await act(async () => root.render(<CreatorManager creators={[]} claims={[]} saveAction={action} deleteAction={action} reviewAction={async () => {}} lockExistingCreators={false} />));
-    const form = container.querySelector("form")!;
+    await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Create a new creator")!.click());
+    const form = container.querySelector("dialog form")! as HTMLFormElement;
     await enterText(textField(form, "creatorName"), "Keep this creator");
     await enterText(textField(form, "creatorAvatarUrl"), "https://avatars.example.com/avatar.jpg");
 
-    await submit(form);
+    await submit(form, container.querySelector<HTMLButtonElement>('dialog button[type="submit"]')!);
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Save failed.");
     expect(textField(form, "creatorName").value).toBe("Keep this creator");

@@ -56,11 +56,13 @@ export function AdminCreatorEditor({
   creators,
   onChange,
   lockExistingCreators = false,
+  showCreatorPicker = true,
 }: {
   creator: AdminCreatorInput;
   creators: AdminCreatorAttribution[];
   onChange: (creator: AdminCreatorInput) => void;
   lockExistingCreators?: boolean;
+  showCreatorPicker?: boolean;
 }) {
   const isExistingLocked =
     lockExistingCreators &&
@@ -133,7 +135,7 @@ export function AdminCreatorEditor({
           </p>
         </div>
 
-        <CreatorPicker creators={creators} selectedId={creator.id} onSelect={selectCreator} />
+        {showCreatorPicker ? <CreatorPicker creators={creators} selectedId={creator.id} onSelect={selectCreator} /> : null}
 
         <div className="grid gap-5 rounded-2xl bg-[#f7f7f4] p-4 sm:grid-cols-[88px_minmax(0,1fr)] sm:p-5">
           <div className="flex items-start">

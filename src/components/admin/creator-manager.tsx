@@ -3,9 +3,9 @@
 import { useActionState, useCallback, useMemo, useState } from "react";
 import { AdminLibraryPagination } from "./library-pagination";
 import { CreatorWorkDrawer } from "./creator-work-drawer";
+import { CreatorEditDrawer } from "./creator-edit-drawer";
 
 import {
-  AdminCreatorEditor,
   blankAdminCreator,
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
@@ -47,17 +47,15 @@ export function CreatorManager({
   directoryPage?: { page: number; totalPages: number; query: string };
   claimsPage?: { page: number; totalPages: number };
 }) {
-  const [saveState, saveFormAction, isSaving] = useActionState(
-    saveAction,
-    initialAdminActionState,
-  );
   const [deleteState, deleteFormAction, isDeleting] = useActionState(
     deleteAction,
     initialAdminActionState,
   );
   const [creator, setCreator] = useState<AdminCreatorInput>(blankAdminCreator());
   const [search, setSearch] = useState("");
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [workCreator, setWorkCreator] = useState<AdminCreatorRecord | null>(null);
+  const dismissEditor = useCallback(() => setIsEditorOpen(false), []);
   const dismissWork = useCallback(() => setWorkCreator(null), []);
   const filteredCreators = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -90,9 +88,9 @@ export function CreatorManager({
   return (
     <div className="grid min-w-0 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="grid min-w-0 content-start gap-6">
-        {(saveState.status === "error" || deleteState.status === "error") ? (
+        {deleteState.status === "error" ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {saveState.message ?? deleteState.message}
+            {deleteState.message}
           </p>
         ) : null}
 
@@ -122,13 +120,13 @@ export function CreatorManager({
             {filteredCreators.map((item) => (
               <div
                 key={item.id}
-                className={`flex min-w-0 items-center gap-3 rounded-xl border p-4 transition-colors ${
+                className={`flex min-w-0 flex-wrap items-center gap-3 rounded-xl border p-4 transition-colors ${
                   creator.id === item.id
                     ? "border-black bg-[#f3f3ef]"
                     : "border-black/10 hover:bg-[#f7f7f4]"
                 }`}
               >
-                <button type="button" onClick={() => setCreator(toAdminCreatorDraft(item))} aria-pressed={creator.id === item.id}
+                <button type="button" onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} aria-pressed={creator.id === item.id} aria-haspopup="dialog"
                   className="focus-ring grid min-w-0 flex-1 items-start gap-2 rounded-sm text-left sm:grid-cols-[minmax(0,1fr)_auto]">
                 <span className="min-w-0 break-words">
                   <span className="block text-sm font-medium">{item.name}</span>
@@ -142,8 +140,12 @@ export function CreatorManager({
                   {item.pendingClaimCount ? <span>{item.pendingClaimCount} pending</span> : null}
                 </span>
                 </button>
-                <button type="button" aria-label={`View work by ${item.name}`} aria-haspopup="dialog"
-                  onClick={() => setWorkCreator(item)} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" aria-label={`View work by ${item.name}`} aria-haspopup="dialog"
+                    onClick={() => { setIsEditorOpen(false); setWorkCreator(item); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
+                  <button type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
+                    onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">Edit</button>
+                </div>
               </div>
             ))}
             {filteredCreators.length === 0 ? (
@@ -154,35 +156,12 @@ export function CreatorManager({
           </div>
           <button
             type="button"
-            onClick={() => setCreator(blankAdminCreator())}
+            onClick={() => { setCreator(blankAdminCreator()); setWorkCreator(null); setIsEditorOpen(true); }}
             className="focus-ring justify-self-start rounded-full border border-black/10 px-4 py-2 text-sm hover:bg-[#f3f3f3]"
           >
             Create a new creator
           </button>
         </section>
-
-        <form action={saveFormAction} className="grid min-w-0 gap-4">
-          <AdminCreatorEditor
-            creator={creator}
-            creators={creators}
-            onChange={setCreator}
-            lockExistingCreators={lockExistingCreators}
-          />
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-black/10 bg-white p-5">
-            <button
-              type="submit"
-              disabled={isSaving || locked}
-              className="focus-ring h-11 rounded-full bg-black px-6 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isSaving ? "Saving..." : creator.id ? "Save creator" : "Create creator"}
-            </button>
-            {selected ? (
-              <span className="text-xs text-[#777]">
-                {selected.recordOrigin} record · {selected.workCount} credited works
-              </span>
-            ) : null}
-          </div>
-        </form>
 
         {selected ? (
           <form action={deleteFormAction} className="rounded-2xl border border-red-200 bg-red-50 p-5">
@@ -260,6 +239,7 @@ export function CreatorManager({
         {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1) }} /> : null}
       </aside>
       {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
+      {isEditorOpen ? <CreatorEditDrawer creator={selected} saveAction={saveAction} lockExistingCreators={lockExistingCreators} onDismiss={dismissEditor} /> : null}
     </div>
   );
 }

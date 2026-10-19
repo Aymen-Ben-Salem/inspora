@@ -58,15 +58,15 @@ function WorkSkeleton({ square = false }: { square?: boolean }) {
 
 function WebsiteSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-[35px] xl:gap-y-10">
-      {Array.from({ length: 6 }, (_, index) => (
+    <div className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-4 xl:gap-x-[35px]">
+      {Array.from({ length: 8 }, (_, index) => (
         <div key={index}>
           <Block className="aspect-video w-full" />
           <div className="mt-5 flex items-start gap-2.5">
             <Block className="size-[39px] shrink-0" />
             <div className="min-w-0 flex-1">
               <Block className="h-5 w-2/3" />
-              <Block className="mt-1 h-[18px] w-full max-w-[420px]" />
+              <Block className="mt-1 h-[18px] w-full" />
             </div>
           </div>
         </div>

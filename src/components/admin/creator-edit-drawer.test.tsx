@@ -7,8 +7,9 @@ import type { AdminCreatorRecord } from "@/features/creators/types";
 import { parseAdminCreatorForm } from "@/features/creators/validation";
 
 vi.mock("next/image", () => ({ default: () => null }));
-vi.mock("./media-upload-button", () => ({
-  MediaUploadButton: ({ label, onUploaded }: { label: string; onUploaded: (value: unknown) => void }) => <button type="button" onClick={() => onUploaded({ type: "image", url: "https://media.example.com/creators/new.webp", storageProvider: "r2", storageKey: "creators/new.webp" })}>{label}</button>,
+const upload = vi.hoisted(() => ({ prepare: vi.fn() }));
+vi.mock("@/features/media/prepare-and-upload", () => ({
+  defaultUploadOperations: {}, prepareAndUploadMedia: upload.prepare,
 }));
 
 import { CreatorManager } from "./creator-manager";
@@ -27,6 +28,7 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("fetch", vi.fn());
+  upload.prepare.mockReset().mockResolvedValue({ type: "image", url: "https://media.example.com/creators/new.webp", storageProvider: "r2", storageKey: "creators/new.webp" });
   vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
   vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
   vi.spyOn(HTMLFormElement.prototype, "reset").mockImplementation(function (this: HTMLFormElement) {
@@ -67,7 +69,9 @@ it("adds Edit beside View work and opens all profile fields without a form below
   expect(document.activeElement).toBe(input("creatorName"));
   for (const [name, value] of Object.entries({ creatorId: creator.id, creatorName: creator.name, creatorUsername: creator.username, creatorHandle: creator.legacyHandle, creatorUrl: creator.url, creatorXProfileUrl: creator.xProfileUrl, creatorAvatarUrl: creator.avatarUrl })) expect(input(name).value).toBe(value);
   expect(dialog().textContent).not.toContain("Select creator");
-  expect(button("Upload avatar")).toBeDefined();
+  const photoInput = dialog().querySelector<HTMLInputElement>('input[type="file"]')!;
+  expect(photoInput.accept).toContain("image/png");
+  expect(photoInput.closest("label")?.textContent).toBe("Upload new photo");
   expect(fetch).not.toHaveBeenCalled();
 });
 
@@ -88,9 +92,30 @@ it("submits every edited profile field and retains the draft on errors for retry
 
 it("preserves uploaded avatar ownership metadata when saving other profile changes", async () => {
   const save = await render(); await open();
-  await act(async () => button("Upload avatar").click()); await change("creatorName", "New name");
+  const file = new File(["image"], "new-profile.png", { type: "image/png" });
+  const photoInput = dialog().querySelector<HTMLInputElement>('input[type="file"]')!;
+  Object.defineProperty(photoInput, "files", { configurable: true, value: [file] });
+  await act(async () => photoInput.dispatchEvent(new Event("change", { bubbles: true })));
+  expect(upload.prepare).toHaveBeenCalledWith(file, "creator-avatar", expect.anything(), expect.any(Function), expect.any(Function));
+  expect(input("creatorAvatarUrl").value).toBe("https://media.example.com/creators/new.webp");
+  await change("creatorName", "New name");
   await submit();
   expect(parseAdminCreatorForm(save.mock.calls[0][1])).toMatchObject({ id: creator.id, name: "New name", avatarUrl: "https://media.example.com/creators/new.webp", avatarStorageProvider: "r2", avatarStorageKey: "creators/new.webp" });
+});
+
+it("keeps the current profile picture if an upload fails and accepts a file retry", async () => {
+  await render(); await open();
+  upload.prepare.mockRejectedValueOnce(new Error("Image upload failed."));
+  const photoInput = dialog().querySelector<HTMLInputElement>('input[type="file"]')!;
+  const file = new File(["image"], "profile.webp", { type: "image/webp" });
+  Object.defineProperty(photoInput, "files", { configurable: true, value: [file] });
+  await act(async () => photoInput.dispatchEvent(new Event("change", { bubbles: true })));
+  expect(dialog().querySelector('[role="alert"]')?.textContent).toBe("Image upload failed.");
+  expect(input("creatorAvatarUrl").value).toBe(creator.avatarUrl);
+  expect(input("creatorAvatarStorageKey").value).toBe(creator.avatarStorageKey);
+  await act(async () => photoInput.dispatchEvent(new Event("change", { bubbles: true })));
+  expect(dialog().querySelector('[role="alert"]')).toBeNull();
+  expect(input("creatorAvatarUrl").value).toBe("https://media.example.com/creators/new.webp");
 });
 
 it("opens the same sidebar with empty fields to create a new creator", async () => {
@@ -118,7 +143,7 @@ it("keeps existing mirrored profiles read-only in Preview", async () => {
   for (const name of ["creatorName", "creatorUsername", "creatorHandle", "creatorUrl", "creatorXProfileUrl", "creatorAvatarUrl"]) expect(input(name).readOnly).toBe(true);
   expect(button("Save creator").disabled).toBe(true);
   expect(dialog().textContent).toContain("read-only in Preview");
-  expect(dialog().textContent).not.toContain("Upload avatar");
+  expect(dialog().querySelector('input[type="file"]')).toBeNull();
 });
 
 it("prevents edits and dismissal while the save is in progress", async () => {

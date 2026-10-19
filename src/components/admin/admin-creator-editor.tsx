@@ -153,6 +153,17 @@ export function AdminCreatorEditor({
           </div>
 
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            {!isExistingLocked ? (
+              <div className="grid gap-2 sm:col-span-2">
+                <span className="text-sm font-medium text-[#333]">Profile picture</span>
+                <MediaUploadButton
+                  kind="creator-avatar"
+                  label="Upload new photo"
+                  onUploaded={applyUploadedAvatar}
+                />
+                <p className="text-xs leading-relaxed text-[#777]">Upload a photo, or use the avatar URL below.</p>
+              </div>
+            ) : null}
             <label className={labelClass}>
               Creator name
               <input
@@ -226,18 +237,7 @@ export function AdminCreatorEditor({
               <p className="text-xs leading-relaxed text-[#777] sm:col-span-2">
                 Choose &quot;Create a new creator&quot; to enter a different profile or upload a new avatar.
               </p>
-            ) : (
-              <div className="grid gap-2 sm:col-span-2">
-                <span className="text-sm font-medium text-[#333]">
-                  Or upload an avatar
-                </span>
-                <MediaUploadButton
-                  kind="creator-avatar"
-                  label="Upload avatar"
-                  onUploaded={applyUploadedAvatar}
-                />
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
       </section>

@@ -144,7 +144,7 @@ export function CreatorManager({
                   <button type="button" aria-label={`View work by ${item.name}`} aria-haspopup="dialog"
                     onClick={() => { setIsEditorOpen(false); setWorkCreator(item); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
                   <button type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
-                    onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">Edit</button>
+                    onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} className="focus-ring shrink-0 rounded-full bg-black px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#252525]">Edit</button>
                 </div>
               </div>
             ))}

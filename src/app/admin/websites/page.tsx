@@ -76,7 +76,7 @@ export default async function AdminWebsitesPage({ searchParams }: AdminWebsitesP
                 <Link prefetch={false} href={`/admin/websites/${website.id}/edit` as Route} className="focus-ring aspect-[1080/659] overflow-hidden bg-[#ececea]">
                   {recording?.posterUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={recording.posterUrl} alt={recording.alt} loading="lazy" decoding="async" className="size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.015]" />
+                    <img src={recording.posterUrl} alt={recording.alt} loading="lazy" decoding="async" className="size-full object-contain" />
                   ) : null}
                 </Link>
                 <form action={setWebsiteFeaturedAction} className="absolute right-3 top-3 z-10">

@@ -15,6 +15,7 @@ import {
 } from "../admin/media-upload";
 import { createVideoPoster } from "../admin/video-processing";
 import { assertVideoPreviewDimensions } from "../admin/video-preview-validation";
+import { constrainVideoCrop, type VideoCrop } from "../admin/video-crop";
 import {
   createAdminMediaUploadOperations,
   createPreparedMediaUploadBundle,
@@ -51,6 +52,7 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
   activeOperations: MediaUploadOperations<TResult> = defaultUploadOperations as MediaUploadOperations<TResult>,
   setStatus: (status: UploadStatus) => void = () => {},
   onController?: (controller: AbortController) => void,
+  videoCrop?: VideoCrop,
 ): Promise<TResult> {
   const contentType = ACCEPTED_MEDIA_MIME_TYPES.find((type) => type === file.type);
   if (!contentType || !isAcceptedUploadForKind(kind, contentType) || file.size > getMediaUploadLimit(contentType)) {
@@ -95,19 +97,26 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
     ];
   } else if (contentType.startsWith("video/")) {
     const configuration = await activeOperations.converterConfiguration();
-    const { createVideoPreview } = await import(
+    const { createVideoPreview, cropVideo } = await import(
       "../admin/gif-conversion"
     );
-    const originalDimensions = await readMediaDimensions(file, preparationSignal);
+    let originalDimensions = await readMediaDimensions(file, preparationSignal);
+    let primary = file;
+    if (videoCrop) {
+      if (kind !== "website-recording") throw new Error("Cropping is only available for website recordings.");
+      primary = await cropVideo({ file, crop: constrainVideoCrop(videoCrop, originalDimensions), configuration, signal: preparationSignal, onStage: setStatus });
+      if (primary.size > getMediaUploadLimit("video/mp4")) throw new Error("The cropped recording exceeds 50 MB. Try a smaller recording.");
+      originalDimensions = await readMediaDimensions(primary, preparationSignal);
+    }
     const preview = await createVideoPreview({
-      file,
+      file: primary,
       configuration,
       signal: controller.signal,
       onStage: setStatus,
     });
     const poster = await createVideoPoster(preview, preparationSignal);
     uploadItems = [
-      { file, ...originalDimensions, uploadKind: kind, role: "primary" },
+      { file: primary, ...originalDimensions, uploadKind: kind, role: "primary" },
       { file: preview, width: poster.videoWidth, height: poster.videoHeight, uploadKind: kind, role: "video-preview" },
       {
         file: poster.file,

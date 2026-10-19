@@ -728,6 +728,8 @@ describe("guarded paid sponsorship lifecycle", () => {
   });
   it("keeps signed billing jobs, paid placement and owned history working in a recovery candidate", async () => {
     const f = await fixture("Recovery candidate");
+    // Remote database startup must not consume Checkout's creation margin.
+    vi.spyOn(Date, "now").mockReturnValue(f.now.getTime());
     await reserveSponsorSeat(f.owner, f.id, "price_fixture", f.now);
     await ensureSponsorCheckoutSession(f.id, f.provider);
     f.complete();

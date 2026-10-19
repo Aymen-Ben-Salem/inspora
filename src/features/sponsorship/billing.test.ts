@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+beforeEach(() => {
+  vi.stubEnv("DATA_ENVIRONMENT", "preview");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("SPONSORSHIP_LIVE_PAYMENTS_ENABLED", "false");
+});
+afterEach(() => vi.unstubAllEnvs());
 import {
   billingDecision,
   validateSponsorPrice,

@@ -15,6 +15,7 @@ import type { WriteTx } from "@/db/write-client";
 import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { withSponsorWrite } from "./repository";
 import { billingDecision, validateSponsorPrice } from "./billing";
+import { assertStripeObjectMode } from "./payment-environment";
 import { promoteSponsorMedia, type SponsorPromoter } from "./public-media";
 import type { BillingProvider, CheckoutSession } from "./stripe-client";
 import type { SponsorUpload } from "./types";
@@ -251,6 +252,7 @@ export async function reconcileSponsorCheckout(
       }
     };
     const observation = await readBilling();
+    assertStripeObjectMode(observation);
     if (renewal && (once || observation.customerId !== renewal.customerId || observation.billingAnchor !== Date.parse(renewal.startsAt)))
       throw new Error("Monthly renewal customer or billing date mismatch.");
     if (

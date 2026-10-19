@@ -10,6 +10,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
+import { WebsiteVideoCrop } from "@/components/admin/website-video-crop";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -70,6 +71,7 @@ export function WebsiteEditor({
   );
   const [recording, setRecording] = useState<MediaDraft>(mediaFor(website, "recording"));
   const [favicon, setFavicon] = useState<MediaDraft>(mediaFor(website, "favicon"));
+  const [isCropping, setIsCropping] = useState(false);
   const media = useMemo(() => [recording, favicon], [favicon, recording]);
 
   function updateMedia(
@@ -164,18 +166,22 @@ export function WebsiteEditor({
             ["recording", recording, "Website recording"],
             ["favicon", favicon, "Website favicon"],
           ] as const).map(([role, item, title]) => (
-            <div key={role} className="grid gap-4 rounded-2xl border border-black/10 bg-[#f7f7f4] p-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-              <div className="flex min-h-40 items-center justify-center overflow-hidden bg-[#ececea] p-4">
+            <div key={role} className={`grid min-w-0 gap-4 rounded-2xl border border-black/10 bg-[#f7f7f4] p-4 ${role === "favicon" ? "sm:grid-cols-[180px_minmax(0,1fr)]" : ""}`}>
+              <div
+                className={role === "recording" ? "relative w-full overflow-hidden rounded-xl bg-[#ececea]" : "flex min-h-40 items-center justify-center overflow-hidden bg-[#ececea] p-4"}
+                style={role === "recording" ? { aspectRatio: `${Number(item.width) || 1920} / ${Number(item.height) || 1080}` } : undefined}
+              >
                 {item.url ? role === "recording" ? (
-                  <video src={item.videoPreview?.url ?? item.url} poster={item.posterUrl} preload="none" controls muted playsInline className="aspect-video size-full object-contain" />
+                  <video key={item.url} src={item.url} poster={item.posterUrl} preload="none" controls muted playsInline aria-label="Website recording preview" className="absolute inset-0 size-full object-contain" />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={item.url} alt={item.alt || `${title} preview`} loading="lazy" decoding="async" className="max-h-24 max-w-24 object-contain" />
-                ) : <span className="text-xs text-[#777]">No {role} yet</span>}
+                ) : <span className={`text-xs text-[#777] ${role === "recording" ? "absolute inset-0 flex items-center justify-center" : ""}`}>No {role} yet</span>}
               </div>
               <div className="grid gap-3">
                 <h3 className="font-medium">{title}</h3>
                 <MediaUploadButton kind={role === "recording" ? "website-recording" : "website-favicon"} label={`Upload ${role}`} onUploaded={(uploaded) => applyUpload(role, uploaded)} />
+                {role === "recording" && item.url ? <WebsiteVideoCrop key={item.url} url={item.url} onBusyChange={setIsCropping} onUploaded={(uploaded) => applyUpload("recording", { ...uploaded, alt: recording.alt || uploaded.alt })} /> : null}
                 <label className={labelClass}>{role === "recording" ? "Original video URL" : "Image URL"}<input className={inputClass} required value={item.url} onChange={(event) => updateMedia(role, "url", event.target.value)} /></label>
                 <label className={labelClass}>Alternative text<input className={inputClass} required maxLength={500} value={item.alt} onChange={(event) => updateMedia(role, "alt", event.target.value)} /></label>
                 <div className="grid grid-cols-2 gap-3">
@@ -193,7 +199,7 @@ export function WebsiteEditor({
           <div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Publishing</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Status</h2></div>
           {publicationOnly ? <input type="hidden" name="status" value="published" /> : <div className="grid grid-cols-2 gap-2">{(["draft", "published"] as const).map((status) => <label key={status} className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="radio" name="status" value={status} defaultChecked={(website?.status ?? "draft") === status} />{status === "draft" ? "Draft" : "Published"}</label>)}</div>}
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={website?.isFeatured} />Feature this website</label>
-          <button type="submit" disabled={isPending} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
+          <button type="submit" disabled={isPending || isCropping} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
           <Link prefetch={false} href={cancelHref} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
         </section>
       </aside>

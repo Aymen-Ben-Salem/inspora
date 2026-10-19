@@ -12,12 +12,13 @@ vi.mock("../admin/media-upload", async (original) => ({
   ...await original<typeof import("../admin/media-upload")>(),
   readMediaDimensions: vi.fn().mockResolvedValue({ width: 1200, height: 800 }),
 }));
-vi.mock("../admin/gif-conversion", () => ({ convertGifToMp4: vi.fn(), createVideoPreview: vi.fn() }));
+vi.mock("../admin/gif-conversion", () => ({ convertGifToMp4: vi.fn(), createVideoPreview: vi.fn(), cropVideo: vi.fn() }));
 vi.mock("../admin/video-processing", () => ({ createVideoPoster: vi.fn() }));
 
 import { prepareAndUploadMedia } from "./prepare-and-upload";
 import { optimizeStaticImage } from "../admin/image-optimization";
-import { convertGifToMp4, createVideoPreview } from "../admin/gif-conversion";
+import { convertGifToMp4, createVideoPreview, cropVideo } from "../admin/gif-conversion";
+import { readMediaDimensions } from "../admin/media-upload";
 import { createVideoPoster } from "../admin/video-processing";
 
 describe("shared publication file preparation", () => {
@@ -54,6 +55,36 @@ describe("shared publication file preparation", () => {
     await expect(prepareAndUploadMedia(new File(["video"], "video.mp4", { type: "video/mp4" }), "logo-media", operations)).rejects.toThrow("static images");
     vi.mocked(optimizeStaticImage).mockRejectedValue(new Error("decode failed"));
     await expect(prepareAndUploadMedia(new File(["png"], "image.png", { type: "image/png" }), "post-media", operations)).rejects.toThrow("decode failed");
+    expect(operations.upload).not.toHaveBeenCalled();
+  });
+
+  it("uses the cropped recording for the primary, feed preview, poster, and saved dimensions", async () => {
+    const source = new File(["source"], "source.mp4", { type: "video/mp4" });
+    const cropped = new File(["cropped"], "source-cropped.mp4", { type: "video/mp4" });
+    const preview = new File(["preview"], "preview.mp4", { type: "video/mp4" });
+    const crop = { x: 40, y: 20, width: 1000, height: 600 };
+    vi.mocked(cropVideo).mockResolvedValue(cropped);
+    vi.mocked(createVideoPreview).mockResolvedValue(preview);
+    vi.mocked(readMediaDimensions).mockResolvedValueOnce({ width: 1200, height: 800 }).mockResolvedValueOnce({ width: 1000, height: 600 });
+    vi.mocked(createVideoPoster).mockResolvedValue({ file: new File(["poster"], "poster.webp", { type: "image/webp" }), width: 1000, height: 600, videoWidth: 1000, videoHeight: 600 });
+    const operations = { upload: vi.fn().mockResolvedValue("uploaded"), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };
+    await prepareAndUploadMedia(source, "website-recording", operations, undefined, undefined, crop);
+    expect(cropVideo).toHaveBeenCalledWith(expect.objectContaining({ file: source, crop }));
+    expect(createVideoPreview).toHaveBeenCalledWith(expect.objectContaining({ file: cropped }));
+    expect(createVideoPoster).toHaveBeenCalledWith(preview, expect.any(AbortSignal));
+    const bundle = operations.upload.mock.calls[0][0];
+    expect(bundle.primary).toMatchObject({ file: cropped, width: 1000, height: 600 });
+    expect(bundle.derivatives).toEqual([
+      expect.objectContaining({ role: "video-preview", file: preview, width: 1000, height: 600 }),
+      expect.objectContaining({ role: "poster", uploadKind: "website-poster", width: 1000, height: 600 }),
+    ]);
+  });
+
+  it("does not upload anything if cropping fails or is cancelled", async () => {
+    const source = new File(["source"], "source.webm", { type: "video/webm" });
+    const operations = { upload: vi.fn(), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };
+    vi.mocked(cropVideo).mockRejectedValue(new DOMException("Cancelled", "AbortError"));
+    await expect(prepareAndUploadMedia(source, "website-recording", operations, undefined, undefined, { x: 0, y: 40, width: 1200, height: 760 })).rejects.toMatchObject({ name: "AbortError" });
     expect(operations.upload).not.toHaveBeenCalled();
   });
 

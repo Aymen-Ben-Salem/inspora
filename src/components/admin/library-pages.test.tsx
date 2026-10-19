@@ -59,6 +59,19 @@ it("keeps the featured filter when paging and removes page=1 for the first page"
   expect(html).toContain('href="/admin/posts?view=featured&amp;page=3"');
 });
 
+it("shows the entire website recording poster in the library", async () => {
+  mocks.websites.mockResolvedValue({
+    page: 1, totalPages: 1, counts: { total: 1, published: 1, draft: 0, archived: 0 },
+    items: [{ id: "website-1", slug: "website", title: "Website", tagline: "A website", status: "published", isFeatured: false,
+      createdAt: new Date("2026-10-15"), creator: { name: "Creator" },
+      media: [{ role: "recording", url: "/original.mp4", posterUrl: "/website.webp", alt: "Website", width: 1920, height: 1080 }],
+    }],
+  });
+  const html = renderToStaticMarkup(await WebsitesPage({ searchParams: Promise.resolve({}) }));
+  expect(html).toContain('class="size-full object-contain"');
+  expect(html).not.toContain("/original.mp4");
+});
+
 it("preserves creator search and directory position when paging claims", () => {
   const html = renderToStaticMarkup(<AdminLibraryPagination path="/admin/creators" page={2} totalPages={4} pageParam="claimsPage" query={{ q: "Studio", page: "3" }} />);
   expect(html).toContain('href="/admin/creators?q=Studio&amp;page=3"');

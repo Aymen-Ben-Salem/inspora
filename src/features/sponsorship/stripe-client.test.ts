@@ -1,5 +1,18 @@
 import Stripe from "stripe";
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+beforeEach(() => {
+  vi.stubEnv("DATA_ENVIRONMENT", "preview");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("SPONSORSHIP_LIVE_PAYMENTS_ENABLED", "false");
+  vi.stubEnv("SITE_URL", "https://preview.example.test");
+  vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_fixture");
+  vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_fixture");
+  vi.stubEnv("STRIPE_SPONSOR_PRICE_ID", "price_monthly");
+  vi.stubEnv("STRIPE_SPONSOR_PORTAL_CONFIGURATION_ID", "bpc_fixture");
+  vi.stubEnv("STRIPE_SPONSOR_AUTOMATIC_TAX", "false");
+  vi.stubEnv("CRON_SECRET", "c".repeat(32));
+});
+afterEach(() => vi.unstubAllEnvs());
 vi.mock("server-only", () => ({}));
 import { createStripeProvider } from "./stripe-client";
 

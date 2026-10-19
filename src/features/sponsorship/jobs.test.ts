@@ -1,4 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+beforeEach(() => {
+  vi.stubEnv("DATA_ENVIRONMENT", "preview");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("SPONSORSHIP_LIVE_PAYMENTS_ENABLED", "false");
+});
+afterEach(() => vi.unstubAllEnvs());
 vi.mock("server-only", () => ({}));
 import { createStripeWebhookReceiver } from "./webhook";
 describe("durable signed billing ingress", () => {
@@ -52,6 +58,13 @@ describe("durable signed billing ingress", () => {
         },
       })("raw", "sig"),
     ).rejects.toThrow();
+  });
+  it("rejects a mixed-mode event object before durable recording", async () => {
+    const record = vi.fn();
+    expect(await createStripeWebhookReceiver({
+      verify: () => ({ ...event, data: { object: { id: "in_live", livemode: true } } }), record,
+    })("raw", "sig")).toMatchObject({ accepted: false });
+    expect(record).not.toHaveBeenCalled();
   });
   it.each(["charge.refunded", "refund.updated", "charge.dispute.created", "charge.dispute.updated", "charge.dispute.closed", "charge.dispute.funds_withdrawn", "charge.dispute.funds_reinstated"])("queues verified %s so historical spend can be corrected", async (type) => {
     const record = vi.fn(async () => true);

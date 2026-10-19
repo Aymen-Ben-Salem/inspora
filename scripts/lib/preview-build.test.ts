@@ -148,6 +148,8 @@ CLERK_SECRET_KEY=sk_test_preview
       baseEnvironment: {
         NODE_ENV: "development",
         STRIPE_SECRET_KEY: "sk_live_must_not_win",
+        STRIPE_PREPARATION_SECRET_KEY: "rk_live_must_not_win",
+        SPONSORSHIP_LIVE_PAYMENTS_ENABLED: "true",
         SPONSORSHIP_ENABLED: "true",
         SPONSORSHIP_CHECKOUT_ENABLED: "true",
       },
@@ -157,6 +159,8 @@ CLERK_SECRET_KEY=sk_test_preview
           : developmentFixture,
     });
     expect(environment.STRIPE_SECRET_KEY).toBe("");
+    expect(environment.STRIPE_PREPARATION_SECRET_KEY).toBe("");
+    expect(environment.SPONSORSHIP_LIVE_PAYMENTS_ENABLED).toBe("");
     expect(environment.SPONSORSHIP_ENABLED).toBe("");
     expect(environment.SPONSORSHIP_CHECKOUT_ENABLED).toBe("");
   });

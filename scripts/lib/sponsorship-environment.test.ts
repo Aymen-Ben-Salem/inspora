@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { validatePreviewSponsorshipEnvironment, validateSponsorRecoveryEnvironment } from "./sponsorship-environment";
 
 it("requires billing and reporting configuration even when recovery purchases are disabled", () => {
-  expect(() => validateSponsorRecoveryEnvironment({ SPONSORSHIP_ENABLED: "true", SPONSORSHIP_WRITES_ENABLED: "false", SPONSORSHIP_CHECKOUT_ENABLED: "false" })).toThrow(/STRIPE_SECRET_KEY/);
+  expect(() => validateSponsorRecoveryEnvironment({ DATA_ENVIRONMENT: "preview", SPONSORSHIP_ENABLED: "true", SPONSORSHIP_WRITES_ENABLED: "false", SPONSORSHIP_CHECKOUT_ENABLED: "false" })).toThrow(/STRIPE_SECRET_KEY/);
   expect(() => validateSponsorRecoveryEnvironment({ SPONSORSHIP_ENABLED: "false" })).toThrow(/paid/);
 });
 it("permits unconfigured checkout but rejects live keys and incomplete enabled configuration", () => {
@@ -14,12 +14,14 @@ it("permits unconfigured checkout but rejects live keys and incomplete enabled c
   ).toThrow("test");
   expect(() =>
     validatePreviewSponsorshipEnvironment({
+      DATA_ENVIRONMENT: "preview",
       SPONSORSHIP_CHECKOUT_ENABLED: "true",
     }),
   ).toThrow("STRIPE_SECRET_KEY");
 });
 it("requires explicit tax behavior and a private maintenance credential", () => {
   const values = {
+    DATA_ENVIRONMENT: "preview",
     SPONSORSHIP_CHECKOUT_ENABLED: "true",
     STRIPE_SECRET_KEY: "sk_test_fixture",
     STRIPE_WEBHOOK_SECRET: "whsec_fixture",

@@ -91,6 +91,8 @@ export function resolvePreviewBuildEnvironment(
     options.readFile ?? ((path: string) => readFileSync(path, "utf8"));
   const preview = parse(readFile(resolve(cwd, ".env.preview.local")));
   const environment = { ...(options.baseEnvironment ?? process.env) };
+  // Management-only live credentials must never reach a Preview child process.
+  environment.STRIPE_PREPARATION_SECRET_KEY = "";
   const explicitPreviewClerk = [
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
     "CLERK_SECRET_KEY",
@@ -123,7 +125,7 @@ export function resolvePreviewBuildEnvironment(
     environment[key] = clerk[key]?.trim() ?? "";
   copyOwnedValues(environment, preview, PREVIEW_CONFIGURATION_KEYS);
   validatePreviewAnalytics(preview);
-  validatePreviewSponsorshipEnvironment(preview);
+  validatePreviewSponsorshipEnvironment({ ...preview, VERCEL_ENV: environment.VERCEL_ENV });
   for (const key of SPONSORSHIP_CONFIGURATION_KEYS)
     environment[key] = preview[key]?.trim() ?? "";
   // Empty strings prevent Next dotenv loading from resurrecting .env.local values.

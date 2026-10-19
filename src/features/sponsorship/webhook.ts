@@ -3,6 +3,7 @@ import { sponsorBillingEvents } from "@/db/schema";
 import { withSponsorWrite } from "./repository";
 import { queueSponsorJob } from "./jobs-store";
 import { stripeClient } from "./stripe-client";
+import { assertStripeObjectMode } from "./payment-environment";
 type Receipt = { eventId: string; eventType: string; objectId: string };
 export function createStripeWebhookReceiver(deps: {
   verify(
@@ -12,7 +13,7 @@ export function createStripeWebhookReceiver(deps: {
     id: string;
     type: string;
     livemode: boolean;
-    data: { object: { id?: string } };
+    data: { object: { id?: string; livemode?: boolean } };
   };
   record(receipt: Receipt): Promise<boolean>;
 }) {
@@ -20,10 +21,12 @@ export function createStripeWebhookReceiver(deps: {
     let event;
     try {
       event = deps.verify(raw, signature);
+      assertStripeObjectMode(event);
+      if (event.data.object.livemode !== undefined) assertStripeObjectMode(event.data.object);
     } catch {
       return { accepted: false, duplicate: false };
     }
-    if (event.livemode || !event.id || !event.data.object.id)
+    if (!event.id || !event.data.object.id)
       return { accepted: false, duplicate: false };
     const supported =
       /^(checkout\.session\.(completed|expired|async_payment_succeeded|async_payment_failed)|customer\.subscription\.(created|updated|deleted)|invoice\.(paid|payment_succeeded|payment_failed|updated|voided|marked_uncollectible)|charge\.refunded|charge\.dispute\.(created|updated|closed|funds_withdrawn|funds_reinstated)|refund\.updated)$/;
@@ -52,6 +55,7 @@ export async function recordStripeWebhook(raw: string, signature: string) {
         data: {
           object: {
             id: "id" in event.data.object ? event.data.object.id : undefined,
+            livemode: "livemode" in event.data.object ? event.data.object.livemode : undefined,
           },
         },
       };

@@ -2,6 +2,7 @@ import {
   VIDEO_PREVIEW_MAX_HEIGHT,
   VIDEO_PREVIEW_MAX_WIDTH,
 } from "./video-preview-validation";
+import { videoCropFilter, type VideoCrop } from "./video-crop";
 
 export {
   VIDEO_PREVIEW_MAX_HEIGHT,
@@ -172,13 +173,16 @@ export function convertGifToMp4(
 export function buildVideoPreviewFfmpegArgs(
   inputName: string,
   outputName: string,
+  crop?: VideoCrop,
 ) {
   return [
     "-i",
     inputName,
-    "-an",
+    ...(crop ? ["-c:a", "aac", "-b:a", "128k"] : ["-an"]),
     "-vf",
-    `fps=30,scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1`,
+    crop
+      ? `${videoCropFilter(crop)},fps=30,setsar=1`
+      : `fps=30,scale=w='min(${VIDEO_PREVIEW_MAX_WIDTH}\\,iw)':h='min(${VIDEO_PREVIEW_MAX_HEIGHT}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1`,
     "-c:v",
     "libx264",
     "-preset",
@@ -200,17 +204,20 @@ async function createVideoPreviewUnlocked({
   configuration,
   signal,
   onStage,
+  crop,
 }: {
   file: File;
   configuration: ConverterConfiguration;
   signal: AbortSignal;
   onStage: (stage: ConversionStage) => void;
+  crop?: VideoCrop;
 }) {
   onStage("loading-converter");
   const ffmpeg = await loadEngine(configuration, signal);
   const token = crypto.randomUUID();
   const inputName = `${token}.${file.type === "video/webm" ? "webm" : "mp4"}`;
-  const outputName = `${token}-feed.mp4`;
+  const suffix = crop ? "cropped" : "feed";
+  const outputName = `${token}-${suffix}.mp4`;
 
   try {
     onStage("analyzing-video");
@@ -218,7 +225,7 @@ async function createVideoPreviewUnlocked({
     await ffmpeg.writeFile(inputName, await fetchFile(file), { signal });
     onStage("optimizing-video");
     const exitCode = await ffmpeg.exec(
-      buildVideoPreviewFfmpegArgs(inputName, outputName),
+      buildVideoPreviewFfmpegArgs(inputName, outputName, crop),
       CONVERSION_TIMEOUT_MS,
       { signal },
     );
@@ -234,7 +241,7 @@ async function createVideoPreviewUnlocked({
     const bytes = Uint8Array.from(data);
     return new File(
       [bytes.buffer],
-      `${file.name.replace(/\.[^.]+$/, "")}-feed.mp4`,
+      `${file.name.replace(/\.[^.]+$/, "")}-${suffix}.mp4`,
       { type: "video/mp4" },
     );
   } catch (error) {
@@ -243,7 +250,7 @@ async function createVideoPreviewUnlocked({
     if (signal.aborted) {
       throw new DOMException("Video preview creation was cancelled.", "AbortError");
     }
-    throw new Error("This video could not be converted into a feed preview.", {
+    throw new Error(crop ? "This video could not be cropped. Try a smaller recording." : "This video could not be converted into a feed preview.", {
       cause: error,
     });
   } finally {
@@ -254,7 +261,11 @@ async function createVideoPreviewUnlocked({
   }
 }
 export function createVideoPreview(
-  input: Parameters<typeof createVideoPreviewUnlocked>[0],
+  input: Omit<Parameters<typeof createVideoPreviewUnlocked>[0], "crop">,
 ) {
+  return runConversionExclusive(input.signal, () => createVideoPreviewUnlocked(input));
+}
+
+export function cropVideo(input: Parameters<typeof createVideoPreviewUnlocked>[0] & { crop: VideoCrop }) {
   return runConversionExclusive(input.signal, () => createVideoPreviewUnlocked(input));
 }

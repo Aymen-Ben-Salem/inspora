@@ -93,6 +93,9 @@ it("keeps recording and favicon controls without section fields", async () => {
       media: [...website.media, { role: "recording", url: "/original.mp4", posterUrl: "/poster.webp", width: 1200, height: 800, alt: "Recording" }],
     }} />));
     expect(container.querySelector("video")?.preload).toBe("none");
+    const player = container.querySelector("video")!;
+    expect(player.parentElement?.style.aspectRatio).toBe("1200 / 800");
+    expect(player.parentElement?.parentElement?.className).not.toContain("sm:grid-cols-[180px");
     expect(container.querySelector('[name="sections"]')).toBeNull();
     expect(container.textContent).not.toContain("Add section");
     const media = JSON.parse(textField(container.querySelector("form")!, "media").value);

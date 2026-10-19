@@ -17,6 +17,7 @@ import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { withSponsorWrite } from "./repository";
 import { queueSponsorJob } from "./jobs-store";
 import { sponsorBillingProvider, type BillingProvider } from "./stripe-client";
+import { assertStripeObjectMode } from "./payment-environment";
 export async function readSponsorBillingAdministration({ page = 1, exceptionsPage = 1, jobsPage = 1 }: { page?: number; exceptionsPage?: number; jobsPage?: number } = {}) {
   await requireAdmin();
   const db = requireDatabase();
@@ -94,11 +95,12 @@ export async function administerSponsorBilling(
         throw new Error("No late-payment exception is available to resolve.");
       const billing = provider ?? sponsorBillingProvider();
       const current = p.billingMode === "one_time" ? await billing.observePayment(p.stripeSessionId!) : await billing.observe(p.stripeSubscriptionId!);
+      assertStripeObjectMode(current);
+      assertStripeObjectMode(current.price);
       if (
         current.checkoutId !== p.id ||
         current.subscriptionId !== p.stripeSubscriptionId ||
-        (current.billingMode ?? "subscription") !== p.billingMode ||
-        current.livemode
+        (current.billingMode ?? "subscription") !== p.billingMode
       )
         throw new Error("Payment resolution binding mismatch.");
       const latest = current.invoices

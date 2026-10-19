@@ -1,5 +1,6 @@
 import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
 import { sponsorAmount, SPONSOR_AMOUNTS } from "./pricing";
+import { assertStripeObjectMode } from "./payment-environment";
 export const SPONSOR_RECOVERY_MS = 72 * 3600000;
 export type SponsorPrice = {
   id: string;
@@ -53,6 +54,7 @@ export function validateSponsorPrice(
   requireActive = true,
   billingMode: SponsorBillingMode = "subscription",
 ) {
+  assertStripeObjectMode(price);
   const monthly = price.interval === "month" && price.intervalCount === 1;
   const once = price.interval === null && price.intervalCount === null;
   // Existing pinned USD subscriptions keep their original terms. This path
@@ -63,7 +65,6 @@ export function validateSponsorPrice(
   // This exception is for reconciliation/resuming pinned checkouts only.
   const historicalEuro = !requireActive && price.currency === "eur" && price.unitAmount === 50000;
   if (
-    price.livemode ||
     price.id !== expectedId ||
     (requireActive && !price.active) ||
     !["usd", "eur"].includes(price.currency) ||
@@ -76,7 +77,7 @@ export function validateSponsorPrice(
     price.taxBehavior !== "exclusive"
   )
     throw new Error(
-      "A test-mode USD 500 or EUR 450 price with matching payment terms is required.",
+      "A USD 500 or EUR 450 price with matching payment terms is required.",
     );
 }
 function validPaidPeriod(invoice: PaidInvoice, observation: BillingObservation) {
@@ -102,8 +103,7 @@ export function billingDecision(
   expectedPrice: string,
 ): BillingDecision {
   validateSponsorPrice(observation.price, expectedPrice, false, observation.billingMode);
-  if (observation.livemode)
-    throw new Error("Live billing is unavailable in preview.");
+  assertStripeObjectMode(observation);
   const valid = observation.invoices.filter(
     (i) =>
       i.paid &&

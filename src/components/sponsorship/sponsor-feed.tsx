@@ -100,7 +100,7 @@ export function SponsorFeed({
         ) : (
           <div
             data-sponsor-grid
-            className="grid grid-cols-1 gap-x-5 gap-y-10 sm:grid-cols-2 xl:grid-cols-4 xl:gap-x-[35px]"
+            className="grid grid-cols-1 gap-x-5 gap-y-[var(--archive-card-gap)] sm:grid-cols-2 xl:grid-cols-4 xl:gap-x-[35px]"
           >
             {items}
           </div>

@@ -19,7 +19,7 @@ export function WebsiteCard({
   onSavedChange?: (saved: boolean) => void;
 }) {
   return (
-    <article data-feed-card>
+    <article data-feed-card className="self-start">
       <div className="group relative">
       <button
         type="button"
@@ -33,16 +33,18 @@ export function WebsiteCard({
       >
         <div
           data-feed-transition-target
-          className="relative aspect-video w-full overflow-hidden bg-[#ececea]"
+          className="relative w-full overflow-hidden bg-[#ececea]"
         >
           {priority ? <link rel="preload" as="image" href={website.recording.posterUrl} fetchPriority="high" /> : null}
           <LoopingVideo
             src={website.recording.videoPreview.url}
             poster={website.recording.posterUrl}
+            width={website.recording.videoPreview.width}
+            height={website.recording.videoPreview.height}
             lazyPoster={lazyPoster && !priority}
             aria-label={website.recording.alt}
             suspendWithFeed
-            className="size-full object-contain"
+            className="block h-auto w-full"
           />
         </div>
       </button>

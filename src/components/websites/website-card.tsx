@@ -46,6 +46,7 @@ export function WebsiteCard({
             suspendWithFeed
             className="block h-auto w-full"
           />
+          <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
         </div>
       </button>
       <FeedSaveButton postId={website.id} initiallySaved={initiallySaved} onSavedChange={onSavedChange} />

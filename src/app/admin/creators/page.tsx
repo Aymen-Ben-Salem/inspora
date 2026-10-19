@@ -29,7 +29,7 @@ export default async function CreatorsPage({
           <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Attribution</p>
           <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">Creators</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#666]">
-            Manage editorial credit and review verified identity claims without changing mirrored records.
+            Manage creator profiles, editorial credit, and verified identity claims.
           </p>
         </div>
         {saved || deleted ? (

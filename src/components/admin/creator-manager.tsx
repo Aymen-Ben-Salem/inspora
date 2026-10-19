@@ -22,6 +22,14 @@ import {
 const inputClass =
   "focus-ring h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition-colors placeholder:text-[#aaa] focus:border-black/30";
 
+function deletionRestriction(creator: AdminCreatorRecord, lockExistingCreators: boolean) {
+  if (lockExistingCreators && creator.recordOrigin !== "preview") return "Only Preview-created records can be deleted in Preview.";
+  if (creator.ownerUserId || creator.xProviderId) return "Claimed or provider-associated creators cannot be deleted.";
+  if (creator.workCount > 0) return "Creators with credited work cannot be deleted.";
+  if (creator.pendingClaimCount > 0) return "Creators with pending claims cannot be deleted.";
+  return undefined;
+}
+
 export function CreatorManager({
   creators,
   claims,
@@ -73,17 +81,6 @@ export function CreatorManager({
     );
   }, [creators, search]);
   const selected = creators.find((item) => item.id === creator.id);
-  const locked = Boolean(
-    lockExistingCreators && selected && selected.recordOrigin !== "preview",
-  );
-  const canDelete = Boolean(
-    selected &&
-      !locked &&
-      !selected.ownerUserId &&
-      !selected.xProviderId &&
-      selected.workCount === 0 &&
-      selected.pendingClaimCount === 0,
-  );
 
   return (
     <div className="grid min-w-0 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
@@ -117,7 +114,9 @@ export function CreatorManager({
           </div>
           {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
           <div className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
-            {filteredCreators.map((item) => (
+            {filteredCreators.map((item) => {
+              const deleteRestriction = deletionRestriction(item, lockExistingCreators);
+              return (
               <div
                 key={item.id}
                 className={`flex min-w-0 flex-wrap items-center gap-3 rounded-xl border p-4 transition-colors ${
@@ -127,7 +126,7 @@ export function CreatorManager({
                 }`}
               >
                 <button type="button" onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} aria-pressed={creator.id === item.id} aria-haspopup="dialog"
-                  className="focus-ring grid min-w-0 flex-1 items-start gap-2 rounded-sm text-left sm:grid-cols-[minmax(0,1fr)_auto]">
+                  className="focus-ring grid min-w-0 flex-1 basis-full items-start gap-2 rounded-sm text-left sm:basis-0 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <span className="min-w-0 break-words">
                   <span className="block text-sm font-medium">{item.name}</span>
                   <span className="mt-1 block text-xs text-[#777]">
@@ -145,9 +144,16 @@ export function CreatorManager({
                     onClick={() => { setIsEditorOpen(false); setWorkCreator(item); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
                   <button type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
                     onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} className="focus-ring shrink-0 rounded-full bg-black px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#252525]">Edit</button>
+                  <form action={deleteFormAction} className="flex">
+                    <input type="hidden" name="creatorId" value={item.id} />
+                    <button type="submit" aria-label={`Delete ${item.name}`} title={deleteRestriction ?? "Delete unused creator"}
+                      disabled={Boolean(deleteRestriction) || isDeleting}
+                      className="focus-ring shrink-0 rounded-full border border-red-200 bg-white px-3 py-2 text-xs text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Delete</button>
+                  </form>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {filteredCreators.length === 0 ? (
               <p className="rounded-xl bg-[#f7f7f4] p-5 text-sm text-[#777]">
                 No creator matches this search.
@@ -162,23 +168,6 @@ export function CreatorManager({
             Create a new creator
           </button>
         </section>
-
-        {selected ? (
-          <form action={deleteFormAction} className="rounded-2xl border border-red-200 bg-red-50 p-5">
-            <input type="hidden" name="creatorId" value={selected.id} />
-            <h2 className="font-medium text-red-950">Delete unused creator</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-red-800">
-              Deletion is available only for an unclaimed Preview record with no credited work or claim history.
-            </p>
-            <button
-              type="submit"
-              disabled={!canDelete || isDeleting}
-              className="focus-ring mt-4 h-10 rounded-full border border-red-300 bg-white px-4 text-sm font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isDeleting ? "Deleting..." : "Delete creator"}
-            </button>
-          </form>
-        ) : null}
       </div>
 
       <aside className="grid min-w-0 content-start gap-4">
@@ -239,7 +228,7 @@ export function CreatorManager({
         {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1) }} /> : null}
       </aside>
       {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
-      {isEditorOpen ? <CreatorEditDrawer creator={selected} saveAction={saveAction} lockExistingCreators={lockExistingCreators} onDismiss={dismissEditor} /> : null}
+      {isEditorOpen ? <CreatorEditDrawer creator={selected} saveAction={saveAction} onDismiss={dismissEditor} /> : null}
     </div>
   );
 }

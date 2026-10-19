@@ -9,7 +9,6 @@ import { preserveFormDraft } from "./preserve-form-draft";
 type Props = {
   creator?: AdminCreatorRecord;
   saveAction: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
-  lockExistingCreators: boolean;
   onDismiss: () => void;
 };
 
@@ -17,13 +16,12 @@ export function CreatorEditDrawer(props: Props) {
   return <CreatorEditSurface key={props.creator?.id ?? "new"} {...props} />;
 }
 
-function CreatorEditSurface({ creator: original, saveAction, lockExistingCreators, onDismiss }: Props) {
+function CreatorEditSurface({ creator: original, saveAction, onDismiss }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const formId = useId();
   const [creator, setCreator] = useState(() => original ? toAdminCreatorDraft(original) : blankAdminCreator());
   const [saveState, saveFormAction, isSaving] = useActionState(saveAction, initialAdminActionState);
-  const locked = Boolean(lockExistingCreators && original && original.recordOrigin !== "preview");
 
   useEffect(() => {
     const dialog = dialogRef.current!;
@@ -65,14 +63,14 @@ function CreatorEditSurface({ creator: original, saveAction, lockExistingCreator
           {saveState.status === "error" ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveState.message}</p> : null}
           <fieldset disabled={isSaving} className="min-w-0">
             <AdminCreatorEditor creator={creator} creators={original ? [original] : []} onChange={setCreator}
-              lockExistingCreators={lockExistingCreators} showCreatorPicker={false} />
+              showCreatorPicker={false} />
           </fieldset>
           {original ? <p className="text-xs text-[#777]">{original.recordOrigin} record · {original.workCount} credited works</p> : null}
         </form>
       </div>
       <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-black/10 bg-white px-5 py-4 sm:px-8">
         <button type="button" onClick={onDismiss} disabled={isSaving} className="focus-ring h-11 rounded-full border border-black/10 px-5 text-sm hover:bg-[#f3f3f1] disabled:opacity-40">Cancel</button>
-        <button type="submit" form={formId} disabled={isSaving || locked} className="focus-ring h-11 rounded-full bg-black px-6 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="submit" form={formId} disabled={isSaving} className="focus-ring h-11 rounded-full bg-black px-6 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
           {isSaving ? "Saving..." : original ? "Save creator" : "Create creator"}
         </button>
       </footer>

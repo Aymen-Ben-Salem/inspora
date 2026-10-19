@@ -542,13 +542,8 @@ export async function updateAdminCreator(
         "Creator not found.",
       );
     }
-    if (shouldLockExistingCreator(existing, process.env.DATA_ENVIRONMENT)) {
-      throw new AdminCreatorMutationError(
-        "environment_restricted",
-        "Mirrored creator profiles are read-only in Preview.",
-      );
-    }
-
+    // Deliberate profile edits are allowed on Preview copies. Inline attribution
+    // edits and deletion retain their separate environment restrictions.
     const result = await updateAdminCreatorRecord(tx, existing, input, {
       generateUsernameWhenMissing: true,
     });

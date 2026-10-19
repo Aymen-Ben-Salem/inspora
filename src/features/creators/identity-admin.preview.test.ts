@@ -44,7 +44,7 @@ import {
   websites,
 } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
-import { getR2PublicUrl } from "@/storage/r2";
+import { createR2PresignedUpload, deleteR2StorageKeys, getR2PublicUrl, verifyR2Upload } from "@/storage/r2";
 import {
   createAdminCreator,
   deleteAdminCreator,
@@ -65,6 +65,7 @@ describe.skipIf(!enabled)(
     const workIds: string[] = [];
     const claimIds: string[] = [];
     const submissionIds: string[] = [];
+    const avatarKeys: string[] = [];
 
     afterAll(async () => {
       await withWriteTransaction(async (tx) => {
@@ -93,6 +94,7 @@ describe.skipIf(!enabled)(
             .where(inArray(profileAccounts.userId, accountIds));
         }
       });
+      await deleteR2StorageKeys(avatarKeys);
     });
 
     it("returns measured aggregates and preserves aliases without owner-edit markers", async () => {
@@ -256,7 +258,7 @@ describe.skipIf(!enabled)(
       });
     }, 60_000);
 
-    it("uses stored origin for Preview locks and legacy handles for visibility", async () => {
+    it("allows deliberate mirrored profile edits while preserving Preview deletion restrictions and visibility", async () => {
       const hidden = await createAdminCreator({
         name: "Hidden development fixture",
         legacyHandle: "dev-" + suffix,
@@ -290,15 +292,42 @@ describe.skipIf(!enabled)(
           avatarUrl: "/avatar.svg",
           recordOrigin: "mirrored",
         });
+        await tx.insert(creatorUsernameAliases).values({ creatorId: mirroredId, username: "mirrored_" + suffix, isCurrent: true });
       });
 
+      const avatar = await createR2PresignedUpload({ kind: "creator-avatar", contentType: "image/png" });
+      const avatarStorageKey = avatar.storageKey;
+      avatarKeys.push(avatarStorageKey);
+      const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+      const uploaded = await fetch(avatar.uploadUrl, { method: avatar.method, headers: avatar.headers, body: bytes });
+      expect(uploaded.ok).toBe(true);
+      await verifyR2Upload({ kind: "creator-avatar", storageKey: avatarStorageKey, contentType: "image/png", size: bytes.length });
       await expect(
         updateAdminCreator(mirroredId, {
           name: "Changed",
-          username: "mirrored_" + suffix,
-          avatarUrl: "/avatar.svg",
+          username: "edited_" + suffix,
+          legacyHandle: "@edited_" + suffix,
+          url: "https://example.com/edited",
+          xProfileUrl: "https://x.com/edit_" + suffix,
+          avatarUrl: getR2PublicUrl(avatarStorageKey),
+          avatarStorageProvider: "r2",
+          avatarStorageKey,
         }),
-      ).rejects.toMatchObject({ code: "environment_restricted" });
+      ).resolves.toMatchObject({
+        creator: {
+          id: mirroredId, name: "Changed", username: "edited_" + suffix,
+          legacyHandle: "@edited_" + suffix, url: "https://example.com/edited",
+          xProfileUrl: "https://x.com/edit_" + suffix,
+          avatarUrl: getR2PublicUrl(avatarStorageKey), avatarStorageProvider: "r2", avatarStorageKey,
+          recordOrigin: "mirrored",
+        },
+      });
+      await withWriteTransaction(async (tx) => {
+        const [row] = await tx.select().from(creators).where(eq(creators.id, mirroredId));
+        expect(row).toMatchObject({ name: "Changed", username: "edited_" + suffix, avatarStorageKey, recordOrigin: "mirrored", ownerUserId: null, xProviderId: null });
+        const aliases = await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, mirroredId));
+        expect(aliases.some((alias) => alias.username === "mirrored_" + suffix)).toBe(true);
+      });
       await expect(deleteAdminCreator(mirroredId)).rejects.toMatchObject({
         code: "environment_restricted",
       });

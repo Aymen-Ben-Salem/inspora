@@ -38,8 +38,8 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function render(saveAction = vi.fn().mockResolvedValue({ status: "idle" }), creators = [creator], lockExistingCreators = false) {
-  await act(async () => root.render(<CreatorManager creators={creators} claims={[]} saveAction={saveAction} deleteAction={vi.fn()} reviewAction={async () => {}} lockExistingCreators={lockExistingCreators} />));
+async function render(saveAction = vi.fn().mockResolvedValue({ status: "idle" }), creators = [creator], lockExistingCreators = false, deleteAction = vi.fn()) {
+  await act(async () => root.render(<CreatorManager creators={creators} claims={[]} saveAction={saveAction} deleteAction={deleteAction} reviewAction={async () => {}} lockExistingCreators={lockExistingCreators} />));
   return saveAction;
 }
 const dialog = () => container.querySelector<HTMLDialogElement>("dialog")!;
@@ -59,11 +59,11 @@ async function submit() {
   await act(async () => form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter })));
 }
 
-it("adds Edit beside View work and opens all profile fields without a form below the directory", async () => {
+it("puts View work, Edit, and Delete together and opens all profile fields without a form below the directory", async () => {
   await render();
   expect(container.querySelector('[name="creatorName"]')).toBeNull();
   const edit = container.querySelector('[aria-label="Edit Studio One"]')!;
-  expect(edit.parentElement?.textContent).toBe("View workEdit");
+  expect(edit.parentElement?.textContent).toBe("View workEditDelete");
   await open();
   expect(dialog().open).toBe(true);
   expect(document.activeElement).toBe(input("creatorName"));
@@ -73,6 +73,30 @@ it("adds Edit beside View work and opens all profile fields without a form below
   expect(photoInput.accept).toContain("image/png");
   expect(photoInput.closest("label")?.textContent).toBe("Upload new photo");
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it("deletes the creator from the chosen row without needing to open its editor", async () => {
+  const remove = vi.fn().mockResolvedValue({ status: "error", message: "This creator has claim history." });
+  await render(undefined, [creator, { ...second, workCount: 0 }], true, remove);
+  const target = container.querySelector<HTMLButtonElement>('[aria-label="Delete Studio Two"]')!;
+  expect(target.disabled).toBe(false);
+  await act(async () => target.click());
+  expect(remove).toHaveBeenCalledOnce();
+  expect(remove.mock.calls[0][1].get("creatorId")).toBe(second.id);
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe("This creator has claim history.");
+  expect(dialog()).toBeNull();
+});
+
+it.each([
+  { workCount: 1 }, { ownerUserId: "owner" }, { xProviderId: "provider" }, { pendingClaimCount: 1 }, { recordOrigin: "mirrored" as const },
+])("keeps unsafe creator deletion disabled for %j", async (restriction) => {
+  const remove = vi.fn();
+  await render(undefined, [{ ...creator, workCount: 0, ...restriction }], true, remove);
+  const target = container.querySelector<HTMLButtonElement>('[aria-label="Delete Studio One"]')!;
+  expect(target.disabled).toBe(true);
+  expect(target.title).toBeTruthy();
+  await act(async () => target.click());
+  expect(remove).not.toHaveBeenCalled();
 });
 
 it("submits every edited profile field and retains the draft on errors for retry", async () => {
@@ -138,12 +162,17 @@ it("closes with Escape, restores focus and scrolling, and keeps different creato
   expect(dialog()).toBeNull();
 });
 
-it("keeps existing mirrored profiles read-only in Preview", async () => {
-  await render(undefined, [{ ...creator, recordOrigin: "mirrored" }], true); await open();
-  for (const name of ["creatorName", "creatorUsername", "creatorHandle", "creatorUrl", "creatorXProfileUrl", "creatorAvatarUrl"]) expect(input(name).readOnly).toBe(true);
-  expect(button("Save creator").disabled).toBe(true);
-  expect(dialog().textContent).toContain("read-only in Preview");
-  expect(dialog().querySelector('input[type="file"]')).toBeNull();
+it("lets an admin edit existing mirrored profiles and upload a new picture in Preview", async () => {
+  const save = await render(undefined, [{ ...creator, recordOrigin: "mirrored" }], true); await open();
+  for (const name of ["creatorName", "creatorUsername", "creatorHandle", "creatorUrl", "creatorXProfileUrl", "creatorAvatarUrl"]) expect(input(name).readOnly).toBe(false);
+  expect(button("Save creator").disabled).toBe(false);
+  await change("creatorName", "Edited mirror"); await change("creatorUsername", "edited_mirror");
+  const photoInput = dialog().querySelector<HTMLInputElement>('input[type="file"]')!;
+  expect(photoInput).not.toBeNull();
+  Object.defineProperty(photoInput, "files", { configurable: true, value: [new File(["image"], "new-profile.png", { type: "image/png" })] });
+  await act(async () => photoInput.dispatchEvent(new Event("change", { bubbles: true })));
+  await submit();
+  expect(parseAdminCreatorForm(save.mock.calls[0][1])).toMatchObject({ id: creator.id, name: "Edited mirror", username: "edited_mirror", avatarUrl: "https://media.example.com/creators/new.webp", avatarStorageKey: "creators/new.webp" });
 });
 
 it("prevents edits and dismissal while the save is in progress", async () => {

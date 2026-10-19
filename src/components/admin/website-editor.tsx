@@ -11,6 +11,7 @@ import {
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { WebsiteVideoCrop } from "@/components/admin/website-video-crop";
+import { WebsiteFaviconCrop } from "@/components/admin/website-favicon-crop";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -72,6 +73,7 @@ export function WebsiteEditor({
   const [recording, setRecording] = useState<MediaDraft>(mediaFor(website, "recording"));
   const [favicon, setFavicon] = useState<MediaDraft>(mediaFor(website, "favicon"));
   const [isCropping, setIsCropping] = useState(false);
+  const [isCroppingFavicon, setIsCroppingFavicon] = useState(false);
   const media = useMemo(() => [recording, favicon], [favicon, recording]);
 
   function updateMedia(
@@ -182,6 +184,7 @@ export function WebsiteEditor({
                 <h3 className="font-medium">{title}</h3>
                 <MediaUploadButton kind={role === "recording" ? "website-recording" : "website-favicon"} label={`Upload ${role}`} onUploaded={(uploaded) => applyUpload(role, uploaded)} />
                 {role === "recording" && item.url ? <WebsiteVideoCrop key={item.url} url={item.url} onBusyChange={setIsCropping} onUploaded={(uploaded) => applyUpload("recording", { ...uploaded, alt: recording.alt || uploaded.alt })} /> : null}
+                {role === "favicon" && item.url ? <WebsiteFaviconCrop key={item.url} url={item.url} onBusyChange={setIsCroppingFavicon} onUploaded={(uploaded) => applyUpload("favicon", { ...uploaded, alt: favicon.alt || uploaded.alt })} /> : null}
                 <label className={labelClass}>{role === "recording" ? "Original video URL" : "Image URL"}<input className={inputClass} required value={item.url} onChange={(event) => updateMedia(role, "url", event.target.value)} /></label>
                 <label className={labelClass}>Alternative text<input className={inputClass} required maxLength={500} value={item.alt} onChange={(event) => updateMedia(role, "alt", event.target.value)} /></label>
                 <div className="grid grid-cols-2 gap-3">
@@ -199,7 +202,7 @@ export function WebsiteEditor({
           <div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Publishing</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Status</h2></div>
           {publicationOnly ? <input type="hidden" name="status" value="published" /> : <div className="grid grid-cols-2 gap-2">{(["draft", "published"] as const).map((status) => <label key={status} className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="radio" name="status" value={status} defaultChecked={(website?.status ?? "draft") === status} />{status === "draft" ? "Draft" : "Published"}</label>)}</div>}
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={website?.isFeatured} />Feature this website</label>
-          <button type="submit" disabled={isPending || isCropping} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
+          <button type="submit" disabled={isPending || isCropping || isCroppingFavicon} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
           <Link prefetch={false} href={cancelHref} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
         </section>
       </aside>

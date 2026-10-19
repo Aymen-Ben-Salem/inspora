@@ -7,5 +7,7 @@ export default defineConfig({
     "src/components/admin/editor-persistence.test.tsx",
     "src/components/admin/video-crop-dialog.test.tsx",
     "src/components/admin/website-video-crop.test.tsx",
+    "src/components/admin/website-favicon-crop.test.tsx",
+    "src/features/admin/image-crop.test.ts",
   ] },
 });

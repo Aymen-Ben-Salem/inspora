@@ -1,5 +1,6 @@
 export type VideoCrop = { x: number; y: number; width: number; height: number };
 export type VideoDimensions = { width: number; height: number };
+export type VideoCropSelection = { crop: VideoCrop; sourceDimensions: VideoDimensions };
 export type CropCorner = "nw" | "ne" | "sw" | "se";
 
 const even = (value: number) => Math.floor(value / 2) * 2;

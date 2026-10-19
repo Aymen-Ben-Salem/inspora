@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
-import { constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, type CropCorner, type VideoCrop, type VideoDimensions } from "@/features/admin/video-crop";
+import { constrainVideoCrop, cropForAspectRatio, moveVideoCrop, resizeVideoCrop, type CropCorner, type VideoCrop, type VideoCropSelection, type VideoDimensions } from "@/features/admin/video-crop";
 
 const ratios = [{ label: "Freeform", value: "free" }, { label: "16:9", value: "16/9" }, { label: "4:3", value: "4/3" }, { label: "Square", value: "1/1" }, { label: "9:16", value: "9/16" }];
 const corners: CropCorner[] = ["nw", "ne", "sw", "se"];
@@ -13,7 +13,7 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
   busy: boolean;
   status: string;
   error: string;
-  onApply: (crop: VideoCrop) => void;
+  onApply: (selection: VideoCropSelection) => void;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -104,7 +104,7 @@ export function VideoCropDialog({ url, busy, status, error, onApply, onClose }: 
         <button type="button" disabled={!bounds || busy} className={buttonClass} onClick={() => { setRatioValue("free"); if (bounds) setCrop(cropForAspectRatio(bounds)); }}>Reset crop</button>
         <div className="flex items-center gap-4">
           <span className="text-xs text-[#777]" aria-live="polite">{busy ? status : crop ? `${crop.width} × ${crop.height} px` : "Loading recording…"}</span>
-          <button type="button" disabled={!crop || Boolean(decodeError) || busy} className="focus-ring rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50" onClick={() => { videoRef.current?.pause(); if (crop) onApply(crop); }}>{busy ? "Processing…" : "Apply crop"}</button>
+          <button type="button" disabled={!crop || !bounds || Boolean(decodeError) || busy} className="focus-ring rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50" onClick={() => { videoRef.current?.pause(); if (crop && bounds) onApply({ crop, sourceDimensions: bounds }); }}>{busy ? "Processing…" : "Apply crop"}</button>
         </div>
       </div>
     </dialog>

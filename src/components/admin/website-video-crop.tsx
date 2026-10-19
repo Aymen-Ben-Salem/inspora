@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { VideoCropDialog } from "./video-crop-dialog";
-import type { VideoCrop } from "@/features/admin/video-crop";
+import type { VideoCropSelection } from "@/features/admin/video-crop";
 import { MAX_VIDEO_UPLOAD_BYTES, type UploadedAdminMedia } from "@/features/admin/media-upload";
 import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 
@@ -22,7 +22,7 @@ export function WebsiteVideoCrop({ url, onUploaded, onBusyChange }: {
     return () => { mounted.current = false; controllerRef.current?.abort(); onBusyChange(false); };
   }, [onBusyChange]);
 
-  async function apply(crop: VideoCrop) {
+  async function apply(selection: VideoCropSelection) {
     if (controllerRef.current) return;
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -41,12 +41,12 @@ export function WebsiteVideoCrop({ url, onUploaded, onBusyChange }: {
       const webm = blob.type.split(";")[0] === "video/webm" || /\.webm(?:\?|$)/i.test(url);
       const file = new File([blob], `website-recording.${webm ? "webm" : "mp4"}`, { type: webm ? "video/webm" : "video/mp4" });
       const result = await prepareAndUploadMedia(file, "website-recording", undefined, (stage) => {
-        if (mounted.current && !controller.signal.aborted) setStatus(stage === "loading-converter" ? "Loading video editor…" : stage === "uploading" ? "Uploading cropped recording…" : stage === "verifying" ? "Checking upload…" : stage === "signing" ? "Preparing upload…" : "Processing crop and preview…");
+        if (mounted.current && !controller.signal.aborted) setStatus(stage === "loading-converter" ? "Loading video editor…" : stage === "cropping-video" ? "Cropping recording…" : stage === "optimizing-video" ? "Creating feed preview…" : stage === "uploading" ? "Uploading cropped recording…" : stage === "verifying" ? "Checking upload…" : stage === "signing" ? "Preparing upload…" : "Preparing recording…");
       }, (conversion) => {
         stopConversion = () => conversion.abort();
         controller.signal.addEventListener("abort", stopConversion, { once: true });
         if (controller.signal.aborted) conversion.abort();
-      }, crop);
+      }, selection);
       if (mounted.current && !controller.signal.aborted) { setOpen(false); onUploaded(result); }
     } catch (cause) {
       if (mounted.current && !controller.signal.aborted) setError(cause instanceof TypeError ? "The recording could not be downloaded for cropping. Upload the original video and try again." : cause instanceof Error ? cause.message : "Cropping failed. Upload the original recording and try again.");

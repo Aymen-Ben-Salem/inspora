@@ -15,6 +15,7 @@ type ConversionStage =
   | "analyzing-gif"
   | "optimizing-animation"
   | "analyzing-video"
+  | "cropping-video"
   | "optimizing-video";
 
 const CONVERSION_TIMEOUT_MS = 5 * 60 * 1000;
@@ -186,7 +187,7 @@ export function buildVideoPreviewFfmpegArgs(
     "-c:v",
     "libx264",
     "-preset",
-    "veryfast",
+    crop ? "ultrafast" : "veryfast",
     "-crf",
     "18",
     "-pix_fmt",
@@ -223,7 +224,7 @@ async function createVideoPreviewUnlocked({
     onStage("analyzing-video");
     const { fetchFile } = await import("@ffmpeg/util");
     await ffmpeg.writeFile(inputName, await fetchFile(file), { signal });
-    onStage("optimizing-video");
+    onStage(crop ? "cropping-video" : "optimizing-video");
     const exitCode = await ffmpeg.exec(
       buildVideoPreviewFfmpegArgs(inputName, outputName, crop),
       CONVERSION_TIMEOUT_MS,

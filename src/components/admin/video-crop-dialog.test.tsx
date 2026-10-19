@@ -31,10 +31,10 @@ it("supports presets, keyboard resizing and moving, and applies source-pixel coo
     const move = container.querySelector('[aria-label="Move crop"]')!;
     await act(async () => move.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
     await act(async () => button("Apply crop").click());
-    expect(apply).toHaveBeenCalledWith({ x: 422, y: 0, width: 1070, height: 1070 });
+    expect(apply).toHaveBeenCalledWith({ crop: { x: 422, y: 0, width: 1070, height: 1070 }, sourceDimensions: { width: 1920, height: 1080 } });
     await act(async () => button("Reset crop").click());
     await act(async () => button("Apply crop").click());
-    expect(apply).toHaveBeenLastCalledWith({ x: 0, y: 0, width: 1920, height: 1080 });
+    expect(apply).toHaveBeenLastCalledWith({ crop: { x: 0, y: 0, width: 1920, height: 1080 }, sourceDimensions: { width: 1920, height: 1080 } });
     await act(async () => container.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true })));
     expect(close).toHaveBeenCalledOnce();
   } finally { await act(async () => root.unmount()); container.remove(); }
@@ -58,6 +58,6 @@ it("converts pointer movement from displayed pixels to recording pixels", async 
     await act(async () => move.dispatchEvent(new MouseEvent("pointermove", { clientX: 200, clientY: 100, bubbles: true })));
     await act(async () => move.dispatchEvent(new MouseEvent("pointerup", { bubbles: true })));
     await act(async () => buttons().find((item) => item.textContent === "Apply crop")!.click());
-    expect(apply).toHaveBeenCalledWith({ x: 620, y: 0, width: 1080, height: 1080 });
+    expect(apply).toHaveBeenCalledWith({ crop: { x: 620, y: 0, width: 1080, height: 1080 }, sourceDimensions: { width: 1920, height: 1080 } });
   } finally { await act(async () => root.unmount()); }
 });

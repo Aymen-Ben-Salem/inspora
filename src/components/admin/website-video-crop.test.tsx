@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ prepare: vi.fn() }));
 vi.mock("@/features/media/prepare-and-upload", () => ({ prepareAndUploadMedia: mocks.prepare }));
-vi.mock("./video-crop-dialog", () => ({ VideoCropDialog: ({ onApply, onClose, error }: { onApply: (crop: unknown) => void; onClose: () => void; error: string }) => <div><button type="button" onClick={() => onApply({ x: 0, y: 40, width: 1920, height: 1040 })}>Apply crop</button><button type="button" onClick={onClose}>Cancel</button><p role="alert">{error}</p></div> }));
+vi.mock("./video-crop-dialog", () => ({ VideoCropDialog: ({ onApply, onClose, error }: { onApply: (crop: unknown) => void; onClose: () => void; error: string }) => <div><button type="button" onClick={() => onApply({ crop: { x: 0, y: 40, width: 1920, height: 1040 }, sourceDimensions: { width: 1920, height: 1080 } })}>Apply crop</button><button type="button" onClick={onClose}>Cancel</button><p role="alert">{error}</p></div> }));
 import { WebsiteVideoCrop } from "./website-video-crop";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
@@ -24,7 +24,7 @@ it("downloads the original and sends the selected crop through the upload pipeli
     await act(async () => container.querySelector("button")!.click());
     await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Apply crop")!.click());
     expect(fetchSource).toHaveBeenCalledWith("/original.webm", expect.objectContaining({ mode: "cors" }));
-    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ type: "video/webm" }), "website-recording", undefined, expect.any(Function), expect.any(Function), { x: 0, y: 40, width: 1920, height: 1040 });
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ type: "video/webm" }), "website-recording", undefined, expect.any(Function), expect.any(Function), { crop: { x: 0, y: 40, width: 1920, height: 1040 }, sourceDimensions: { width: 1920, height: 1080 } });
     expect(uploaded).toHaveBeenCalledWith(media);
     expect(busy.mock.calls.map(([value]) => value)).toEqual([true, false]);
   } finally { await act(async () => root.unmount()); }

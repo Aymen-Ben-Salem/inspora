@@ -54,9 +54,9 @@ export function WebsiteCard({
         <div className="mt-5 flex items-start gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={website.favicon.url} alt="" aria-hidden="true" width={39} height={39} className="size-[39px] shrink-0 object-contain" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="truncate text-[16px] font-medium leading-[1.25] tracking-[0.04px] text-[#262626]">{website.title}</h2>
-            <p className="mt-1 line-clamp-2 max-w-[420px] text-[14px] leading-[1.3] tracking-[0.04px] text-[#7b7b7b]">{website.tagline}</p>
+            <p className="mt-1 line-clamp-2 text-[14px] leading-[1.3] tracking-[0.04px] text-[#7b7b7b]">{website.tagline}</p>
           </div>
         </div>
       </button>

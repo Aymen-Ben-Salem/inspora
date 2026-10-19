@@ -62,9 +62,17 @@ export function CreatorManager({
   const [creator, setCreator] = useState<AdminCreatorInput>(blankAdminCreator());
   const [search, setSearch] = useState("");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorSession, setEditorSession] = useState(0);
   const [workCreator, setWorkCreator] = useState<AdminCreatorRecord | null>(null);
   const dismissEditor = useCallback(() => setIsEditorOpen(false), []);
   const dismissWork = useCallback(() => setWorkCreator(null), []);
+  function openEditor(item?: AdminCreatorRecord) {
+    setCreator(item ? toAdminCreatorDraft(item) : blankAdminCreator());
+    setWorkCreator(null);
+    // Each opening owns a fresh draft, including an immediate Cancel/reopen.
+    setEditorSession((session) => session + 1);
+    setIsEditorOpen(true);
+  }
   const filteredCreators = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return creators;
@@ -125,7 +133,7 @@ export function CreatorManager({
                     : "border-black/10 hover:bg-[#f7f7f4]"
                 }`}
               >
-                <button type="button" onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} aria-pressed={creator.id === item.id} aria-haspopup="dialog"
+                <button type="button" onClick={() => openEditor(item)} aria-pressed={creator.id === item.id} aria-haspopup="dialog"
                   className="focus-ring grid min-w-0 flex-1 basis-full items-start gap-2 rounded-sm text-left sm:basis-0 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <span className="min-w-0 break-words">
                   <span className="block text-sm font-medium">{item.name}</span>
@@ -143,7 +151,7 @@ export function CreatorManager({
                   <button type="button" aria-label={`View work by ${item.name}`} aria-haspopup="dialog"
                     onClick={() => { setIsEditorOpen(false); setWorkCreator(item); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
                   <button type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
-                    onClick={() => { setCreator(toAdminCreatorDraft(item)); setWorkCreator(null); setIsEditorOpen(true); }} className="focus-ring shrink-0 rounded-full bg-black px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#252525]">Edit</button>
+                    onClick={() => openEditor(item)} className="focus-ring shrink-0 rounded-full bg-black px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#252525]">Edit</button>
                   <form action={deleteFormAction} className="flex">
                     <input type="hidden" name="creatorId" value={item.id} />
                     <button type="submit" aria-label={`Delete ${item.name}`} title={deleteRestriction ?? "Delete unused creator"}
@@ -162,7 +170,7 @@ export function CreatorManager({
           </div>
           <button
             type="button"
-            onClick={() => { setCreator(blankAdminCreator()); setWorkCreator(null); setIsEditorOpen(true); }}
+            onClick={() => openEditor()}
             className="focus-ring justify-self-start rounded-full border border-black/10 px-4 py-2 text-sm hover:bg-[#f3f3f3]"
           >
             Create a new creator
@@ -228,7 +236,7 @@ export function CreatorManager({
         {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1) }} /> : null}
       </aside>
       {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
-      {isEditorOpen ? <CreatorEditDrawer creator={selected} saveAction={saveAction} onDismiss={dismissEditor} /> : null}
+      {isEditorOpen ? <CreatorEditDrawer key={editorSession} creator={selected} saveAction={saveAction} onDismiss={dismissEditor} /> : null}
     </div>
   );
 }

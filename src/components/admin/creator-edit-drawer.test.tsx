@@ -181,6 +181,50 @@ it("closes with Escape, restores focus and scrolling, and keeps different creato
   expect(dialog()).toBeNull();
 });
 
+it.each([false, true])("discards unsaved profile changes when canceling and reopening the same creator (immediate: %s)", async (immediate) => {
+  const save = await render(); await open();
+  await change("creatorName", "Unsaved studio");
+  await change("creatorUsername", "unsaved_studio");
+  await change("creatorUrl", "https://unsaved.example.com");
+  await change("creatorAvatarUrl", "https://images.example.com/unsaved.webp");
+  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Edit Studio One"]')!;
+  if (immediate) {
+    await act(async () => { button("Cancel").click(); trigger.click(); });
+  } else {
+    await act(async () => button("Cancel").click());
+    expect(dialog()).toBeNull();
+    await open();
+  }
+  expect(input("creatorName").value).toBe(creator.name);
+  expect(input("creatorUsername").value).toBe(creator.username);
+  expect(input("creatorUrl").value).toBe(creator.url);
+  expect(input("creatorAvatarUrl").value).toBe(creator.avatarUrl);
+  expect(input("creatorAvatarStorageKey").value).toBe(creator.avatarStorageKey);
+  expect(save).not.toHaveBeenCalled();
+});
+
+it("clears a failed save's draft and validation message after Cancel and reopening", async () => {
+  await render(vi.fn().mockResolvedValue({ status: "error", message: "That username is unavailable." })); await open();
+  await change("creatorName", "Unsaved name"); await submit();
+  expect(dialog().querySelector('[role="alert"]')).not.toBeNull();
+  await act(async () => { button("Cancel").click(); container.querySelector<HTMLButtonElement>('[aria-label="Edit Studio One"]')!.click(); });
+  expect(input("creatorName").value).toBe(creator.name);
+  expect(dialog().querySelector('[role="alert"]')).toBeNull();
+});
+
+it("does not restore a canceled photo upload when it finishes after the creator is reopened", async () => {
+  let finish!: (media: unknown) => void;
+  upload.prepare.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  await render(); await open();
+  const photoInput = dialog().querySelector<HTMLInputElement>('input[type="file"]')!;
+  Object.defineProperty(photoInput, "files", { configurable: true, value: [new File(["image"], "new-profile.png", { type: "image/png" })] });
+  await act(async () => photoInput.dispatchEvent(new Event("change", { bubbles: true })));
+  await act(async () => { button("Cancel").click(); container.querySelector<HTMLButtonElement>('[aria-label="Edit Studio One"]')!.click(); });
+  await act(async () => finish({ type: "image", url: "https://media.example.com/creators/canceled.webp", storageProvider: "r2", storageKey: "creators/canceled.webp" }));
+  expect(input("creatorAvatarUrl").value).toBe(creator.avatarUrl);
+  expect(input("creatorAvatarStorageKey").value).toBe(creator.avatarStorageKey);
+});
+
 it("lets an admin edit existing mirrored profiles and upload a new picture in Preview", async () => {
   const save = await render(undefined, [{ ...creator, recordOrigin: "mirrored" }], true); await open();
   for (const name of ["creatorName", "creatorUsername", "creatorHandle", "creatorUrl", "creatorXProfileUrl", "creatorAvatarUrl"]) expect(input(name).readOnly).toBe(false);

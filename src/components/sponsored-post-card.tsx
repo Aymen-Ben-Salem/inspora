@@ -5,6 +5,7 @@ import type { ActiveSponsor } from "@/domain/sponsor";
 import { LoopingVideo } from "./looping-video";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 import { SponsorDeadline } from "./sponsorship/sponsor-deadline";
+import { WebsiteFeedCaption } from "./websites/website-feed-caption";
 
 function getHostname(urlStr: string) {
   try {
@@ -18,10 +19,12 @@ export function SponsoredPostCard({
   sponsor,
   priority = false,
   mediaAspectRatio,
+  variant = "default",
 }: {
   sponsor: ActiveSponsor;
   priority?: boolean;
   mediaAspectRatio?: number;
+  variant?: "default" | "website";
 }) {
   const isVideo = sponsor.mediaType === "video";
   const mediaUrl = sponsor.mediaUrl;
@@ -120,7 +123,17 @@ export function SponsoredPostCard({
       </a>
 
       {/* Optional small text under the sponsored post */}
-      {sponsor.tagline ? (
+      {variant === "website" ? (
+        <a
+          href={sponsor.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="focus-ring block w-full text-left"
+          aria-label={`Visit ${sponsor.title} website`}
+        >
+          <WebsiteFeedCaption title={sponsor.title} description={sponsor.feedDescription || sponsor.tagline} iconUrl={sponsor.iconUrl} />
+        </a>
+      ) : sponsor.tagline ? (
         <div className="pt-2 px-0.5">
           <a
             href={sponsor.url}

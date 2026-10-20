@@ -92,6 +92,7 @@ export function SponsorFeed({
       <SponsoredPostCard
         key={`sponsor-${item.id}`}
         sponsor={sponsors.find((s) => s.id === item.id)!}
+        variant={layout === "websites" ? "website" : "default"}
         mediaAspectRatio={ordinary.find((entry) => entry.id === referenceId)?.mediaAspectRatio}
       />
     );

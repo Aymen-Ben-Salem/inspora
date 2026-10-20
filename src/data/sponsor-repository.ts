@@ -98,6 +98,7 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
       campaign: sponsors,
       paidThrough: sponsorAccounts.paidThrough,
       versionId: sponsorCampaignVersions.id,
+      feedDescription: sql<string | null>`${sponsorCampaignVersions.creative}->>'feedDescription'`,
     })
     .from(sponsors)
     .innerJoin(sponsorAccounts, eq(sponsors.accountId, sponsorAccounts.id))
@@ -133,12 +134,13 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
     )
     .orderBy(sponsorSeats.slot)
     .limit(4);
-  return rows.map(({ campaign: row, paidThrough, versionId }) => ({
+  return rows.map(({ campaign: row, paidThrough, versionId, feedDescription }) => ({
     id: row.id,
     versionId,
     title: row.title,
     url: row.url,
     tagline: row.tagline ?? undefined,
+    feedDescription: feedDescription ?? undefined,
     mediaType: row.mediaType as "image" | "video",
     mediaUrl: row.mediaUrl ?? undefined,
     mediaPosterUrl: row.mediaPosterUrl ?? undefined,

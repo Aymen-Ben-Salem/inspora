@@ -39,6 +39,7 @@ export type CampaignInput = {
   title: string;
   url: string;
   tagline: string;
+  feedDescription: string;
   expectedRevision: number;
   iconId: string;
   wordmarkId: string;
@@ -47,7 +48,9 @@ export type CampaignInput = {
   videoPreviewId?: string;
   variantIds: string[];
 };
-export type CreativeSnapshot = Omit<CampaignInput, "expectedRevision"> & {
+export type CreativeSnapshot = Omit<CampaignInput, "expectedRevision" | "feedDescription"> & {
+  // Older saved campaign versions predate the websites-only caption.
+  feedDescription?: string;
   assets: VerifiedSponsorAsset[];
 };
 export type OwnedCampaign = {

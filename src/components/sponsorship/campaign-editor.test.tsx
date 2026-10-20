@@ -13,6 +13,8 @@ it("allows typing before verification and shows three previews with upload and b
   const html = renderToStaticMarkup(<CampaignEditor />);
   expect(html).toContain("Website destination");
   expect(html).toContain("Public name");
+  expect(html).toContain("Short feed description");
+  expect(html).toMatch(/<textarea[^>]*name="feedDescription"[^>]*required=""[^>]*maxLength="300"/);
   expect(html).not.toContain("Tagline");
   expect(html).not.toContain("Sign out");
   expect(html).toContain("Full wordmark");

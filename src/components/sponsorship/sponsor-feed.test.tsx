@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ActiveSponsor } from "@/domain/sponsor";
 
-const sponsor: ActiveSponsor = { id: "sponsor", title: "Sponsor", url: "https://example.com", mediaType: "image", mediaWidth: 1200, mediaHeight: 800, mediaAlt: "Sponsor" };
+const sponsor: ActiveSponsor = { id: "sponsor", title: "Sponsor", url: "https://example.com", mediaType: "image", mediaUrl: "/artwork.png", mediaWidth: 1200, mediaHeight: 800, mediaAlt: "Sponsor", iconUrl: "/compact-icon.png", feedDescription: "Made for focused work.", tagline: "Existing tagline" };
 vi.mock("./public-sponsors", () => ({ usePublicSponsors: () => ({ sponsors: [sponsor] }) }));
 vi.mock("../feed-motion", () => ({ FeedMotion: ({ children }: { children: ReactNode }) => children }));
 vi.mock("../row-first-masonry", () => ({ RowFirstMasonry: ({ children }: { children: ReactNode }) => <div className="feed-grid">{children}</div> }));
@@ -63,4 +63,22 @@ it("keeps the artwork proportions in masonry feeds and when no website recording
   expect(frame().style.aspectRatio.replaceAll(" ", "")).toBe("1200/800");
   await act(async () => root.render(<SponsorFeed key="empty-websites" ordinary={[]} layout="websites" />));
   expect(frame().style.aspectRatio.replaceAll(" ", "")).toBe("1200/800");
+});
+
+it("adds the existing icon, public name and short description only to website feed cards", async () => {
+  await act(async () => root.render(<SponsorFeed ordinary={ordinary(16 / 9)} layout="websites" />));
+  const caption = container.querySelector<HTMLAnchorElement>('a[aria-label="Visit Sponsor website"]')!;
+  expect(caption.href).toBe(sponsor.url + "/");
+  expect(caption.querySelector("h2")?.textContent).toBe(sponsor.title);
+  expect(caption.querySelector("p")?.textContent).toBe(sponsor.feedDescription);
+  expect(caption.querySelector("img")?.getAttribute("src")).toBe(sponsor.iconUrl);
+  expect(caption.querySelector("img")?.width).toBe(39);
+  expect(caption.textContent).not.toContain(sponsor.tagline);
+
+  await act(async () => root.render(<SponsorFeed ordinary={ordinary(16 / 9)} />));
+  const card = container.querySelector('[data-sponsor-placement="feed"]')!;
+  expect(card.querySelector('a[aria-label="Visit Sponsor website"]')).toBeNull();
+  expect(card.querySelector('img[src="/compact-icon.png"]')).toBeNull();
+  expect(card.textContent).not.toContain(sponsor.feedDescription);
+  expect(card.textContent).toContain(sponsor.tagline);
 });

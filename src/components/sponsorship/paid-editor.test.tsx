@@ -35,6 +35,7 @@ const campaign: OwnedCampaign = {
     title: "Current public name",
     url: "https://current.example.com",
     tagline: "",
+    feedDescription: "A focused workspace for creative teams.",
     iconId: "i",
     wordmarkId: "w",
     variantIds: [],
@@ -89,6 +90,7 @@ it("loads a paid version without opening preparation and saves a complete optimi
         'input[placeholder="Your product"]',
       )?.value,
     ).toBe("Current public name");
+    expect(container.querySelector<HTMLTextAreaElement>('textarea[name="feedDescription"]')?.value).toBe(campaign.creative.feedDescription);
     expect(
       container.querySelector('a[href="/sponsor/campaigns"]')?.textContent,
     ).toContain("Cancel");
@@ -107,7 +109,26 @@ it("loads a paid version without opening preparation and saves a complete optimi
       }),
     );
     expect(container.textContent).toContain("Public changes saved");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sponsorship/campaigns/campaign",
+      expect.objectContaining({ body: expect.stringContaining(`"feedDescription":${JSON.stringify(campaign.creative.feedDescription)}`) }),
+    );
     expect(navigation.refresh).toHaveBeenCalledOnce();
+  } finally {
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
+it("opens older paid campaigns with a blank, required description ready to complete", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div"), root = createRoot(container);
+  const legacy = { ...campaign, creative: { ...campaign.creative, feedDescription: undefined } };
+  try {
+    await act(async () => root.render(<CampaignEditor paid={{ campaign: legacy, readonly: false }} />));
+    const description = container.querySelector<HTMLTextAreaElement>('textarea[name="feedDescription"]')!;
+    expect(description.value).toBe("");
+    expect(description.required).toBe(true);
+    expect(description.disabled).toBe(false);
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();

@@ -2,6 +2,7 @@ import type { Website } from "@/domain/website";
 
 import { FeedSaveButton } from "../feed-save-overlay";
 import { LoopingVideo } from "../looping-video";
+import { WebsiteFeedCaption } from "./website-feed-caption";
 
 export function WebsiteCard({
   website,
@@ -52,17 +53,7 @@ export function WebsiteCard({
       <FeedSaveButton postId={website.id} initiallySaved={initiallySaved} onSavedChange={onSavedChange} />
       </div>
       <button type="button" onClick={() => onSelect(website)} className="focus-ring block w-full cursor-pointer text-left" aria-label={`View ${website.title} website details`}>
-        <div className="mt-3 flex items-start gap-2.5">
-          <span aria-hidden="true" className="relative block size-[39px] shrink-0 overflow-hidden rounded-[10px] bg-[var(--paper)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={website.favicon.url} alt="" width={39} height={39} className="size-full object-scale-down" />
-            <span className="pointer-events-none absolute inset-0 rounded-[inherit] border-[0.5px] border-[#dfdfdf]" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[16px] font-medium leading-[1.25] tracking-[0.04px] text-[#262626]">{website.title}</h2>
-            <p className="mt-1 line-clamp-2 text-[13px] leading-[1.3] tracking-[0.04px] text-[#7b7b7b]">{website.tagline}</p>
-          </div>
-        </div>
+        <WebsiteFeedCaption title={website.title} description={website.tagline} iconUrl={website.favicon.url} />
       </button>
     </article>
   );

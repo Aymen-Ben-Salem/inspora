@@ -91,6 +91,7 @@ function fixture() {
     title: "Example",
     url: "https://example.com",
     tagline: "For designers",
+    feedDescription: "A workspace for your next great idea.",
     iconId,
     wordmarkId,
     expectedRevision: 0,
@@ -110,6 +111,27 @@ function fixture() {
   };
 }
 describe("owned unpaid sponsor preparation", () => {
+  it.each([undefined, "", "   "])("requires a nonblank short feed description (%s)", async (feedDescription) => {
+    const f = fixture();
+    await f.service.begin();
+    expect(await f.service.save({ ...f.input, feedDescription })).toEqual({
+      ok: false,
+      code: "invalid_input",
+      message: "Short feed description is required.",
+    });
+    expect(f.preparations.get("owner-a")?.campaign).toBeNull();
+  });
+  it("limits the short feed description and freezes trimmed text independently of the legacy tagline", async () => {
+    const f = fixture();
+    await f.service.begin();
+    expect(await f.service.save({ ...f.input, feedDescription: "a".repeat(301) })).toMatchObject({
+      ok: false, code: "invalid_input",
+    });
+    expect(await f.service.save({ ...f.input, feedDescription: "  Made for focused work.  " })).toMatchObject({
+      ok: true,
+      value: { creative: { feedDescription: "Made for focused work.", tagline: f.input.tagline } },
+    });
+  });
   it.each([
     ["iconId", "Upload a compact icon before saving."],
     ["wordmarkId", "Upload a full wordmark before saving."],

@@ -41,6 +41,7 @@ const preparation = (owner: string, saved = false) => ({
           title: "Owner A private campaign",
           url: "https://owner-a.example",
           tagline: "Private draft",
+          feedDescription: "A private workspace for creative teams.",
           iconId: "icon-a",
           wordmarkId: "wordmark-a",
           variantIds: [] as string[],
@@ -129,7 +130,7 @@ it.each(["one_time", "subscription"] as const)("saves current creative before op
   expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/checkout"))).toHaveLength(0);
   const saves = fetchMock.mock.calls.filter(([, options]) => options.method === "PUT");
   expect(saves).toHaveLength(1);
-  expect(JSON.parse(saves[0][1].body)).toMatchObject({ title: "Owner A private campaign", expectedRevision: 4 });
+  expect(JSON.parse(saves[0][1].body)).toMatchObject({ title: "Owner A private campaign", expectedRevision: 4, feedDescription: "A private workspace for creative teams." });
   await act(async () => finishSave(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } })));
   const checkout = fetchMock.mock.calls.find(([url]) => url.endsWith("/checkout"))!;
   expect(JSON.parse(checkout[1].body)).toEqual({ checkoutId: "checkout-a", billingMode, currency: "usd" });
@@ -291,12 +292,31 @@ it("restores anonymous manual typing after sponsor verification", async () => {
       title: "Typed before verification",
       url: "https://example.com",
       tagline: "For designers",
+      feedDescription: "Written before signing in.",
     }),
   );
   state.auth = { isLoaded: true, isSignedIn: true, userId: "owner-b" };
   await act(async () => root.render(<CampaignEditor />));
   expect(nameInput().value).toBe("Typed before verification");
+  expect(container.querySelector<HTMLTextAreaElement>('textarea[name="feedDescription"]')?.value).toBe("Written before signing in.");
   expect(sessionStorage.getItem("inspora:sponsor-typed")).toBeNull();
+});
+
+it("previews the website caption and keeps it out of the design and logo feed preview", async () => {
+  await act(async () => root.render(<CampaignEditor />));
+  const preview = container.querySelector('[aria-label="Placement previews"]')!;
+  const feed = () => preview.querySelector('[data-sponsor-placement="feed"]')!;
+  expect(feed().querySelector("p")?.textContent).toBe("A private workspace for creative teams.");
+  const choices = preview.querySelector('[aria-label="Feed preview"]')!;
+  const design = Array.from(choices.querySelectorAll("button")).find(button => button.textContent === "Design & logos")!;
+  await act(async () => design.click());
+  expect(design.getAttribute("aria-pressed")).toBe("true");
+  expect(feed().textContent).not.toContain("A private workspace for creative teams.");
+  expect(feed().querySelector('a[aria-label="Visit Owner A private campaign website"]')).toBeNull();
+  const websites = Array.from(choices.querySelectorAll("button")).find(button => button.textContent === "Websites")!;
+  await act(async () => websites.click());
+  expect(feed().querySelector('a[aria-label="Visit Owner A private campaign website"] img')?.getAttribute("src")).toBe("/api/sponsorship/assets/icon-a");
+  expect(container.querySelector<HTMLTextAreaElement>('textarea[name="feedDescription"]')?.value).toBe("A private workspace for creative teams.");
 });
 
 it.each([

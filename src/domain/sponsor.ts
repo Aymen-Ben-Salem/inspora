@@ -9,6 +9,7 @@ export type Sponsor = {
   title: string;
   url: string;
   tagline?: string;
+  feedDescription?: string;
   mediaType: "image" | "video";
   mediaUrl?: string;
   mediaPosterUrl?: string;
@@ -34,6 +35,7 @@ export type ActiveSponsor = Pick<
   | "title"
   | "url"
   | "tagline"
+  | "feedDescription"
   | "mediaType"
   | "mediaUrl"
   | "mediaPosterUrl"

@@ -26,6 +26,7 @@ import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
   title: "",
   url: "",
+  feedDescription: "",
   iconId: "",
   wordmarkId: "",
   mediaId: "",
@@ -88,7 +89,7 @@ function CampaignEditorContent({
   const router = useRouter();
   const [billingMode, setBillingMode] = useState<SponsorBillingMode>("one_time");
   const [currency, setCurrency] = useState(initialCurrency);
-  const [fields, setFields] = useState<PreviewFields>(() => ({ ...empty, ...initial, mediaId: initial?.mediaId ?? "", posterId: initial?.posterId ?? "", videoPreviewId: initial?.videoPreviewId ?? "" })),
+  const [fields, setFields] = useState<PreviewFields>(() => ({ ...empty, ...initial, feedDescription: initial?.feedDescription ?? "", mediaId: initial?.mediaId ?? "", posterId: initial?.posterId ?? "", videoPreviewId: initial?.videoPreviewId ?? "" })),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>(initial?.assets ?? []),
     [variants, setVariants] = useState<string[]>(initial?.variantIds ?? []),
     [campaignId, setCampaignId] = useState(paid?.campaign?.id);
@@ -104,6 +105,7 @@ function CampaignEditorContent({
   const accountSetupId = useId();
   const suggestionSetupHintId = useId();
   const uploadSetupHintId = useId();
+  const feedDescriptionHintId = useId();
   const suggesting = busy === "suggest";
   const suggestingTitle = suggesting && !fields.title;
   const loaded = useRef<string | undefined>(undefined);
@@ -154,6 +156,8 @@ function CampaignEditorContent({
                   : "",
               url:
                 typeof typed.url === "string" ? typed.url.slice(0, 2048) : "",
+              feedDescription:
+                typeof typed.feedDescription === "string" ? typed.feedDescription.slice(0, 300) : "",
             });
         } catch {}
         if (p.campaign && loaded.current !== p.id) {
@@ -162,6 +166,7 @@ function CampaignEditorContent({
           setFields({
             ...empty,
             ...c,
+            feedDescription: c.feedDescription ?? "",
             mediaId: c.mediaId ?? "",
             posterId: c.posterId ?? "",
             videoPreviewId: c.videoPreviewId ?? "",
@@ -223,6 +228,7 @@ function CampaignEditorContent({
           ownerUserId: ownerUserId ?? null,
           title: fields.title,
           url: fields.url,
+          feedDescription: fields.feedDescription,
         }),
       );
     } catch {}
@@ -342,6 +348,7 @@ function CampaignEditorContent({
                 {
                   title: fields.title,
                   url: fields.url,
+                  feedDescription: fields.feedDescription,
                   iconId: fields.iconId,
                   wordmarkId: fields.wordmarkId,
                   mediaId: fields.mediaId || undefined,
@@ -395,6 +402,24 @@ function CampaignEditorContent({
               placeholder="https://your-product.com"
               autoComplete="url"
             />
+          </label>
+          <label className={`${campaignType.label} block`}>
+            Short feed description
+            <textarea
+              name="feedDescription"
+              className={`${fieldClass} mt-2 resize-y`}
+              rows={2}
+              required
+              maxLength={300}
+              aria-describedby={feedDescriptionHintId}
+              disabled={paid?.readonly || Boolean(busy)}
+              value={fields.feedDescription}
+              onChange={(event) => update("feedDescription", event.target.value)}
+              placeholder="A short sentence about your product"
+            />
+            <span id={feedDescriptionHintId} className={`${campaignType.caption} mt-1 block text-[#767676]`}>
+              Shown beside your icon beneath the sponsor media on the websites page. Up to 300 characters.
+            </span>
           </label>
           <div>
             <button

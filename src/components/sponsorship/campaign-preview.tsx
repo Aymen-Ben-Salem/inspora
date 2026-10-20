@@ -1,10 +1,13 @@
+"use client";
 import { campaignType } from "./campaign-typography";
 import Image from "next/image";
+import { useState } from "react";
 import { SponsoredPostCard } from "@/components/sponsored-post-card";
 import type { VerifiedSponsorAsset } from "@/features/sponsorship/types";
 export type PreviewFields = {
   title: string;
   url: string;
+  feedDescription: string;
   iconId: string;
   wordmarkId: string;
   mediaId: string;
@@ -20,6 +23,7 @@ export function CampaignPreview({
   assets: VerifiedSponsorAsset[];
   paid?: boolean;
 }) {
+  const [feedVariant, setFeedVariant] = useState<"website" | "default">("website");
   const asset = (id: string) => assets.find((a) => a.id === id);
   const icon = asset(fields.iconId),
     wordmark = asset(fields.wordmarkId),
@@ -66,11 +70,26 @@ export function CampaignPreview({
         <h3 className={`${campaignType.caption} mb-3 text-[#767676]`}>
           Feed · image, video or brand card
         </h3>
+        <div role="group" aria-label="Feed preview" className="mb-3 flex gap-2">
+          {([["website", "Websites"], ["default", "Design & logos"]] as const).map(([variant, label]) => (
+            <button
+              key={variant}
+              type="button"
+              aria-pressed={feedVariant === variant}
+              onClick={() => setFeedVariant(variant)}
+              className={`${campaignType.caption} focus-ring cursor-pointer rounded-md border px-2 py-1 ${feedVariant === variant ? "border-[#262626] bg-[#262626] text-white" : "border-[#e6e6e6] text-[#767676]"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <SponsoredPostCard
+          variant={feedVariant}
           sponsor={{
             id: "private-preview",
             title,
             url,
+            feedDescription: fields.feedDescription,
             mediaType: media?.contentType.startsWith("video/")
               ? "video"
               : "image",

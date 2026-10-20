@@ -17,6 +17,11 @@ export const campaignInputSchema = z
     title: z.string().trim().min(1, "Public name is required.").max(160),
     url: destinationSchema,
     tagline: z.string().trim().max(300).default(""),
+    feedDescription: z
+      .string({ error: "Short feed description is required." })
+      .trim()
+      .min(1, "Short feed description is required.")
+      .max(300, "Keep the short feed description to 300 characters or fewer."),
     expectedRevision: z.number().int().nonnegative(),
     iconId: z.uuid({ error: "Upload a compact icon before saving." }),
     wordmarkId: z.uuid({ error: "Upload a full wordmark before saving." }),

@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:website-icon-borders": "tsx --tsconfig tsconfig.json scripts/check-website-icon-borders.ts",
     "env:check:development": "tsx scripts/check-environment.ts development",
     "env:check:preview": "tsx scripts/check-environment.ts preview",
     "db:generate": "drizzle-kit generate",

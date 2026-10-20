@@ -15,6 +15,17 @@
   --radius-ui: var(--radius-surface);
 }
 
+.website-feed-icon-shape {
+  border-radius: 10px;
+}
+
+@supports (corner-shape: superellipse(1.5)) {
+  .website-feed-icon-shape {
+    border-radius: 13.5px;
+    corner-shape: superellipse(1.5);
+  }
+}
+
 @layer base {
   /* Shared square surfaces; explicit pills, circles, and sheet corners win.
      Side-only borders remain straight dividers. */

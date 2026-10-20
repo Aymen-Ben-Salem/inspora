@@ -2,6 +2,29 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createMetadataFetcher, fillEmptySponsorFields } from "./metadata";
 describe("optional public-only metadata", () => {
+  it.each([undefined, "A curated library of logo inspiration."])("uses the supplied brand name and keeps descriptive text separate (%s)", async (description) => {
+    const headline = "Logo Inspiration — 1,300+ Logos & Animated Logos | Logosystem";
+    const fetcher = createMetadataFetcher({
+      resolve: async () => [{ address: "93.184.216.34", family: 4 }],
+      request: async () => ({
+        status: 200,
+        headers: { "content-type": "text/html" },
+        bytes: Buffer.from(`<title>${headline}</title><meta property="og:site_name" content="Logosystem">${description ? `<meta name="description" content="${description}">` : ""}`),
+      }),
+    });
+    expect(await fetcher.suggest("https://logosystem.co")).toMatchObject({
+      title: "Logosystem",
+      feedDescription: description ?? headline,
+    });
+  });
+  it("fills an empty feed description without replacing sponsor-written copy", () => {
+    const fields = { title: "Logosystem", feedDescription: "", iconId: "", wordmarkId: "", mediaId: "" };
+    const suggested = { title: "Imported name", feedDescription: "Imported description" };
+    expect(fillEmptySponsorFields(fields, suggested)).toMatchObject({ title: "Logosystem", feedDescription: "Imported description" });
+    expect(fillEmptySponsorFields({ ...fields, feedDescription: "Sponsor-written description" }, suggested, true)).toMatchObject({
+      title: "Logosystem", feedDescription: "Sponsor-written description",
+    });
+  });
   it("accepts a bounded slow homepage and its optional brand page", async () => {
     vi.useFakeTimers();
     vi.spyOn(AbortSignal, "timeout").mockImplementation((duration) => {

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { websiteFeedIconClipPath } from "../websites/website-feed-icon";
 
 // Synchronous server fallbacks: no requests, media, observers or animation code.
 function Block({ className = "" }: { className?: string }) {
@@ -63,7 +64,7 @@ function WebsiteSkeleton() {
         <div key={index}>
           <Block className="aspect-video w-full" />
           <div className="mt-3 flex items-start gap-2.5">
-            <Block className="size-[39px] shrink-0 rounded-[10px]" />
+            <div className="size-[39px] shrink-0 bg-[#f0f0f0]" style={{ clipPath: websiteFeedIconClipPath }} />
             <div className="min-w-0 flex-1">
               <Block className="h-5 w-2/3" />
               <Block className="mt-1 h-[17px] w-full" />

@@ -34,12 +34,13 @@ export async function POST(request: Request) {
     );
     const value: {
       title?: string;
+      feedDescription?: string;
       iconId?: string;
       wordmarkId?: string;
       mediaId?: string;
       assets: import("@/features/sponsorship/types").VerifiedSponsorAsset[];
       missingAssets: string[];
-    } = { title: suggestions.title, assets: [], missingAssets: [] };
+    } = { title: suggestions.title, feedDescription: suggestions.feedDescription, assets: [], missingAssets: [] };
     const roles = [
       [suggestions.iconUrl, "icon"],
       [suggestions.imageUrl, "media"],

@@ -53,10 +53,19 @@ beforeEach(() => {
   }));
 });
 it("imports website icon, OG creative and wordmark into distinct owned asset roles", async () => {
+  adapters.suggest.mockResolvedValueOnce({
+    title: "Logosystem",
+    feedDescription: "A curated library of logo inspiration.",
+    iconUrl: "https://product.example/icon.png",
+    imageUrl: "https://product.example/og.png",
+    wordmarkUrl: "https://product.example/brand.png",
+  });
   const response = await POST(request());
   expect(await response.json()).toMatchObject({
     ok: true,
     value: {
+      title: "Logosystem",
+      feedDescription: "A curated library of logo inspiration.",
       iconId: "owned-icon",
       mediaId: "owned-media",
       wordmarkId: "owned-wordmark",

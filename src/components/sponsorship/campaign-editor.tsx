@@ -478,7 +478,7 @@ function CampaignEditorContent({
             </label>
           ) : null}
           <p className={`${campaignType.caption} text-[#767676]`}>
-            Imports your website’s name and images. You can replace them below.
+            Imports your website’s name, description and images. You can edit them below.
           </p>
           <fieldset
             disabled={!ready || Boolean(busy) || paid?.readonly}

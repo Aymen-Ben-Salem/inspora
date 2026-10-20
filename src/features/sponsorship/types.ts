@@ -106,6 +106,7 @@ export type AccountCapabilities = {
 };
 export type MetadataSuggestions = {
   title?: string;
+  feedDescription?: string;
   iconId?: string;
   wordmarkId?: string;
   mediaId?: string;

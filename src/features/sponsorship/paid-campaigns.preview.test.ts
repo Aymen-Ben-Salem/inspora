@@ -112,6 +112,7 @@ it("suggests website fields for a paid sponsor with no unpaid preparation withou
   );
   const website = vi.spyOn(metadataFetcher, "suggest").mockResolvedValue({
     title: "Another product",
+    feedDescription: undefined,
     imageUrl: undefined,
     iconUrl: undefined,
     wordmarkUrl: undefined,
@@ -153,6 +154,7 @@ it("keeps website suggestions available for an owned unpaid preparation", async 
   access.owner = owner;
   vi.spyOn(metadataFetcher, "suggest").mockResolvedValue({
     title: "Before checkout",
+    feedDescription: undefined,
     imageUrl: undefined,
     iconUrl: undefined,
     wordmarkUrl: undefined,

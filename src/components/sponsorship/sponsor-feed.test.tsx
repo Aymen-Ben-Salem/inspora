@@ -72,7 +72,7 @@ it("adds the existing icon, public name and short description only to website fe
   expect(caption.querySelector("h2")?.textContent).toBe(sponsor.title);
   expect(caption.querySelector("p")?.textContent).toBe(sponsor.feedDescription);
   expect(caption.querySelector("img")?.getAttribute("src")).toBe(sponsor.iconUrl);
-  expect(caption.querySelector("img")?.width).toBe(39);
+  expect(caption.querySelector("img")?.width).toBe(27);
   expect(caption.textContent).not.toContain(sponsor.tagline);
 
   await act(async () => root.render(<SponsorFeed ordinary={ordinary(16 / 9)} />));

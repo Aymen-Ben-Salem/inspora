@@ -131,7 +131,7 @@ export function SponsoredPostCard({
           className="focus-ring block w-full text-left"
           aria-label={`Visit ${sponsor.title} website`}
         >
-          <WebsiteFeedCaption title={sponsor.title} description={sponsor.feedDescription || sponsor.tagline} iconUrl={sponsor.iconUrl} />
+          <WebsiteFeedCaption title={sponsor.title} description={sponsor.feedDescription || sponsor.tagline} iconUrl={sponsor.iconUrl} insetIcon />
         </a>
       ) : sponsor.tagline ? (
         <div className="pt-2 px-0.5">

@@ -5,11 +5,13 @@ export function fillEmptySponsorFields<
     iconId: string;
     wordmarkId: string;
     mediaId: string;
+    feedDescription?: string;
   },
 >(fields: T, suggestions: MetadataSuggestions, replaceAssets = false): T {
   return {
     ...fields,
     title: fields.title || suggestions.title || "",
+    ...("feedDescription" in fields ? { feedDescription: fields.feedDescription || suggestions.feedDescription || "" } : {}),
     iconId:
       (replaceAssets ? suggestions.iconId : fields.iconId) ||
       fields.iconId ||

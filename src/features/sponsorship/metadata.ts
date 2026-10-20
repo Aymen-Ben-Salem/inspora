@@ -268,9 +268,15 @@ export function createMetadataFetcher(deps: MetadataFetchDependencies) {
         .trim()
         .slice(0, 160);
       let ogImageUrl: string | undefined, iconUrl: string | undefined;
+      let siteName: string | undefined, description: string | undefined;
       let iconPriority = 0;
       for (const match of html.matchAll(/<(?:meta|link)\b[^>]*>/gi)) {
         const a = attributes(match[0]);
+        const property = (a.property ?? a.name)?.toLowerCase();
+        if (property === "og:site_name" && !siteName)
+          siteName = a.content?.trim().slice(0, 160) || undefined;
+        if (["description", "og:description"].includes(property ?? "") && !description)
+          description = a.content?.trim().slice(0, 300) || undefined;
         if (a.property === "og:title" && !title)
           title = a.content?.trim().slice(0, 160) ?? "";
         if ((a.property ?? a.name)?.toLowerCase() === "og:image" && !ogImageUrl)
@@ -321,7 +327,8 @@ export function createMetadataFetcher(deps: MetadataFetchDependencies) {
       }
       wordmarkUrl ??= websiteWordmark(html, response.url);
       return {
-        title: title || undefined,
+        title: siteName || title || undefined,
+        feedDescription: description || (siteName && title !== siteName ? title.slice(0, 300) : undefined),
         imageUrl: ogImageUrl,
         iconUrl,
         wordmarkUrl,

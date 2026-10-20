@@ -25,3 +25,7 @@ Use the five canonical triage status strings. Before triaging tickets, read `doc
 ### Domain docs
 
 Use single-context domain documentation: root `CONTEXT.md` and `docs/adr/`. Before exploring the codebase, read `docs/agents/domain.md`.
+
+### Sponsorship billing
+
+Before changing sponsorship checkout, Stripe resources, tax settings, or launch/recovery configuration, read the [current preparation handoff](.scratch/sponsorship/production-preparation/handoff.md) and the [closed VAT collection decision](.scratch/sponsorship/production-preparation/vat-decision-20261021.md). These local notes contain the approved payment behavior, current account/resources, verification limits and future activation sequence. Preparation remains separate from explicit production-launch authorization.

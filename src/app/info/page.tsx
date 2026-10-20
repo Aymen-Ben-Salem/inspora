@@ -189,7 +189,7 @@ export default function InfoPage() {
               </h2>
               <div className="mt-6 max-w-[720px] space-y-5 text-[16px] leading-[1.7] text-[#777] sm:text-[17px]">
                 <p>
-                  USD 500 or EUR 500 before applicable tax. One-time covers one
+                  USD 500 or EUR 450 before applicable tax. One-time covers one
                   calendar month from verified payment, with no automatic
                   renewal. Monthly renews every calendar month until cancelled
                   and must be selected explicitly. For business and professional

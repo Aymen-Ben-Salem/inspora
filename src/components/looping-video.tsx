@@ -228,7 +228,10 @@ export function LoopingVideo({
       hiddenAt = undefined;
       clearHiddenCleanup();
       if (!withinLoadMargin) {
-        detach(false);
+        // Keep feed previews paused on their last frame. Reloading the source
+        // here resets playback and can visibly redraw cards on return.
+        if (releaseWhenNotVisible) detach(false);
+        else video.pause();
         return;
       }
 

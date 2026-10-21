@@ -28,6 +28,7 @@ beforeEach(() => {
       observers.push(this.entry);
     }
     observe(target: Element) { this.entry.target = target; }
+    unobserve(target: Element) { if (this.entry.target === target) this.entry.target = undefined; }
     disconnect() { this.entry.target = undefined; }
   });
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
@@ -56,11 +57,11 @@ async function mount(props: Partial<ComponentProps<typeof LoopingVideo>> = {}) {
   return container.querySelector("video")!;
 }
 
-function intersect(observer: Observer, video: HTMLVideoElement, visible: boolean) {
-  const rect = video.getBoundingClientRect();
+function intersect(observer: Observer, target: Element, visible: boolean) {
+  const rect = target.getBoundingClientRect();
   observer.callback(
     [{
-      target: video,
+      target,
       isIntersecting: visible,
       intersectionRatio: visible ? 1 : 0,
       boundingClientRect: rect,
@@ -73,7 +74,7 @@ function intersect(observer: Observer, video: HTMLVideoElement, visible: boolean
 }
 
 async function scroll(video: HTMLVideoElement, visible: boolean, loadFirst = true) {
-  const [load, play] = observers;
+  const [load, play] = observers.filter((observer) => observer.target === video);
   await act(async () => {
     for (const observer of loadFirst ? [load, play] : [play, load]) {
       intersect(observer, video, visible);
@@ -307,6 +308,7 @@ it("keeps the Safari thumbnail visible until a video frame is presented after se
   const frames = presentedFrames(video);
   const { poster, frame } = safariSurface();
   await scroll(video, true);
+  expect(video.style.opacity).not.toBe("0");
   await act(async () => {
     video.dispatchEvent(new Event("loadeddata"));
     video.dispatchEvent(new Event("playing"));
@@ -338,6 +340,7 @@ it("holds the last Safari frame through source eviction and timestamp restoratio
   expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(384);
   expect(frame.style.visibility).toBe("visible");
   expect(poster.style.visibility).toBe("hidden");
+  expect(frame.nextElementSibling).toBe(video);
 
   for (const other of videos.slice(1)) {
     await act(async () => {
@@ -363,6 +366,7 @@ it("holds the last Safari frame through source eviction and timestamp restoratio
   frames.state.seeking = false;
   frames.present();
   expect(frame.style.visibility).toBe("hidden");
+  expect(video.style.opacity).not.toBe("0");
   expect(poster.style.visibility).toBe("hidden");
 });
 
@@ -395,7 +399,7 @@ it("discards the saved Safari frame when the preview source changes", async () =
   expect(safariSurface().poster.style.visibility).toBe("visible");
 });
 
-it("uses the Safari thumbnail if capturing a paused frame is unavailable", async () => {
+it("keeps Safari's native paused frame if a canvas capture is unavailable", async () => {
   mockSafari();
   const video = await mount();
   const frames = presentedFrames(video);
@@ -404,7 +408,7 @@ it("uses the Safari thumbnail if capturing a paused frame is unavailable", async
   frames.present();
   vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(null);
   await scroll(video, false);
-  expect(safariSurface().poster.style.visibility).toBe("visible");
+  expect(safariSurface().poster.style.visibility).toBe("hidden");
   expect(safariSurface().frame.style.visibility).toBe("hidden");
 });
 
@@ -460,7 +464,7 @@ it("bounds Safari still-frame storage in a long feed and frees it on unmount", a
   expect(canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
 });
 
-it("keeps unplayed Safari previews on their thumbnail without copying video frames", async () => {
+it("keeps an unadvanced Safari frame visible without copying it", async () => {
   mockSafari();
   const video = await mount();
   const frames = presentedFrames(video);
@@ -470,7 +474,8 @@ it("keeps unplayed Safari previews on their thumbnail without copying video fram
   await scroll(video, false);
   expect(frames.drawImage).not.toHaveBeenCalled();
   expect(safariSurface().frame.width).toBe(0);
-  expect(safariSurface().poster.style.visibility).toBe("visible");
+  expect(safariSurface().poster.style.visibility).toBe("hidden");
+  expect(video.style.opacity).not.toBe("0");
 });
 
 it("avoids copying every visible Safari video when scrolling starts", async () => {
@@ -491,4 +496,51 @@ it("avoids copying every visible Safari video when scrolling starts", async () =
   await scroll(video, false);
   expect(frames.drawImage).toHaveBeenCalledOnce();
   expect(safariSurface().frame.style.visibility).toBe("visible");
+});
+
+it("prepares Safari thumbnails ahead of the video load margin without downloading videos", async () => {
+  mockSafari();
+  const video = await mount({ lazyPoster: true });
+  const { poster } = safariSurface();
+  const preparation = observers.find((observer) => observer.target === poster);
+  expect(preparation).toBeDefined();
+  expect(Number.parseInt(preparation!.options!.rootMargin!)).toBeGreaterThanOrEqual(window.innerHeight * 2);
+  expect(poster.hasAttribute("src")).toBe(false);
+  await act(async () => intersect(preparation!, poster, true));
+  expect(poster.getAttribute("src")).toBe("/poster.webp");
+  expect(video.hasAttribute("src")).toBe(false);
+});
+
+it("never restores Safari's original native poster after the video has painted", async () => {
+  mockSafari();
+  const video = await mount({ lazyPoster: true });
+  const frames = presentedFrames(video);
+  await scroll(video, true);
+  frames.present();
+  expect(video.hasAttribute("poster")).toBe(false);
+  await scroll(video, false);
+  await scroll(video, true);
+  expect(video.hasAttribute("poster")).toBe(false);
+  expect(video.style.opacity).not.toBe("0");
+});
+
+it("keeps the previous Safari backing frame if a later capture fails", async () => {
+  mockSafari();
+  const video = await mount();
+  const frames = presentedFrames(video);
+  await scroll(video, true);
+  video.currentTime = 4.5;
+  frames.present();
+  await scroll(video, false);
+  const { frame, poster } = safariSurface();
+  const width = frame.width;
+  await scroll(video, true);
+  frames.present();
+  video.currentTime = 5.5;
+  frames.drawImage.mockImplementation(() => { throw new Error("Frame unavailable"); });
+  await scroll(video, false);
+  expect(frame.width).toBe(width);
+  expect(frame.style.visibility).toBe("visible");
+  expect(poster.style.visibility).toBe("hidden");
+  expect(video.style.opacity).not.toBe("0");
 });

@@ -6,6 +6,36 @@ import { type RefObject, useEffect, useRef, useSyncExternalStore } from "react";
 const MAX_SAVED_FRAMES = 64;
 const MAX_FRAME_EDGE = 384;
 const savedFrames = new Map<HTMLCanvasElement, () => void>();
+const pendingPosters = new Map<HTMLImageElement, string>();
+let posterObserver: IntersectionObserver | undefined;
+
+function preparePoster(image: HTMLImageElement, poster: string) {
+  if (!("IntersectionObserver" in window)) {
+    image.src = poster;
+    return;
+  }
+  const stop = (target: HTMLImageElement) => {
+    pendingPosters.delete(target);
+    posterObserver?.unobserve(target);
+    if (pendingPosters.size === 0) {
+      posterObserver?.disconnect();
+      posterObserver = undefined;
+    }
+  };
+  posterObserver ??= new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const target = entry.target as HTMLImageElement;
+      const source = pendingPosters.get(target);
+      if (source) target.src = source;
+      stop(target);
+    }
+  }, { rootMargin: `${Math.max(1000, window.innerHeight * 2)}px 0px` });
+  pendingPosters.set(image, poster);
+  posterObserver.observe(image);
+  return () => stop(image);
+}
+
 const subscribe = () => () => {};
 const serverSnapshot = () => false;
 const safariSnapshot = () =>
@@ -36,22 +66,32 @@ export function SafariVideoSurface({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    const image = imageRef.current;
+    if (!enabled || !image || !poster || eager) return;
+    return preparePoster(image, poster);
+  }, [enabled, poster, eager]);
+
+  useEffect(() => {
     const video = videoRef.current;
     const image = imageRef.current;
     const canvas = canvasRef.current;
     if (!enabled || !video || !image || !canvas) return;
 
     let pending = true;
+    let coverPausedFrame = false;
     let hasFrame = false;
     let hasSnapshot = false;
     let snapshotTime: number | undefined;
     let frameRequest: number | undefined;
     let paintRequest: number | undefined;
     let generation = 0;
+    const originalPosition = video.style.position;
+    if (getComputedStyle(video).position === "static") video.style.position = "relative";
 
     const updateSurface = () => {
-      image.style.visibility = pending && !hasSnapshot ? "visible" : "hidden";
+      image.style.visibility = !hasSnapshot && !hasFrame ? "visible" : "hidden";
       canvas.style.visibility = pending && hasSnapshot ? "visible" : "hidden";
+      canvas.style.zIndex = coverPausedFrame ? "1" : "auto";
     };
     const releaseSnapshot = () => {
       savedFrames.delete(canvas);
@@ -71,6 +111,7 @@ export function SafariVideoSurface({
     const loading = () => {
       cancelFrame();
       hasFrame = false;
+      coverPausedFrame = false;
       pending = true;
       updateSurface();
     };
@@ -86,7 +127,10 @@ export function SafariVideoSurface({
           return;
         }
         hasFrame = true;
+        coverPausedFrame = false;
         pending = false;
+        video.dataset.loopingVideoPainted = "";
+        video.removeAttribute("poster");
         updateSurface();
       };
       if (typeof video.requestVideoFrameCallback === "function") {
@@ -105,8 +149,13 @@ export function SafariVideoSurface({
         video.videoWidth > 0 && video.videoHeight > 0 && snapshotTime !== video.currentTime) {
         try {
           const scale = Math.min(1, MAX_FRAME_EDGE / video.videoWidth, MAX_FRAME_EDGE / video.videoHeight);
-          canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-          canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+          const width = Math.max(1, Math.round(video.videoWidth * scale));
+          const height = Math.max(1, Math.round(video.videoHeight * scale));
+          if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+            hasSnapshot = false;
+          }
           const context = canvas.getContext("2d", { alpha: false });
           if (context) {
             // Keep the canvas on screen; no pixel readback/export or CORS change.
@@ -116,16 +165,27 @@ export function SafariVideoSurface({
             savedFrames.delete(canvas);
             savedFrames.set(canvas, releaseSnapshot);
             if (savedFrames.size > MAX_SAVED_FRAMES) savedFrames.values().next().value?.();
-          } else releaseSnapshot();
+          } else if (!hasSnapshot) releaseSnapshot();
         } catch {
-          releaseSnapshot();
+          if (!hasSnapshot) releaseSnapshot();
         }
       }
       pending = true;
+      coverPausedFrame = hasSnapshot;
       updateSurface();
     };
 
-    const handle = { hold, loading, waitForFrame };
+    const handle = {
+      hold,
+      loading,
+      waitForFrame: () => {
+        // Expose the native paused frame before play, with the snapshot beneath
+        // it until presentation. Keeping video renderable avoids reload stalls.
+        coverPausedFrame = false;
+        updateSurface();
+        waitForFrame();
+      },
+    };
     surfaceRef.current = handle;
     video.addEventListener("emptied", loading);
     video.addEventListener("playing", waitForFrame);
@@ -140,6 +200,8 @@ export function SafariVideoSurface({
       video.removeEventListener("loadeddata", waitForFrame);
       video.removeEventListener("seeked", waitForFrame);
       releaseSnapshot();
+      video.style.position = originalPosition;
+      delete video.dataset.loopingVideoPainted;
       if (surfaceRef.current === handle) surfaceRef.current = null;
     };
   }, [enabled, poster, source, surfaceRef, videoRef]);
@@ -147,16 +209,16 @@ export function SafariVideoSurface({
   if (!enabled || !poster) return null;
   return (
     <>
-      {/* Native video posters can disappear before WebKit presents a frame. */}
+      {/* Keep a backing surface below Safari's native video layer. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imageRef}
         data-video-fallback="poster"
-        src={poster}
+        src={eager ? poster : undefined}
         alt=""
         aria-hidden="true"
         draggable={false}
-        loading={eager ? "eager" : "lazy"}
+        loading="eager"
         className="pointer-events-none absolute inset-0 size-full object-cover"
       />
       <canvas

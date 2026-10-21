@@ -292,7 +292,8 @@ export function LoopingVideo({
         return;
       }
 
-      if (lazyPoster && poster && video.getAttribute("poster") !== poster) {
+      if (lazyPoster && poster && !video.hasAttribute("data-looping-video-painted") &&
+        video.getAttribute("poster") !== poster) {
         video.poster = poster;
       }
       pausedFeedVideos.delete(video);
@@ -370,6 +371,15 @@ export function LoopingVideo({
 
   return (
     <>
+      {suspendWithFeed ? (
+        <SafariVideoSurface
+          videoRef={videoRef}
+          surfaceRef={surfaceRef}
+          poster={poster}
+          source={typeof src === "string" ? src : undefined}
+          eager={eager || !lazyPoster}
+        />
+      ) : null}
       <video
         ref={videoRef}
         {...props}
@@ -385,15 +395,6 @@ export function LoopingVideo({
         playsInline
         preload={preload ?? (eager ? "auto" : "none")}
       />
-      {suspendWithFeed ? (
-        <SafariVideoSurface
-          videoRef={videoRef}
-          surfaceRef={surfaceRef}
-          poster={poster}
-          source={typeof src === "string" ? src : undefined}
-          eager={eager || !lazyPoster}
-        />
-      ) : null}
     </>
   );
 }

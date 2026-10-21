@@ -22,6 +22,20 @@ import {
 
 
 const RECONCILE_EVENT = "looping-video-reconcile";
+// Retain two recently visited desktop rows; older previews keep only a timestamp.
+const MAX_PAUSED_FEED_VIDEOS = 8;
+const pausedFeedVideos = new Map<HTMLVideoElement, () => void>();
+
+function retainPausedFeedVideo(video: HTMLVideoElement, release: () => void) {
+  if (!video.hasAttribute("src") || pausedFeedVideos.has(video)) return;
+  pausedFeedVideos.set(video, release);
+  if (pausedFeedVideos.size <= MAX_PAUSED_FEED_VIDEOS) return;
+  const oldest = pausedFeedVideos.keys().next().value;
+  if (!oldest) return;
+  const releaseOldest = pausedFeedVideos.get(oldest);
+  pausedFeedVideos.delete(oldest);
+  releaseOldest?.();
+}
 
 type LoopingVideoProps = Omit<
   ComponentPropsWithoutRef<"video">,
@@ -49,6 +63,27 @@ export function FeedPlaybackProvider({ children }: PropsWithChildren) {
   const [store] = useState<PlaybackSuspensionStore>(() =>
     createPlaybackSuspensionStore(setSuspended),
   );
+
+  useEffect(() => {
+    let releaseScroll: (() => void) | undefined;
+    let resumeTimer: number | undefined;
+    const handleScroll = () => {
+      // Skip decoding rows that are only passing through the viewport.
+      releaseScroll ??= store.suspend();
+      window.clearTimeout(resumeTimer);
+      resumeTimer = window.setTimeout(() => {
+        resumeTimer = undefined;
+        releaseScroll?.();
+        releaseScroll = undefined;
+      }, 150);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.clearTimeout(resumeTimer);
+      releaseScroll?.();
+    };
+  }, [store]);
 
   const suspend = useCallback(() => store.suspend(), [store]);
   const value = useMemo(() => ({ suspended, suspend }), [suspend, suspended]);
@@ -105,14 +140,21 @@ function attachVideoSource(
     }
   };
   if (video.readyState >= HTMLMediaElement.HAVE_METADATA) restore();
-  else video.addEventListener("loadedmetadata", restore, { once: true });
+  else {
+    video.addEventListener("loadedmetadata", restore, { once: true });
+    return () => video.removeEventListener("loadedmetadata", restore);
+  }
 }
 
 function detachVideoSource(
   video: HTMLVideoElement,
   savePosition: boolean,
 ) {
-  if (savePosition && Number.isFinite(video.currentTime)) {
+  if (
+    savePosition && video.hasAttribute("src") &&
+    video.readyState >= HTMLMediaElement.HAVE_METADATA &&
+    Number.isFinite(video.currentTime)
+  ) {
     const position = video.currentTime;
     video.pause();
     video.removeAttribute("src");
@@ -148,7 +190,7 @@ export function LoopingVideo({
   const pathname = usePathname();
   const [mountedPathname] = useState(pathname);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const savedPositionRef = useRef<number | undefined>(undefined);
+  const savedPositionRef = useRef<{ source: string; time: number } | undefined>(undefined);
   const feedPlayback = useContext(FeedPlaybackContext);
   const suspended = suspendWithFeed && Boolean(feedPlayback?.suspended);
   // Intercepted post routes keep the archive mounted behind the dialog.
@@ -189,6 +231,7 @@ export function LoopingVideo({
     let withinLoadMargin = false;
     let hiddenAt: number | undefined;
     let hiddenCleanup: number | undefined;
+    let removePositionRestore: (() => void) | undefined;
 
     const clearHiddenCleanup = () => {
       if (hiddenCleanup !== undefined) {
@@ -197,8 +240,12 @@ export function LoopingVideo({
       }
     };
     const detach = (savePosition = preservePositionWhileInactive) => {
+      pausedFeedVideos.delete(video);
+      removePositionRestore?.();
+      removePositionRestore = undefined;
       const saved = detachVideoSource(video, savePosition);
-      if (saved !== undefined) savedPositionRef.current = saved;
+      if (saved !== undefined && source) savedPositionRef.current = { source, time: saved };
+      else if (!savePosition) savedPositionRef.current = undefined;
     };
     const scheduleHiddenCleanup = () => {
       clearHiddenCleanup();
@@ -228,17 +275,25 @@ export function LoopingVideo({
       hiddenAt = undefined;
       clearHiddenCleanup();
       if (!withinLoadMargin) {
-        // Keep feed previews paused on their last frame. Reloading the source
-        // here resets playback and can visibly redraw cards on return.
         if (releaseWhenNotVisible) detach(false);
-        else video.pause();
+        else {
+          video.pause();
+          retainPausedFeedVideo(video, () => detach(true));
+        }
         return;
       }
 
       if (lazyPoster && poster && video.getAttribute("poster") !== poster) {
         video.poster = poster;
       }
-      attachVideoSource(video, source, savedPositionRef.current);
+      pausedFeedVideos.delete(video);
+      if (source && video.getAttribute("src") !== source) {
+        removePositionRestore?.();
+        const saved = savedPositionRef.current;
+        removePositionRestore = attachVideoSource(
+          video, source, saved?.source === source ? saved.time : undefined,
+        );
+      }
       if (visible && !suspended) playSilently(video);
       else video.pause();
     };

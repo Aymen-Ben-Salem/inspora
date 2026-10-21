@@ -23,8 +23,9 @@ it("pauses retained feed media across dialog navigation without unloading or res
   const events = new EventTarget();
   let source: string | undefined;
   const video = {
-    currentTime: 4.5, readyState: 4,
-    pause: vi.fn(), play: vi.fn(async () => {}), load: vi.fn(),
+    currentTime: 4.5, readyState: 4, paused: true,
+    pause: vi.fn(() => { video.paused = true; }),
+    play: vi.fn(async () => { video.paused = false; }), load: vi.fn(),
     get src() { return source; }, set src(value: string | undefined) { source = value; },
     hasAttribute: (name: string) => name === "src" && Boolean(source),
     getAttribute: (name: string) => name === "src" ? source : null,

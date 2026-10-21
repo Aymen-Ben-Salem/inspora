@@ -38,17 +38,17 @@ function preparePoster(image: HTMLImageElement, poster: string) {
 
 const subscribe = () => () => {};
 const serverSnapshot = () => false;
-const safariSnapshot = () =>
-  /AppleWebKit/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) &&
+const clientSnapshot = () => true;
+const safariSnapshot = () => /AppleWebKit/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) &&
   !/Chrome|Chromium|CriOS|Edg|OPR|Android/.test(navigator.userAgent);
 
-export type SafariVideoSurfaceHandle = {
-  hold: () => void;
+export type FeedVideoSurfaceHandle = {
+  hold: (releasingSource?: boolean) => void;
   loading: () => void;
   waitForFrame: () => void;
 };
 
-export function SafariVideoSurface({
+export function FeedVideoSurface({
   videoRef,
   surfaceRef,
   poster,
@@ -56,26 +56,27 @@ export function SafariVideoSurface({
   eager,
 }: {
   videoRef: RefObject<HTMLVideoElement | null>;
-  surfaceRef: RefObject<SafariVideoSurfaceHandle | null>;
+  surfaceRef: RefObject<FeedVideoSurfaceHandle | null>;
   poster?: string;
   source?: string;
   eager: boolean;
 }) {
-  const enabled = useSyncExternalStore(subscribe, safariSnapshot, serverSnapshot);
+  const enabled = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
+  const safari = useSyncExternalStore(subscribe, safariSnapshot, serverSnapshot);
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const image = imageRef.current;
-    if (!enabled || !image || !poster || eager) return;
+    if (!safari || !image || !poster || eager) return;
     return preparePoster(image, poster);
-  }, [enabled, poster, eager]);
+  }, [safari, poster, eager]);
 
   useEffect(() => {
     const video = videoRef.current;
     const image = imageRef.current;
     const canvas = canvasRef.current;
-    if (!enabled || !video || !image || !canvas) return;
+    if (!enabled || !video || !canvas) return;
 
     let pending = true;
     let coverPausedFrame = false;
@@ -84,13 +85,17 @@ export function SafariVideoSurface({
     let snapshotTime: number | undefined;
     let frameRequest: number | undefined;
     let paintRequest: number | undefined;
+    let idleCapture: number | undefined;
     let generation = 0;
     const originalPosition = video.style.position;
+    // WebKit can discard the composited paused frame even with a retained source.
+    // Other engines only need a copy when the source is about to be released.
+    const captureOnPause = safari;
     if (getComputedStyle(video).position === "static") video.style.position = "relative";
 
     const updateSurface = () => {
-      image.style.visibility = !hasSnapshot && !hasFrame ? "visible" : "hidden";
-      canvas.style.visibility = pending && hasSnapshot ? "visible" : "hidden";
+      if (image) image.style.visibility = !hasSnapshot && !hasFrame ? "visible" : "hidden";
+      canvas.style.visibility = pending && hasSnapshot && (captureOnPause || !hasFrame) ? "visible" : "hidden";
       canvas.style.zIndex = coverPausedFrame ? "1" : "auto";
     };
     const releaseSnapshot = () => {
@@ -141,8 +146,11 @@ export function SafariVideoSurface({
         });
       }
     };
-    const hold = () => {
-      cancelFrame();
+    const cancelCapture = () => {
+      if (idleCapture !== undefined) window.cancelIdleCallback(idleCapture);
+      idleCapture = undefined;
+    };
+    const capture = () => {
       // An unplayed preview can keep its poster; copying its first frame only
       // adds GPU work while new rows pass through the viewport during scrolling.
       if (hasFrame && video.currentTime > 0 && video.readyState >= 2 && !video.seeking &&
@@ -170,8 +178,29 @@ export function SafariVideoSurface({
           if (!hasSnapshot) releaseSnapshot();
         }
       }
+    };
+    const prepareCapture = () => {
+      if (idleCapture !== undefined || !hasFrame || !("requestIdleCallback" in window)) return;
+      // Prepare Windows frames between rendering tasks, before cache eviction.
+      // A return cancels this work; eviction captures synchronously if necessary.
+      idleCapture = window.requestIdleCallback((deadline) => {
+        idleCapture = undefined;
+        if (deadline.timeRemaining() < 8) {
+          prepareCapture();
+          return;
+        }
+        capture();
+        updateSurface();
+      });
+    };
+    const hold = (releasingSource = false) => {
+      cancelFrame();
+      if (captureOnPause || releasingSource) {
+        cancelCapture();
+        capture();
+      } else prepareCapture();
       pending = true;
-      coverPausedFrame = hasSnapshot;
+      coverPausedFrame = hasSnapshot && (captureOnPause || releasingSource);
       updateSurface();
     };
 
@@ -179,6 +208,7 @@ export function SafariVideoSurface({
       hold,
       loading,
       waitForFrame: () => {
+        cancelCapture();
         // Expose the native paused frame before play, with the snapshot beneath
         // it until presentation. Keeping video renderable avoids reload stalls.
         coverPausedFrame = false;
@@ -194,6 +224,7 @@ export function SafariVideoSurface({
     updateSurface();
     waitForFrame();
     return () => {
+      cancelCapture();
       cancelFrame();
       video.removeEventListener("emptied", loading);
       video.removeEventListener("playing", waitForFrame);
@@ -204,14 +235,14 @@ export function SafariVideoSurface({
       delete video.dataset.loopingVideoPainted;
       if (surfaceRef.current === handle) surfaceRef.current = null;
     };
-  }, [enabled, poster, source, surfaceRef, videoRef]);
+  }, [enabled, safari, poster, source, surfaceRef, videoRef]);
 
   if (!enabled || !poster) return null;
   return (
     <>
-      {/* Keep a backing surface below Safari's native video layer. */}
+      {/* Keep a backing surface below the native video layer. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      {safari ? <img
         ref={imageRef}
         data-video-fallback="poster"
         src={eager ? poster : undefined}
@@ -220,7 +251,7 @@ export function SafariVideoSurface({
         draggable={false}
         loading="eager"
         className="pointer-events-none absolute inset-0 size-full object-cover"
-      />
+      /> : null}
       <canvas
         ref={canvasRef}
         data-video-fallback="frame"

@@ -117,18 +117,19 @@ it("continues releasing offscreen sources when explicitly requested by a detail 
 
 it("loads a nearby preview without playing it before it enters the viewport", async () => {
   const video = await mount({ lazyPoster: true });
+  const [load, play] = observers.filter((observer) => observer.target === video);
   expect(video.hasAttribute("poster")).toBe(false);
-  await act(async () => intersect(observers[0], video, true));
+  await act(async () => intersect(load, video, true));
   expect(video.getAttribute("src")).toBe("/preview.mp4");
   expect(video.poster).toBe("/poster.webp");
   expect(video.play).not.toHaveBeenCalled();
 
-  await act(async () => intersect(observers[1], video, true));
+  await act(async () => intersect(play, video, true));
   expect(video.play).toHaveBeenCalled();
   video.currentTime = 4.5;
   vi.mocked(video.load).mockClear();
   vi.mocked(video.play).mockClear();
-  await act(async () => intersect(observers[1], video, false));
+  await act(async () => intersect(play, video, false));
   expect(video.play).not.toHaveBeenCalled();
   expect(video.currentTime).toBe(4.5);
   expect(video.load).not.toHaveBeenCalled();
@@ -218,7 +219,7 @@ it("clears an older cached timestamp when inactive playback is explicitly releas
   expect(videos[0].currentTime).toBe(0);
 });
 
-it("pauses feed decoding throughout scrolling and resumes once scrolling settles", async () => {
+it("keeps visible feed videos playing throughout scrolling", async () => {
   vi.useFakeTimers();
   await act(async () => root.render(<FeedPlaybackProvider><LoopingVideo src="/preview.mp4" suspendWithFeed /></FeedPlaybackProvider>));
   const video = container.querySelector("video")!;
@@ -226,23 +227,19 @@ it("pauses feed decoding throughout scrolling and resumes once scrolling settles
   video.currentTime = 4.5;
   vi.mocked(video.play).mockClear();
   vi.mocked(video.pause).mockClear();
-
   await act(async () => window.dispatchEvent(new Event("scroll")));
+  await act(async () => vi.advanceTimersByTime(200));
+  expect(video.pause).not.toHaveBeenCalled();
+  await scroll(video, false);
   expect(video.pause).toHaveBeenCalled();
-  await scroll(video, true);
-  expect(video.play).not.toHaveBeenCalled();
-  await act(async () => vi.advanceTimersByTime(149));
-  expect(video.play).not.toHaveBeenCalled();
-
+  vi.mocked(video.play).mockClear();
   await act(async () => window.dispatchEvent(new Event("scroll")));
-  await act(async () => vi.advanceTimersByTime(149));
-  expect(video.play).not.toHaveBeenCalled();
-  await act(async () => vi.advanceTimersByTime(1));
-  expect(video.play).toHaveBeenCalledOnce();
+  await scroll(video, true);
+  expect(video.play).toHaveBeenCalled();
   expect(video.currentTime).toBe(4.5);
 });
 
-it("does not resume a suspended dialog background when the scroll timer finishes", async () => {
+it("keeps a dialog background suspended across scrolling", async () => {
   vi.useFakeTimers();
   let releaseDialog: (() => void) | undefined;
   function DialogControl() {
@@ -255,10 +252,36 @@ it("does not resume a suspended dialog background when the scroll timer finishes
   vi.mocked(video.play).mockClear();
   await act(async () => window.dispatchEvent(new Event("scroll")));
   await act(async () => container.querySelector("button")!.click());
+  vi.mocked(video.play).mockClear();
   await act(async () => vi.advanceTimersByTime(150));
   expect(video.play).not.toHaveBeenCalled();
   await act(async () => releaseDialog?.());
   expect(video.play).toHaveBeenCalledOnce();
+});
+
+it("defers only unstarted previews during scrolling and resumes visited ones immediately", async () => {
+  vi.useFakeTimers();
+  await act(async () => root.render(<FeedPlaybackProvider>
+    <LoopingVideo src="/visited.mp4" suspendWithFeed />
+    <LoopingVideo src="/new.mp4" suspendWithFeed />
+  </FeedPlaybackProvider>));
+  const [visited, fresh] = [...container.querySelectorAll("video")];
+  const visitedPlay = vi.fn().mockResolvedValue(undefined);
+  const freshPlay = vi.fn().mockResolvedValue(undefined);
+  visited.play = visitedPlay;
+  fresh.play = freshPlay;
+  await scroll(visited, true);
+  await act(async () => window.dispatchEvent(new Event("scroll")));
+  await scroll(visited, false);
+  visitedPlay.mockClear();
+  await scroll(fresh, true);
+  expect(freshPlay).not.toHaveBeenCalled();
+  await scroll(visited, true);
+  expect(visitedPlay).toHaveBeenCalled();
+  await act(async () => vi.advanceTimersByTime(149));
+  expect(freshPlay).not.toHaveBeenCalled();
+  await act(async () => vi.advanceTimersByTime(1));
+  expect(freshPlay).toHaveBeenCalled();
 });
 
 function mockSafari() {
@@ -323,8 +346,9 @@ it("keeps the Safari thumbnail visible until a video frame is presented after se
   expect(poster.style.visibility).toBe("hidden");
 });
 
-it("holds the last Safari frame through source eviction and timestamp restoration", async () => {
-  mockSafari();
+it.each(["Safari", "Chromium"])("holds the last %s frame through source eviction and timestamp restoration", async (browser) => {
+  if (browser === "Safari") mockSafari();
+  else vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36");
   await act(async () => root.render(<>{Array.from({ length: 16 }, (_, i) => (
     <LoopingVideo key={i} src={`/preview-${i}.mp4`} poster={`/poster-${i}.webp`} suspendWithFeed />
   ))}</>));
@@ -336,10 +360,11 @@ it("holds the last Safari frame through source eviction and timestamp restoratio
   video.currentTime = 4.5;
   frames.present();
   await scroll(video, false);
-  expect(frames.drawImage).toHaveBeenCalledOnce();
+  expect(frames.drawImage).toHaveBeenCalledTimes(browser === "Safari" ? 1 : 0);
   expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(384);
-  expect(frame.style.visibility).toBe("visible");
-  expect(poster.style.visibility).toBe("hidden");
+  expect(frame.style.visibility).toBe(browser === "Safari" ? "visible" : "hidden");
+  if (browser === "Safari") expect(poster.style.visibility).toBe("hidden");
+  else expect(poster).toBeNull();
   expect(frame.nextElementSibling).toBe(video);
 
   for (const other of videos.slice(1)) {
@@ -350,13 +375,16 @@ it("holds the last Safari frame through source eviction and timestamp restoratio
     });
   }
   expect(video.hasAttribute("src")).toBe(false);
+  expect(frames.drawImage).toHaveBeenCalledOnce();
+  expect(frame.width).toBeGreaterThan(0);
   expect(container.querySelectorAll("video[src]").length).toBeLessThanOrEqual(8);
   frames.state.ready = 0;
   await act(async () => video.dispatchEvent(new Event("emptied")));
   await scroll(video, true);
   expect(container.querySelector("video")).toBe(video);
   expect(frame.style.visibility).toBe("visible");
-  expect(poster.style.visibility).toBe("hidden");
+  if (browser === "Safari") expect(poster.style.visibility).toBe("hidden");
+  else expect(poster).toBeNull();
   frames.state.ready = 4;
   frames.state.seeking = true;
   await act(async () => video.dispatchEvent(new Event("loadedmetadata")));
@@ -367,7 +395,8 @@ it("holds the last Safari frame through source eviction and timestamp restoratio
   frames.present();
   expect(frame.style.visibility).toBe("hidden");
   expect(video.style.opacity).not.toBe("0");
-  expect(poster.style.visibility).toBe("hidden");
+  if (browser === "Safari") expect(poster.style.visibility).toBe("hidden");
+  else expect(poster).toBeNull();
 });
 
 it("does not let an old Safari frame callback uncover a paused video", async () => {
@@ -412,11 +441,11 @@ it("keeps Safari's native paused frame if a canvas capture is unavailable", asyn
   expect(safariSurface().frame.style.visibility).toBe("hidden");
 });
 
-it("adds no image or canvas surfaces in Chromium", async () => {
+it("adds no image or canvas surfaces to detail videos", async () => {
   vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
     "Mozilla/5.0 AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36",
   );
-  await mount();
+  await mount({ suspendWithFeed: false });
   expect(container.querySelector("[data-video-fallback]")).toBeNull();
 });
 
@@ -443,8 +472,9 @@ it("waits for paint in Safari environments without video-frame callbacks", async
   expect(safariSurface().poster.style.visibility).toBe("hidden");
 });
 
-it("bounds Safari still-frame storage in a long feed and frees it on unmount", async () => {
-  mockSafari();
+it.each(["Safari", "Chromium"])("bounds %s still-frame storage in a long feed and frees it on unmount", async (browser) => {
+  if (browser === "Safari") mockSafari();
+  else vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36");
   await act(async () => root.render(<>{Array.from({ length: 70 }, (_, i) => (
     <LoopingVideo key={i} src={`/preview-${i}.mp4`} poster={`/poster-${i}.webp`} suspendWithFeed />
   ))}</>));
@@ -458,7 +488,7 @@ it("bounds Safari still-frame storage in a long feed and frees it on unmount", a
   }
   const canvases = [...container.querySelectorAll("canvas")];
   expect(canvases.filter((canvas) => canvas.width > 0).length).toBeLessThanOrEqual(64);
-  expect(canvases.at(-1)!.width).toBeGreaterThan(0);
+  expect(canvases.some((canvas) => canvas.width > 0)).toBe(true);
   expect(canvases.reduce((pixels, canvas) => pixels + canvas.width * canvas.height, 0)).toBeLessThanOrEqual(64 * 384 * 384);
   await act(async () => root.render(null));
   expect(canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
@@ -489,8 +519,9 @@ it("avoids copying every visible Safari video when scrolling starts", async () =
   await scroll(video, true);
   video.currentTime = 4.5;
   frames.present();
+  vi.mocked(video.pause).mockClear();
   await act(async () => window.dispatchEvent(new Event("scroll")));
-  expect(video.pause).toHaveBeenCalled();
+  expect(video.pause).not.toHaveBeenCalled();
   expect(frames.drawImage).not.toHaveBeenCalled();
   expect(safariSurface().poster.style.visibility).toBe("hidden");
   await scroll(video, false);
@@ -511,8 +542,9 @@ it("prepares Safari thumbnails ahead of the video load margin without downloadin
   expect(video.hasAttribute("src")).toBe(false);
 });
 
-it("never restores Safari's original native poster after the video has painted", async () => {
-  mockSafari();
+it.each(["Safari", "Chromium"])("never restores %s's original native poster after the video has painted", async (browser) => {
+  if (browser === "Safari") mockSafari();
+  else vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36");
   const video = await mount({ lazyPoster: true });
   const frames = presentedFrames(video);
   await scroll(video, true);
@@ -543,4 +575,45 @@ it("keeps the previous Safari backing frame if a later capture fails", async () 
   expect(frame.style.visibility).toBe("visible");
   expect(poster.style.visibility).toBe("hidden");
   expect(video.style.opacity).not.toBe("0");
+});
+
+it("prepares Chromium frames only with idle time and cancels preparation on return or unmount", async () => {
+  vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 Chrome/149.0.0.0 Safari/537.36");
+  const idle = new Map<number, IdleRequestCallback>();
+  let nextId = 0;
+  vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
+    idle.set(++nextId, callback);
+    return nextId;
+  });
+  vi.stubGlobal("cancelIdleCallback", (id: number) => idle.delete(id));
+  const video = await mount();
+  const frames = presentedFrames(video);
+  const runIdle = (remaining: number) => {
+    const [id, callback] = idle.entries().next().value!;
+    idle.delete(id);
+    callback({ didTimeout: false, timeRemaining: () => remaining });
+  };
+  await scroll(video, true);
+  video.currentTime = 4.5;
+  frames.present();
+  await scroll(video, false);
+  expect(frames.drawImage).not.toHaveBeenCalled();
+  runIdle(2);
+  expect(frames.drawImage).not.toHaveBeenCalled();
+  expect(idle.size).toBe(1);
+  await scroll(video, true);
+  expect(idle.size).toBe(0);
+  frames.present();
+  await scroll(video, false);
+  runIdle(12);
+  expect(frames.drawImage).toHaveBeenCalledOnce();
+  expect(safariSurface().frame.width).toBeGreaterThan(0);
+  expect(safariSurface().frame.style.zIndex).toBe("auto");
+  await scroll(video, true);
+  frames.present();
+  video.currentTime = 5;
+  await scroll(video, false);
+  expect(idle.size).toBe(1);
+  await act(async () => root.render(null));
+  expect(idle.size).toBe(0);
 });

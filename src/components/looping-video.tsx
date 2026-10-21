@@ -19,7 +19,7 @@ import {
   HIDDEN_VIDEO_GRACE_MS,
   type PlaybackSuspensionStore,
 } from "./looping-video-state";
-import { SafariVideoSurface, type SafariVideoSurfaceHandle } from "./safari-video-surface";
+import { FeedVideoSurface, type FeedVideoSurfaceHandle } from "./feed-video-surface";
 
 
 const RECONCILE_EVENT = "looping-video-reconcile";
@@ -52,6 +52,7 @@ type LoopingVideoProps = Omit<
 
 type FeedPlaybackContextValue = {
   suspended: boolean;
+  scrolling: boolean;
   suspend: () => () => void;
 };
 
@@ -61,33 +62,27 @@ const FeedPlaybackContext = createContext<FeedPlaybackContextValue | undefined>(
 
 export function FeedPlaybackProvider({ children }: PropsWithChildren) {
   const [suspended, setSuspended] = useState(false);
+  const [scrolling, setScrolling] = useState(false);
   const [store] = useState<PlaybackSuspensionStore>(() =>
     createPlaybackSuspensionStore(setSuspended),
   );
 
   useEffect(() => {
-    let releaseScroll: (() => void) | undefined;
-    let resumeTimer: number | undefined;
+    let timer: number | undefined;
     const handleScroll = () => {
-      // Skip decoding rows that are only passing through the viewport.
-      releaseScroll ??= store.suspend();
-      window.clearTimeout(resumeTimer);
-      resumeTimer = window.setTimeout(() => {
-        resumeTimer = undefined;
-        releaseScroll?.();
-        releaseScroll = undefined;
-      }, 150);
+      setScrolling(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setScrolling(false), 150);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      window.clearTimeout(resumeTimer);
-      releaseScroll?.();
+      window.clearTimeout(timer);
     };
-  }, [store]);
+  }, []);
 
   const suspend = useCallback(() => store.suspend(), [store]);
-  const value = useMemo(() => ({ suspended, suspend }), [suspend, suspended]);
+  const value = useMemo(() => ({ suspended, scrolling, suspend }), [suspend, suspended, scrolling]);
 
   return (
     <FeedPlaybackContext.Provider value={value}>
@@ -191,19 +186,20 @@ export function LoopingVideo({
   const pathname = usePathname();
   const [mountedPathname] = useState(pathname);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const surfaceRef = useRef<SafariVideoSurfaceHandle | null>(null);
+  const surfaceRef = useRef<FeedVideoSurfaceHandle | null>(null);
   const savedPositionRef = useRef<{ source: string; time: number } | undefined>(undefined);
   const feedPlayback = useContext(FeedPlaybackContext);
   const suspended = suspendWithFeed && Boolean(feedPlayback?.suspended);
+  const scrolling = suspendWithFeed && Boolean(feedPlayback?.scrolling);
   // Intercepted post routes keep the archive mounted behind the dialog.
   const routeActive = pathname === mountedPathname ||
     (suspendWithFeed && pathname.startsWith("/posts/"));
-  const playbackState = useRef({ active, routeActive, suspended });
+  const playbackState = useRef({ active, routeActive, suspended, scrolling });
 
   useEffect(() => {
-    playbackState.current = { active, routeActive, suspended };
+    playbackState.current = { active, routeActive, suspended, scrolling };
     videoRef.current?.dispatchEvent(new Event(RECONCILE_EVENT));
-  }, [active, routeActive, suspended]);
+  }, [active, routeActive, suspended, scrolling]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -230,6 +226,7 @@ export function LoopingVideo({
 
     const source = typeof src === "string" ? src : undefined;
     let visible = false;
+    let started = false;
     let withinLoadMargin = false;
     let hiddenAt: number | undefined;
     let hiddenCleanup: number | undefined;
@@ -242,7 +239,7 @@ export function LoopingVideo({
       }
     };
     const detach = (savePosition = preservePositionWhileInactive) => {
-      surfaceRef.current?.hold();
+      surfaceRef.current?.hold(true);
       pausedFeedVideos.delete(video);
       removePositionRestore?.();
       removePositionRestore = undefined;
@@ -252,7 +249,7 @@ export function LoopingVideo({
     };
     const pause = () => {
       // Visible videos retain their native paused frame. Capture departing cards
-      // individually instead of copying the whole viewport when scrolling starts.
+      // individually instead of copying the whole viewport for dialog suspension.
       if (!visible) surfaceRef.current?.hold();
       video.pause();
     };
@@ -266,7 +263,7 @@ export function LoopingVideo({
       }, remaining);
     };
     const reconcile = () => {
-      const { active, routeActive, suspended } = playbackState.current;
+      const { active, routeActive, suspended, scrolling } = playbackState.current;
       if (!active || !routeActive) {
         clearHiddenCleanup();
         detach();
@@ -305,9 +302,14 @@ export function LoopingVideo({
           video, source, saved?.source === source ? saved.time : undefined,
         );
       }
-      if (visible && !suspended) {
-        surfaceRef.current?.waitForFrame();
-        playSilently(video);
+      // During scrolling, continue/resume visited previews immediately. Defer
+      // only the first playback of new rows that may just pass through view.
+      if (visible && !suspended && (started || !scrolling)) {
+        started = true;
+        if (video.paused) {
+          surfaceRef.current?.waitForFrame();
+          playSilently(video);
+        }
       } else pause();
     };
 
@@ -372,7 +374,7 @@ export function LoopingVideo({
   return (
     <>
       {suspendWithFeed ? (
-        <SafariVideoSurface
+        <FeedVideoSurface
           videoRef={videoRef}
           surfaceRef={surfaceRef}
           poster={poster}

@@ -19,6 +19,7 @@ import {
   HIDDEN_VIDEO_GRACE_MS,
   type PlaybackSuspensionStore,
 } from "./looping-video-state";
+import { SafariVideoSurface, type SafariVideoSurfaceHandle } from "./safari-video-surface";
 
 
 const RECONCILE_EVENT = "looping-video-reconcile";
@@ -190,6 +191,7 @@ export function LoopingVideo({
   const pathname = usePathname();
   const [mountedPathname] = useState(pathname);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const surfaceRef = useRef<SafariVideoSurfaceHandle | null>(null);
   const savedPositionRef = useRef<{ source: string; time: number } | undefined>(undefined);
   const feedPlayback = useContext(FeedPlaybackContext);
   const suspended = suspendWithFeed && Boolean(feedPlayback?.suspended);
@@ -240,12 +242,19 @@ export function LoopingVideo({
       }
     };
     const detach = (savePosition = preservePositionWhileInactive) => {
+      surfaceRef.current?.hold();
       pausedFeedVideos.delete(video);
       removePositionRestore?.();
       removePositionRestore = undefined;
       const saved = detachVideoSource(video, savePosition);
       if (saved !== undefined && source) savedPositionRef.current = { source, time: saved };
       else if (!savePosition) savedPositionRef.current = undefined;
+    };
+    const pause = () => {
+      // Visible videos retain their native paused frame. Capture departing cards
+      // individually instead of copying the whole viewport when scrolling starts.
+      if (!visible) surfaceRef.current?.hold();
+      video.pause();
     };
     const scheduleHiddenCleanup = () => {
       clearHiddenCleanup();
@@ -265,7 +274,7 @@ export function LoopingVideo({
       }
 
       if (document.hidden) {
-        video.pause();
+        pause();
         hiddenAt ??= Date.now();
         if (Date.now() - hiddenAt >= HIDDEN_VIDEO_GRACE_MS) detach();
         else scheduleHiddenCleanup();
@@ -277,7 +286,7 @@ export function LoopingVideo({
       if (!withinLoadMargin) {
         if (releaseWhenNotVisible) detach(false);
         else {
-          video.pause();
+          pause();
           retainPausedFeedVideo(video, () => detach(true));
         }
         return;
@@ -288,20 +297,23 @@ export function LoopingVideo({
       }
       pausedFeedVideos.delete(video);
       if (source && video.getAttribute("src") !== source) {
+        surfaceRef.current?.loading();
         removePositionRestore?.();
         const saved = savedPositionRef.current;
         removePositionRestore = attachVideoSource(
           video, source, saved?.source === source ? saved.time : undefined,
         );
       }
-      if (visible && !suspended) playSilently(video);
-      else video.pause();
+      if (visible && !suspended) {
+        surfaceRef.current?.waitForFrame();
+        playSilently(video);
+      } else pause();
     };
 
     const handleVisibility = () => {
       if (document.hidden) {
         hiddenAt = Date.now();
-        video.pause();
+        pause();
         scheduleHiddenCleanup();
       } else {
         reconcile();
@@ -357,20 +369,31 @@ export function LoopingVideo({
   ]);
 
   return (
-    <video
-      ref={videoRef}
-      {...props}
-      poster={lazyPoster && !eager ? undefined : poster}
-      data-looping-video
-      autoPlay={false}
-      controls={false}
-      controlsList="nodownload nofullscreen noremoteplayback"
-      disablePictureInPicture
-      disableRemotePlayback
-      loop
-      muted
-      playsInline
-      preload={preload ?? (eager ? "auto" : "none")}
-    />
+    <>
+      <video
+        ref={videoRef}
+        {...props}
+        poster={lazyPoster && !eager ? undefined : poster}
+        data-looping-video
+        autoPlay={false}
+        controls={false}
+        controlsList="nodownload nofullscreen noremoteplayback"
+        disablePictureInPicture
+        disableRemotePlayback
+        loop
+        muted
+        playsInline
+        preload={preload ?? (eager ? "auto" : "none")}
+      />
+      {suspendWithFeed ? (
+        <SafariVideoSurface
+          videoRef={videoRef}
+          surfaceRef={surfaceRef}
+          poster={poster}
+          source={typeof src === "string" ? src : undefined}
+          eager={eager || !lazyPoster}
+        />
+      ) : null}
+    </>
   );
 }

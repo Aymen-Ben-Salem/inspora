@@ -144,7 +144,7 @@ export function LogoArchive({
                     type="button"
                     aria-pressed={active}
                     onClick={() => setKind(option)}
-                    className={`archive-switch-type focus-ring h-[var(--archive-control-height)] w-[var(--archive-switch-width)] rounded-none border px-[var(--archive-control-x)] first:rounded-l-ui last:rounded-r-ui ${
+                    className={`archive-switch-type focus-ring inline-flex h-[var(--archive-control-height)] w-[var(--archive-switch-width)] items-center justify-center rounded-none border px-0 first:rounded-l-ui last:rounded-r-ui ${
                       active
                         ? "border-[#262626] bg-[#262626] text-white"
                         : "border-[#e6e6e6] bg-[#fafafa] text-[#262626] hover:bg-[#f0f0f0]"

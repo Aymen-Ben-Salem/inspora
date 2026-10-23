@@ -30,6 +30,15 @@ export function releaseSnapshotLabel(selector: string): string {
 }
 export type MediaObject = { bucket: string; key: string; size: number; etag: string; lastModified?: string };
 export type ObjectBody = { bytes: Uint8Array; etag: string; contentType?: string; cacheControl?: string; contentDisposition?: string; contentEncoding?: string; contentLanguage?: string; metadata?: Record<string, string> };
+/** Retry interrupted response bodies, retaining the caller's exact IfMatch version. */
+export async function retryBackupObjectRead<T>(read:()=>Promise<T>,signal?:AbortSignal):Promise<T>{
+  for(let attempt=0;;attempt++){
+    if(signal?.aborted)throw Error('Backup media aborted');
+    try{return await read();}catch(error){
+      if(attempt>=2||signal?.aborted||!(error instanceof Error)||!('code' in error)||error.code!=='ECONNRESET')throw error;
+    }
+  }
+}
 export type BackupObject = MediaObject & Omit<ObjectBody, "bytes"> & { sha256: string; localPath: string };
 
 export type SponsorBackupReference = { bucket: string; key: string; required: boolean; digest?: string };
@@ -51,7 +60,12 @@ export async function captureReleaseMedia(io: {
   head?(object: MediaObject): Promise<Omit<ObjectBody, "bytes">>;
   store(sha256: string, bytes: Uint8Array): Promise<string>;
   checkSnapshot(): Promise<void>;
+  record?(object:BackupObject):Promise<void>;
 }) {
+  if (!io.buckets.length || new Set(io.buckets).size !== io.buckets.length ||
+      io.buckets.some(b => !b.startsWith('inspora-media-') && !b.startsWith('inspora-submissions-')) ||
+      io.buckets.some(b => b.startsWith('inspora-media-') && !io.buckets.includes(b.replace('inspora-media-', 'inspora-submissions-'))) ||
+      io.buckets.some(b => b.startsWith('inspora-submissions-') && !io.buckets.includes(b.replace('inspora-submissions-', 'inspora-media-')))) fail('public and private bucket coverage required');
   const inventory = (objects: MediaObject[]) => {
     if (new Set(objects.map(o => o.bucket + "/" + o.key)).size !== objects.length) fail("duplicate inventory entry");
     for (const o of objects) if (!io.buckets.includes(o.bucket) || !o.key || !o.etag || !Number.isSafeInteger(o.size) || o.size < 0) fail("inventory scope rejected");
@@ -72,7 +86,8 @@ export async function captureReleaseMedia(io: {
       if (body.bytes.length !== o.size || body.etag !== o.etag) fail("object bytes or version drift");
       const { bytes, ...metadata } = body;
       const sha256 = backupSha256(bytes), localPath = await io.store(sha256, bytes);
-      objects.push({ ...o, ...metadata, sha256, localPath });
+      const saved={ ...o, ...metadata, sha256, localPath };
+      await io.record?.(saved);objects.push(saved);
     }
   }));
   const rejected = results.find(r => r.status === "rejected");

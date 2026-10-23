@@ -6,12 +6,14 @@ import {initializeCreatorProfiles} from './creator-profile-backfill-database';
 import {planCreatorProfileBackfill} from './creator-profile-backfill';
 import {quoteReleaseIdentifier as quote,runReleaseTransaction} from './release-migration-execution';
 import {assertNoPreviewSponsorshipTransfer} from './sponsor-release-policy';
+import {RELEASE_PROFILE_FIELDS} from './release-content-identities';
 
 export function releaseProfilePlan(before:ContentSnapshot,plan:ReturnType<typeof buildReleaseContentPlan>,environment:'production'|'rehearsal'){
  const creators=structuredClone([...before.rows.creators,...plan.inserts.creators]);
+ for(const change of plan.reviewedUpdates)if(change.table==='creators')Object.assign(creators.find(r=>r.id===change.id)!,change.values);
  for(const change of plan.profileUpdates)creators.find(r=>r.id===change.id)!.username=change.username;
  const aliases=[...before.rows.creator_username_aliases,...plan.inserts.creator_username_aliases];
- const ids=new Set(creators.map(r=>String(r.id)));
+ const ids=new Set(plan.selectedCreatorIds);
  return {ids:[...ids].sort(),changes:planCreatorProfileBackfill(creators.map(r=>({id:String(r.id),name:String(r.name),handle:r.handle as string|null,username:r.username as string|null,ownerUserId:r.has_owner?'owned':null,xProviderId:r.has_verified_x?'verified':null,recordOrigin:String(r.record_origin)})),aliases.map(r=>({creatorId:String(r.creator_id),username:String(r.username),isCurrent:r.is_current===true})),{environment,creatorIds:ids})};
 }
 
@@ -26,6 +28,14 @@ export async function applyReleaseContent(client:PoolClient,before:ContentSnapsh
   const tables=Object.keys(before.tableHashes).sort().map(t=>'public.'+quote(t));
   await client.query(`LOCK TABLE ${tables.join(',')} IN SHARE ROW EXCLUSIVE MODE`);
   assertSnapshotUnchanged(before,await captureContentSnapshot(client,'preview'));
+  for(const change of plan.reviewedUpdates){
+   const columns=Object.keys(change.values);
+   if(!columns.length||columns.some(k=>!(change.table==='creators'?(RELEASE_PROFILE_FIELDS as readonly string[]).includes(k):change.table==='posts'&&k==='creator_id')))throw Error('Release content reviewed update scope rejected');
+   const current=before.rows[change.table]?.find(r=>r.id===change.id);
+   if(!current||Object.entries(change.before).some(([k,v])=>canonicalHash(current[k]??null)!==canonicalHash(v??null)))throw Error('Release content reviewed update before-state changed');
+   const result=await client.query(`update public.${quote(change.table)} set ${columns.map((k,i)=>quote(k)+'=$'+(i+2)).join(',')} where id=$1`,[change.id,...columns.map(k=>change.values[k])]);
+   if(result.rowCount!==1)throw Error('Release content reviewed update count changed');
+  }
   for(const table of ['creators','creator_username_aliases','logos','logo_media','websites','website_media','website_sections']){
    const rows=plan.inserts[table];if(!rows.length)continue;
    const allowed=new Set(before.schema.filter(r=>r.table_name===table).map(r=>String(r.column_name)));
@@ -41,9 +51,10 @@ export async function applyReleaseContent(client:PoolClient,before:ContentSnapsh
   }
   const initialized=await initializeCreatorProfiles(client,true,new Set(profiles.ids),{environment,actorId:'release-creator-profile-backfill'});
   if(canonicalHash(initialized.changes)!==canonicalHash(profiles.changes))throw Error('Release content initialization drift');
-  if(Object.values(plan.inserts).some(rows=>rows.length)||plan.profileUpdates.length){
+  if(Object.values(plan.inserts).some(rows=>rows.length)||plan.profileUpdates.length||plan.reviewedUpdates.length){
    for(const id of plan.selectedWorkIds)await client.query("insert into admin_audit_logs(actor_id,action,resource_type,resource_id,details) values ('release-content-transfer','release.imported',$1,$2,$3::jsonb)",[releaseAuditResourceType(id,before.rows,plan.inserts),id,JSON.stringify({environment,selectedCreatorIds:plan.selectedCreatorIds})]);
   }
+  for(const change of plan.reviewedUpdates)await client.query("insert into admin_audit_logs(actor_id,action,resource_type,resource_id,details) values ('release-content-transfer','release.corrected',$1,$2,$3::jsonb)",[change.table==='posts'?'post':'creator',change.id,JSON.stringify({environment,fields:Object.keys(change.values),beforeHash:canonicalHash(change.before),afterHash:canonicalHash(change.values)})]);
   const after=await captureContentSnapshot(client,'preview');
   for(const [table,rows] of Object.entries(before.rows))for(const row of rows){
    const match=after.rows[table]?.find(r=>table==='design_categories'?r.name===row.name:r.id===row.id);
@@ -51,15 +62,17 @@ export async function applyReleaseContent(client:PoolClient,before:ContentSnapsh
    const changedProfile=table==='creators'&&(profiles.changes.some(r=>r.creatorId===row.id)||plan.profileUpdates.some(r=>r.id===row.id));
    for(const [key,value] of Object.entries(row)){
     if(changedProfile&&['username','updated_at'].includes(key))continue;
+    if(plan.reviewedUpdates.some(c=>c.table===table&&c.id===row.id&&Object.hasOwn(c.values,key)))continue;
     if(canonicalHash(match[key])!==canonicalHash(value))throw Error('Release content changed protected existing field');
    }
   }
-  const mutable=new Set(['creators','creator_username_aliases','logos','logo_media','websites','website_media','website_sections','admin_audit_logs']);
+  const mutable=new Set(['creators','creator_username_aliases','logos','logo_media','websites','website_media','website_sections','admin_audit_logs',...plan.reviewedUpdates.map(c=>c.table)]);
   for(const [table,hash] of Object.entries(before.tableHashes))if(!mutable.has(table)&&canonicalHash(hash)!==canonicalHash(after.tableHashes[table]))throw Error('Release content changed unrelated data');
   for(const [table,rows] of Object.entries(plan.inserts))for(const row of rows){
    const actual=after.rows[table].find(r=>r.id===row.id);
    if(!actual||Object.entries(row).some(([k,v])=>canonicalHash(actual[k])!==canonicalHash(v)))throw Error('Release content inserted row mismatch');
   }
+  for(const change of plan.reviewedUpdates){const actual=after.rows[change.table].find(r=>r.id===change.id);if(!actual||Object.entries(change.values).some(([k,v])=>canonicalHash(actual[k]??null)!==canonicalHash(v??null)))throw Error('Release content reviewed update mismatch');}
   if(rollbackTest)throw Error('EXPECTED_RELEASE_CONTENT_ROLLBACK');
   return {initialized:initialized.changes.length,tableHashes:after.tableHashes};
  });

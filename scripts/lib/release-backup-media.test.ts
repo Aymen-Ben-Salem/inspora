@@ -3,12 +3,24 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assertSponsorBackupCoverage, captureReleaseMedia, previewBackupFiles, storePreviewMedia } from "./release-backup-media";
+import { assertSponsorBackupCoverage, captureReleaseMedia, previewBackupFiles, retryBackupObjectRead, storePreviewMedia } from "./release-backup-media";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const bytes = Buffer.from("retained work");
 const object = { bucket: "inspora-media-preview", key: "logos/original.webp", size: bytes.length, etag: '"version-one"' };
 const buckets = ["inspora-media-preview", "inspora-submissions-preview"];
+
+describe('backup response-body transport recovery',()=>{
+  it('retries connection resets at most three times and preserves the read arguments in its caller',async()=>{
+    let reads=0;const reset=Object.assign(Error('reset'),{code:'ECONNRESET'});
+    expect(await retryBackupObjectRead(async()=>{if(++reads<3)throw reset;return bytes;})).toEqual(bytes);expect(reads).toBe(3);
+    reads=0;await expect(retryBackupObjectRead(async()=>{reads++;throw reset;})).rejects.toThrow('reset');expect(reads).toBe(3);
+  });
+  it('never retries a version/precondition error or an aborted operation',async()=>{
+    let reads=0;await expect(retryBackupObjectRead(async()=>{reads++;throw Object.assign(Error('precondition'),{code:'PreconditionFailed'});})).rejects.toThrow('precondition');expect(reads).toBe(1);
+    const abort=new AbortController();abort.abort();reads=0;await expect(retryBackupObjectRead(async()=>{reads++;return bytes;},abort.signal)).rejects.toThrow(/aborted/);expect(reads).toBe(0);
+  });
+});
 
 describe("sponsorship backup references", () => {
   it("requires retained private originals and public wordmarks alongside complete schema coverage", () => {
@@ -53,6 +65,12 @@ function provider(options: { drift?: boolean; corrupt?: boolean; snapshotDrift?:
 }
 
 describe("preview release media recovery", () => {
+  it('requires private bucket enumeration even when it is empty, and captures it when populated', async () => {
+    await expect(captureReleaseMedia({ ...provider(), buckets: [buckets[0]] })).rejects.toThrow(/private bucket/);
+    const privateObject={...object,bucket:buckets[1],key:'private/original'};
+    const p=provider();const report=await captureReleaseMedia({...p,list:async()=>[object,privateObject]});
+    expect(report.objects.some(o=>o.bucket===buckets[1])).toBe(true);
+  });
   it("captures complete media with metadata and rechecks the database snapshot", async () => {
     const report = await captureReleaseMedia(provider());
     expect(report.count).toBe(1);
@@ -68,12 +86,23 @@ describe("preview release media recovery", () => {
   it("rejects incomplete object bytes", async () => {
     await expect(captureReleaseMedia(provider({ corrupt: true }))).rejects.toThrow(/bytes/i);
   });
+  it('journals only completely verified/stored objects and rejects a journal failure',async()=>{
+    const recorded:unknown[]=[];await captureReleaseMedia({...provider(),record:async o=>{recorded.push(o);}});
+    expect(recorded).toEqual([expect.objectContaining({sha256:sha(bytes),etag:object.etag,localPath:expect.stringContaining(sha(bytes))})]);
+    await expect(captureReleaseMedia({...provider({corrupt:true}),record:async()=>{throw Error('must not record');}})).rejects.toThrow(/bytes/);
+    await expect(captureReleaseMedia({...provider(),record:async()=>{throw Error('journal failed');}})).rejects.toThrow(/journal failed/);
+  });
   it("rejects duplicate or out-of-scope inventory entries", async () => {
     await expect(captureReleaseMedia({ ...provider(), list: async () => [object, object] })).rejects.toThrow(/inventory/i);
     await expect(captureReleaseMedia({ ...provider(), list: async () => [{ ...object, bucket: "inspora-media-production" }] })).rejects.toThrow(/scope/i);
   });
   it("verifies cached bytes instead of trusting a cache entry", async () => {
     await expect(captureReleaseMedia({ ...provider(), head: async () => ({ etag: object.etag }), cached: async () => ({ bytes: Buffer.from("wrong"), sha256: sha(bytes) }) })).rejects.toThrow(/cached/i);
+  });
+  it('reuses verified bytes only when the current source version still matches',async()=>{
+    const cached=async()=>({bytes,sha256:sha(bytes)}),get=async()=>{throw Error('should use verified cache');};
+    expect((await captureReleaseMedia({...provider(),cached,get,head:async()=>({etag:object.etag})})).reused).toBe(1);
+    await expect(captureReleaseMedia({...provider(),cached,get,head:async()=>({etag:'changed'})})).rejects.toThrow(/version drift/);
   });
 });
 

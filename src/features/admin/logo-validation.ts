@@ -96,9 +96,12 @@ const logoSchema = z.object({
   colors: z.array(z.string().max(80)).min(1, "Add at least one colour.").max(30),
   styles: z.array(z.string().max(80)).min(1, "Add at least one style.").max(30),
   shape: z.string().trim().min(1).max(120),
-  sourceUrl: z.url(),
+  sourceUrl: z.union([z.literal(""), z.url()]),
   status: z.enum(["draft", "published"]),
   media: logoMediaSchema,
+}).refine((logo) => logo.kind === "icon" || Boolean(logo.sourceUrl), {
+  message: "Add an original source URL for logos.",
+  path: ["sourceUrl"],
 });
 
 export function parseAdminLogoForm(formData: FormData): AdminLogoInput {
@@ -133,7 +136,7 @@ export function parseAdminLogoForm(formData: FormData): AdminLogoInput {
     colors: commaSeparated(formData.get("colors")),
     styles: commaSeparated(formData.get("styles")),
     shape: formData.get("shape"),
-    sourceUrl: formData.get("sourceUrl"),
+    sourceUrl: String(formData.get("sourceUrl") ?? "").trim(),
     status: formData.get("status"),
     media,
   });

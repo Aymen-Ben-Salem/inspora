@@ -48,6 +48,35 @@ afterEach(() => {
 });
 
 describe("admin logo validation", () => {
+  it.each(["", undefined])("accepts an icon without an original source URL (%s)", (sourceUrl) => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    form.set("kind", "icon");
+    if (sourceUrl === undefined) form.delete("sourceUrl");
+    else form.set("sourceUrl", sourceUrl);
+
+    expect(parseAdminLogoForm(form).sourceUrl).toBe("");
+  });
+
+  it("still requires an original source URL for logos", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    form.set("sourceUrl", "");
+
+    expect(() => parseAdminLogoForm(form)).toThrow("Add an original source URL for logos.");
+  });
+
+  it("validates an optional icon source URL when supplied", () => {
+    process.env.R2_PUBLIC_BASE_URL = "https://media.example.com";
+    const form = validLogoForm();
+    form.set("kind", "icon");
+    form.set("sourceUrl", "not-a-url");
+
+    expect(() => parseAdminLogoForm(form)).toThrow();
+    form.set("sourceUrl", "https://example.com/icon");
+    expect(parseAdminLogoForm(form).sourceUrl).toBe("https://example.com/icon");
+  });
+
   it("accepts the reported Dribbble URL pasted as an unuploaded logo image", () => {
     const form = validLogoForm();
     const url = "https://cdn.dribbble.com/users/16291758/avatars/normal/dae7978b6b70e15759d6fbd6686f64e6.jpg";

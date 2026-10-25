@@ -10,7 +10,7 @@ import {
   blankAdminCreator,
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
-import { LOGO_KINDS } from "@/domain/logo";
+import { LOGO_KINDS, type LogoKind } from "@/domain/logo";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -65,6 +65,7 @@ export function LogoEditor({
     logo?.creator ? toAdminCreatorDraft(logo.creator) : blankAdminCreator(),
   );
   const [media, setMedia] = useState<MediaDraft>(logo?.media ?? blankMedia());
+  const [kind, setKind] = useState<LogoKind>(logo?.kind ?? "logo");
 
   function updateMedia(field: keyof MediaDraft, value: string) {
     setMedia((current) => {
@@ -163,7 +164,8 @@ export function LogoEditor({
               <select
                 className={inputClass}
                 name="kind"
-                defaultValue={logo?.kind ?? "logo"}
+                value={kind}
+                onChange={(event) => setKind(event.target.value as LogoKind)}
               >
                 {LOGO_KINDS.map((kind) => (
                   <option key={kind} value={kind}>
@@ -225,12 +227,12 @@ export function LogoEditor({
               />
             </label>
             <label className={`${labelClass} sm:col-span-2`}>
-              Original source URL
+              Original source URL{kind === "icon" ? " (optional)" : ""}
               <input
                 className={inputClass}
                 name="sourceUrl"
                 type="url"
-                required
+                required={kind !== "icon"}
                 placeholder="https://"
                 defaultValue={logo?.sourceUrl}
               />

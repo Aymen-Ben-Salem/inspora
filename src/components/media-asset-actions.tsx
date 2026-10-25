@@ -127,7 +127,7 @@ export function MediaAssetActions({
         type="button"
         disabled={copyDisabled}
         onClick={() => void copyAsset()}
-        className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 ${disabledClassName}`}
+        className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 enabled:cursor-pointer ${disabledClassName}`}
       >
         <Image
           src="/icons/detail/copy.svg"
@@ -147,7 +147,7 @@ export function MediaAssetActions({
         type="button"
         disabled={downloadDisabled}
         onClick={() => void downloadAsset()}
-        className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 ${disabledClassName}`}
+        className={`${detailSecondaryActionClassName} detail-fit-action gap-2.5 enabled:cursor-pointer ${disabledClassName}`}
       >
         <Image
           src="/icons/detail/download.svg"

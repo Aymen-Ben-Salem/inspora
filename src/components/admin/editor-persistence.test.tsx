@@ -82,6 +82,24 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it("makes the source URL optional only when the editor content type is Icon", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const action = vi.fn<SaveAction>().mockResolvedValue({ status: "idle" });
+  try {
+    await act(async () => root.render(<LogoEditor action={action} creators={[]} />));
+    const kind = container.querySelector<HTMLSelectElement>('[name="kind"]')!;
+    const source = container.querySelector<HTMLInputElement>('[name="sourceUrl"]')!;
+    expect(source.required).toBe(true);
+    await act(async () => { kind.value = "icon"; kind.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(source.required).toBe(false);
+    expect(source.labels?.[0]?.textContent).toContain("optional");
+    await act(async () => { kind.value = "logo"; kind.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(source.required).toBe(true);
+  } finally { await act(async () => root.unmount()); }
+});
+
 it("keeps recording and favicon controls without section fields", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");

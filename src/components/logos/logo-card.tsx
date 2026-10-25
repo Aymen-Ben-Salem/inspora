@@ -43,7 +43,7 @@ export function LogoCard({
         className={`focus-ring group relative block w-full cursor-pointer overflow-hidden text-left ${
           isFramedIcon
             ? `${isProfileIcon ? "aspect-[1.64]" : "aspect-square"} bg-[#f3f3f3]`
-            : "bg-transparent"
+            : `${isIcon ? "app-icon-artwork" : ""} bg-transparent`
         }`}
       >
         {isFramedIcon ? (
@@ -56,8 +56,10 @@ export function LogoCard({
               height={logo.media.height}
               variants={logo.media.variants}
               priority={priority}
-              sizes="(min-width: 1120px) 140px, (min-width: 460px) 18vw, 34vw"
-              className={`${isProfileIcon ? "w-[34%] max-w-32" : "w-[44%]"} h-auto object-contain`}
+              sizes={isProfileIcon
+                ? "(min-width: 1120px) 190px, (min-width: 760px) 16vw, (min-width: 460px) 24vw, 48vw"
+                : "(min-width: 1120px) 175px, (min-width: 460px) 22vw, 44vw"}
+              className={`app-icon-artwork ${isProfileIcon ? "w-[48%]" : "w-[44%]"} h-auto object-contain`}
             />
           </span>
         ) : (
@@ -69,8 +71,10 @@ export function LogoCard({
             height={imageDimensions.height}
             variants={logo.media.variants}
             priority={priority}
-            sizes="(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"
-            className="block h-auto w-full"
+            sizes={isIcon
+              ? "(min-width: 1500px) 14vw, (min-width: 1280px) 17vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 33vw"
+              : "(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"}
+            className={`${isIcon ? "app-icon-artwork " : ""}block h-auto w-full`}
           />
         )}
         {!isIcon || isFramedIcon ? (

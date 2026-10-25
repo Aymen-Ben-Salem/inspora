@@ -19,6 +19,11 @@
   border-radius: 10px;
 }
 
+.app-icon-artwork {
+  border-radius: 30%;
+  corner-shape: superellipse(1.45);
+}
+
 @supports (corner-shape: superellipse(1.5)) {
   .website-feed-icon-shape {
     border-radius: 13.5px;

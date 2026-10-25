@@ -56,6 +56,7 @@ export function MediaAssetActions({
   downloadFileName,
   downloadLabel = "Download",
   transformAsset,
+  layout = "inline",
 }: {
   assetKey: string;
   assetUrl?: string;
@@ -64,6 +65,7 @@ export function MediaAssetActions({
   downloadFileName?: string;
   downloadLabel?: string;
   transformAsset?: AssetTransformer;
+  layout?: "inline" | "stacked";
 }) {
   const [copyStatus, setCopyStatus] = useState<{
     assetKey: string;
@@ -120,7 +122,7 @@ export function MediaAssetActions({
     "disabled:cursor-not-allowed disabled:bg-[#f0f0f0] disabled:text-[#767676] disabled:opacity-50 disabled:[&_img]:opacity-50";
 
   return (
-    <div className="detail-secondary-actions grid grid-cols-2 gap-3">
+    <div className={`detail-secondary-actions grid ${layout === "stacked" ? "grid-cols-1" : "grid-cols-2"} gap-3`}>
       <button
         type="button"
         disabled={copyDisabled}

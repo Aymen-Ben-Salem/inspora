@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import type { Logo, LogoKind } from "@/domain/logo";
 import { getLogoFilterOptions, matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
@@ -27,9 +28,11 @@ export function LogoArchive({
 }) {
   const [query, setQuery] = useState("");
   const { sponsors } = usePublicSponsors();
-  const [kind, setKind] = useState<LogoKind>(
-    logos.find((logo) => logo.slug === initialSlug)?.kind ?? "logo",
-  );
+  const searchParams = useSearchParams();
+  const kindParam = searchParams.get("kind");
+  const kind: LogoKind = kindParam === "icon" || kindParam === "logo"
+    ? kindParam
+    : logos.find((logo) => logo.slug === (searchParams.get("logo") ?? initialSlug))?.kind ?? "logo";
   const [selections, setSelections] = useState<Record<FilterKey, string[]>>({
     colors: [],
     industries: [],
@@ -83,6 +86,13 @@ export function LogoArchive({
   function clearFilters() {
     setQuery("");
     setSelections({ colors: [], industries: [], styles: [], shapes: [] });
+  }
+
+  function selectKind(nextKind: LogoKind) {
+    const params = new URLSearchParams(window.location.search);
+    params.set("kind", nextKind);
+    // Next preserves its router state and updates useSearchParams for this URL.
+    window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
   }
 
   return (
@@ -143,7 +153,7 @@ export function LogoArchive({
                     key={option}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => setKind(option)}
+                    onClick={() => selectKind(option)}
                     className={`archive-switch-type focus-ring inline-flex h-[var(--archive-control-height)] w-[var(--archive-switch-width)] items-center justify-center rounded-none border px-0 first:rounded-l-ui last:rounded-r-ui ${
                       active
                         ? "border-[#262626] bg-[#262626] text-white"
@@ -161,7 +171,7 @@ export function LogoArchive({
             <div className="mt-[var(--archive-feed-gap)]">
               {kind === "icon" ? (
                 <FeedMotion itemCount={filtered.length}>
-                  <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 min-[1500px]:grid-cols-9 min-[1500px]:gap-7">
+                  <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 min-[1500px]:grid-cols-7 min-[1500px]:gap-7">
                     {filtered.map((logo, index) => (
                       <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} priority={index < 4} />
                     ))}

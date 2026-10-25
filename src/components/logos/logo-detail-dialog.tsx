@@ -80,7 +80,7 @@ export function LogoDetailDialog({
               data-post-dialog-transparent-media
               data-post-dialog-max-viewport-height={maxViewportHeight}
               data-post-dialog-max-pixel-width={logo.media.width}
-              className="relative shrink-0 overflow-hidden bg-transparent"
+              className={`${logo.kind === "icon" ? "app-icon-artwork " : ""}relative shrink-0 overflow-hidden bg-transparent`}
               style={{
                 aspectRatio: `${logo.media.width} / ${logo.media.height}`,
                 width: `min(100%, ${maxViewportWidth}dvh, ${logo.media.width}px)`,
@@ -116,7 +116,7 @@ export function LogoDetailDialog({
           }
           actions={
             <div className="detail-fit-actions flex flex-col gap-3">
-              <a
+              {logo.kind !== "icon" ? <a
                 href={logo.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -124,12 +124,13 @@ export function LogoDetailDialog({
               >
                 <DetailGlobeIcon />
                 View Original
-              </a>
+              </a> : null}
               <MediaAssetActions
                 assetKey={logo.id}
                 assetUrl={assetUrl}
                 copyLabel="Copy image"
                 downloadFileName={getLogoAssetFileName(logo.slug, logo.media.mimeType)}
+                layout={logo.kind === "icon" ? "stacked" : "inline"}
               />
             </div>
           }

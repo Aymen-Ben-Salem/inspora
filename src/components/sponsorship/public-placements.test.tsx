@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
-import { act } from "react";
+import { act, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(useSyncExternalStore(
+    (notify) => {
+      window.addEventListener("popstate", notify);
+      return () => window.removeEventListener("popstate", notify);
+    },
+    () => window.location.search,
+    () => "",
+  )),
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
   usePathname: () => "/",
 }));
@@ -37,6 +44,12 @@ const campaign = (id: string): ActiveSponsor => ({
   serverTime: new Date().toISOString(),
 });
 beforeEach(() => {
+  window.history.replaceState(null, "", "/");
+  const replaceState = window.history.replaceState.bind(window.history);
+  vi.spyOn(window.history, "replaceState").mockImplementation((...args) => {
+    replaceState(...args);
+    window.dispatchEvent(new Event("popstate"));
+  });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
@@ -62,6 +75,7 @@ afterEach(async () => {
   container.remove();
   fetchMock.mockReset();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 it.each([0, 1, 2, 3, 4])(

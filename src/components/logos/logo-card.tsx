@@ -72,7 +72,7 @@ export function LogoCard({
             variants={logo.media.variants}
             priority={priority}
             sizes={isIcon
-              ? "(min-width: 1500px) 14vw, (min-width: 1280px) 17vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 33vw"
+              ? "(min-width: 1500px) 11vw, (min-width: 1280px) 12.5vw, (min-width: 1024px) 17vw, (min-width: 768px) 20vw, (min-width: 640px) 25vw, 33vw"
               : "(min-width: 1120px) 395px, (min-width: 760px) 33vw, (min-width: 460px) 50vw, 100vw"}
             className={`${isIcon ? "app-icon-artwork " : ""}block h-auto w-full`}
           />

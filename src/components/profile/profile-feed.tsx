@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FeedMotion } from "@/components/feed-motion";
+import { IconGrid } from "@/components/logos/icon-grid";
 import { LogoCard } from "@/components/logos/logo-card";
 import { LogoDetailDialog } from "@/components/logos/logo-detail-dialog";
 import { PostCard } from "@/components/post-card";
@@ -129,6 +130,13 @@ export function ProfileFeed({
     const next = siblings[(index + direction + siblings.length) % siblings.length];
     if (next) select(next);
   };
+  const workCards = items.map((item, index) => item.kind === "logo" ? (
+    <LogoCard key={item.id} logo={item.logo} onSelect={() => select(item)} showCreator={!owner} iconLayout={filter === "app-icons" ? "plain" : "profile"} />
+  ) : item.kind === "website" ? (
+    <WebsiteCard key={item.id} website={item.website} onSelect={() => select(item)} />
+  ) : (
+    <PostCard key={item.id} post={item} priority={index === 0} showCreator={!owner} />
+  ));
 
   return (
     <>
@@ -173,15 +181,11 @@ export function ProfileFeed({
                 </div>
               ) : (
                 <FeedMotion itemCount={items.length}>
-                  <RowFirstMasonry itemCount={items.length}>
-                    {items.map((item, index) => item.kind === "logo" ? (
-                      <LogoCard key={item.id} logo={item.logo} onSelect={() => select(item)} showCreator={!owner} iconLayout="profile" />
-                    ) : item.kind === "website" ? (
-                      <WebsiteCard key={item.id} website={item.website} onSelect={() => select(item)} />
-                    ) : (
-                      <PostCard key={item.id} post={item} priority={index === 0} showCreator={!owner} />
-                    ))}
-                  </RowFirstMasonry>
+                  {filter === "app-icons" ? (
+                    <IconGrid>{workCards}</IconGrid>
+                  ) : (
+                    <RowFirstMasonry itemCount={items.length}>{workCards}</RowFirstMasonry>
+                  )}
                 </FeedMotion>
               )}
               <div ref={sentinelRef} className="flex min-h-16 items-center justify-center py-5">

@@ -15,6 +15,7 @@ import { FeedMotion } from "../feed-motion";
 import { SponsorFeed } from "../sponsorship/sponsor-feed";
 import { usePublicSponsors } from "../sponsorship/public-sponsors";
 import { LogoCard } from "./logo-card";
+import { IconGrid } from "./icon-grid";
 import { LogoDetailDialog } from "./logo-detail-dialog";
 
 type FilterKey = "colors" | "industries" | "styles" | "shapes";
@@ -171,11 +172,11 @@ export function LogoArchive({
             <div className="mt-[var(--archive-feed-gap)]">
               {kind === "icon" ? (
                 <FeedMotion itemCount={filtered.length}>
-                  <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 min-[1500px]:grid-cols-9 min-[1500px]:gap-7">
+                  <IconGrid>
                     {filtered.map((logo, index) => (
                       <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} priority={index < 4} />
                     ))}
-                  </div>
+                  </IconGrid>
                 </FeedMotion>
               ) : (
                 <SponsorFeed key={JSON.stringify([query,selections,kind])} ordinary={filtered.map((logo, index) => ({ id: logo.id, node: <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} priority={index < 4} /> }))} />

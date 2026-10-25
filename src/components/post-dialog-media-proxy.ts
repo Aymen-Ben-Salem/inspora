@@ -245,7 +245,12 @@ export function removeMediaProxy(proxy: HTMLElement | null | undefined) {
 }
 
 export function getCornerRadius(element: HTMLElement) {
-  return Number.parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0;
+  const radius = getComputedStyle(element).borderTopLeftRadius;
+  const value = Number.parseFloat(radius) || 0;
+  // Computed styles retain percentages; GSAP's numeric radii are pixels.
+  return radius.endsWith("%")
+    ? element.getBoundingClientRect().width * value / 100
+    : value;
 }
 
 export function getCompensatedRadius(
@@ -291,6 +296,8 @@ export function createMediaProxy({
   const proxy = document.createElement("div");
 
   proxy.dataset.postDialogMediaProxy = "";
+  // Match the hero's outline while the feed image covers a loading detail asset.
+  proxy.style.setProperty("corner-shape", getComputedStyle(media).getPropertyValue("corner-shape"));
   Object.assign(proxy.style, {
     background: getComputedStyle(media).backgroundColor,
     height: `${rect.height}px`,

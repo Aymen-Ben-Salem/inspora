@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import type { Logo, LogoKind } from "@/domain/logo";
 import { getLogoFilterOptions, matchesLogoFilters, type LogoFilters } from "@/data/logo-filters";
+import { orderIconFeed } from "@/data/icon-feed-order";
 import { useArchiveDetail } from "../use-archive-detail";
 import {
   ArchiveFilterMenu,
@@ -53,7 +54,8 @@ export function LogoArchive({
     styles: selections.styles,
     shapes: selections.shapes,
   };
-  const filtered = logos.filter((logo) => matchesLogoFilters(logo, filters));
+  const matching = logos.filter((logo) => matchesLogoFilters(logo, filters));
+  const filtered = kind === "icon" ? orderIconFeed(matching) : matching;
   const selectedLogo = logos.find((logo) => logo.id === selectedId);
   const hasFilters =
     query.trim().length > 0 ||

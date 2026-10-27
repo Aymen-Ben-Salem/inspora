@@ -3,6 +3,7 @@ import { act, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Logo } from "@/domain/logo";
+import iconFeedOrder from "@/data/icon-feed-order.json";
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(useSyncExternalStore(
@@ -56,7 +57,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-const render = () => act(async () => root.render(<LogoArchive logos={logos} />));
+const render = (items = logos) => act(async () => root.render(<LogoArchive logos={items} />));
 const tab = (label: string) => [...container.querySelectorAll("button")].find((button) => button.textContent === label)!;
 
 it("keeps the icons feed selected after a reload and can switch back to logos", async () => {
@@ -84,4 +85,33 @@ it("restores the feed from URL changes and preserves the selection when closing 
   expect(tab("Logos").getAttribute("aria-pressed")).toBe("true");
   await act(async () => tab("Icons").click());
   expect(new URLSearchParams(window.location.search).get("keep")).toBe("value");
+});
+
+it("keeps the fixed icon shuffle through filtering and renders while leaving the logo feed in its incoming order", async () => {
+  const icons = iconFeedOrder.ids.slice(0, 3).map((id, index) => ({
+    ...logos[1], id, slug: id, title: index === 1 ? "Other icon" : `Pair ${index}`,
+  }));
+  const secondLogo = { ...logos[0], id: "second-logo", slug: "second-logo", title: "Second logo" };
+  const incoming = [logos[0], icons[2], icons[0], secondLogo, icons[1]];
+  const visibleIds = () => [...container.querySelectorAll("[data-feed-post-id]")].map((element) => element.getAttribute("data-feed-post-id"));
+  window.history.replaceState(null, "", "/logos?kind=icon");
+  await render(incoming);
+  expect(visibleIds()).toEqual(icons.map((icon) => icon.id));
+
+  async function search(value: string) {
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+  await search("Pair");
+  expect(visibleIds()).toEqual([icons[0].id, icons[2].id]);
+  await search("");
+  await render([...incoming]);
+  expect(visibleIds()).toEqual(icons.map((icon) => icon.id));
+  await act(async () => tab("Logos").click());
+  expect(visibleIds()).toEqual([logos[0].id, secondLogo.id]);
+  await act(async () => tab("Icons").click());
+  expect(visibleIds()).toEqual(icons.map((icon) => icon.id));
 });

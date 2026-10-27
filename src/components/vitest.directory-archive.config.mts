@@ -12,6 +12,7 @@ export default defineConfig({
     "src/components/logos/logo-archive.test.tsx",
     "src/components/websites/website-archive.test.tsx",
     "src/data/logo-filters.test.ts",
+    "src/data/icon-feed-order.test.ts",
     "src/components/view-filter.test.tsx",
   ] },
 });

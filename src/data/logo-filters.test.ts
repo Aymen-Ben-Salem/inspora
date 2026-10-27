@@ -58,7 +58,7 @@ describe("logo filters", () => {
     expect(matchesLogoFilters(paper, filters({ query: "geometric" }))).toBe(false);
   });
 
-  it("combines filter groups and requires every selected value", () => {
+  it("matches one or more selected options instead of requiring all of them", () => {
     expect(
       matchesLogoFilters(
         paper,
@@ -67,7 +67,32 @@ describe("logo filters", () => {
     ).toBe(true);
     expect(
       matchesLogoFilters(paper, filters({ colors: ["Black", "Blue"] })),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  describe.each(["logo", "icon"] as const)("%s selection", (kind) => {
+    it.each([
+      { colors: ["Black", "Blue"] },
+      { industries: ["SaaS", "Art"] },
+      { styles: ["Minimal", "Vintage"] },
+      { shapes: ["Symbol & text", "Circle"] },
+    ])("matches either option within a menu: %j", (selection) => {
+      expect(matchesLogoFilters({ ...paper, kind }, filters({ kind, ...selection }))).toBe(true);
+    });
+
+    it("matches an option from any selected menu", () => {
+      const logo = { ...paper, kind };
+      expect(matchesLogoFilters(logo, filters({ kind, colors: ["Blue"], styles: ["Minimal"] }))).toBe(true);
+      expect(matchesLogoFilters(logo, filters({ kind, colors: ["Black"], industries: ["Art"], shapes: ["Circle"] }))).toBe(true);
+      expect(matchesLogoFilters(logo, filters({ kind, colors: ["Blue"], industries: ["Art"], styles: ["Vintage"], shapes: ["Circle"] }))).toBe(false);
+    });
+
+    it("shows all work with no selections and still respects the text search", () => {
+      const logo = { ...paper, kind };
+      expect(matchesLogoFilters(logo, filters({ kind }))).toBe(true);
+      expect(matchesLogoFilters(logo, filters({ kind, query: "Nero", colors: ["black", "Blue"] }))).toBe(true);
+      expect(matchesLogoFilters(logo, filters({ kind, query: "missing", colors: ["Black"] }))).toBe(false);
+    });
   });
 
   it("keeps logos and icons in separate views", () => {

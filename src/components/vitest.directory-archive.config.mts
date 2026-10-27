@@ -10,6 +10,8 @@ export default defineConfig({
     "src/components/admin/library-pages.test.tsx",
     "src/components/archive-filter-menu.test.tsx",
     "src/components/logos/logo-archive.test.tsx",
+    "src/components/websites/website-archive.test.tsx",
+    "src/data/logo-filters.test.ts",
     "src/components/view-filter.test.tsx",
   ] },
 });

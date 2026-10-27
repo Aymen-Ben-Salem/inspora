@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { Website } from "@/domain/website";
 import type { PostView } from "@/domain/post";
+import { matchesArchiveFilterSelection } from "@/data/archive-filters";
 import { useArchiveDetail } from "../use-archive-detail";
 
 import {
@@ -58,9 +59,11 @@ export function WebsiteArchive({
     const searchable = [website.title, website.tagline, website.creator.name, ...website.categories, ...website.themes, ...website.colors].join(" ").toLowerCase();
     return (
       (!normalizedQuery || searchable.includes(normalizedQuery)) &&
-      selections.categories.every((value) => website.categories.includes(value)) &&
-      selections.themes.every((value) => website.themes.includes(value)) &&
-      selections.colors.every((value) => website.colors.includes(value))
+      matchesArchiveFilterSelection([
+        { values: website.categories, selected: selections.categories },
+        { values: website.themes, selected: selections.themes },
+        { values: website.colors, selected: selections.colors },
+      ])
     );
   });
   const selectedWebsite = websites.find((website) => website.id === selectedId);

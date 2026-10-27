@@ -1,4 +1,5 @@
 import type { Logo, LogoKind } from "@/domain/logo";
+import { matchesArchiveFilterSelection } from "./archive-filters";
 
 export type LogoFilters = {
   query: string;
@@ -8,11 +9,6 @@ export type LogoFilters = {
   styles: string[];
   shapes: string[];
 };
-
-function includesEvery(values: string[], selected: string[]) {
-  const normalized = new Set(values.map((value) => value.toLowerCase()));
-  return selected.every((value) => normalized.has(value.toLowerCase()));
-}
 
 export function splitLogoFilterValues(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
@@ -38,28 +34,12 @@ export function getLogoFilterOptions(logos: Logo[], kind: LogoKind) {
 
 export function matchesLogoFilters(logo: Logo, filters: LogoFilters) {
   if (logo.kind !== filters.kind) return false;
-  if (
-    filters.colors.length > 0 &&
-    !includesEvery(logo.colors, filters.colors)
-  ) {
-    return false;
-  }
-  if (
-    filters.industries.length > 0 &&
-    !includesEvery(splitLogoFilterValues(logo.industry), filters.industries)
-  ) {
-    return false;
-  }
-  if (
-    filters.styles.length > 0 &&
-    !includesEvery(logo.styles, filters.styles)
-  ) {
-    return false;
-  }
-  if (
-    filters.shapes.length > 0 &&
-    !includesEvery(splitLogoFilterValues(logo.shape), filters.shapes)
-  ) {
+  if (!matchesArchiveFilterSelection([
+    { values: logo.colors, selected: filters.colors },
+    { values: splitLogoFilterValues(logo.industry), selected: filters.industries },
+    { values: logo.styles, selected: filters.styles },
+    { values: splitLogoFilterValues(logo.shape), selected: filters.shapes },
+  ])) {
     return false;
   }
 

@@ -9,11 +9,15 @@ gsap.registerPlugin(useGSAP);
 export function FeedMotion({
   children,
   itemCount,
-}: PropsWithChildren<{ itemCount: number }>) {
+  animateOnMount = true,
+}: PropsWithChildren<{ itemCount: number; animateOnMount?: boolean }>) {
   const scope = useRef<HTMLDivElement>(null);
+  const hasMounted = useRef(false);
 
   useGSAP(
     () => {
+      const isFirstMount = !hasMounted.current;
+      hasMounted.current = true;
       const cards = gsap.utils.toArray<HTMLElement>(
         "[data-feed-card]:not([data-feed-revealed])",
       );
@@ -23,6 +27,7 @@ export function FeedMotion({
       });
 
       if (
+        (isFirstMount && !animateOnMount) ||
         cards.length === 0 ||
         window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ) {
@@ -43,7 +48,7 @@ export function FeedMotion({
         },
       );
     },
-    { scope, dependencies: [itemCount] },
+    { scope, dependencies: [itemCount, animateOnMount] },
   );
 
   return <div ref={scope}>{children}</div>;

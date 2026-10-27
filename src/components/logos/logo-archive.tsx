@@ -173,7 +173,7 @@ export function LogoArchive({
           {filtered.length > 0 || (kind === "logo" && sponsors.length > 0) ? (
             <div className="mt-[var(--archive-feed-gap)]">
               {kind === "icon" ? (
-                <FeedMotion itemCount={filtered.length}>
+                <FeedMotion itemCount={filtered.length} animateOnMount={false}>
                   <IconGrid>
                     {filtered.map((logo, index) => (
                       <LogoCard key={logo.id} logo={logo} onSelect={selectLogo} priority={index < 4} />

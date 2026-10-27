@@ -4,6 +4,7 @@ import { useActionState, useCallback, useMemo, useState } from "react";
 import { AdminLibraryPagination } from "./library-pagination";
 import { CreatorWorkDrawer } from "./creator-work-drawer";
 import { CreatorEditDrawer } from "./creator-edit-drawer";
+import { CreatorDirectorySearch } from "./creator-directory-search";
 
 import {
   blankAdminCreator,
@@ -106,10 +107,7 @@ export function CreatorManager({
               <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Creator records</h2>
             </div>
             {directoryPage ? (
-              <form action="/admin/creators" className="flex w-full gap-2 sm:w-80">
-                <input name="q" defaultValue={directoryPage.query} aria-label="Search creators" placeholder="Name, username, Website or X" className={inputClass} />
-                <button className="focus-ring rounded-full bg-black px-4 text-sm text-white">Search</button>
-              </form>
+              <CreatorDirectorySearch query={directoryPage.query} />
             ) : <label className="grid w-full min-w-0 gap-2 text-xs font-medium uppercase tracking-[0.12em] text-[#777] sm:w-64">
               Search
               <input

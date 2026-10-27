@@ -19,7 +19,7 @@ export function AdminLibraryPagination({ path, page, totalPages, view = "latest"
     else params.delete(pageParam);
     return `${path}${params.size ? `?${params}` : ""}` as Route;
   }
-  const style = "focus-ring rounded-full border border-black/10 bg-white px-4 py-2 text-sm";
+  const style = "focus-ring rounded-full border border-[#262626] bg-[#262626] px-4 py-2 text-sm text-white transition-colors hover:border-[#3f3f3f] hover:bg-[#3f3f3f]";
   return (
     <nav aria-label="Library pages" className="flex items-center justify-between gap-4">
       {page > 1 ? <Link href={href(page - 1)} prefetch={false} className={style}>Previous</Link> : <span />}

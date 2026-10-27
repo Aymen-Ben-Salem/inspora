@@ -39,7 +39,6 @@ export default async function CreatorsPage({
         ) : null}
       </div>
       <CreatorManager
-        key={`${creators.page}:${query}`}
         creators={creators.items}
         claims={claims.items}
         directoryPage={{ page: creators.page, totalPages: creators.totalPages, query }}

@@ -78,9 +78,7 @@ export function LogoCard({
             className={`${isIcon ? "app-icon-artwork " : ""}block h-auto w-full`}
           />
         )}
-        {!isIcon || isFramedIcon ? (
-          <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
-        ) : null}
+        <span className={`${isIcon && !isFramedIcon ? "app-icon-artwork " : ""}pointer-events-none absolute inset-0 border border-black/[0.06]`} />
       </button>
       {showCreator && logo.kind === "logo" && creatorProfileHref(logo.creator) ? (
         <Link href={creatorProfileHref(logo.creator)! as Route} aria-label={`View ${logo.creator.name}'s profile`} className="focus-ring absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-20 rounded-full">

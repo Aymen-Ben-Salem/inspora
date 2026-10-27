@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type ArchiveFilterOption = { count: number; value: string };
 
@@ -33,12 +33,33 @@ export function ArchiveFilterMenu({
   onToggle: (value: string) => void;
 }) {
   const [menuQuery, setMenuQuery] = useState("");
+  const menuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    function closeOnOutsidePress(event: PointerEvent) {
+      const menu = menuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) menu.open = false;
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      const menu = menuRef.current;
+      if (event.key === "Escape" && menu?.open) {
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      }
+    }
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
   const visibleOptions = options.filter((option) =>
     option.value.toLowerCase().includes(menuQuery.trim().toLowerCase()),
   );
 
   return (
-    <details name="archive-filter-menu" className="group relative shrink-0 open:z-40">
+    <details ref={menuRef} name="archive-filter-menu" className="group relative shrink-0 open:z-40">
       <summary
         style={{ color: selected.length > 0 ? "#262626" : "#767676" }}
         className={`archive-control-type focus-ring flex h-[var(--archive-control-height)] cursor-pointer list-none items-center justify-center gap-[var(--archive-filter-gap)] border bg-[#fafafa] px-[var(--archive-filter-x)] tracking-[0.2px] [&::-webkit-details-marker]:hidden ${selected.length > 0 ? "w-[var(--archive-filter-selected-width)] border-[#767676]" : "w-[var(--archive-filter-width)] border-[#e6e6e6]"}`}

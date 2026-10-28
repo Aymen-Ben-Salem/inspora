@@ -73,6 +73,9 @@ export function AdminCreatorEditor({
     Boolean(creator.id) &&
     creator.recordOrigin !== "preview";
   const isReadOnly = readOnly || isExistingLocked;
+  const hasVerifiedXIdentity = Boolean(
+    creator.id && creators.find((item) => item.id === creator.id)?.xProviderId,
+  );
 
   function selectCreator(id: string) {
     if (id === "new") {
@@ -230,11 +233,16 @@ export function AdminCreatorEditor({
                 name="creatorXProfileUrl"
                 type="url"
                 placeholder="https://x.com/studio"
-                readOnly={isReadOnly}
+                readOnly={isReadOnly || hasVerifiedXIdentity}
                 value={creator.xProfileUrl ?? ""}
                 onChange={(event) => updateCreator("xProfileUrl", event.target.value)}
               />
             </label>
+            {hasVerifiedXIdentity && !isReadOnly ? (
+              <p className="text-xs leading-relaxed text-[#777] sm:col-span-2">
+                This link belongs to a verified X identity. To change it, the creator must update their connected X account.
+              </p>
+            ) : null}
             <label className={`${labelClass} sm:col-span-2`}>
               Avatar URL or local path
               <input

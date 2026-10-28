@@ -114,6 +114,30 @@ it("submits every edited profile field and retains the draft on errors for retry
   expect(parseAdminCreatorForm(save.mock.calls[1][1])).toMatchObject({ id: creator.id, username: "available_studio", name: "Updated studio" });
 });
 
+it("lets an admin add a public X link for an owned creator without a verified X identity", async () => {
+  const save = await render(undefined, [{ ...creator, ownerUserId: "admin", xProfileUrl: undefined }]);
+  await open();
+  expect(input("creatorXProfileUrl").readOnly).toBe(false);
+  await change("creatorXProfileUrl", "https://x.com/studio_one");
+  await submit();
+  expect(parseAdminCreatorForm(save.mock.calls[0][1])).toMatchObject({
+    id: creator.id, xProfileUrl: "https://x.com/studio_one",
+  });
+});
+
+it("explains why a verified X link is read-only and still saves other creator details", async () => {
+  const save = await render(undefined, [{ ...creator, ownerUserId: "admin", xProviderId: "verified-provider" }]);
+  await open();
+  expect(input("creatorXProfileUrl").readOnly).toBe(true);
+  expect(dialog().textContent).toContain("To change it, the creator must update their connected X account.");
+  expect(input("creatorName").readOnly).toBe(false);
+  await change("creatorName", "Updated studio");
+  await submit();
+  expect(parseAdminCreatorForm(save.mock.calls[0][1])).toMatchObject({
+    id: creator.id, name: "Updated studio", xProfileUrl: creator.xProfileUrl,
+  });
+});
+
 it("preserves uploaded avatar ownership metadata when saving other profile changes", async () => {
   const save = await render(); await open();
   const file = new File(["image"], "new-profile.png", { type: "image/png" });

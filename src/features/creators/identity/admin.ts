@@ -262,12 +262,12 @@ async function adminCreatorUpdateValues(
   const nextXProfileUrl =
     normalizedOptionalXProfileUrl(input.xProfileUrl) ?? null;
   if (
-    (existing.ownerUserId || existing.xProviderId) &&
+    existing.xProviderId &&
     existing.xProfileUrl !== nextXProfileUrl
   ) {
     throw new AdminCreatorMutationError(
       "conflict",
-      "An owned or provider-associated creator's X association cannot be transferred.",
+      "This link belongs to a verified X identity. To change it, the creator must update their connected X account.",
     );
   }
 

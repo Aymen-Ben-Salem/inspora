@@ -23,9 +23,12 @@ import {
   deleteAdminCreator,
   getAdminCreatorClaims,
   getAdminCreators,
+  saveAdminCreatorForAttribution,
   updateAdminCreator,
 } from "./identity";
 import type { AdminCreatorInput } from "./types";
+import type { creators } from "@/db/schema";
+import type { WriteTx } from "@/db/write-client";
 
 const input: AdminCreatorInput = {
   name: "Studio One",
@@ -34,8 +37,110 @@ const input: AdminCreatorInput = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   external.requireAdmin.mockRejectedValue(new Error("redirect:/admin-access-denied"));
+});
+
+function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {}) {
+  const existing: typeof creators.$inferSelect = {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: input.name,
+    username: input.username!,
+    avatarUrl: input.avatarUrl,
+    avatarStorageProvider: null,
+    avatarStorageKey: null,
+    handle: null,
+    url: null,
+    xProfileUrl: null,
+    xProviderId: null,
+    ownerUserId: "admin",
+    recordOrigin: "user",
+    editedFields: [],
+    createdAt: new Date("2026-10-28T00:00:00Z"),
+    updatedAt: new Date("2026-10-28T00:00:00Z"),
+    ...overrides,
+  };
+  const set = vi.fn((values: Partial<typeof existing>) => ({
+    where: vi.fn(() => ({ returning: async () => [{ ...existing, ...values }] })),
+  }));
+  const audit = vi.fn().mockResolvedValue(undefined);
+  const transaction = {
+    select: vi.fn(() => ({ from: () => ({ where: () => ({
+      for: async () => [existing],
+      limit: async () => [],
+    }) }) })),
+    update: vi.fn(() => ({ set })),
+    insert: vi.fn(() => ({ values: audit })),
+  };
+  external.requireAdmin.mockResolvedValue({ userId: "admin" });
+  external.withWriteTransaction.mockImplementation(
+    async (work: (tx: WriteTx) => Promise<unknown>) => work(transaction as unknown as WriteTx),
+  );
+  return { existing, set, audit, transaction: transaction as unknown as WriteTx };
+}
+
+it.each([
+  { previous: null, next: "https://twitter.com/Studio_One", expected: "https://x.com/studio_one" },
+  { previous: "https://x.com/old_studio", next: "https://x.com/studio_one", expected: "https://x.com/studio_one" },
+  { previous: "https://x.com/old_studio", next: "", expected: null },
+])("allows an admin owner to edit an unverified public X link: $previous -> $expected", async ({ previous, next, expected }) => {
+  const { existing, set, audit } = creatorTransaction({ xProfileUrl: previous });
+  await expect(updateAdminCreator(existing.id, { ...input, xProfileUrl: next })).resolves.toMatchObject({
+    creator: { ownerUserId: "admin", xProviderId: undefined, xProfileUrl: expected ?? undefined },
+  });
+  expect(set).toHaveBeenCalledWith(expect.objectContaining({ xProfileUrl: expected }));
+  const values = set.mock.calls[0][0];
+  expect(values).not.toHaveProperty("ownerUserId");
+  expect(values).not.toHaveProperty("xProviderId");
+  expect(audit).toHaveBeenCalledWith(expect.objectContaining({ actorId: "admin", action: "creator.updated" }));
+});
+
+it.each([null, "another-owner"])("allows an admin to edit an unverified public X link with owner %s", async (ownerUserId) => {
+  const { existing } = creatorTransaction({ ownerUserId });
+  await expect(updateAdminCreator(existing.id, { ...input, xProfileUrl: "https://x.com/studio_one" })).resolves.toMatchObject({
+    creator: { ownerUserId: ownerUserId ?? undefined, xProviderId: undefined, xProfileUrl: "https://x.com/studio_one" },
+  });
+});
+
+it.each([
+  { ownerUserId: "admin", previous: "https://x.com/studio_one", next: "https://x.com/another" },
+  { ownerUserId: "admin", previous: "https://x.com/studio_one", next: "" },
+  { ownerUserId: null, previous: "https://x.com/studio_one", next: "https://x.com/another" },
+  { ownerUserId: "admin", previous: null, next: "https://x.com/another" },
+])("protects a verified X identity from manual URL changes (%#)", async ({ ownerUserId, previous, next }) => {
+  const { existing, set, audit } = creatorTransaction({ ownerUserId, xProviderId: "verified-provider", xProfileUrl: previous });
+  await expect(updateAdminCreator(existing.id, { ...input, xProfileUrl: next })).rejects.toMatchObject({
+    code: "conflict",
+    message: "This link belongs to a verified X identity. To change it, the creator must update their connected X account.",
+  });
+  expect(set).not.toHaveBeenCalled();
+  expect(audit).not.toHaveBeenCalled();
+});
+
+it("allows other profile edits while preserving the verified X identity", async () => {
+  const { existing, set } = creatorTransaction({ xProviderId: "verified-provider", xProfileUrl: "https://x.com/studio_one" });
+  await expect(updateAdminCreator(existing.id, { ...input, name: "Updated studio", xProfileUrl: "https://twitter.com/Studio_One/" })).resolves.toMatchObject({
+    creator: { name: "Updated studio", ownerUserId: "admin", xProviderId: "verified-provider", xProfileUrl: "https://x.com/studio_one" },
+  });
+  expect(set.mock.calls[0][0]).not.toHaveProperty("xProviderId");
+});
+
+it("allows public X link edits through inline work attribution without changing ownership", async () => {
+  const { existing, set, transaction } = creatorTransaction({ recordOrigin: "preview" });
+  await expect(saveAdminCreatorForAttribution(transaction, { userId: "admin" }, {
+    ...input, id: existing.id, xProfileUrl: "https://x.com/studio_one",
+  })).resolves.toMatchObject({ creatorId: existing.id });
+  expect(set).toHaveBeenCalledWith(expect.objectContaining({ xProfileUrl: "https://x.com/studio_one" }));
+  expect(set.mock.calls[0][0]).not.toHaveProperty("ownerUserId");
+  expect(set.mock.calls[0][0]).not.toHaveProperty("xProviderId");
+});
+
+it("protects verified X identities through inline work attribution", async () => {
+  const { existing, set, transaction } = creatorTransaction({ recordOrigin: "preview", xProviderId: "verified-provider", xProfileUrl: "https://x.com/studio_one" });
+  await expect(saveAdminCreatorForAttribution(transaction, { userId: "admin" }, {
+    ...input, id: existing.id, xProfileUrl: "https://x.com/another",
+  })).rejects.toMatchObject({ code: "conflict", message: expect.stringContaining("verified X identity") });
+  expect(set).not.toHaveBeenCalled();
 });
 
 it("establishes admin authority before standalone creator reads and writes", async () => {

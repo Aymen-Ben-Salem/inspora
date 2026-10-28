@@ -28,7 +28,7 @@ export function ProfileMessages({ messages }: { messages: OwnProfileMessage[] })
           <div>
             <p className="text-sm font-medium text-[#262626]">{labels[message.kind]}</p>
             {message.kind === "submission_accepted" && message.publishedHref ? (
-              <Link href={message.publishedHref as Route} className="focus-ring mt-1 inline-block text-xs text-[#767676] underline underline-offset-2">
+              <Link href={message.publishedHref as Route} className="focus-ring mt-1 inline-block cursor-pointer text-xs text-[#767676] underline underline-offset-2">
                 View published work
               </Link>
             ) : null}
@@ -36,7 +36,7 @@ export function ProfileMessages({ messages }: { messages: OwnProfileMessage[] })
           <button
             type="button"
             disabled={pending}
-            className="focus-ring shrink-0 text-xs text-[#767676] disabled:opacity-50"
+            className="focus-ring shrink-0 cursor-pointer text-xs text-[#767676] disabled:cursor-wait disabled:opacity-50"
             onClick={() => startTransition(async () => {
               setError(undefined);
               const result = await dismissOwnProfileMessage(message.id);

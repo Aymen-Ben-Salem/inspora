@@ -21,7 +21,7 @@ export function SubmissionCard({
     <button
       type="button"
       onClick={onSelect}
-      className="focus-ring group w-full overflow-hidden rounded-[3px] border border-[#e6e6e6] bg-[#fafafa] text-left"
+      className="focus-ring group w-full cursor-pointer overflow-hidden rounded-[3px] border border-[#e6e6e6] bg-[#fafafa] text-left"
     >
       <div className="relative aspect-[1.36/1] overflow-hidden bg-[#f3f3f3]">
         {submission.source === "upload" && submission.mediaType?.startsWith("image/") ? (

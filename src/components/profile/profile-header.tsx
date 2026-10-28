@@ -25,12 +25,12 @@ export function ProfileHeader({
           {profile.xProfileUrl || profile.websiteUrl ? (
             <div className="flex h-[18px] items-center gap-[10px]">
               {profile.xProfileUrl ? (
-                <a className="focus-ring relative block size-[18px] overflow-hidden" href={profile.xProfileUrl} target="_blank" rel="noopener noreferrer" aria-label={`${profile.name} on X`}>
+                <a className="focus-ring relative block size-[18px] cursor-pointer overflow-hidden" href={profile.xProfileUrl} target="_blank" rel="noopener noreferrer" aria-label={`${profile.name} on X`}>
                   <Image src="/icons/profile/social-links.svg" alt="" width={45} height={18} className="absolute left-0 top-0 h-[18px] w-[45px] max-w-none" />
                 </a>
               ) : null}
               {profile.websiteUrl ? (
-                <a className="focus-ring relative block size-[18px] overflow-hidden" href={profile.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={`${profile.name}'s website`}>
+                <a className="focus-ring relative block size-[18px] cursor-pointer overflow-hidden" href={profile.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={`${profile.name}'s website`}>
                   <Image src="/icons/profile/social-links.svg" alt="" width={45} height={18} className="absolute right-0 top-0 h-[18px] w-[45px] max-w-none" />
                 </a>
               ) : null}

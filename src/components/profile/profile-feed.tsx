@@ -190,7 +190,7 @@ export function ProfileFeed({
               )}
               <div ref={sentinelRef} className="flex min-h-16 items-center justify-center py-5">
                 {status === "loading" ? <p role="status" className="sr-only">Loading more</p> : null}
-                {status === "error" ? <button type="button" onClick={() => void loadMore()} className="focus-ring rounded-lg bg-[#f3f3f3] px-4 py-2 text-xs">Try loading more</button> : null}
+                {status === "error" ? <button type="button" onClick={() => void loadMore()} className="focus-ring cursor-pointer rounded-lg bg-[#f3f3f3] px-4 py-2 text-xs">Try loading more</button> : null}
               </div>
             </>
           )}
@@ -213,7 +213,7 @@ export function ProfileFeed({
 
 function ProfileFilterLink({ active, href, label }: { active: boolean; href: string; label: string }) {
   return (
-    <Link href={href as Route} aria-current={active ? "page" : undefined} className={`focus-ring inline-flex min-h-[41px] min-w-[104px] shrink-0 items-center justify-center whitespace-nowrap px-4 py-3 text-sm leading-[normal] tracking-[0.2px] transition-colors ${active ? "bg-[#262626] text-white" : "bg-[#fafafa] text-[#767676] hover:bg-[#f0f0f0] hover:text-[#262626]"}`}>
+    <Link href={href as Route} aria-current={active ? "page" : undefined} className={`focus-ring inline-flex min-h-[41px] min-w-[104px] shrink-0 cursor-pointer items-center justify-center whitespace-nowrap px-4 py-3 text-sm leading-[normal] tracking-[0.2px] transition-colors ${active ? "bg-[#262626] text-white" : "bg-[#fafafa] text-[#767676] hover:bg-[#f0f0f0] hover:text-[#262626]"}`}>
       {label}
     </Link>
   );

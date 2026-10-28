@@ -18,6 +18,7 @@ export default defineConfig({
     "src/components/admin/media-upload-lifecycle.test.tsx",
     "src/components/admin/editor-persistence.test.tsx",
     "src/components/admin/submission-review.test.tsx",
+    "src/components/admin/submission-creator-editor.test.tsx",
     "src/components/admin/creator-picker.test.tsx",
     "src/features/creators/identity-admin.test.ts",
     "src/components/admin/media-preview.test.tsx",

@@ -44,6 +44,8 @@ export function LogoEditor({
   cancelHref = "/admin/logos",
   publicationOnly = false,
   submittedMediaHref,
+  fixedCreator,
+  onEditCreator,
 }: {
   action: (
     state: AdminActionState,
@@ -56,14 +58,17 @@ export function LogoEditor({
   cancelHref?: Route;
   publicationOnly?: boolean;
   submittedMediaHref?: string;
+  fixedCreator?: AdminCreatorAttribution;
+  onEditCreator?: () => void;
 }) {
   const [state, formAction, isPending] = useActionState(
     action,
     initialAdminActionState,
   );
-  const [creator, setCreator] = useState<AdminCreatorInput>(
+  const [creatorDraft, setCreator] = useState<AdminCreatorInput>(
     logo?.creator ? toAdminCreatorDraft(logo.creator) : blankAdminCreator(),
   );
+  const creator = fixedCreator ? toAdminCreatorDraft(fixedCreator) : creatorDraft;
   const [media, setMedia] = useState<MediaDraft>(logo?.media ?? blankMedia());
   const [kind, setKind] = useState<LogoKind>(logo?.kind ?? "logo");
 
@@ -245,6 +250,9 @@ export function LogoEditor({
           creators={creators}
           onChange={setCreator}
           lockExistingCreators={lockExistingCreators}
+          readOnly={Boolean(fixedCreator)}
+          showCreatorPicker={!fixedCreator}
+          onEdit={onEditCreator}
         />
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">

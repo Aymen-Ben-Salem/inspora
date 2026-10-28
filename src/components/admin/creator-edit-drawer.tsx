@@ -2,12 +2,12 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { initialAdminActionState, type AdminActionState } from "@/features/admin/types";
-import type { AdminCreatorRecord } from "@/features/creators/types";
+import type { AdminCreatorAttribution } from "@/features/creators/types";
 import { AdminCreatorEditor, blankAdminCreator, toAdminCreatorDraft } from "./admin-creator-editor";
 import { preserveFormDraft } from "./preserve-form-draft";
 
 type Props = {
-  creator?: AdminCreatorRecord;
+  creator?: AdminCreatorAttribution & { workCount?: number };
   saveAction: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   onDismiss: () => void;
 };
@@ -69,7 +69,7 @@ function CreatorEditSurface({ creator: original, saveAction, onDismiss }: Props)
             <AdminCreatorEditor creator={creator} creators={original ? [original] : []} onChange={setCreator}
               showCreatorPicker={false} />
           </fieldset>
-          {original ? <p className="text-xs text-[#777]">{original.recordOrigin} record · {original.workCount} credited works</p> : null}
+          {original ? <p className="text-xs text-[#777]">{original.recordOrigin} record{original.workCount !== undefined ? ` · ${original.workCount} credited works` : ""}</p> : null}
         </form>
       </div>
       <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-black/10 bg-white px-5 py-4 sm:px-8">

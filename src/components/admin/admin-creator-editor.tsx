@@ -57,17 +57,22 @@ export function AdminCreatorEditor({
   onChange,
   lockExistingCreators = false,
   showCreatorPicker = true,
+  readOnly = false,
+  onEdit,
 }: {
   creator: AdminCreatorInput;
   creators: AdminCreatorAttribution[];
   onChange: (creator: AdminCreatorInput) => void;
   lockExistingCreators?: boolean;
   showCreatorPicker?: boolean;
+  readOnly?: boolean;
+  onEdit?: () => void;
 }) {
   const isExistingLocked =
     lockExistingCreators &&
     Boolean(creator.id) &&
     creator.recordOrigin !== "preview";
+  const isReadOnly = readOnly || isExistingLocked;
 
   function selectCreator(id: string) {
     if (id === "new") {
@@ -128,11 +133,20 @@ export function AdminCreatorEditor({
               Creator profile
             </h2>
           </div>
-          <p className="max-w-sm text-xs leading-relaxed text-[#777] sm:text-right">
-            {isExistingLocked
-              ? "Existing creator profiles are read-only in Preview."
-              : "Changes to an existing creator update every item connected to them."}
-          </p>
+          <div className="grid justify-items-start gap-3 sm:justify-items-end">
+            <p className="max-w-sm text-xs leading-relaxed text-[#777] sm:text-right">
+              {readOnly
+                ? "Use Edit creator to update this profile."
+                : isExistingLocked
+                  ? "Existing creator profiles are read-only in Preview."
+                  : "Changes to an existing creator update every item connected to them."}
+            </p>
+            {onEdit ? (
+              <button type="button" onClick={onEdit} className="focus-ring cursor-pointer rounded-full bg-[#262626] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f3f3f]">
+                Edit creator
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {showCreatorPicker ? <CreatorPicker creators={creators} selectedId={creator.id} onSelect={selectCreator} /> : null}
@@ -153,7 +167,7 @@ export function AdminCreatorEditor({
           </div>
 
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-            {!isExistingLocked ? (
+            {!isReadOnly ? (
               <div className="grid gap-2 sm:col-span-2">
                 <span className="text-sm font-medium text-[#333]">Profile picture</span>
                 <MediaUploadButton
@@ -170,7 +184,7 @@ export function AdminCreatorEditor({
                 className={inputClass}
                 name="creatorName"
                 required
-                readOnly={isExistingLocked}
+                readOnly={isReadOnly}
                 value={creator.name}
                 onChange={(event) => updateCreator("name", event.target.value)}
               />
@@ -181,7 +195,7 @@ export function AdminCreatorEditor({
                 className={inputClass}
                 name="creatorHandle"
                 placeholder="@studio"
-                readOnly={isExistingLocked}
+                readOnly={isReadOnly}
                 value={creator.legacyHandle ?? ""}
                 onChange={(event) => updateCreator("legacyHandle", event.target.value)}
               />
@@ -193,7 +207,7 @@ export function AdminCreatorEditor({
                 name="creatorUsername"
                 placeholder="studio_name"
                 pattern="[a-z0-9_]{3,30}"
-                readOnly={isExistingLocked}
+                readOnly={isReadOnly}
                 value={creator.username ?? ""}
                 onChange={(event) => updateCreator("username", event.target.value)}
               />
@@ -204,7 +218,7 @@ export function AdminCreatorEditor({
                 className={inputClass}
                 name="creatorUrl"
                 type="url"
-                readOnly={isExistingLocked}
+                readOnly={isReadOnly}
                 value={creator.url ?? ""}
                 onChange={(event) => updateCreator("url", event.target.value)}
               />
@@ -216,7 +230,7 @@ export function AdminCreatorEditor({
                 name="creatorXProfileUrl"
                 type="url"
                 placeholder="https://x.com/studio"
-                readOnly={isExistingLocked}
+                readOnly={isReadOnly}
                 value={creator.xProfileUrl ?? ""}
                 onChange={(event) => updateCreator("xProfileUrl", event.target.value)}
               />
@@ -227,13 +241,13 @@ export function AdminCreatorEditor({
                 className={inputClass}
                 name="creatorAvatarUrl"
                 required
-                readOnly={isExistingLocked}
+                readOnly={isReadOnly}
                 placeholder="/brand/default-avatar.svg"
                 value={creator.avatarUrl}
                 onChange={(event) => updateCreator("avatarUrl", event.target.value)}
               />
             </label>
-            {isExistingLocked ? (
+            {isExistingLocked && !readOnly ? (
               <p className="text-xs leading-relaxed text-[#777] sm:col-span-2">
                 Choose &quot;Create a new creator&quot; to enter a different profile or upload a new avatar.
               </p>

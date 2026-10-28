@@ -47,7 +47,7 @@ vi.mock("@/storage/media-storage", () => ({
 }));
 
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
-import { reviewCreatorClaimAction, saveCreatorAction } from "./creator-actions";
+import { reviewCreatorClaimAction, saveCreatorAction, saveCreatorProfileAction } from "./creator-actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -94,7 +94,7 @@ it("does not clean up or invalidate when the identity write fails", async () => 
   expect(external.redirect).not.toHaveBeenCalled();
 });
 
-it("rethrows framework redirects from server-established admin authority", async () => {
+it.each([saveCreatorAction, saveCreatorProfileAction])("rethrows framework redirects from server-established admin authority (%#)", async (save) => {
   const redirectError = new Error("NEXT_REDIRECT");
   external.update.mockRejectedValueOnce(redirectError);
   external.unstableRethrow.mockImplementationOnce((error) => {
@@ -102,12 +102,40 @@ it("rethrows framework redirects from server-established admin authority", async
   });
 
   await expect(
-    saveCreatorAction({ status: "idle" }, new FormData()),
+    save({ status: "idle" }, new FormData()),
   ).rejects.toBe(redirectError);
 
   expect(external.remove).not.toHaveBeenCalled();
   expect(external.updateTag).not.toHaveBeenCalled();
   expect(external.redirect).not.toHaveBeenCalled();
+});
+
+it("returns a saved profile to the review page without redirecting and refreshes review data", async () => {
+  const creator = { id: "11111111-1111-4111-8111-111111111111", name: "Updated studio", username: "updated_studio" };
+  external.update.mockResolvedValueOnce({ creator, removedManagedMedia: [] });
+  await expect(saveCreatorProfileAction({ status: "idle" }, new FormData())).resolves.toEqual({ status: "idle", creator });
+  expect(external.update).toHaveBeenCalledWith(creator.id, expect.objectContaining({ id: creator.id }));
+  expect(external.remove).toHaveBeenCalledWith([]);
+  expect(external.updateTag).toHaveBeenCalledWith(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
+  expect(external.revalidatePath).toHaveBeenCalledWith("/admin/submissions");
+  expect(external.revalidatePath).toHaveBeenCalledWith("/admin/submissions/[id]", "page");
+  expect(external.redirect).not.toHaveBeenCalled();
+});
+
+it("keeps failed in-place profile saves in the editor without cleanup or invalidation", async () => {
+  external.update.mockRejectedValueOnce(new Error("That username is unavailable."));
+  await expect(saveCreatorProfileAction({ status: "idle" }, new FormData())).resolves.toEqual({ status: "error", message: "That username is unavailable." });
+  expect(external.remove).not.toHaveBeenCalled();
+  expect(external.updateTag).not.toHaveBeenCalled();
+  expect(external.revalidatePath).not.toHaveBeenCalled();
+});
+
+it("requires an existing creator for an in-place review edit", async () => {
+  external.parse.mockReturnValueOnce({ name: "New creator", avatarUrl: "/avatar.svg" });
+  await expect(saveCreatorProfileAction({ status: "idle" }, new FormData())).resolves.toMatchObject({ status: "error" });
+  expect(external.create).not.toHaveBeenCalled();
+  expect(external.update).not.toHaveBeenCalled();
+  expect(external.updateTag).not.toHaveBeenCalled();
 });
 
 it("delegates claim reviews without repeating the identity module's committed side effects", async () => {

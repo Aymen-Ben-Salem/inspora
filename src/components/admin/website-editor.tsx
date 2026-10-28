@@ -57,6 +57,8 @@ export function WebsiteEditor({
   actionLabel,
   cancelHref = "/admin/websites",
   publicationOnly = false,
+  fixedCreator,
+  onEditCreator,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorAttribution[];
@@ -65,11 +67,14 @@ export function WebsiteEditor({
   actionLabel?: string;
   cancelHref?: Route;
   publicationOnly?: boolean;
+  fixedCreator?: AdminCreatorAttribution;
+  onEditCreator?: () => void;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
-  const [creator, setCreator] = useState<AdminCreatorInput>(
+  const [creatorDraft, setCreator] = useState<AdminCreatorInput>(
     website?.creator ? toAdminCreatorDraft(website.creator) : blankAdminCreator(),
   );
+  const creator = fixedCreator ? toAdminCreatorDraft(fixedCreator) : creatorDraft;
   const [recording, setRecording] = useState<MediaDraft>(mediaFor(website, "recording"));
   const [favicon, setFavicon] = useState<MediaDraft>(mediaFor(website, "favicon"));
   const [isCropping, setIsCropping] = useState(false);
@@ -156,6 +161,9 @@ export function WebsiteEditor({
           creators={creators}
           onChange={setCreator}
           lockExistingCreators={lockExistingCreators}
+          readOnly={Boolean(fixedCreator)}
+          showCreatorPicker={!fixedCreator}
+          onEdit={onEditCreator}
         />
 
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">

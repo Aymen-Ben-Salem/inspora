@@ -21,7 +21,7 @@ import { parseAdminCreatorForm } from "@/features/creators/validation";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError } from "./post-validation";
-import type { AdminActionState } from "./types";
+import type { AdminActionState, AdminCreatorAttribution } from "./types";
 
 const idSchema = z.uuid();
 
@@ -35,6 +35,8 @@ function revalidateCreatorPaths() {
   revalidatePath("/admin/posts");
   revalidatePath("/admin/logos");
   revalidatePath("/admin/websites");
+  revalidatePath("/admin/submissions");
+  revalidatePath("/admin/submissions/[id]", "page");
 }
 
 function creatorErrorState(error: unknown): AdminActionState {
@@ -99,6 +101,24 @@ export async function deleteCreatorAction(
   }
   revalidateCreatorPaths();
   redirect("/admin/creators?deleted=true" as Route);
+}
+
+export async function saveCreatorProfileAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState & { creator?: AdminCreatorAttribution }> {
+  let creator: AdminCreatorAttribution;
+  try {
+    const input = parseAdminCreatorForm(formData);
+    if (!input.id) return { status: "error", message: "Select an existing creator to edit." };
+    const updated = await updateAdminCreator(input.id, input);
+    creator = updated.creator;
+    await deleteManagedMediaAssetsSafely(updated.removedManagedMedia);
+  } catch (error) {
+    return creatorErrorState(error);
+  }
+  revalidateCreatorPaths();
+  return { status: "idle", creator };
 }
 
 export async function reviewCreatorClaimAction(formData: FormData) {

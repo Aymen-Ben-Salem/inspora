@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import type { AdminSubmissionReview } from "../../features/submissions/review-service";
 import {
@@ -18,6 +18,8 @@ import { prepareAndUploadMedia } from "../../features/media/prepare-and-upload";
 import { LogoEditor } from "./logo-editor";
 import { PostEditor } from "./post-editor";
 import { WebsiteEditor } from "./website-editor";
+import { CreatorEditDrawer } from "./creator-edit-drawer";
+import { saveCreatorProfileAction } from "../../features/admin/creator-actions";
 
 type ReviewAction = (
   state: AdminActionState,
@@ -135,7 +137,7 @@ function RejectForm({ action }: { action: ReviewAction }) {
 
 export function SubmissionReview({
   submission,
-  creator,
+  creator: initialCreator,
   creators,
   categories,
   acceptAction,
@@ -148,6 +150,18 @@ export function SubmissionReview({
   acceptAction: ReviewAction;
   rejectAction: ReviewAction;
 }) {
+  const [creator, setCreator] = useState(initialCreator);
+  const [creatorEditorOpen, setCreatorEditorOpen] = useState(false);
+
+  async function saveReviewCreator(state: AdminActionState, formData: FormData) {
+    const result = await saveCreatorProfileAction(state, formData);
+    if (result.status !== "error" && result.creator) {
+      setCreator(result.creator);
+      setCreatorEditorOpen(false);
+    }
+    return result;
+  }
+
   async function acceptWithSubmittedMedia(state: AdminActionState, formData: FormData) {
     try {
       await prepareSubmissionMedia(submission, formData, prepareAndUploadMedia);
@@ -179,7 +193,7 @@ export function SubmissionReview({
           </span>
         </div>
         <p className="rounded-xl bg-[#f5f5f2] px-4 py-3 text-sm text-[#555]">
-          Publication credit is fixed to {creator.name}. Creator fields in the editor cannot change the submission owner.
+          Publication credit belongs to {creator.name}.{submission.status === "in_review" ? " Use Edit creator to update their profile details." : ""}
         </p>
         {submission.sourceUrl ? (
           <a
@@ -216,15 +230,16 @@ export function SubmissionReview({
       {submission.status === "in_review" ? (
         <>
           {submission.kind === "design" ? (
-            <PostEditor submittedMediaHref={submission.mediaHref ?? undefined} categories={categories} action={acceptWithSubmittedMedia} creators={creators} post={postDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <PostEditor submittedMediaHref={submission.mediaHref ?? undefined} categories={categories} action={acceptWithSubmittedMedia} creators={creators} post={postDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : submission.kind === "website" ? (
-            <WebsiteEditor action={acceptWithSubmittedMedia} creators={creators} website={websiteDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <WebsiteEditor action={acceptWithSubmittedMedia} creators={creators} website={websiteDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : (
-            <LogoEditor submittedMediaHref={submission.mediaHref ?? undefined} action={acceptWithSubmittedMedia} creators={creators} logo={logoDraft(submission, creator)} lockExistingCreators actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <LogoEditor submittedMediaHref={submission.mediaHref ?? undefined} action={acceptWithSubmittedMedia} creators={creators} logo={logoDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           )}
           <RejectForm action={rejectAction} />
         </>
       ) : null}
+      {creatorEditorOpen ? <CreatorEditDrawer creator={creator} saveAction={saveReviewCreator} onDismiss={() => setCreatorEditorOpen(false)} /> : null}
     </div>
   );
 }

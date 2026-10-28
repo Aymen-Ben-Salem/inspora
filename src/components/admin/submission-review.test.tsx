@@ -6,6 +6,7 @@ vi.mock("./post-editor", () => ({ PostEditor: vi.fn(() => null) }));
 vi.mock("./logo-editor", () => ({ LogoEditor: vi.fn(() => null) }));
 vi.mock("./website-editor", () => ({ WebsiteEditor: vi.fn(() => null) }));
 vi.mock("../../features/media/prepare-and-upload", () => ({ prepareAndUploadMedia: vi.fn() }));
+vi.mock("../../features/admin/creator-actions", () => ({ saveCreatorProfileAction: vi.fn() }));
 
 import { SubmissionReview } from "./submission-review";
 import { PostEditor } from "./post-editor";

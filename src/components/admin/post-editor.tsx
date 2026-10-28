@@ -53,6 +53,8 @@ export function PostEditor({
   cancelHref = "/admin/posts",
   publicationOnly = false,
   submittedMediaHref,
+  fixedCreator,
+  onEditCreator,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   creators: AdminCreatorAttribution[];
@@ -63,14 +65,17 @@ export function PostEditor({
   cancelHref?: Route;
   publicationOnly?: boolean;
   submittedMediaHref?: string;
+  fixedCreator?: AdminCreatorAttribution;
+  onEditCreator?: () => void;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [media, setMedia] = useState<MediaDraft[]>(
     post?.media.length ? post.media : [blankMedia()],
   );
-  const [creator, setCreator] = useState<AdminCreatorInput>(
+  const [creatorDraft, setCreator] = useState<AdminCreatorInput>(
     post?.creator ? toAdminCreatorDraft(post.creator) : blankAdminCreator(),
   );
+  const creator = fixedCreator ? toAdminCreatorDraft(fixedCreator) : creatorDraft;
 
   function updateMedia(index: number, field: keyof MediaDraft, value: string) {
     setMedia((current) =>
@@ -167,6 +172,9 @@ export function PostEditor({
           creators={creators}
           onChange={setCreator}
           lockExistingCreators={lockExistingCreators}
+          readOnly={Boolean(fixedCreator)}
+          showCreatorPicker={!fixedCreator}
+          onEdit={onEditCreator}
         />
 
         <section className="grid gap-6 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">

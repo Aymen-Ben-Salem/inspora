@@ -81,14 +81,14 @@ export function DiscardConfirmation({
           ref={cancelRef}
           type="button"
           onClick={onCancel}
-          className="focus-ring min-h-9 rounded-lg border border-[#e6e6e6] bg-white px-4 text-sm text-[#262626] shadow-[0_1px_1px_#e6e6e6]"
+          className="focus-ring min-h-9 cursor-pointer rounded-lg border border-[#e6e6e6] bg-white px-4 text-sm text-[#262626] shadow-[0_1px_1px_#e6e6e6]"
         >
           Keep editing
         </button>
         <button
           type="button"
           onClick={onDiscard}
-          className="focus-ring min-h-9 rounded-lg bg-[#262626] px-4 text-sm text-white shadow-[0_2px_0_#000]"
+          className="focus-ring min-h-9 cursor-pointer rounded-lg bg-[#262626] px-4 text-sm text-white shadow-[0_2px_0_#000]"
         >
           Discard
         </button>

@@ -108,7 +108,7 @@ export function SubmissionUpload({
             onFile(event.dataTransfer.files[0]);
           }
         }}
-        className="focus-within:focus-ring flex min-h-[244px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[3px] border border-dashed border-[#cfcfcf] bg-[#fcfcfc] px-6 text-center"
+        className={`focus-within:focus-ring flex min-h-[244px] flex-col items-center justify-center overflow-hidden rounded-[3px] border border-dashed border-[#cfcfcf] bg-[#fcfcfc] px-6 text-center ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
       >
         {file ? (
           <SelectedUploadPreview
@@ -153,7 +153,7 @@ export function SubmissionUpload({
             type="button"
             disabled={disabled}
             onClick={() => onFile(null)}
-            className="focus-ring text-[#262626]"
+            className="focus-ring cursor-pointer text-[#262626] disabled:cursor-not-allowed"
           >
             Remove
           </button>

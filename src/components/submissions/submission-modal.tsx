@@ -218,7 +218,7 @@ export function SubmissionModal({
                 setError(undefined);
                 setStep(firstStepForKind(item.kind));
               }}
-              className="focus-ring flex h-[53.75px] w-full items-center justify-between gap-5 px-4 text-left disabled:opacity-50"
+              className="focus-ring flex h-[53.75px] w-full cursor-pointer items-center justify-between gap-5 px-4 text-left disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="text-sm font-medium tracking-[-0.28px] text-[#262626]">
                 {item.label}
@@ -232,7 +232,7 @@ export function SubmissionModal({
           <button
             type="button"
             onClick={() => setStep({ page: "link", kind: step.kind })}
-            className="focus-ring flex min-h-[49.5px] w-full items-center justify-between py-[3px] text-left"
+            className="focus-ring flex min-h-[49.5px] w-full cursor-pointer items-center justify-between py-[3px] text-left"
           >
             <span>
               <span className="block text-sm font-medium leading-[normal] tracking-[-0.28px]">
@@ -247,7 +247,7 @@ export function SubmissionModal({
           <button
             type="button"
             onClick={() => setStep({ page: "upload", kind: step.kind })}
-            className="focus-ring flex min-h-[49.5px] w-full items-center justify-between py-[3px] text-left"
+            className="focus-ring flex min-h-[49.5px] w-full cursor-pointer items-center justify-between py-[3px] text-left"
           >
             <span>
               <span className="block text-sm font-medium leading-[normal] tracking-[-0.28px]">
@@ -344,7 +344,7 @@ function BackButton({ disabled, onClick }: { disabled: boolean; onClick: () => v
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="focus-ring min-h-[41px] rounded-lg border border-[#e6e6e6] bg-white px-[18px] text-sm tracking-[-0.28px] text-[#262626] shadow-[0_1px_1px_#e6e6e6] disabled:opacity-50"
+      className="focus-ring min-h-[41px] cursor-pointer rounded-lg border border-[#e6e6e6] bg-white px-[18px] text-sm tracking-[-0.28px] text-[#262626] shadow-[0_1px_1px_#e6e6e6] disabled:cursor-not-allowed disabled:opacity-50"
     >
       Back
     </button>
@@ -358,7 +358,7 @@ function FormActions({ busy, onBack }: { busy: boolean; onBack: () => void }) {
       <button
         type="submit"
         disabled={busy}
-        className="focus-ring min-h-[41px] rounded-lg bg-[#262626] px-4 text-sm tracking-[-0.28px] text-white shadow-[0_2px_0_#000] disabled:cursor-wait disabled:opacity-50"
+        className="focus-ring min-h-[41px] cursor-pointer rounded-lg bg-[#262626] px-4 text-sm tracking-[-0.28px] text-white shadow-[0_2px_0_#000] disabled:cursor-wait disabled:opacity-50"
       >
         {busy ? "Submitting..." : "Submit"}
       </button>

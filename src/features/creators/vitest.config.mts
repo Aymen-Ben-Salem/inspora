@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("../../", import.meta.url)) } },
   test: { include: [
+    "src/proxy.test.ts",
     "src/features/creators/identity*.test.ts",
     "src/features/creators/claims*.test.ts",
     "src/features/creators/claim-actions.test.ts",

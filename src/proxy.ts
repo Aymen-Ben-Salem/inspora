@@ -23,8 +23,9 @@ export const config = {
       source: "/:path*",
       has: [{ type: "header", key: "next-action" }],
     },
-    // Keep Clerk limited to authenticated product routes, public auth, and its integration subtree.
-    // Other public pages stay outside Routing Middleware for cacheability.
+    // Creator pages read the session for their claim/manage action, including
+    // signed-out visits. Other public archives stay outside Clerk for cacheability.
+    "/creators/:path*",
     "/admin/:path*",
     "/admin-access-denied",
     "/sign-in/:path*",

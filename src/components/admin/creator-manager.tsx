@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useCallback, useMemo, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { AdminLibraryPagination } from "./library-pagination";
 import { CreatorWorkDrawer } from "./creator-work-drawer";
 import { CreatorEditDrawer } from "./creator-edit-drawer";
@@ -36,7 +38,6 @@ export function CreatorManager({
   claims,
   saveAction,
   deleteAction,
-  reviewAction,
   lockExistingCreators,
   directoryPage,
   claimsPage,
@@ -51,7 +52,7 @@ export function CreatorManager({
     state: AdminActionState,
     formData: FormData,
   ) => Promise<AdminActionState>;
-  reviewAction: (formData: FormData) => Promise<void>;
+  reviewAction?: (formData: FormData) => Promise<unknown>;
   lockExistingCreators: boolean;
   directoryPage?: { page: number; totalPages: number; query: string };
   claimsPage?: { page: number; totalPages: number };
@@ -181,7 +182,7 @@ export function CreatorManager({
           <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Identity review</p>
           <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Creator claims</h2>
           <p className="mt-2 text-sm leading-6 text-[#777]">
-            A verified X connection supplies evidence. Approval is the step that attaches existing credit.
+            Review X verification, manual evidence, and ownership reports. Pending requests appear first.
           </p>
         </div>
         {claims.map((claim) => (
@@ -189,14 +190,14 @@ export function CreatorManager({
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 break-words">
                 <h3 className="font-medium">{claim.targetCreatorName}</h3>
-                <a
+                {claim.verifiedXUsername ? <a
                   href={`https://x.com/${claim.verifiedXUsername}`}
                   target="_blank"
                   rel="noreferrer"
                   className="focus-ring mt-1 inline-block max-w-full break-all rounded text-sm text-[#666] underline underline-offset-4"
                 >
                   @{claim.verifiedXUsername}
-                </a>
+                </a> : <p className="mt-1 text-sm text-[#666]">{claim.method === "ownership_report" ? "Ownership report" : "Manual evidence"}</p>}
               </div>
               <span className="shrink-0 rounded-full bg-[#f1f1ed] px-2.5 py-1 text-[10px] uppercase tracking-[0.08em] text-[#666]">
                 {claim.status}
@@ -204,23 +205,7 @@ export function CreatorManager({
             </div>
             <p className="mt-3 break-all text-xs text-[#888]">Requester {claim.requesterUserId}</p>
             {claim.status === "pending" ? (
-              <div className="mt-4 grid gap-3">
-                <form action={reviewAction}>
-                  <input type="hidden" name="claimId" value={claim.id} />
-                  <input type="hidden" name="decision" value="approve" />
-                  <button className="focus-ring h-10 w-full rounded-full bg-black px-4 text-sm font-medium text-white">
-                    Approve and attach work
-                  </button>
-                </form>
-                <form action={reviewAction} className="grid gap-2">
-                  <input type="hidden" name="claimId" value={claim.id} />
-                  <input type="hidden" name="decision" value="reject" />
-                  <input className={inputClass} name="reason" required placeholder="Reason for rejection" />
-                  <button className="focus-ring h-10 rounded-full border border-black/10 px-4 text-sm font-medium hover:bg-[#f3f3f3]">
-                    Reject claim
-                  </button>
-                </form>
-              </div>
+              <Link href={("/admin/creators/claims/" + claim.id) as Route} className="focus-ring mt-4 inline-block cursor-pointer rounded-full bg-[#262626] px-5 py-3 text-sm text-white">Review request</Link>
             ) : claim.reviewReason ? (
               <p className="mt-3 text-sm leading-6 text-[#666]">{claim.reviewReason}</p>
             ) : null}

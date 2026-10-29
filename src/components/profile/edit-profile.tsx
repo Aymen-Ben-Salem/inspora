@@ -16,6 +16,7 @@ import { MAX_IMAGE_UPLOAD_BYTES } from "@/features/admin/media-upload";
 import type { CreatorProfile } from "@/features/creators/types";
 
 import { refreshViewerProfile } from "./use-viewer-profile";
+import { XIdentitySync } from "./x-identity-sync";
 
 type Provider = "google" | "x";
 
@@ -49,6 +50,7 @@ export function EditProfile({
 }) {
   const router = useRouter();
   const { user } = useUser();
+  const xAccount = user ? providerAccount(user, "x") : undefined;
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(profile.name);
   const [username, setUsername] = useState(profile.username);
@@ -249,6 +251,7 @@ export function EditProfile({
             );
           })}
         </div>
+        <XIdentitySync key={xAccount?.id ?? "disconnected"} accountKey={xAccount ? xAccount.id + ":" + xAccount.username : null} />
         {fieldError?.field === "connections" ? <p role="alert" className="mt-2 text-sm text-red-700">{fieldError.message}</p> : null}
       </div>
       {fieldError?.field === "form" ? <p role="alert" className="mt-3 text-sm text-red-700">{fieldError.message}</p> : null}

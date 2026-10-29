@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { getCreatorViews } from "@/analytics/creator-views";
 import { isClerkConfigured } from "@/auth/config";
 import { ProfilePage } from "@/components/profile/profile-page";
-import { ensureCreatorForOwner, requestCreatorOwnershipClaimFromVerifiedX } from "@/features/creators/identity";
+import { ensureCreatorForOwner } from "@/features/creators/identity";
+import { getOwnCreatorClaims } from "@/features/creators/identity/claim-requests";
 import {
   getPublishedCreatorWorkCounts,
   getPublishedCreatorWorkPage,
@@ -34,14 +35,9 @@ export default async function OwnerProfilePage({
       ? rawFilter
       : "all";
   const rawModal = Array.isArray(params.modal) ? params.modal[0] : params.modal;
-  if (rawModal === "edit") {
-    await requestCreatorOwnershipClaimFromVerifiedX({ userId }).catch((error) => {
-      console.error("Verified X profile synchronization failed", error);
-    });
-  }
   const profile = await ensureCreatorForOwner({ userId });
   const rawSubmission = Array.isArray(params.submission) ? params.submission[0] : params.submission;
-  const [initialPage, counts, activity, views] = await Promise.all([
+  const [initialPage, counts, activity, views, claims] = await Promise.all([
     getPublishedCreatorWorkPage({
       creatorId: profile.id,
       filter: filter === "in-review" ? "all" : filter,
@@ -49,9 +45,11 @@ export default async function OwnerProfilePage({
     getPublishedCreatorWorkCounts(profile.id),
     getOwnProfileActivity(userId),
     getCreatorViews(profile.id),
+    getOwnCreatorClaims(userId, { notifications: true }),
   ]);
   return (
     <ProfilePage
+      claims={claims.items}
       profile={profile}
       initialPage={initialPage}
       counts={counts}

@@ -4,6 +4,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const external = vi.hoisted(() => ({ identity: null as null | { providerAccountId: string; username: string; profileUrl: string } }));
+vi.mock("./identity/external-identity", () => ({ verifiedXIdentityForUser: vi.fn(async () => external.identity) }));
 vi.mock("../../auth/require-admin", () => ({
   requireAdmin: vi.fn(async () => ({ userId: "task1-preview-admin" })),
 }));
@@ -37,6 +39,7 @@ suite("creator claims in isolated non-production rows", () => {
   const providerId = `x-provider-${suffix}`;
 
   beforeAll(async () => {
+    external.identity = { providerAccountId: providerId, username: xUsername, profileUrl: `https://x.com/${xUsername}` };
     await withWriteTransaction(async (tx) => {
       await tx.insert(profileAccounts).values({ userId: requesterUserId });
       await tx.insert(creators).values([

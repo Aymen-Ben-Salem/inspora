@@ -25,7 +25,12 @@ describe("ownership claim authority and review validation", () => {
   });
   it.each([undefined, "", "   "])("requires a nonempty trimmed rejection reason (%s)", async (reason) => {
     vi.mocked(requireAdmin).mockResolvedValue({ userId: "admin" });
-    await expect(reviewCreatorOwnershipClaim("claim-id", "reject", reason)).rejects.toThrow("Add a reason before rejecting this claim.");
+    await expect(reviewCreatorOwnershipClaim("claim-id", "reject", reason)).rejects.toThrow("Add a reason before rejecting or resolving this request.");
     expect(withWriteTransaction).not.toHaveBeenCalled();
   });
+});
+
+it("does not discover or create a claim without an explicitly selected target", async () => {
+  await expect(requestCreatorOwnershipClaimFromVerifiedX({ userId: "owner" })).resolves.toEqual({ status: "no_match" });
+  expect(withWriteTransaction).not.toHaveBeenCalled();
 });

@@ -14,17 +14,18 @@ vi.mock("@/features/profiles/repository", () => ({
   getPublishedCreatorWorkCounts: vi.fn(), getPublishedCreatorWorkPage: vi.fn(), isCreatorWorkFilter: () => true,
 }));
 vi.mock("@/features/profiles/messages-repository", () => ({ getOwnProfileActivity: vi.fn() }));
+vi.mock("@/features/creators/identity/claim-requests", () => ({ getOwnCreatorClaims: vi.fn(async () => ({ items: [] })) }));
 
 import OwnerProfilePage from "./page";
 
 beforeEach(() => { vi.clearAllMocks(); });
 
-it("uses the authenticated owner when edit entry requests a verified X claim", async () => {
+it("does not submit an ownership claim when Edit Profile opens", async () => {
   external.auth.mockResolvedValue({ userId: "trusted-owner" });
   external.request.mockResolvedValue({ status: "pending", claimId: "claim" });
   external.ensure.mockRejectedValue(new Error("stop before rendering"));
   await expect(OwnerProfilePage({ searchParams: Promise.resolve({ modal: "edit" }) })).rejects.toThrow("stop before rendering");
-  expect(external.request).toHaveBeenCalledWith({ userId: "trusted-owner" });
+  expect(external.request).not.toHaveBeenCalled();
 });
 
 it("does not request a claim for signed-out edit entry", async () => {

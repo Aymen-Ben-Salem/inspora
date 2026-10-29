@@ -6,6 +6,10 @@ export default defineConfig({
   test: { include: [
     "src/features/creators/identity*.test.ts",
     "src/features/creators/claims*.test.ts",
+    "src/features/creators/claim-actions.test.ts",
+    "src/components/profile/creator-claims.test.tsx",
+    "src/components/profile/creator-claim-entry.test.tsx",
+    "src/app/creators/[username]/claim/page.test.tsx",
     "src/features/creators/validation.test.ts",
     "src/features/admin/creator-actions.test.ts",
     "src/features/admin/creator-environment-policy.test.ts",

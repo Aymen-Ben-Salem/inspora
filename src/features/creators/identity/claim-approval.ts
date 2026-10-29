@@ -6,32 +6,16 @@ import { isMediaStorageProvider, type ManagedMediaAsset } from "@/storage/types"
 import type { ClaimResult } from "../types";
 import { setCurrentUsernameAlias } from "./username-aliases";
 import { decideCreatorOwnershipClaimEligibility } from "./claim-policy";
-
-function profileValuesForApprovedClaimMerge(
-  target: typeof creators.$inferSelect,
-  provisional: typeof creators.$inferSelect,
-) {
-  const edited = new Set(provisional.editedFields);
-  return {
-    name: edited.has("name") ? provisional.name : target.name,
-    username: edited.has("username") ? provisional.username : target.username,
-    url: edited.has("websiteUrl") ? provisional.url : target.url,
-    avatarUrl: edited.has("avatarUrl") ? provisional.avatarUrl : target.avatarUrl,
-    avatarStorageProvider: edited.has("avatarUrl")
-      ? provisional.avatarStorageProvider
-      : target.avatarStorageProvider,
-    avatarStorageKey: edited.has("avatarUrl")
-      ? provisional.avatarStorageKey
-      : target.avatarStorageKey,
-    editedFields: [...new Set([...target.editedFields, ...provisional.editedFields])],
-  };
-}
+import { claimReviewVersion, profileValuesForApprovedClaimMerge } from "./claim-review";
+import { normalizedClaimXUrl, visibleClaimTarget } from "./claim-requests";
+import type { verifiedXIdentityForUser } from "./external-identity";
 
 // Internal approval transaction; authority is established by reviewCreatorOwnershipClaim.
 export async function approveCreatorOwnershipClaim(
   claimId: string,
   actorId: string,
   reviewReason: string | null,
+  options: { identity: Awaited<ReturnType<typeof verifiedXIdentityForUser>>; version?: string },
 ) {
   let identityChanged = false;
   const displacedAvatarAssets: ManagedMediaAsset[] = [];
@@ -57,7 +41,7 @@ export async function approveCreatorOwnershipClaim(
     if (claim.status === "approved") {
       return { status: "claimed", creatorId: claim.targetCreatorId };
     }
-    if (claim.status === "rejected") return { status: "rejected" };
+    if (claim.status !== "pending") return { status: "conflict", message: "This request is no longer pending. Reload to see its status." };
 
     const now = new Date();
     if (!account || account.status !== "active") return { status: "conflict" };
@@ -77,30 +61,44 @@ export async function approveCreatorOwnershipClaim(
       .for("update");
     const lockedProvisional = lockedCreators.find((row) => row.id === provisional.id);
     const target = lockedCreators.find((row) => row.id === claim.targetCreatorId);
-    if (!lockedProvisional || !target ||
-      lockedProvisional.ownerUserId !== claim.requesterUserId ||
-      (lockedProvisional.xProviderId && lockedProvisional.xProviderId !== claim.verifiedXProviderId)) {
+    if (!lockedProvisional || !target || lockedProvisional.ownerUserId !== claim.requesterUserId) {
       return { status: "conflict" };
     }
+    if (!visibleClaimTarget(target)) return { status: "conflict", message: "This creator is unavailable in this environment." };
+
+    if (options.version && options.version !== claimReviewVersion(claim, target, lockedProvisional)) return { status: "conflict", message: "This claim or a creator profile changed. Reload the merge preview before reviewing." };
+    const attention = async (message: string): Promise<ClaimResult> => {
+      await tx.update(creatorClaims).set({ attentionReason: message, dismissedAt: null, updatedAt: now }).where(eq(creatorClaims.id, claim.id));
+      return { status: "conflict", message };
+    };
+    if (claim.method === "ownership_report") return { status: "conflict", message: "Ownership reports cannot transfer a creator. Record a resolution after investigating." };
+    const identity = options.identity;
+    if (claim.method === "x" && (!identity || identity.providerAccountId !== claim.verifiedXProviderId)) return attention("Reconnect the X account used for this claim, or withdraw and submit a new request with current evidence.");
+    if (claim.method === "x" && !target.xProviderId && normalizedClaimXUrl(target.xProfileUrl) !== `https://x.com/${claim.verifiedXUsername}`) return attention("The creator's X link changed after this request. Withdraw and submit a new claim, or use manual review.");
+    if (claim.method === "manual" && (!reviewReason || reviewReason.length < 20)) return { status: "conflict", message: "Describe the ownership evidence you verified in at least 20 characters." };
+    if (claim.method === "manual" && target.xProviderId) return attention("This creator has a verified X identity. Use X verification to claim it.");
+    if (lockedProvisional.xProviderId && (!identity || identity.providerAccountId !== lockedProvisional.xProviderId)) return attention("Your creator's saved X identity differs from your current connection. Reconnect it or update your X identity in Edit Profile, then ask for review again.");
+    const providerId = claim.method === "x" ? identity!.providerAccountId : lockedProvisional.xProviderId;
+    const xProfileUrl = providerId ? identity!.profileUrl : target.xProfileUrl;
 
     const ownershipDecision = decideCreatorOwnershipClaimEligibility({
       requesterUserId: claim.requesterUserId,
       currentOwnerUserId: target.ownerUserId,
       currentXProviderAccountId: target.xProviderId,
-      verifiedXProviderAccountId: claim.verifiedXProviderId,
+      verifiedXProviderAccountId: providerId,
     });
     if (ownershipDecision === "conflict") return { status: "conflict" };
 
-    const [otherIdentity] = await tx
+    const [otherIdentity] = providerId ? await tx
       .select({ id: creators.id, ownerUserId: creators.ownerUserId })
       .from(creators)
       .where(
         and(
-          eq(creators.xProviderId, claim.verifiedXProviderId),
+          eq(creators.xProviderId, providerId),
           sql`${creators.id} <> ${target.id}`,
         ),
       )
-      .limit(1);
+      .limit(1) : [];
     if (otherIdentity && otherIdentity.id !== lockedProvisional.id) {
       return { status: "conflict" };
     }
@@ -116,8 +114,6 @@ export async function approveCreatorOwnershipClaim(
           displacedAvatarAssets.push({ storageProvider: creator.avatarStorageProvider, storageKey: creator.avatarStorageKey, type: "image" });
         }
       }
-      const keepProvisionalUsername = lockedProvisional.editedFields.includes("username");
-
       // Demote both current aliases before moving reservations to satisfy the
       // one-current-alias constraint throughout the transfer.
       await tx.update(creatorUsernameAliases).set({ isCurrent: false })
@@ -146,7 +142,7 @@ export async function approveCreatorOwnershipClaim(
         .set({
           ownerUserId: null,
           xProviderId: null,
-          username: keepProvisionalUsername ? null : lockedProvisional.username,
+          username: null,
           updatedAt: now,
         })
         .where(eq(creators.id, lockedProvisional.id));
@@ -155,19 +151,20 @@ export async function approveCreatorOwnershipClaim(
         .set({
           ...retained,
           ownerUserId: claim.requesterUserId,
-          xProviderId: claim.verifiedXProviderId,
-          xProfileUrl: `https://x.com/${claim.verifiedXUsername}`,
+          xProviderId: providerId,
+          xProfileUrl,
           updatedAt: now,
         })
         .where(eq(creators.id, target.id));
+      await tx.update(creatorClaims).set({ targetCreatorId: target.id }).where(eq(creatorClaims.targetCreatorId, lockedProvisional.id));
       await tx.delete(creators).where(eq(creators.id, lockedProvisional.id));
     } else {
       await tx
         .update(creators)
         .set({
           ownerUserId: claim.requesterUserId,
-          xProviderId: claim.verifiedXProviderId,
-          xProfileUrl: `https://x.com/${claim.verifiedXUsername}`,
+          xProviderId: providerId,
+          xProfileUrl,
           updatedAt: now,
         })
         .where(eq(creators.id, target.id));
@@ -179,6 +176,8 @@ export async function approveCreatorOwnershipClaim(
         status: "approved",
         reviewedBy: actorId,
         reviewReason,
+        attentionReason: null,
+        dismissedAt: null,
         reviewedAt: now,
         updatedAt: now,
       })

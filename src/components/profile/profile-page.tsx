@@ -5,8 +5,12 @@ import type { OwnProfileActivity } from "@/features/profiles/messages-repository
 import type { CreatorWorkFilter, CreatorWorkPage, ProfileWorkCounts } from "@/features/profiles/types";
 
 import { ProfilePageClient } from "./profile-page-client";
+import type { ReactNode } from "react";
+import type { OwnCreatorClaim } from "@/features/creators/types";
 
 export function ProfilePage(props: {
+  claimEntry?: ReactNode;
+  claims?: OwnCreatorClaim[];
   activity?: OwnProfileActivity;
   counts: ProfileWorkCounts;
   filter: CreatorWorkFilter | "in-review";

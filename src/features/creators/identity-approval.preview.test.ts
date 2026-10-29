@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const external = vi.hoisted(() => ({ deleteAssets: vi.fn(), rollbackNext: false }));
+const external = vi.hoisted(() => ({ deleteAssets: vi.fn(), rollbackNext: false, identities: new Map<string, { providerAccountId: string; username: string; profileUrl: string }>() }));
+vi.mock("./identity/external-identity", () => ({ verifiedXIdentityForUser: vi.fn(async (userId: string) => external.identities.get(userId) ?? null) }));
 vi.mock("@/storage/r2", async (importOriginal) => ({ ...await importOriginal<typeof import("@/storage/r2")>(), deleteR2MediaAssets: external.deleteAssets }));
 vi.mock("@/db/write-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/db/write-client")>();
@@ -26,6 +27,7 @@ import { revalidateTag, revalidatePath } from "next/cache";
 import { withWriteTransaction } from "@/db/write-client";
 import { reviewCreatorOwnershipClaim, resolvePublicCreatorProfile, updateOwnedCreatorProfile } from "./identity";
 import { reviewCreatorClaimAction } from "../admin/creator-actions";
+import { getClaimReviewDetails } from "./identity/claim-review";
 
 const enabled = process.env.RUN_CREATOR_CLAIM_INTEGRATION === "1" &&
   ["development", "preview"].includes(process.env.DATA_ENVIRONMENT ?? "");
@@ -43,13 +45,14 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     const provisionalId = randomUUID();
     const claimId = randomUUID();
     const providerId = `provider-${suffix}`;
+    external.identities.set(userId, { providerAccountId: providerId, username: `x${suffix}`, profileUrl: `https://x.com/x${suffix}` });
     creatorIds.push(targetId, provisionalId);
     userIds.push(userId);
     claimIds.push(claimId);
     await withWriteTransaction(async (tx) => {
       await tx.insert(profileAccounts).values({ userId });
       await tx.insert(creators).values([
-        { id: targetId, name: "Target name", username: `target_${suffix}`, url: "https://target.example", avatarUrl: "/target.svg", recordOrigin: "editorial" },
+        { id: targetId, name: "Target name", username: `target_${suffix}`, xProfileUrl: `https://x.com/x${suffix}`, url: "https://target.example", avatarUrl: "/target.svg", recordOrigin: "editorial" },
         { id: provisionalId, name: "Owner name", username: `owner_${suffix}`, url: "https://owner.example", avatarUrl: "/owner.svg", recordOrigin: "user", ownerUserId: userId },
       ]);
       await tx.insert(creatorUsernameAliases).values([
@@ -94,8 +97,12 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     const f = await fixture();
     await withWriteTransaction(async (tx) => { await tx.update(creators).set({ xProviderId: `different-${f.suffix}` }).where(eq(creators.id, f.provisionalId)); });
     const before = await state(f);
-    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "conflict" });
-    expect(await state(f)).toEqual(before);
+    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toMatchObject({ status: "conflict" });
+    const after = await state(f);
+    expect(after.creators).toEqual(before.creators);
+    expect(after.aliases).toEqual(before.aliases);
+    expect(after.audits).toEqual(before.audits);
+    expect(after.claims[0]).toMatchObject({ status: "pending", attentionReason: expect.stringContaining("saved X identity") });
   }, 60000);
   it("preserves an avatar-only owner edit and returns only the displaced target for external cleanup", async () => {
     const f = await fixture();
@@ -127,9 +134,11 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     const form = new FormData();
     form.set("claimId", f.claimId);
     form.set("decision", "approve");
+    form.set("version", (await getClaimReviewDetails(f.claimId))!.version);
+    form.set("evidenceConfirmed", "on");
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      await expect(reviewCreatorClaimAction(form)).resolves.toBeUndefined();
+      await expect(reviewCreatorClaimAction(form)).resolves.toMatchObject({ status: "success" });
       expect(external.deleteAssets).toHaveBeenCalledWith([{ storageProvider: "r2", storageKey: "creators/displaced.webp", type: "image" }]);
       expect(committedAtCleanup?.claims[0]?.status).toBe("approved");
       expect(committedAtCleanup?.creators).toHaveLength(1);
@@ -137,24 +146,25 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     } finally { errorLog.mockRestore(); }
   }, 60000);
 
-  it("preserves owner addresses and all state when a legacy target has no canonical username", async () => {
+  it("preserves owner addresses as the canonical profile when a legacy target has no username", async () => {
     const f = await fixture();
     const ids = await workFixture(f);
     await withWriteTransaction(async (tx) => {
       await tx.delete(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, f.targetId));
       await tx.update(creators).set({ username: null }).where(eq(creators.id, f.targetId));
     });
-    const before = await state(f);
     const referencesBefore = await workState(ids, f.userId);
-    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "conflict" });
-    expect(await state(f)).toEqual(before);
-    expect(await workState(ids, f.userId)).toEqual(referencesBefore);
+    expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.targetId });
+    expect((await state(f)).creators).toMatchObject([{ id: f.targetId, username: `owner_${f.suffix}` }]);
+    const referencesAfter = await workState(ids, f.userId);
+    for (const kind of ["design", "logo", "website", "submission"] as const) {
+      expect(referencesAfter[kind]).toEqual({ ...referencesBefore[kind], creatorId: f.targetId, updatedAt: expect.any(Date) });
+    }
+    expect(referencesAfter.saved).toEqual(referencesBefore.saved);
     for (const username of [`owner_${f.suffix}`, `owner_old_${f.suffix}`]) {
-      expect(await resolvePublicCreatorProfile(username)).toMatchObject({ profile: { id: f.provisionalId }, canonicalUsername: `owner_${f.suffix}` });
+      expect(await resolvePublicCreatorProfile(username)).toMatchObject({ profile: { id: f.targetId }, canonicalUsername: `owner_${f.suffix}` });
     }
     expect(external.deleteAssets).not.toHaveBeenCalled();
-    expect(revalidateTag).not.toHaveBeenCalled();
-    expect(revalidatePath).not.toHaveBeenCalled();
   }, 60000);
 
   async function workFixture(f: Awaited<ReturnType<typeof fixture>>) {
@@ -223,11 +233,10 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     expect(saved.creators).toHaveLength(1);
     vi.clearAllMocks();
     expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.targetId });
-    expect(await reviewCreatorOwnershipClaim(f.claimId, "reject", "Too late")).toEqual({ status: "claimed", creatorId: f.targetId });
+    expect(await reviewCreatorOwnershipClaim(f.claimId, "reject", "Too late")).toMatchObject({ status: "conflict", message: expect.stringContaining("no longer pending") });
     expect(await state(f)).toEqual(saved);
     expect(await workState(ids, f.userId)).toEqual(after);
     expect(revalidateTag).not.toHaveBeenCalled();
-    expect(revalidatePath).not.toHaveBeenCalled();
     expect(external.deleteAssets).not.toHaveBeenCalled();
   }, 60000);
 
@@ -250,7 +259,7 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     const f = await fixture();
     await withWriteTransaction(async (tx) => {
       await tx.update(creatorClaims).set({ targetCreatorId: f.provisionalId }).where(eq(creatorClaims.id, f.claimId));
-      await tx.update(creators).set({ editedFields: ["name"], avatarStorageProvider: "r2", avatarStorageKey: "creators/same.webp" }).where(eq(creators.id, f.provisionalId));
+      await tx.update(creators).set({ editedFields: ["name"], xProfileUrl: `https://x.com/x${f.suffix}`, avatarStorageProvider: "r2", avatarStorageKey: "creators/same.webp" }).where(eq(creators.id, f.provisionalId));
     });
     const before = await state(f);
     expect(await reviewCreatorOwnershipClaim(f.claimId, "approve")).toEqual({ status: "claimed", creatorId: f.provisionalId });
@@ -330,6 +339,7 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
     const first = await fixture();
     const second = await fixture();
     await withWriteTransaction(async (tx) => { await tx.update(creatorClaims).set({ verifiedXProviderId: first.providerId }).where(eq(creatorClaims.id, second.claimId)); });
+    external.identities.set(second.userId, { providerAccountId: first.providerId, username: `x${second.suffix}`, profileUrl: `https://x.com/x${second.suffix}` });
     const outcomes = await Promise.all([reviewCreatorOwnershipClaim(first.claimId, "approve"), reviewCreatorOwnershipClaim(second.claimId, "approve")]);
     expect(outcomes.map((outcome) => outcome.status).sort()).toEqual(["claimed", "conflict"]);
     for (const [index, f] of [first, second].entries()) {
@@ -350,7 +360,7 @@ describe.skipIf(!enabled)("claim approval in isolated guarded nonproduction rows
   }, 60000);
 
   it("returns a controlled conflict for a missing claim without side effects", async () => {
-    expect(await reviewCreatorOwnershipClaim(randomUUID(), "approve")).toEqual({ status: "conflict" });
+    expect(await reviewCreatorOwnershipClaim(randomUUID(), "approve")).toMatchObject({ status: "conflict" });
     expect(revalidateTag).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
     expect(external.deleteAssets).not.toHaveBeenCalled();

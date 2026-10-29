@@ -5,7 +5,7 @@ export function decideCreatorOwnershipClaimEligibility(input: {
   requesterUserId: string;
   currentOwnerUserId: string | null;
   currentXProviderAccountId: string | null;
-  verifiedXProviderAccountId: string;
+  verifiedXProviderAccountId: string | null;
 }): "pending" | "already_owned" | "conflict" {
   if (
     input.currentOwnerUserId === input.requesterUserId &&
@@ -36,5 +36,7 @@ export function resultFromRecordedCreatorOwnershipClaim(claim: {
     return { status: "claimed", creatorId: claim.targetCreatorId };
   }
   if (claim.status === "rejected") return { status: "rejected" };
+  if (claim.status === "withdrawn") return { status: "withdrawn" };
+  if (claim.status === "resolved") return { status: "resolved" };
   return null;
 }

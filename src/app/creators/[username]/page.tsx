@@ -4,6 +4,8 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { getCreatorViews } from "@/analytics/creator-views";
 import { ProfilePage } from "@/components/profile/profile-page";
+import { Suspense } from "react";
+import { CreatorClaimEntry } from "@/components/profile/creator-claim-entry";
 import { buildCreatorMetadata, buildCreatorStructuredData, serializeJsonLd } from "@/lib/seo";
 import {
   getPublishedCreatorWorkCounts,
@@ -43,6 +45,7 @@ export default async function PublicCreatorPage({ params, searchParams }: Creato
         __html: serializeJsonLd(buildCreatorStructuredData(resolved.profile, resolved.canonicalUsername)),
       }} />
     <ProfilePage
+      claimEntry={<Suspense fallback={null}><CreatorClaimEntry creatorId={resolved.profile.id} username={resolved.canonicalUsername} /></Suspense>}
       profile={resolved.profile}
       initialPage={initialPage}
       counts={counts}

@@ -18,6 +18,9 @@ import {
 } from "@/features/creators/identity";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import { parseAdminCreatorForm } from "@/features/creators/validation";
+import { creatorClaimReviewSchema } from "@/features/creators/claim-validation";
+import { CreatorClaimError } from "@/features/creators/identity/claim-requests";
+import type { ClaimActionState } from "@/features/creators/types";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
 
 import { formatValidationError } from "./post-validation";
@@ -121,10 +124,19 @@ export async function saveCreatorProfileAction(
   return { status: "idle", creator };
 }
 
-export async function reviewCreatorClaimAction(formData: FormData) {
-  const claimId = idSchema.parse(formData.get("claimId"));
-  const decision = z.enum(["approve", "reject"]).parse(formData.get("decision"));
-  const reason = String(formData.get("reason") ?? "");
-  const outcome = await reviewCreatorOwnershipClaim(claimId, decision, reason);
-  await deleteManagedMediaAssetsSafely(outcome.displacedAvatarAssets ?? []);
+export async function reviewCreatorClaimAction(formData: FormData): Promise<ClaimActionState> {
+  try {
+    const input = creatorClaimReviewSchema.parse({ claimId: formData.get("claimId"), decision: formData.get("decision"), version: formData.get("version"), reason: String(formData.get("reason") ?? ""), evidenceConfirmed: formData.get("evidenceConfirmed") === "on" });
+    if (input.decision === "approve" && !input.evidenceConfirmed) return { status: "error", message: "Confirm that you verified the ownership evidence and reviewed the merge." };
+    const outcome = await reviewCreatorOwnershipClaim(input.claimId, input.decision, input.reason, input.version);
+    if (outcome.status === "conflict") return { status: "error", message: outcome.message ?? "Ownership changed or this request cannot be approved. Reload the review and check both profiles." };
+    await deleteManagedMediaAssetsSafely(outcome.displacedAvatarAssets ?? []);
+    return { status: "success", message: outcome.status === "claimed" ? "Claim approved. The profiles and credited work have been merged." : outcome.status === "resolved" ? "Ownership report resolved. The creator can read your response in Your claims." : "Claim rejected. The creator can read your reason and submit corrected evidence." };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof z.ZodError) return { status: "error", message: error.issues[0]?.message ?? "Check the review details." };
+    if (error instanceof CreatorClaimError) return { status: "error", message: error.message };
+    console.error("Creator claim review failed", error);
+    return { status: "error", message: "The review could not be completed. Check the X connection and try again." };
+  }
 }

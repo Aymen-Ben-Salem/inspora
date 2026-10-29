@@ -2,7 +2,10 @@
 
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import type { OwnCreatorClaim } from "@/features/creators/types";
+import { CreatorClaimsPanel } from "./creator-claims-panel";
 
 import type { CreatorViewsResult } from "@/analytics/creator-views";
 import { useSubmission } from "@/components/submissions/submission-provider";
@@ -20,6 +23,8 @@ import { ProfileSettings } from "./profile-settings";
 type ProfileModalName = "edit" | "settings";
 
 export function ProfilePageClient({
+  claimEntry,
+  claims = [],
   activity = { messages: [], submissions: [] },
   counts,
   filter,
@@ -30,6 +35,8 @@ export function ProfilePageClient({
   profile,
   views,
 }: {
+  claimEntry?: ReactNode;
+  claims?: OwnCreatorClaim[];
   activity?: OwnProfileActivity;
   counts: ProfileWorkCounts;
   filter: CreatorWorkFilter | "in-review";
@@ -68,6 +75,8 @@ export function ProfilePageClient({
         onEdit={() => openModal("edit")}
         onSettings={() => openModal("settings")}
       />
+      {claimEntry ? <div className="archive-frame mb-6 flex justify-end">{claimEntry}</div> : null}
+      {owner ? <div className="archive-frame mb-6 grid gap-4"><Link href="/profile/claims" className="focus-ring w-fit cursor-pointer text-sm underline">Your claims and ownership reports</Link><CreatorClaimsPanel claims={claims} /></div> : null}
       {owner ? <ProfileMessages messages={activity.messages} /> : null}
       <ProfileFeed
         key={filter}

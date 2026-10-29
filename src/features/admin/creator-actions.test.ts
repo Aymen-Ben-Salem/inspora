@@ -144,21 +144,25 @@ it("delegates claim reviews without repeating the identity module's committed si
   form.set("decision", "reject");
   form.set("reason", "Reason");
   form.set("actorId", "untrusted-browser-actor");
+  form.set("version", "a".repeat(64));
   external.review.mockResolvedValue({ status: "rejected" });
   await reviewCreatorClaimAction(form);
   expect(external.remove).toHaveBeenCalledWith([]);
-  expect(external.review).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "reject", "Reason");
+  expect(external.review).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "reject", "Reason", "a".repeat(64));
   expect(external.updateTag).not.toHaveBeenCalled();
   expect(external.revalidatePath).not.toHaveBeenCalled();
 });
 
-it("preserves the review error envelope and does not invalidate failed reviews", async () => {
+it("returns a visible review error and does not invalidate failed reviews", async () => {
   const form = new FormData();
   form.set("claimId", "11111111-1111-4111-8111-111111111111");
   form.set("decision", "reject");
   const error = new Error("Add a reason before rejecting this claim.");
+  form.set("version", "a".repeat(64));
   external.review.mockRejectedValueOnce(error);
-  await expect(reviewCreatorClaimAction(form)).rejects.toBe(error);
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  await expect(reviewCreatorClaimAction(form)).resolves.toMatchObject({ status: "error" });
+  log.mockRestore();
   expect(external.remove).not.toHaveBeenCalled();
   expect(external.updateTag).not.toHaveBeenCalled();
   expect(external.revalidatePath).not.toHaveBeenCalled();
@@ -170,7 +174,17 @@ it("cleans only the candidates returned by a committed claim review", async () =
   const form = new FormData();
   form.set("claimId", "11111111-1111-4111-8111-111111111111");
   form.set("decision", "approve");
+  form.set("version", "a".repeat(64));
+  form.set("evidenceConfirmed", "on");
   await reviewCreatorClaimAction(form);
   expect(external.remove).toHaveBeenCalledWith(assets);
   expect(external.review.mock.invocationCallOrder[0]).toBeLessThan(external.remove.mock.invocationCallOrder[0]!);
+});
+
+it("shows ownership conflicts without cleanup or a success result", async () => {
+  external.review.mockResolvedValueOnce({ status: "conflict", message: "Ownership changed. Reload." });
+  const form = new FormData();
+  form.set("claimId", "11111111-1111-4111-8111-111111111111"); form.set("decision", "approve"); form.set("version", "a".repeat(64)); form.set("evidenceConfirmed", "on");
+  await expect(reviewCreatorClaimAction(form)).resolves.toEqual({ status: "error", message: "Ownership changed. Reload." });
+  expect(external.remove).not.toHaveBeenCalled();
 });

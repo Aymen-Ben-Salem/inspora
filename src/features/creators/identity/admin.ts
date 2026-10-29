@@ -490,7 +490,7 @@ export async function getAdminCreatorClaims(page?: number) {
   await requireAdmin();
   const database = requireDatabase();
   const rows = await database.query.creatorClaims.findMany({
-    orderBy: [asc(creatorClaims.createdAt), asc(creatorClaims.id)],
+    orderBy: [sql`case when ${creatorClaims.status} = 'pending' then 0 else 1 end`, asc(creatorClaims.createdAt), asc(creatorClaims.id)],
     ...(page ? { limit: ADMIN_LIBRARY_PAGE_SIZE, offset: (page - 1) * ADMIN_LIBRARY_PAGE_SIZE } : {}),
     with: { targetCreator: { columns: { name: true } } },
   });
@@ -500,6 +500,7 @@ export async function getAdminCreatorClaims(page?: number) {
     targetCreatorId: row.targetCreatorId,
     targetCreatorName: row.targetCreator.name,
     verifiedXUsername: row.verifiedXUsername,
+    method: row.method as AdminCreatorClaimRecord["method"],
     status: row.status as AdminCreatorClaimRecord["status"],
     reviewReason: row.reviewReason ?? undefined,
     createdAt: row.createdAt.toISOString(),

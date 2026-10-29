@@ -497,8 +497,13 @@ export const creatorClaims = pgTable(
     targetCreatorId: uuid("target_creator_id")
       .notNull()
       .references(() => creators.id, { onDelete: "restrict" }),
-    verifiedXProviderId: text("verified_x_provider_id").notNull(),
-    verifiedXUsername: text("verified_x_username").notNull(),
+    method: text("method").default("x").notNull(),
+    verifiedXProviderId: text("verified_x_provider_id"),
+    verifiedXUsername: text("verified_x_username"),
+    evidenceUrl: text("evidence_url"),
+    evidenceNote: text("evidence_note"),
+    attentionReason: text("attention_reason"),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "date" }),
     status: text("status").default("pending").notNull(),
     reviewedBy: text("reviewed_by"),
     reviewReason: text("review_reason"),
@@ -506,11 +511,8 @@ export const creatorClaims = pgTable(
     ...timestamps,
   },
   (table) => [
-    uniqueIndex("creator_claims_request_unique").on(
-      table.requesterUserId,
-      table.targetCreatorId,
-      table.verifiedXProviderId,
-    ),
+    uniqueIndex("creator_claims_pending_requester_unique").on(table.requesterUserId)
+      .where(sql`${table.status} = 'pending'`),
     index("creator_claims_status_created_idx").on(
       table.status,
       table.createdAt.desc(),
@@ -519,19 +521,25 @@ export const creatorClaims = pgTable(
     index("creator_claims_provider_idx").on(table.verifiedXProviderId),
     check(
       "creator_claims_provider_not_blank",
-      sql`length(trim(${table.verifiedXProviderId})) > 0`,
+      sql`${table.verifiedXProviderId} is null or length(trim(${table.verifiedXProviderId})) > 0`,
     ),
     check(
       "creator_claims_username_valid",
-      sql`${table.verifiedXUsername} ~ '^[a-z0-9_]{1,15}$'`,
+      sql`${table.verifiedXUsername} is null or ${table.verifiedXUsername} ~ '^[a-z0-9_]{1,15}$'`,
     ),
+    check("creator_claims_evidence_valid", sql`
+      (${table.method} = 'x' and ${table.verifiedXProviderId} is not null and ${table.verifiedXUsername} is not null)
+      or (${table.method} in ('manual', 'ownership_report') and ${table.verifiedXProviderId} is null and ${table.verifiedXUsername} is null
+        and ${table.evidenceUrl} is not null and ${table.evidenceNote} is not null
+        and length(trim(${table.evidenceUrl})) > 0 and length(trim(${table.evidenceNote})) >= 20)
+    `),
     check(
       "creator_claims_status_valid",
-      sql`${table.status} in ('pending', 'approved', 'rejected')`,
+      sql`${table.status} in ('pending', 'approved', 'rejected', 'withdrawn', 'resolved')`,
     ),
     check(
       "creator_claims_review_consistent",
-      sql`(${table.status} = 'pending' and ${table.reviewedAt} is null and ${table.reviewedBy} is null) or (${table.status} <> 'pending' and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null)`,
+      sql`(${table.status} in ('pending', 'withdrawn') and ${table.reviewedAt} is null and ${table.reviewedBy} is null) or (${table.status} in ('approved', 'rejected', 'resolved') and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null)`,
     ),
   ],
 );

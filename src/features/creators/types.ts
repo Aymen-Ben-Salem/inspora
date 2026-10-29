@@ -42,7 +42,23 @@ export type CreatorProfile = CreatorSummary;
 export type ClaimResult =
   | { status: "pending"; claimId: string }
   | { status: "claimed" | "already_owned"; creatorId: string }
-  | { status: "no_match" | "conflict" | "rejected" };
+  | { status: "no_match" | "conflict" | "rejected" | "withdrawn" | "resolved"; message?: string };
+
+export type CreatorClaimMethod = "x" | "manual" | "ownership_report";
+export type CreatorClaimStatus = "pending" | "approved" | "rejected" | "withdrawn" | "resolved";
+export type ClaimActionState = { status: "idle" | "success" | "error"; message?: string };
+export type OwnCreatorClaim = {
+  id: string;
+  targetCreatorId: string;
+  targetName: string;
+  targetUsername: string | null;
+  method: CreatorClaimMethod;
+  status: CreatorClaimStatus;
+  attentionReason: string | null;
+  reviewReason: string | null;
+  createdAt: string;
+  dismissedAt: string | null;
+};
 
 export type AdminCreatorInput = {
   id?: string;
@@ -77,8 +93,9 @@ export type AdminCreatorClaimRecord = {
   requesterUserId: string;
   targetCreatorId: string;
   targetCreatorName: string;
-  verifiedXUsername: string;
-  status: "pending" | "approved" | "rejected";
+  verifiedXUsername: string | null;
+  method: CreatorClaimMethod;
+  status: CreatorClaimStatus;
   reviewReason?: string;
   createdAt: string;
   reviewedAt?: string;

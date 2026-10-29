@@ -9,7 +9,7 @@ const evidenceUrl = z.string().trim().max(2048).url("Enter a public portfolio or
 
 export const creatorClaimRequestSchema = z.discriminatedUnion("method", [
   z.object({ targetCreatorId: z.uuid(), method: z.literal("x"), confirmed: z.literal(true) }),
-  z.object({ targetCreatorId: z.uuid(), method: z.enum(["manual", "ownership_report"]), confirmed: z.literal(true),
+  z.object({ targetCreatorId: z.uuid(), method: z.literal("ownership_report"), confirmed: z.literal(true),
     evidenceUrl, evidenceNote: z.string().trim().min(20, "Explain your connection to this creator in at least 20 characters.").max(2000) }),
 ]);
 export type CreatorClaimRequest = z.infer<typeof creatorClaimRequestSchema>;

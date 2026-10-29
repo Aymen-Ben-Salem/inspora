@@ -1,6 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { adminXProfileAccountId as resolveAdminXProfileAccountId } from "./x-profile";
+import { XLookupError } from "../x-api";
 import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -66,6 +68,14 @@ export class AdminCreatorMutationError extends Error {
 
 function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
+}
+
+async function adminXProfileAccountId(...args: Parameters<typeof resolveAdminXProfileAccountId>) {
+  try { return await resolveAdminXProfileAccountId(...args); }
+  catch (error) {
+    if (error instanceof XLookupError) throw new AdminCreatorMutationError("invalid_input", error.message);
+    throw error;
+  }
 }
 
 function recordOriginForAdminCreate(): CreatorRecordOrigin {
@@ -206,6 +216,7 @@ async function writeAdminCreator<T>(
     return await withWriteTransaction(work);
   } catch (error) {
     if (error instanceof AdminCreatorMutationError) throw error;
+    if (error instanceof XLookupError) throw new AdminCreatorMutationError("invalid_input", error.message);
     throw databaseError(error);
   }
 }
@@ -233,11 +244,13 @@ async function createAdminCreatorRecord(
   input: AdminCreatorInput,
 ) {
   const values = await newAdminCreatorValues(transaction, input);
+  const xProfileAccountId = await adminXProfileAccountId(values.xProfileUrl);
+  if (xProfileAccountId) await assertXAccountAvailable(transaction, xProfileAccountId);
   await protectPublicationMedia(transaction, [{ storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const { id: creatorId, username } = values;
   const [created] = await transaction
     .insert(creators)
-    .values(values)
+    .values({ ...values, xProfileAccountId })
     .returning();
   if (!created) {
     throw new AdminCreatorMutationError(
@@ -285,6 +298,7 @@ async function adminCreatorUpdateValues(
       : existing.username;
   const values = {
     ...creatorValues(input, username),
+    xProfileAccountId: await adminXProfileAccountId(nextXProfileUrl, existing),
     // The form can clear metadata while editing and then restore the same URL.
     ...(input.avatarUrl === existing.avatarUrl
       ? {
@@ -293,7 +307,16 @@ async function adminCreatorUpdateValues(
         }
       : {}),
   };
+  if (values.xProfileAccountId) await assertXAccountAvailable(database, values.xProfileAccountId, existing.id);
   return { values, username };
+}
+
+async function assertXAccountAvailable(database: MutationDatabase, accountId: string, creatorId?: string) {
+  const [other] = await database.select({ id: creators.id }).from(creators).where(and(
+    creatorId ? sql`${creators.id} <> ${creatorId}` : undefined,
+    or(eq(creators.xProviderId, accountId), eq(creators.xProfileAccountId, accountId)),
+  )).limit(1);
+  if (other) throw new AdminCreatorMutationError("conflict", "This X account is already associated with another creator. Correct that attribution before assigning it here.");
 }
 
 async function updateAdminCreatorRecord(

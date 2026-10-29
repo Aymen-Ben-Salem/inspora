@@ -1,0 +1,2 @@
+ALTER TABLE "creator_claims" DROP CONSTRAINT "creator_claims_review_consistent";--> statement-breakpoint
+ALTER TABLE "creator_claims" ADD CONSTRAINT "creator_claims_review_consistent" CHECK (("creator_claims"."status" in ('pending', 'withdrawn') and "creator_claims"."reviewed_at" is null and "creator_claims"."reviewed_by" is null) or ("creator_claims"."status" in ('approved', 'rejected', 'resolved') and "creator_claims"."reviewed_at" is not null and ("creator_claims"."reviewed_by" is not null or ("creator_claims"."status" = 'approved' and "creator_claims"."method" = 'x'))));

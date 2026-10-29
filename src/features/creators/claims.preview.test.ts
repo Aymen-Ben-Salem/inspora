@@ -103,37 +103,16 @@ suite("creator claims in isolated non-production rows", () => {
     });
   });
 
-  it("serializes concurrent approvals into one canonical owner", async () => {
-    const results = await Promise.all([
-      reviewCreatorOwnershipClaim(claimId, "approve"),
-      reviewCreatorOwnershipClaim(claimId, "approve"),
-    ]);
 
-    expect(results).toEqual([
-      { status: "claimed", creatorId: targetCreatorId },
-      { status: "claimed", creatorId: targetCreatorId },
-    ]);
-
-    await withWriteTransaction(async (tx) => {
-      const [claim] = await tx
-        .select()
-        .from(creatorClaims)
-        .where(eq(creatorClaims.id, claimId));
-      const canonical = await tx
-        .select()
-        .from(creators)
-        .where(eq(creators.id, targetCreatorId));
-      const provisional = await tx
-        .select()
-        .from(creators)
-        .where(eq(creators.id, provisionalCreatorId));
-
-      expect(claim?.status).toBe("approved");
-      expect(canonical).toHaveLength(1);
-      expect(canonical[0]?.ownerUserId).toBe(requesterUserId);
-      expect(canonical[0]?.xProviderId).toBe(providerId);
-      expect(canonical[0]?.username).toBe(provisionalUsername);
-      expect(provisional).toHaveLength(0);
+  it("refuses legacy admin approval without changing the pending claim or either creator", async () => {
+    await expect(reviewCreatorOwnershipClaim(claimId, "approve")).rejects.toThrow("cannot approve ownership");
+    await withWriteTransaction(async tx => {
+      const [claim] = await tx.select().from(creatorClaims).where(eq(creatorClaims.id, claimId));
+      const [target] = await tx.select().from(creators).where(eq(creators.id, targetCreatorId));
+      const [source] = await tx.select().from(creators).where(eq(creators.id, provisionalCreatorId));
+      expect(claim?.status).toBe("pending");
+      expect(target?.ownerUserId).toBeNull();
+      expect(source?.ownerUserId).toBe(requesterUserId);
     });
   });
 });

@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), request: vi.fn(), change: vi.fn(), sync: vi.fn(), refresh: vi.fn() }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
@@ -34,13 +35,21 @@ it("requires explicit confirmation", async () => {
   expect(mocks.request).not.toHaveBeenCalled();
 });
 it.each(["javascript:alert(1)", "https://user:password@example.com", "not a URL"])("rejects unsafe evidence %s", async (url) => {
-  const data = form("manual"); data.set("evidenceUrl", url);
+  const data = form("ownership_report"); data.set("evidenceUrl", url);
   expect(await submitCreatorClaimAction(idle, data)).toMatchObject({ status: "error" });
   expect(mocks.request).not.toHaveBeenCalled();
 });
-it.each(["manual", "ownership_report"])("accepts deliberate %s evidence", async (method) => {
+it.each(["ownership_report"])("accepts deliberate %s evidence", async (method) => {
   expect(await submitCreatorClaimAction(idle, form(method))).toMatchObject({ status: "success" });
   expect(mocks.request).toHaveBeenCalledWith({ userId: "trusted-owner" }, expect.objectContaining({ method, evidenceUrl: "https://portfolio.example/work" }));
+});
+it("rejects manual claims even when a caller bypasses the UI", async () => {
+  expect(await submitCreatorClaimAction(idle, form("manual"))).toMatchObject({ status: "error" });
+  expect(mocks.request).not.toHaveBeenCalled();
+});
+it("reports immediate ownership after X verification", async () => {
+  mocks.request.mockResolvedValue({ status: "claimed", creatorId: id });
+  expect(await submitCreatorClaimAction(idle, form())).toMatchObject({ status: "success", message: expect.stringContaining("now yours") });
 });
 it("returns a recoverable conflict without reporting success", async () => {
   mocks.request.mockRejectedValueOnce(new CreatorClaimError("Withdraw your pending request first."));

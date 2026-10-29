@@ -78,6 +78,7 @@ describe("published logos repository", () => {
         url: null,
         xProfileUrl: null,
         xProviderId: null,
+    xProfileAccountId: null,
         ownerUserId: null,
         editedFields: [],
         recordOrigin: "mirrored",

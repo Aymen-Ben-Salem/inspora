@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { adminAuditLogs, creatorClaims, creators, creatorUsernameAliases, logos, posts, profileAccounts, submissions, websites } from "@/db/schema";
-import { withWriteTransaction } from "@/db/write-client";
+import { withWriteTransaction, type WriteTx } from "@/db/write-client";
 import { isMediaStorageProvider, type ManagedMediaAsset } from "@/storage/types";
 import type { ClaimResult } from "../types";
 import { setCurrentUsernameAlias } from "./username-aliases";
@@ -10,16 +10,17 @@ import { claimReviewVersion, profileValuesForApprovedClaimMerge } from "./claim-
 import { normalizedClaimXUrl, visibleClaimTarget } from "./claim-requests";
 import type { verifiedXIdentityForUser } from "./external-identity";
 
-// Internal approval transaction; authority is established by reviewCreatorOwnershipClaim.
+// Internal merge transaction; claimCreatorWithX establishes fresh X evidence and locks the target.
 export async function approveCreatorOwnershipClaim(
   claimId: string,
   actorId: string,
   reviewReason: string | null,
-  options: { identity: Awaited<ReturnType<typeof verifiedXIdentityForUser>>; version?: string },
+  options: { identity: Awaited<ReturnType<typeof verifiedXIdentityForUser>>; version?: string; automatic?: boolean; verifiedTargetAccountId?: string },
+  transaction?: WriteTx,
 ) {
   let identityChanged = false;
   const displacedAvatarAssets: ManagedMediaAsset[] = [];
-  const result = await withWriteTransaction<ClaimResult>(async (tx) => {
+  const approve = async (tx: WriteTx): Promise<ClaimResult> => {
     const [claimSnapshot] = await tx
       .select()
       .from(creatorClaims)
@@ -73,11 +74,16 @@ export async function approveCreatorOwnershipClaim(
     };
     if (claim.method === "ownership_report") return { status: "conflict", message: "Ownership reports cannot transfer a creator. Record a resolution after investigating." };
     const identity = options.identity;
+    if (options.automatic && (claim.method !== "x" || actorId !== claim.requesterUserId ||
+      !identity || (target.xProfileAccountId ?? options.verifiedTargetAccountId) !== identity.providerAccountId)) {
+      return { status: "conflict", message: "X could not verify this creator profile. Please retry or report the attribution." };
+    }
     if (claim.method === "x" && (!identity || identity.providerAccountId !== claim.verifiedXProviderId)) return attention("Reconnect the X account used for this claim, or withdraw and submit a new request with current evidence.");
-    if (claim.method === "x" && !target.xProviderId && normalizedClaimXUrl(target.xProfileUrl) !== `https://x.com/${claim.verifiedXUsername}`) return attention("The creator's X link changed after this request. Withdraw and submit a new claim, or use manual review.");
+    if (!options.automatic && claim.method === "x" && !target.xProviderId && normalizedClaimXUrl(target.xProfileUrl) !== `https://x.com/${claim.verifiedXUsername}`) return attention("The creator's X link changed after this request. Withdraw and submit a new claim.");
     if (claim.method === "manual" && (!reviewReason || reviewReason.length < 20)) return { status: "conflict", message: "Describe the ownership evidence you verified in at least 20 characters." };
     if (claim.method === "manual" && target.xProviderId) return attention("This creator has a verified X identity. Use X verification to claim it.");
     if (lockedProvisional.xProviderId && (!identity || identity.providerAccountId !== lockedProvisional.xProviderId)) return attention("Your creator's saved X identity differs from your current connection. Reconnect it or update your X identity in Edit Profile, then ask for review again.");
+    if (options.automatic && lockedProvisional.xProfileAccountId && lockedProvisional.xProfileAccountId !== identity?.providerAccountId) return attention("Your current creator has a different X association. Report the attribution problem before combining these profiles.");
     const providerId = claim.method === "x" ? identity!.providerAccountId : lockedProvisional.xProviderId;
     const xProfileUrl = providerId ? identity!.profileUrl : target.xProfileUrl;
 
@@ -142,6 +148,7 @@ export async function approveCreatorOwnershipClaim(
         .set({
           ownerUserId: null,
           xProviderId: null,
+          xProfileAccountId: null,
           username: null,
           updatedAt: now,
         })
@@ -152,6 +159,7 @@ export async function approveCreatorOwnershipClaim(
           ...retained,
           ownerUserId: claim.requesterUserId,
           xProviderId: providerId,
+          xProfileAccountId: providerId,
           xProfileUrl,
           updatedAt: now,
         })
@@ -164,6 +172,7 @@ export async function approveCreatorOwnershipClaim(
         .set({
           ownerUserId: claim.requesterUserId,
           xProviderId: providerId,
+          xProfileAccountId: providerId,
           xProfileUrl,
           updatedAt: now,
         })
@@ -174,7 +183,7 @@ export async function approveCreatorOwnershipClaim(
       .update(creatorClaims)
       .set({
         status: "approved",
-        reviewedBy: actorId,
+        reviewedBy: options.automatic ? null : actorId,
         reviewReason,
         attentionReason: null,
         dismissedAt: null,
@@ -184,7 +193,7 @@ export async function approveCreatorOwnershipClaim(
       .where(eq(creatorClaims.id, claim.id));
     await tx.insert(adminAuditLogs).values({
       actorId,
-      action: "creator_claim.approved",
+      action: options.automatic ? "creator_claim.claimed_with_x" : "creator_claim.approved",
       resourceType: "creator_claim",
       resourceId: claim.id,
       details: {
@@ -194,6 +203,7 @@ export async function approveCreatorOwnershipClaim(
     });
     identityChanged = true;
     return { status: "claimed", creatorId: target.id };
-  });
+  };
+  const result = transaction ? await approve(transaction) : await withWriteTransaction(approve);
   return { result, identityChanged, displacedAvatarAssets };
 }

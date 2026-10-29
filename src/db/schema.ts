@@ -35,6 +35,8 @@ export const creators = pgTable(
     username: text("username"),
     url: text("url"),
     xProfileUrl: text("x_profile_url"),
+    // Official X lookup for the editorial link; separate from authenticated ownership.
+    xProfileAccountId: text("x_profile_account_id"),
     xProviderId: text("x_provider_id"),
     ownerUserId: text("owner_user_id"),
     editedFields: text("edited_fields").array().default(sql`'{}'::text[]`).notNull(),
@@ -56,6 +58,7 @@ export const creators = pgTable(
       .on(table.xProviderId)
       .where(sql`${table.xProviderId} is not null`),
     index("creators_x_profile_lower_idx").on(sql`lower(${table.xProfileUrl})`),
+    uniqueIndex("creators_x_profile_account_unique").on(table.xProfileAccountId).where(sql`${table.xProfileAccountId} is not null`),
     check("creators_name_not_blank", sql`length(trim(${table.name})) > 0`),
     check(
       "creators_username_valid",
@@ -539,7 +542,7 @@ export const creatorClaims = pgTable(
     ),
     check(
       "creator_claims_review_consistent",
-      sql`(${table.status} in ('pending', 'withdrawn') and ${table.reviewedAt} is null and ${table.reviewedBy} is null) or (${table.status} in ('approved', 'rejected', 'resolved') and ${table.reviewedAt} is not null and ${table.reviewedBy} is not null)`,
+      sql`(${table.status} in ('pending', 'withdrawn') and ${table.reviewedAt} is null and ${table.reviewedBy} is null) or (${table.status} in ('approved', 'rejected', 'resolved') and ${table.reviewedAt} is not null and (${table.reviewedBy} is not null or (${table.status} = 'approved' and ${table.method} = 'x')))`,
     ),
   ],
 );

@@ -22,6 +22,7 @@ const row = {
   url: "https://studio.example",
   xProfileUrl: "https://x.com/studio_one",
   xProviderId: null,
+  xProfileAccountId: null,
   ownerUserId: null,
   editedFields: [],
   recordOrigin: "preview",

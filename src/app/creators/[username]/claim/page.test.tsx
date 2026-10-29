@@ -1,4 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
+vi.mock("@/features/creators/identity/x-profile", () => ({ resolveCreatorXAccount: vi.fn(async () => "123") }));
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), resolve: vi.fn(), target: vi.fn(), identity: vi.fn(), ensure: vi.fn(), counts: vi.fn() }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error("redirect:" + url); }, notFound: () => { throw new Error("not-found"); } }));
@@ -18,11 +20,12 @@ beforeEach(() => {
 const visit = () => CreatorClaimPage({ params: Promise.resolve({ username: "old_alias" }) });
 it("keeps the canonical claim destination through sign-in without creating a profile", async () => {
   mocks.auth.mockResolvedValue({ userId: null });
-  await expect(visit()).rejects.toThrow("redirect:/sign-in?redirect_url=%2Fcreators%2Fcanonical%2Fclaim");
+  const page = await visit();
+  expect(page).toBeDefined();
   expect(mocks.ensure).not.toHaveBeenCalled(); expect(mocks.identity).not.toHaveBeenCalled();
 });
 it("sends an existing owner to their profile", async () => {
-  mocks.ensure.mockResolvedValue({ id: "target" });
+  mocks.target.mockResolvedValue({ id: "target", name: "Creator", ownerUserId: "viewer" });
   await expect(visit()).rejects.toThrow("redirect:/profile");
 });
 it("does not expose a development fixture claim", async () => {

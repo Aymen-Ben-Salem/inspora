@@ -4,7 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { OwnCreatorClaim } from "@/features/creators/types";
 const mocks = vi.hoisted(() => ({ submit: vi.fn(), change: vi.fn(), review: vi.fn(), sync: vi.fn(), connect: vi.fn(), refresh: vi.fn(), viewer: vi.fn() }));
-vi.mock("@clerk/nextjs", () => ({ useUser: () => ({ user: { createExternalAccount: mocks.connect, reload: vi.fn() } }) }));
+vi.mock("@clerk/nextjs", () => ({ useUser: () => ({ isLoaded: true, user: { createExternalAccount: mocks.connect, reload: vi.fn() } }) }));
+vi.mock("@clerk/nextjs/legacy", () => ({ useSignIn: () => ({ signIn: undefined }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock("@/features/creators/claim-actions", () => ({ submitCreatorClaimAction: mocks.submit, changeOwnClaimAction: mocks.change, synchronizeOwnXAction: mocks.sync }));
 vi.mock("@/features/admin/creator-actions", () => ({ reviewCreatorClaimAction: mocks.review }));
@@ -23,11 +24,11 @@ async function renderClaim(connectedXUsername: string | null = null, xMatches = 
 async function submit(buttonElement: HTMLButtonElement) {
   await act(async () => buttonElement.form!.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: buttonElement })));
 }
-it("does not submit on mount, offers manual review, and retains the selected creator", async () => {
+it("does not submit on mount, offers reports instead of manual claims, and retains the selected creator", async () => {
   await renderClaim();
-  expect(mocks.submit).not.toHaveBeenCalled(); expect(button("Submit claim").disabled).toBe(true);
-  await act(async () => [...container.querySelectorAll("button")].find((item) => item.textContent?.includes("verify with X?"))!.click());
-  expect(container.querySelector<HTMLInputElement>('[name="method"]')?.value).toBe("manual");
+  expect(mocks.submit).not.toHaveBeenCalled(); expect(button("Claim my profile")).toBeUndefined();
+  await act(async () => [...container.querySelectorAll("button")].find((item) => item.textContent?.includes("report incorrect attribution"))!.click());
+  expect(container.querySelector<HTMLInputElement>('[name="method"]')?.value).toBe("ownership_report");
   expect(container.querySelector<HTMLInputElement>('[name="targetCreatorId"]')?.value).toBe("target");
   expect(container.querySelector<HTMLInputElement>('[name="evidenceUrl"]')?.required).toBe(true);
   expect(container.querySelector<HTMLInputElement>('[name="confirmed"]')?.required).toBe(true);
@@ -36,14 +37,15 @@ it("preserves the claim destination through connecting X", async () => {
   mocks.connect.mockRejectedValueOnce(new Error("Provider unavailable"));
   await renderClaim(); await act(async () => button("Connect X").click());
   expect(mocks.connect).toHaveBeenCalledWith({ strategy: "oauth_x", redirectUrl: window.location.origin + "/creators/creator/claim" });
-  expect(container.querySelector('[role="alert"]')?.textContent).toContain("manual review");
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("X could not be connected");
   expect(mocks.submit).not.toHaveBeenCalled();
 });
 it("shows an explicit success after submitting a matching X claim", async () => {
-  mocks.submit.mockResolvedValue({ status: "success", message: "Pending admin review." });
-  await renderClaim("creator", true); await submit(button("Submit claim"));
-  expect(container.querySelector('[role="status"]')?.textContent).toBe("Pending admin review.");
-  expect(container.querySelector('a[href="/profile/claims"]')).not.toBeNull();
+  mocks.submit.mockResolvedValue({ status: "success", message: "This profile is now yours." });
+  await renderClaim("creator", true); await submit(button("Claim my profile"));
+  expect(container.querySelector('[role="status"]')?.textContent).toBe("This profile is now yours.");
+  expect(container.querySelector('a[href="/profile"]')).not.toBeNull();
+  expect(mocks.viewer).toHaveBeenCalledOnce();
 });
 const claim: OwnCreatorClaim = { id: "claim", targetCreatorId: "target", targetName: "Creator", targetUsername: "creator", status: "pending", method: "x", createdAt: "2026-10-29T00:00:00Z", dismissedAt: null, reviewReason: null, attentionReason: "Reconnect X before review." };
 it("shows recovery instructions and a withdrawal control for a pending request", async () => {
@@ -69,7 +71,7 @@ it("offers report resolution without an approval option", async () => {
 it("shows approval conflicts with a reload action", async () => {
   mocks.review.mockResolvedValue({ status: "error", message: "The creator changed. Reload before reviewing." });
   await act(async () => root.render(<CreatorClaimReviewForm claimId="claim" version={"a".repeat(64)} method="manual" />));
-  expect(container.querySelector("textarea")?.minLength).toBe(20);
+  expect(container.querySelector('option[value="approve"]')).toBeNull();
   await submit(button("Save review"));
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("Reload before reviewing");
   await act(async () => button("Reload current review").click()); expect(mocks.refresh).toHaveBeenCalledOnce();

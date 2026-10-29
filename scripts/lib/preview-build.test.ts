@@ -41,6 +41,7 @@ R2_BUCKET_NAME=wrong-development-bucket
 
 const previewFixture = `
 DATA_ENVIRONMENT=preview
+X_API_BEARER_TOKEN=preview-x-token
 DATABASE_URL=postgresql://preview:secret@ep-safe-pooler.example.neon.tech/neondb
 DATABASE_URL_UNPOOLED=postgresql://preview:secret@ep-safe.example.neon.tech/neondb
 R2_ACCOUNT_ID=preview-account
@@ -88,6 +89,7 @@ NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL=/preview-sign-up
     expect(reads).toEqual(["C:/isolated-fixture/.env.preview.local"]);
     expect(environment.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe("pk_test_preview");
     expect(environment.CLERK_SECRET_KEY).toBe("sk_test_preview");
+    expect(environment.X_API_BEARER_TOKEN).toBe("preview-x-token");
     expect(environment.CLERK_WEBHOOK_SIGNING_SECRET).toBe("whsec_preview");
     expect(environment.ADMIN_USER_IDS).toBe("user_preview_admin");
     expect(environment.NEXT_PUBLIC_CLERK_SIGN_UP_URL).toBe("/sign-up");

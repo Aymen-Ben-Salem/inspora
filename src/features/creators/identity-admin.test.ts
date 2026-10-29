@@ -7,6 +7,7 @@ const external = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("./x-api", () => ({ lookupXProfile: vi.fn(async () => ({ id: "123456789", username: "studio_one" })), XLookupError: class extends Error {} }));
 vi.mock("@/auth/require-admin", () => ({
   requireAdmin: external.requireAdmin,
 }));
@@ -29,6 +30,7 @@ import {
 import type { AdminCreatorInput } from "./types";
 import type { creators } from "@/db/schema";
 import type { WriteTx } from "@/db/write-client";
+import { lookupXProfile, XLookupError } from "./x-api";
 
 const input: AdminCreatorInput = {
   name: "Studio One",
@@ -53,6 +55,7 @@ function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {
     url: null,
     xProfileUrl: null,
     xProviderId: null,
+    xProfileAccountId: null,
     ownerUserId: "admin",
     recordOrigin: "user",
     editedFields: [],
@@ -88,7 +91,7 @@ it.each([
   await expect(updateAdminCreator(existing.id, { ...input, xProfileUrl: next })).resolves.toMatchObject({
     creator: { ownerUserId: "admin", xProviderId: undefined, xProfileUrl: expected ?? undefined },
   });
-  expect(set).toHaveBeenCalledWith(expect.objectContaining({ xProfileUrl: expected }));
+  expect(set).toHaveBeenCalledWith(expect.objectContaining({ xProfileUrl: expected, xProfileAccountId: expected ? "123456789" : null }));
   const values = set.mock.calls[0][0];
   expect(values).not.toHaveProperty("ownerUserId");
   expect(values).not.toHaveProperty("xProviderId");
@@ -123,6 +126,21 @@ it("allows other profile edits while preserving the verified X identity", async 
     creator: { name: "Updated studio", ownerUserId: "admin", xProviderId: "verified-provider", xProfileUrl: "https://x.com/studio_one" },
   });
   expect(set.mock.calls[0][0]).not.toHaveProperty("xProviderId");
+  expect(lookupXProfile).not.toHaveBeenCalled();
+});
+
+it("preserves a pinned editorial X identity without resolving the username again", async () => {
+  const { existing, set } = creatorTransaction({ xProfileAccountId: "original-account", xProfileUrl: "https://x.com/studio_one" });
+  await updateAdminCreator(existing.id, { ...input, xProfileUrl: "https://x.com/studio_one" });
+  expect(set).toHaveBeenCalledWith(expect.objectContaining({ xProfileAccountId: "original-account" }));
+  expect(lookupXProfile).not.toHaveBeenCalled();
+});
+
+it("rejects unavailable official verification without changing an admin-edited creator", async () => {
+  const { existing, set } = creatorTransaction();
+  vi.mocked(lookupXProfile).mockRejectedValueOnce(new XLookupError("unavailable", "X is unavailable"));
+  await expect(updateAdminCreator(existing.id, { ...input, xProfileUrl: "https://x.com/studio_one" })).rejects.toMatchObject({ code: "invalid_input" });
+  expect(set).not.toHaveBeenCalled();
 });
 
 it("allows public X link edits through inline work attribution without changing ownership", async () => {

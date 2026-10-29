@@ -8,6 +8,7 @@ import { isClerkConfigured } from "../../auth/config";
 import { AuthModalShell } from "./auth-modal-shell";
 import { BrandMark } from "../brand-mark";
 import { PublicSignIn } from "./public-sign-in";
+import { creatorAuthReturn } from "../../auth/creator-auth-return";
 
 type AuthFlow = "sign-in" | "sign-up";
 
@@ -44,6 +45,7 @@ export function PublicAuthPage({
   redirectUrl?: string;
 }) {
   const label = flowLabels[flow];
+  const destination = creatorAuthReturn(redirectUrl);
 
   return (
     <AuthModalShell
@@ -63,13 +65,13 @@ export function PublicAuthPage({
           }
         >
           {flow === "sign-in" ? (
-            <PublicSignIn redirectUrl={redirectUrl} />
+            <PublicSignIn redirectUrl={destination} />
           ) : (
             <SignUp
               routing="path"
               path="/sign-up"
               appearance={publicAuthAppearance}
-              forceRedirectUrl={redirectUrl}
+              forceRedirectUrl={destination}
             />
           )}
         </Suspense>

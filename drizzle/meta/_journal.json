@@ -281,6 +281,20 @@
       "when": 1793274664106,
       "tag": "0039_creator_claim_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793314415373,
+      "tag": "0040_creator_x_profile_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793315078457,
+      "tag": "0041_creator_x_instant_claim",
+      "breakpoints": true
     }
   ]
 }

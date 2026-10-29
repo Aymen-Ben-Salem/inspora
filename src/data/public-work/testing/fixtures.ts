@@ -32,6 +32,7 @@ export function websiteFixture(): Parameters<typeof mapPublishedWebsite>[0] {
         url: null,
         xProfileUrl: null,
         xProviderId: null,
+    xProfileAccountId: null,
         ownerUserId: null,
         editedFields: [],
         recordOrigin: "mirrored",

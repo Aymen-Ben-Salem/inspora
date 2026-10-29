@@ -2,7 +2,6 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/auth/require-admin";
-import { requireDatabase } from "@/db/client";
 import { adminAuditLogs, creatorClaims, creators, profileAccounts } from "@/db/schema";
 import { withWriteTransaction } from "@/db/write-client";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
@@ -12,8 +11,6 @@ import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import type { ManagedMediaAsset } from "@/storage/types";
 import type { ClaimResult } from "../types";
 import type { CreatorOwnerPrincipal } from "./index";
-import { verifiedXIdentityForUser } from "./external-identity";
-import { approveCreatorOwnershipClaim } from "./claim-approval";
 import { claimReviewVersion } from "./claim-review";
 import { CreatorClaimError, requestCreatorClaim } from "./claim-requests";
 
@@ -42,15 +39,7 @@ export async function reviewCreatorOwnershipClaim(claimId: string, decision: "ap
   if (decision !== "approve" && !reviewReason) throw new CreatorClaimError("Add a reason before rejecting or resolving this request.");
   try {
     if (decision === "approve") {
-      const snapshot = await requireDatabase().query.creatorClaims.findFirst({ where: eq(creatorClaims.id, claimId) });
-      if (!snapshot) return { status: "conflict", message: "This request is unavailable." };
-      if (snapshot.status === "approved") return { status: "claimed", creatorId: snapshot.targetCreatorId };
-      if (snapshot.status !== "pending") return { status: "conflict", message: "This request is no longer pending. Reload to see its status." };
-      // Verify current provider evidence before locking; recheck claim/profile versions in the transaction.
-      const identity = await verifiedXIdentityForUser(snapshot.requesterUserId);
-      const outcome = await approveCreatorOwnershipClaim(claimId, actorId, reviewReason, { identity, version });
-      refreshCommittedClaim(outcome.identityChanged);
-      return outcome.displacedAvatarAssets.length ? { ...outcome.result, displacedAvatarAssets: outcome.displacedAvatarAssets } : outcome.result;
+      throw new CreatorClaimError("Creators now claim directly with their matching X account. Admins can resolve attribution reports but cannot approve ownership claims.");
     }
     const result = await withWriteTransaction<ClaimResult>(async (tx) => {
       const [snapshot] = await tx.select().from(creatorClaims).where(eq(creatorClaims.id, claimId)).limit(1);

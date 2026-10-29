@@ -14,7 +14,7 @@ export async function CreatorClaimEntry({ creatorId, username }: { creatorId: st
   if (!target) return null;
   const own = Boolean(session.userId && target.ownerUserId === session.userId);
   return <Link href={(own ? "/profile" : "/creators/" + username + "/claim") as Route}
-    className="focus-ring cursor-pointer rounded-full border border-black/15 px-4 py-2.5 text-sm text-[#262626] hover:bg-[#f7f7f4]">
+    className="focus-ring fixed right-5 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 cursor-pointer rounded-full border border-black/15 bg-white px-5 py-3 text-sm text-[#262626] shadow-sm transition-colors hover:border-[#262626] hover:bg-[#262626] hover:text-white">
     {own ? "Manage your profile" : target.ownerUserId ? "Report ownership problem" : "Claim this profile"}
   </Link>;
 }

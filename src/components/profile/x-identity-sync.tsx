@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { synchronizeOwnXAction } from "@/features/creators/claim-actions";
 import { refreshViewerProfile } from "./use-viewer-profile";
 
@@ -21,6 +23,7 @@ export function XIdentitySync({ accountKey }: { accountKey: string | null }) {
   }, [accountKey]);
   if (!accountKey) return <p className="mt-3 text-xs leading-5 text-[#767676]">Connect X to verify an X identity. Disconnecting X does not remove your creator ownership.</p>;
   return <div className="mt-3 grid gap-2 text-xs leading-5 text-[#767676]">
+    {result?.status === "conflict" ? <Link className="focus-ring w-fit cursor-pointer underline" href={"/profile/claim-match" as Route}>Check the existing creator profile</Link> : null}
     <p role={result?.status === "error" || result?.status === "conflict" ? "alert" : "status"}>{result?.message ?? "Checking your connected X identity…"}</p>
     {result?.status === "confirm" || result?.status === "error" ? <button type="button" disabled={busy} className="focus-ring w-fit cursor-pointer rounded-lg border border-[#e6e6e6] px-3 py-2 text-[#262626] disabled:cursor-wait" onClick={() => startTransition(async () => {
       try {

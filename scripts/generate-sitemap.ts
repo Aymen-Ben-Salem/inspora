@@ -21,16 +21,19 @@ async function loadPublishedSlugs() {
   }
   const sql = neon(databaseUrl);
   const rows = await sql`
-    select slug
-    from posts
-    where status = 'published'
-      and published_at <= now()
-    order by created_at desc, id desc
+    select p.slug
+    from posts p
+    join creators c on c.id = p.creator_id
+    where p.status = 'published'
+      and p.published_at <= now()
+      and c.trashed_at is null
+    order by p.created_at desc, p.id desc
   `;
 
   const creators=await sql`select c.username from creators c
     left join profile_accounts a on a.user_id=c.owner_user_id
     where c.username is not null and coalesce(lower(trim(c.handle)),'') not like 'dev-%'
+      and c.trashed_at is null
       and (c.owner_user_id is null or a.status='active')
       and exists (select 1 from creator_username_aliases u where u.creator_id=c.id and u.username=c.username and u.is_current)
     order by c.username`;

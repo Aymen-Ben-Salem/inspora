@@ -60,7 +60,6 @@ export function CreatorDirectorySearch({ query }: { query: string }) {
           const value = event.currentTarget.value;
           timerRef.current = setTimeout(() => search(value), 300);
         }} />
-      <button className="focus-ring rounded-full bg-[#262626] px-4 text-sm text-white transition-colors hover:bg-[#3f3f3f]">Search</button>
       <span role="status" className="sr-only">{isPending ? "Searching creators…" : ""}</span>
     </form>
   );

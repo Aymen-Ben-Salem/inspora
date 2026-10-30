@@ -3,10 +3,12 @@
 import { useActionState, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
+import { Trash2 } from "lucide-react";
 import { AdminLibraryPagination } from "./library-pagination";
 import { CreatorWorkDrawer } from "./creator-work-drawer";
 import { CreatorEditDrawer } from "./creator-edit-drawer";
 import { CreatorDirectorySearch } from "./creator-directory-search";
+import { CreatorTrashDialog } from "./creator-trash-dialog";
 
 import {
   blankAdminCreator,
@@ -50,8 +52,8 @@ export function CreatorManager({
   directoryPage?: { page: number; totalPages: number; query: string; trash?: boolean };
   claimsPage?: { page: number; totalPages: number };
 }) {
-  const [deleteState, deleteFormAction, isDeleting] = useActionState(
-    (state: AdminActionState, formData: FormData) => formData.get("operation") === "restore" ? restoreAction(state, formData) : trashAction(state, formData),
+  const [restoreState, restoreFormAction, isRestoring] = useActionState(
+    restoreAction,
     initialAdminActionState,
   );
   const [creator, setCreator] = useState<AdminCreatorInput>(blankAdminCreator());
@@ -59,6 +61,8 @@ export function CreatorManager({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorSession, setEditorSession] = useState(0);
   const [workCreator, setWorkCreator] = useState<AdminCreatorRecord | null>(null);
+  const [trashCreator, setTrashCreator] = useState<AdminCreatorRecord | null>(null);
+  const dismissTrash = useCallback(() => setTrashCreator(null), []);
   const dismissEditor = useCallback(() => setIsEditorOpen(false), []);
   const dismissWork = useCallback(() => setWorkCreator(null), []);
   function openEditor(item?: AdminCreatorRecord) {
@@ -88,9 +92,9 @@ export function CreatorManager({
   return (
     <div className="grid min-w-0 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="grid min-w-0 content-start gap-6">
-        {deleteState.status === "error" ? (
+        {restoreState.status === "error" ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {deleteState.message}
+            {restoreState.message}
           </p>
         ) : null}
 
@@ -114,7 +118,7 @@ export function CreatorManager({
           </div>
           <nav aria-label="Creator status" className="flex gap-2">
             <Link href="/admin/creators" aria-current={!directoryPage?.trash ? "page" : undefined} className={`focus-ring rounded-full px-4 py-2 text-sm ${!directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}>Active</Link>
-            <Link href="/admin/creators?view=trash" aria-current={directoryPage?.trash ? "page" : undefined} className={`focus-ring rounded-full px-4 py-2 text-sm ${directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}>Trash</Link>
+            <Link href="/admin/creators?view=trash" aria-current={directoryPage?.trash ? "page" : undefined} className={`focus-ring inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm ${directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}><Trash2 aria-hidden="true" className="size-4" />Trash</Link>
           </nav>
           {directoryPage?.trash ? <p className="text-sm leading-6 text-[#666]">Profiles and their work are hidden from the public site. Restore a creator to bring them back. Nothing here is permanently deleted.</p> : null}
           {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, view: directoryPage.trash ? "trash" : undefined, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
@@ -148,15 +152,15 @@ export function CreatorManager({
                     onClick={() => { setIsEditorOpen(false); setWorkCreator(item); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
                   <button type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
                     onClick={() => openEditor(item)} className="focus-ring shrink-0 rounded-full bg-black px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#252525]">Edit</button>
-                  <form action={deleteFormAction} className="flex" onSubmit={(event) => {
-                    if (!item.trashedAt && !window.confirm(`Move ${item.name} to Trash? Their profile and work will be hidden. You can restore them from Trash.`)) event.preventDefault();
-                  }}>
+                  {item.trashedAt ? <form action={restoreFormAction} className="flex">
                     <input type="hidden" name="creatorId" value={item.id} />
-                    <input type="hidden" name="operation" value={item.trashedAt ? "restore" : "trash"} />
-                    <button type="submit" aria-label={`${item.trashedAt ? "Restore" : "Move to Trash:"} ${item.name}`}
-                      disabled={isDeleting}
-                      className="focus-ring shrink-0 cursor-pointer rounded-full border border-black/10 bg-[#262626] px-3 py-2 text-xs text-white hover:bg-[#3f3f3f] disabled:cursor-wait disabled:opacity-40">{item.trashedAt ? "Restore" : "Move to Trash"}</button>
-                  </form>
+                    <input type="hidden" name="operation" value="restore" />
+                    <button type="submit" aria-label={`Restore ${item.name}`}
+                      disabled={isRestoring}
+                      className="focus-ring shrink-0 cursor-pointer rounded-full border border-black/10 bg-[#262626] px-3 py-2 text-xs text-white hover:bg-[#3f3f3f] disabled:cursor-wait disabled:opacity-40">Restore</button>
+                  </form> : <button type="button" aria-label={`Move to Trash: ${item.name}`} title="Move to Trash" aria-haspopup="dialog"
+                    onClick={() => setTrashCreator(item)} disabled={isRestoring}
+                    className="focus-ring flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-wait disabled:opacity-40"><Trash2 aria-hidden="true" className="size-4" /></button>}
                 </div>
               </div>
               );
@@ -220,6 +224,7 @@ export function CreatorManager({
       </aside>
       {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
       {isEditorOpen ? <CreatorEditDrawer key={editorSession} creator={selected} saveAction={saveAction} onDismiss={dismissEditor} /> : null}
+      {trashCreator ? <CreatorTrashDialog key={trashCreator.id} creator={trashCreator} action={trashAction} onDismiss={dismissTrash} /> : null}
     </div>
   );
 }

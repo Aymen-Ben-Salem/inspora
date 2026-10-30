@@ -64,7 +64,11 @@ it("puts View work, Edit, and Trash together and opens all profile fields withou
   await render();
   expect(container.querySelector('[name="creatorName"]')).toBeNull();
   const edit = container.querySelector('[aria-label="Edit Studio One"]')!;
-  expect(edit.parentElement?.textContent).toBe("View workEditMove to Trash");
+  expect(edit.parentElement?.textContent).toBe("View workEdit");
+  const trash = edit.parentElement?.querySelector('[aria-label="Move to Trash: Studio One"]');
+  expect(trash?.querySelector("svg")).not.toBeNull();
+  expect(trash?.classList.contains("text-red-600")).toBe(true);
+  expect(container.querySelector('[aria-label="Creator status"] a[href="/admin/creators?view=trash"]')?.textContent).toBe("Trash");
   await open();
   expect(dialog().open).toBe(true);
   expect(document.activeElement).toBe(input("creatorName"));
@@ -76,16 +80,32 @@ it("puts View work, Edit, and Trash together and opens all profile fields withou
   expect(fetch).not.toHaveBeenCalled();
 });
 
+it("opens trash confirmation without blocking the click on a browser confirm dialog", async () => {
+  const remove = vi.fn().mockResolvedValue({ status: "idle" });
+  await render(undefined, [creator], true, remove);
+  const target = container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio One"]')!;
+  target.focus();
+  await act(async () => target.click());
+  expect(window.confirm).not.toHaveBeenCalled();
+  expect(remove).not.toHaveBeenCalled();
+  expect(dialog().open).toBe(true);
+  expect(dialog().textContent).toContain("Studio One");
+  await act(async () => button("Cancel").click());
+  expect(dialog()).toBeNull();
+  expect(document.activeElement).toBe(target);
+});
+
 it("moves the chosen creator to Trash without needing to open its editor", async () => {
   const remove = vi.fn().mockResolvedValue({ status: "error", message: "This creator has claim history." });
   await render(undefined, [creator, { ...second, workCount: 0 }], true, remove);
   const target = container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio Two"]')!;
   expect(target.disabled).toBe(false);
   await act(async () => target.click());
+  await submit();
   expect(remove).toHaveBeenCalledOnce();
   expect(remove.mock.calls[0][1].get("creatorId")).toBe(second.id);
   expect(container.querySelector('[role="alert"]')?.textContent).toBe("This creator has claim history.");
-  expect(dialog()).toBeNull();
+  expect(dialog().open).toBe(true);
 });
 
 it.each([
@@ -96,6 +116,7 @@ it.each([
   const target = container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio One"]')!;
   expect(target.disabled).toBe(false);
   await act(async () => target.click());
+  await submit();
   expect(remove).toHaveBeenCalledOnce();
   expect(remove.mock.calls[0][1].get("operation")).toBe("trash");
 });
@@ -108,9 +129,30 @@ it("restores a creator from Trash and permits cancelling a trash request", async
   expect(window.confirm).not.toHaveBeenCalled();
   changeState.mockClear();
   await render(undefined, [creator], true, changeState);
-  vi.mocked(window.confirm).mockReturnValue(false);
-  await act(async () => button("Move to Trash").click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio One"]')!.click());
+  await act(async () => button("Cancel").click());
   expect(changeState).not.toHaveBeenCalled();
+  expect(window.confirm).not.toHaveBeenCalled();
+});
+
+it("keeps trash confirmation responsive while saving and supports retry after failure", async () => {
+  let finish!: (state: AdminActionState) => void;
+  const remove = vi.fn(() => new Promise<AdminActionState>(resolve => { finish = resolve; }));
+  await render(undefined, [creator], false, remove);
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio One"]')!.click());
+  await submit();
+  expect(dialog().getAttribute("aria-busy")).toBe("true");
+  expect(button("Cancel").disabled).toBe(true);
+  expect(button("Moving…").disabled).toBe(true);
+  await act(async () => dialog().dispatchEvent(new Event("cancel", { cancelable: true })));
+  expect(dialog().open).toBe(true);
+  await act(async () => finish({ status: "error", message: "Try again." }));
+  expect(dialog().querySelector('[role="alert"]')?.textContent).toBe("Try again.");
+  expect(button("Move to Trash").disabled).toBe(false);
+  await submit();
+  expect(remove).toHaveBeenCalledTimes(2);
+  await act(async () => finish({ status: "idle" }));
+  expect(dialog()).toBeNull();
 });
 
 it("submits every edited profile field and retains the draft on errors for retry", async () => {

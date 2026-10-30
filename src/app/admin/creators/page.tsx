@@ -1,4 +1,5 @@
 import { CreatorManager } from "@/components/admin/creator-manager";
+import Link from "next/link";
 import { parseAdminPage } from "@/features/admin/library-pagination";
 import {
   trashCreatorAction,
@@ -35,8 +36,9 @@ export default async function CreatorsPage({
           </p>
         </div>
         {saved || trashed || restored ? (
-          <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">
+          <p role="status" className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">
             {trashed ? "Creator moved to Trash." : restored ? "Creator restored." : "Creator saved."}
+            {trashed ? <> <Link href="/admin/creators?view=trash" className="focus-ring rounded underline underline-offset-4">View Trash</Link></> : null}
           </p>
         ) : null}
       </div>

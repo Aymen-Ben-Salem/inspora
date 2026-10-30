@@ -50,7 +50,7 @@ it("returns only public profile fields through canonical and alias lookup", asyn
 it("requires an actual alias and a current username and rejects invalid lookup input", async () => {
   const findFirst = vi.fn().mockResolvedValue(null);
   vi.mocked(getDatabase).mockReturnValue({ query: { creatorUsernameAliases: { findFirst } } } as never);
-  for (const username of ["", "ab", "@ada", "ada lovelace", "a".repeat(31)]) {
+  for (const username of ["", "@ada", "ada lovelace", "a".repeat(31)]) {
     expect(await resolvePublicCreatorProfile(username)).toBeNull();
   }
   expect(findFirst).not.toHaveBeenCalled();
@@ -58,6 +58,16 @@ it("requires an actual alias and a current username and rejects invalid lookup i
   findFirst.mockResolvedValue({ username: "legacy", isCurrent: true, creator: { username: null } });
   expect(await resolvePublicCreatorProfile("legacy")).toBeNull();
   expect(after).not.toHaveBeenCalled();
+});
+
+it("resolves short and mixed-case canonical usernames without alias redirect loops", async () => {
+  const findFirst = vi.fn();
+  vi.mocked(getDatabase).mockReturnValue({ query: { creatorUsernameAliases: { findFirst } } } as never);
+  for (const username of ["X", "DawoodUI"]) {
+    findFirst.mockResolvedValue({ username, isCurrent: true, creator: { id: "creator", name: username, username, avatarUrl: "", url: null, xProfileUrl: null } });
+    expect(await resolvePublicCreatorProfile(username.toLowerCase())).toMatchObject({ canonicalUsername: username, isAlias: false });
+    expect(await resolvePublicCreatorProfile(username)).toMatchObject({ canonicalUsername: username, isAlias: false });
+  }
 });
 
 it("keeps owner mutation returns distinct from alias-backed public profiles", () => {

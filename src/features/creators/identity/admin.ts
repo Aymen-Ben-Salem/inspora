@@ -147,12 +147,12 @@ async function availableUsername(
     const [reservation] = await database
       .select({ creatorId: creatorUsernameAliases.creatorId })
       .from(creatorUsernameAliases)
-      .where(eq(sql`lower(${creatorUsernameAliases.username})`, candidate))
+      .where(eq(sql`lower(${creatorUsernameAliases.username})`, candidate.toLowerCase()))
       .limit(1);
     const [currentCreator] = await database
       .select({ id: creators.id })
       .from(creators)
-      .where(eq(sql`lower(${creators.username})`, candidate))
+      .where(eq(sql`lower(${creators.username})`, candidate.toLowerCase()))
       .limit(1);
     if (
       (!reservation || reservation.creatorId === options.currentCreatorId) &&

@@ -209,7 +209,7 @@ export function AdminCreatorEditor({
                 className={inputClass}
                 name="creatorUsername"
                 placeholder="studio_name"
-                pattern="[a-z0-9_]{3,30}"
+                pattern="[A-Za-z0-9_]{1,30}"
                 readOnly={isReadOnly}
                 value={creator.username ?? ""}
                 onChange={(event) => updateCreator("username", event.target.value)}

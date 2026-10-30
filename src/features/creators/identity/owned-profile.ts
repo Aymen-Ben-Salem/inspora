@@ -102,7 +102,7 @@ export async function updateOwnedCreatorProfile(
       const [reservation] = await tx
         .select({ creatorId: creatorUsernameAliases.creatorId })
         .from(creatorUsernameAliases)
-        .where(eq(sql`lower(${creatorUsernameAliases.username})`, nextUsername))
+        .where(eq(sql`lower(${creatorUsernameAliases.username})`, nextUsername.toLowerCase()))
         .limit(1);
       if (reservation && reservation.creatorId !== creator.id) {
         throw new ProfileMutationError("username", "That username is unavailable.", "unavailable_username");

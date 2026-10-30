@@ -7,6 +7,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@clerk/nextjs/server", () => ({ clerkClient: async () => ({ users: { getUser: external.getUser } }) }));
 vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("next/server", () => ({ after: external.after }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/db/write-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/db/write-client")>();
   return { ...actual, withWriteTransaction: <T>(work: (tx: import("@/db/write-client").WriteTx) => Promise<T>) => {
@@ -84,6 +85,26 @@ describe.skipIf(!enabled)("creator identity in isolated guarded nonproduction ro
       const aliases = await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, profile.id));
       expect(aliases).toHaveLength(2);
       expect(aliases.filter((alias) => alias.isCurrent).map((alias) => alias.username)).toEqual([profile.username]);
+    });
+  }, 60000);
+
+  it("preserves username case while reserving all case variants for the same creator", async () => {
+    const principal = owner();
+    const other = owner();
+    const profile = await ensureCreatorForOwner(principal);
+    await ensureCreatorForOwner(other);
+    const username = "Case_" + suffix;
+    await updateOwnedCreatorProfile(principal, { username: username.toLowerCase() });
+    expect((await updateOwnedCreatorProfile(principal, { username })).username).toBe(username);
+    for (const variant of [username, username.toLowerCase(), username.toUpperCase()]) {
+      expect(await resolvePublicCreatorProfile(variant)).toMatchObject({ canonicalUsername: username, isAlias: false });
+    }
+    expect(await resolvePublicCreatorProfile(profile.username)).toMatchObject({ canonicalUsername: username, isAlias: true });
+    await expect(updateOwnedCreatorProfile(other, { username: username.toUpperCase() })).rejects.toMatchObject({ code: "unavailable_username" });
+    await withWriteTransaction(async (tx) => {
+      const aliases = await tx.select().from(creatorUsernameAliases).where(eq(creatorUsernameAliases.creatorId, profile.id));
+      expect(aliases.filter((alias) => alias.isCurrent).map((alias) => alias.username)).toEqual([username]);
+      expect(aliases).toHaveLength(2);
     });
   }, 60000);
 

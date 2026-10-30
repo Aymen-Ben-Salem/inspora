@@ -1,6 +1,6 @@
 import { creatorAvatarUrlSchema } from "./avatar-url";
 
-const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9_]{1,30}$/;
 const X_USERNAME_PATTERN = /^[a-z0-9_]{1,15}$/;
 
 const RESERVED_USERNAMES = new Set([
@@ -27,6 +27,9 @@ const RESERVED_X_PATHS = new Set([
 ]);
 
 export function normalizeCreatorUsername(value: string) {
+  const username = value.trim().replace(/^@+/, "");
+  // Keep valid handles verbatim, including case and significant underscores.
+  if (USERNAME_PATTERN.test(username)) return username;
   return value
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -45,10 +48,10 @@ export function validateCreatorUsername(username: string):
   if (!USERNAME_PATTERN.test(username)) {
     return {
       ok: false,
-      message: "Use 3-30 lowercase letters, numbers, or underscores.",
+      message: "Use 1-30 letters, numbers, or underscores.",
     };
   }
-  if (RESERVED_USERNAMES.has(username)) {
+  if (RESERVED_USERNAMES.has(username.toLowerCase())) {
     return { ok: false, message: "That username is reserved." };
   }
   return { ok: true };

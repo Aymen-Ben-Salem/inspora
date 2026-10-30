@@ -87,7 +87,7 @@ export async function ensureCreatorForOwner(principal: CreatorOwnerPrincipal): P
       const [reservation] = await tx
         .select({ id: creatorUsernameAliases.id })
         .from(creatorUsernameAliases)
-        .where(sql`lower(${creatorUsernameAliases.username}) = ${username}`)
+        .where(sql`lower(${creatorUsernameAliases.username}) = ${username.toLowerCase()}`)
         .limit(1);
       if (reservation) continue;
 
@@ -130,7 +130,7 @@ export async function resolvePublicCreatorProfile(
   cacheTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
 
   const normalized = username.trim().toLowerCase();
-  if (!/^[a-z0-9_]{3,30}$/.test(normalized)) return null;
+  if (!/^[a-z0-9_]{1,30}$/.test(normalized)) return null;
 
   const database = getDatabase();
   if (!database) return null;
@@ -157,6 +157,6 @@ export async function resolvePublicCreatorProfile(
     profile: mapPublicCreatorProfile(alias.creator),
     canonicalUsername: alias.creator.username,
     isAlias:
-      !alias.isCurrent || alias.username.toLowerCase() !== alias.creator.username,
+      !alias.isCurrent || alias.username.toLowerCase() !== alias.creator.username.toLowerCase(),
   };
 }

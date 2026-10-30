@@ -51,7 +51,7 @@ export function planCreatorProfileBackfill(
     if (!username) {
       // Historical aliases remain redirects; they must not become current again.
       username = creatorUsernameCandidates(row.handle?.trim() || row.name)
-        .find((candidate) => !reservations.has(candidate));
+        .find((candidate) => !reservations.has(candidate.toLowerCase()));
     }
     if (!username || !validateCreatorUsername(username).ok) throw conflict();
     const owners = reservations.get(username.toLowerCase());

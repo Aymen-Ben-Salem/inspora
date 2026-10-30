@@ -15,7 +15,7 @@ export async function setCurrentUsernameAlias(
     .from(creatorUsernameAliases)
     .where(and(
       eq(creatorUsernameAliases.creatorId, creatorId),
-      eq(sql`lower(${creatorUsernameAliases.username})`, username),
+      eq(sql`lower(${creatorUsernameAliases.username})`, username.toLowerCase()),
     ))
     .limit(1);
   await tx.update(creatorUsernameAliases)
@@ -26,7 +26,7 @@ export async function setCurrentUsernameAlias(
     ));
   if (existing) {
     await tx.update(creatorUsernameAliases)
-      .set({ isCurrent: true })
+      .set({ username, isCurrent: true })
       .where(eq(creatorUsernameAliases.id, existing.id));
   } else {
     await tx.insert(creatorUsernameAliases).values({

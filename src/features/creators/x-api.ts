@@ -33,11 +33,11 @@ export async function lookupXProfile(profileUrl: string): Promise<XAccount> {
       throw new XLookupError("not_found", "That X profile could not be found. Check its URL or report an incorrect attribution.");
     }
     if (!data || typeof data !== "object" || !("id" in data) || !("username" in data) ||
-      typeof data.id !== "string" || !/^[1-9]\d{0,24}$/.test(data.id) || typeof data.username !== "string" ||
+      typeof data.id !== "string" || !/^[1-9]\d{0,24}$/.test(data.id) || typeof data.username !== "string" || !/^[A-Za-z0-9_]{1,15}$/.test(data.username) ||
       normalizeXUsername(data.username) !== username.toLowerCase()) {
       throw new XLookupError("unavailable", "X could not confirm this profile. Please try again later.");
     }
-    return { id: data.id, username: normalizeXUsername(data.username) };
+    return { id: data.id, username: data.username };
   } catch (error) {
     if (error instanceof XLookupError) throw error;
     // Do not log provider responses, request headers, or transport errors containing credentials.

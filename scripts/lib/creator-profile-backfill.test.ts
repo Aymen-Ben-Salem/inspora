@@ -16,8 +16,13 @@ describe("legacy creator public profile initialization", () => {
   });
   it("assigns a route to a legacy creator using the existing handle rules", () => {
     expect(planCreatorProfileBackfill([creator("a", { handle: "@Ada" })], [])).toEqual([
-      { creatorId: "a", username: "ada", updateUsername: true, insertAlias: true },
+      { creatorId: "a", username: "Ada", updateUsername: true, insertAlias: true },
     ]);
+  });
+  it("preserves handle casing while skipping a differently-cased reserved alias", () => {
+    expect(planCreatorProfileBackfill([creator("a", { handle: "@Ada" })], [
+      { creatorId: "other", username: "aDA", isCurrent: false },
+    ])).toEqual([{ creatorId: "a", username: "Ada_2", updateUsername: true, insertAlias: true }]);
   });
   it("reserves existing usernames and historical aliases, with deterministic collisions", () => {
     const rows = [creator("b"), creator("a"), creator("c", { username: "ada_lovelace_2" })];

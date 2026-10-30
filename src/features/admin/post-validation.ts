@@ -29,7 +29,7 @@ const creatorSchema = z.preprocess(
     id: z.union([z.literal(""), z.uuid()]).transform((value) => value || undefined),
     name: z.string().trim().min(1).max(160),
     legacyHandle: z.string().trim().max(160).optional(),
-    username: z.union([z.literal(""), z.string().regex(/^[a-z0-9_]{3,30}$/)]).optional().transform((value) => value || undefined),
+    username: z.union([z.literal(""), z.string().regex(/^[A-Za-z0-9_]{1,30}$/)]).optional().transform((value) => value || undefined),
     url: optionalRemoteUrl,
     xProfileUrl: optionalRemoteUrl,
     recordOrigin: z.enum(["mirrored", "preview", "development", "editorial", "user"]).optional(),

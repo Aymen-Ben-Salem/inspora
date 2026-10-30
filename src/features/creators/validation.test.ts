@@ -81,6 +81,9 @@ describe("creator validation", () => {
   it.each([
     [" Studio North ", "studio_north"],
     ["@NERO.PURSUE", "nero_pursue"],
+    [" @DawoodUI ", "DawoodUI"],
+    ["__Studio__", "__Studio__"],
+    ["X", "X"],
     ["Crème brûlée", "creme_brulee"],
   ])("normalizes %s into a profile username", (input, expected) => {
     expect(normalizeCreatorUsername(input)).toBe(expected);
@@ -88,11 +91,13 @@ describe("creator validation", () => {
 
   it("enforces the approved username format and reserved routes", () => {
     expect(validateCreatorUsername("valid_name")).toEqual({ ok: true });
-    expect(validateCreatorUsername("ab")).toEqual({
+    expect(validateCreatorUsername("ab")).toEqual({ ok: true });
+    expect(validateCreatorUsername("DawoodUI")).toEqual({ ok: true });
+    expect(validateCreatorUsername("invalid.name")).toEqual({
       ok: false,
-      message: "Use 3-30 lowercase letters, numbers, or underscores.",
+      message: "Use 1-30 letters, numbers, or underscores.",
     });
-    expect(validateCreatorUsername("admin")).toEqual({
+    expect(validateCreatorUsername("AdMiN")).toEqual({
       ok: false,
       message: "That username is reserved.",
     });

@@ -295,6 +295,13 @@
       "when": 1793315078457,
       "tag": "0041_creator_x_instant_claim",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793380281182,
+      "tag": "0042_creator_username_case",
+      "breakpoints": true
     }
   ]
 }

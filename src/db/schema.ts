@@ -62,7 +62,7 @@ export const creators = pgTable(
     check("creators_name_not_blank", sql`length(trim(${table.name})) > 0`),
     check(
       "creators_username_valid",
-      sql`${table.username} is null or ${table.username} ~ '^[a-z0-9_]{3,30}$'`,
+      sql`${table.username} is null or ${table.username} ~ '^[A-Za-z0-9_]{1,30}$'`,
     ),
     check(
       "creators_edited_fields_valid",
@@ -485,7 +485,7 @@ export const creatorUsernameAliases = pgTable(
     index("creator_username_aliases_creator_idx").on(table.creatorId),
     check(
       "creator_username_aliases_username_valid",
-      sql`${table.username} ~ '^[a-z0-9_]{3,30}$'`,
+      sql`${table.username} ~ '^[A-Za-z0-9_]{1,30}$'`,
     ),
   ],
 );

@@ -178,6 +178,12 @@ it("establishes admin authority before standalone creator reads and writes", asy
   expect(external.withWriteTransaction).not.toHaveBeenCalled();
 });
 
+it("rejects direct permanent deletion of an active creator before touching their data", async () => {
+  const { existing, audit } = creatorTransaction({ ownerUserId: null, recordOrigin: "preview" });
+  await expect(deleteAdminCreator(existing.id)).rejects.toMatchObject({ code: "conflict", message: "Move this creator to Trash before deleting them permanently." });
+  expect(audit).not.toHaveBeenCalled();
+});
+
 it("reports unavailable writes distinctly", async () => {
   external.requireAdmin.mockResolvedValue({ userId: "admin" });
   await expect(

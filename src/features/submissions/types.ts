@@ -51,7 +51,8 @@ export type QuotaSnapshot = {
 };
 
 export type CleanupJobInput = {
-  kind: "delete_private_upload" | "delete_public_orphan" | "delete_account";
+  kind: "delete_private_upload" | "delete_public_orphan" | "delete_account" | "delete_creator_media";
+  assets?: import("@/storage/types").ManagedMediaAsset[];
   targetId: string;
   idempotencyKey: string;
   notBefore: string;

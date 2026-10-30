@@ -9,6 +9,7 @@ export async function enqueueCleanup(tx: WriteTx, input: CleanupJobInput): Promi
   if (Number.isNaN(notBefore.getTime())) throw new Error("Cleanup notBefore must be an ISO timestamp.");
   await tx.insert(cleanupJobs).values({
     kind: input.kind, targetId: input.targetId,
+    assets: input.assets ?? [],
     idempotencyKey: input.idempotencyKey, notBefore, nextAttemptAt: notBefore,
   }).onConflictDoNothing({ target: cleanupJobs.idempotencyKey });
 }

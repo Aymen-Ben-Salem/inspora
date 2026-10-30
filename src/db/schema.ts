@@ -427,6 +427,7 @@ export const cleanupJobs = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     kind: text("kind").notNull(),
     targetId: text("target_id").notNull(),
+    assets: jsonb("assets").$type<ManagedMediaAsset[]>().default([]).notNull(),
     idempotencyKey: text("idempotency_key").notNull(),
     notBefore: timestamp("not_before", { withTimezone: true, mode: "date" }).notNull(),
     status: text("status").default("pending").notNull(),
@@ -440,7 +441,7 @@ export const cleanupJobs = pgTable(
   (table) => [
     uniqueIndex("cleanup_jobs_idempotency_unique").on(table.idempotencyKey),
     index("cleanup_jobs_due_idx").on(table.status, table.nextAttemptAt),
-    check("cleanup_jobs_kind_valid", sql`${table.kind} in ('delete_private_upload', 'delete_public_orphan', 'delete_account')`),
+    check("cleanup_jobs_kind_valid", sql`${table.kind} in ('delete_private_upload', 'delete_public_orphan', 'delete_account', 'delete_creator_media')`),
     check("cleanup_jobs_status_valid", sql`${table.status} in ('pending', 'leased')`),
     check("cleanup_jobs_attempts_valid", sql`${table.attempts} >= 0`),
     check("cleanup_jobs_target_not_blank", sql`length(trim(${table.targetId})) > 0`),

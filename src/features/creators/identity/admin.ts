@@ -629,6 +629,9 @@ export async function deleteAdminCreator(id: string) {
         "Creator not found.",
       );
     }
+    if (!existing.trashedAt) {
+      throw new AdminCreatorMutationError("conflict", "Move this creator to Trash before deleting them permanently.");
+    }
     if (shouldLockExistingCreator(existing, process.env.DATA_ENVIRONMENT)) {
       throw new AdminCreatorMutationError(
         "environment_restricted",

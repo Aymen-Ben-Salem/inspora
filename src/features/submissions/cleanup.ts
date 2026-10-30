@@ -37,6 +37,7 @@ import {
   deletePrivateUploads,
 } from "../../storage/private-submissions";
 import type { ManagedMediaAsset } from "../../storage/types";
+import { deleteUnreferencedCreatorMedia } from "../../storage/creator-media-cleanup";
 import { enqueueCleanup } from "./cleanup-jobs";
 import { createImmediateCleanup, type CleanupAttempt } from "./immediate-cleanup";
 import { lockPublicationAssets, readPublicMediaReferenceKeys } from "./publication-assets";
@@ -56,6 +57,7 @@ export type LeasedCleanupJob = {
   id: string;
   kind: CleanupJobInput["kind"];
   targetId: string;
+  assets?: ManagedMediaAsset[];
   attempts: number;
   leaseExpiresAt?: Date;
 };
@@ -357,6 +359,7 @@ async function leaseJobs(now: Date, batchSize: number, id?: string): Promise<Lea
       id: row.id,
       kind: row.kind as CleanupJobInput["kind"],
       targetId: row.targetId,
+      assets: row.assets,
       attempts: row.attempts,
       leaseExpiresAt: new Date(now.getTime() + LEASE_MILLISECONDS),
     }));
@@ -602,7 +605,9 @@ async function processAccountDeletion(userId: string) {
 async function processJob(job: LeasedCleanupJob) {
   if (job.kind === "delete_private_upload") return processPrivateUpload(job.targetId);
   if (job.kind === "delete_public_orphan") return processPublicOrphan(job.targetId);
-  return processAccountDeletion(job.targetId);
+  if (job.kind === "delete_account") return processAccountDeletion(job.targetId);
+  if (job.kind === "delete_creator_media") return deleteUnreferencedCreatorMedia(job.assets ?? []);
+  throw new Error("Unknown cleanup job kind.");
 }
 
 async function pruneReceipts(now: Date) {

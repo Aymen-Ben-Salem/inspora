@@ -185,8 +185,7 @@ export function previewBuildCommands(
     {
       executable: process.execPath,
       args: [
-        resolve(cwd, "node_modules", "tsx", "dist", "cli.mjs"),
-        resolve(cwd, "scripts", "generate-sitemap.ts"),
+        resolve(cwd, "scripts", "prepare-sitemap.mjs"),
       ],
       cwd,
       environment,

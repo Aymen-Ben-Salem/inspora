@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
-    "prebuild": "tsx scripts/generate-sitemap.ts",
+    "prebuild": "node scripts/prepare-sitemap.mjs",
     "build": "next build",
     "build:preview": "tsx scripts/build-preview.ts",
     "start": "next start",

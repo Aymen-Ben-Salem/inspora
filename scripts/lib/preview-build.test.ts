@@ -311,7 +311,7 @@ CLERK_SECRET_KEY=sk_test_preview
     },
   );
 
-  it("runs the Preview sitemap before the application build", async () => {
+  it("removes the obsolete static sitemap before building the live sitemap route", async () => {
     const calls: string[][] = [];
 
     await runPreviewBuild({
@@ -328,7 +328,7 @@ CLERK_SECRET_KEY=sk_test_preview
     });
 
     expect(calls).toHaveLength(2);
-    expect(calls[0]?.join(" ")).toContain("generate-sitemap.ts");
+    expect(calls[0]?.join(" ")).toContain("prepare-sitemap.mjs");
     expect(calls[1]?.join(" ")).toContain("next build");
   });
 

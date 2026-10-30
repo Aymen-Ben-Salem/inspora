@@ -3,7 +3,6 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 
 import {
-  CopyObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -14,6 +13,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { MediaUploadKind } from "@/features/admin/media-upload";
 import type { ManagedMediaAsset } from "@/storage/types";
 import { createR2Client } from "./r2-client";
+import { prepareCreatorAvatar } from "@/features/creators/avatar-processing";
+import { CreatorAvatarError, MAX_CREATOR_AVATAR_BYTES } from "@/features/creators/avatar-policy";
 import {
   assertDataOperationEnvironment,
   runtimeDataEnvironmentFromValues,
@@ -258,22 +259,47 @@ export async function freezeOwnedAvatarUpload(userId: string, input: { storageKe
   if (!isOwnedAvatarUpload(userId, input.storageKey)) throw new Error("The uploaded photo does not belong to you.");
   const configuration = requireConfiguration();
   const client = createClient(configuration);
-  const staged = await client.send(new HeadObjectCommand({ Bucket: configuration.bucket, Key: input.storageKey }));
+  const staged = await client.send(new HeadObjectCommand({ Bucket: configuration.bucket, Key: input.storageKey }), { abortSignal: AbortSignal.timeout(10000) }).finally(() => client.destroy());
   if (staged.ContentType?.split(";", 1)[0]?.toLowerCase() !== "image/webp" || staged.ContentLength !== input.size || !staged.ETag) {
     // Verification is read-only. Only the explicit owned staging discard path deletes uploads.
     throw new Error("The uploaded object did not match the signed file.");
   }
+  // Read the version we verified, then publish only the decoded, quality-checked
+  // bytes. A late PUT to the staging key cannot change the saved photo.
+  return storeCreatorAvatar(await readCreatorAvatarObject(input.storageKey, staged.ETag));
+}
+
+async function readCreatorAvatarObject(storageKey: string, etag?: string) {
+  const configuration = requireConfiguration();
+  const client = createClient(configuration);
+  try {
+    const object = await client.send(new GetObjectCommand({ Bucket: configuration.bucket, Key: storageKey, IfMatch: etag }), { abortSignal: AbortSignal.timeout(10000) });
+    if (!object.Body || (object.ContentLength ?? 0) > MAX_CREATOR_AVATAR_BYTES) throw new CreatorAvatarError("Choose a photo up to 10 MB.");
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for await (const chunk of object.Body as AsyncIterable<Uint8Array>) {
+      size += chunk.byteLength;
+      if (size > MAX_CREATOR_AVATAR_BYTES) throw new CreatorAvatarError("Choose a photo up to 10 MB.");
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  } finally { client.destroy(); }
+}
+
+export async function storeCreatorAvatar(source: Uint8Array) {
+  const bytes = await prepareCreatorAvatar(source);
+  const configuration = requireConfiguration();
+  const client = createClient(configuration);
   const storageKey = `creators/${randomUUID()}.webp`;
-  await client.send(new CopyObjectCommand({
-    Bucket: configuration.bucket,
-    Key: storageKey,
-    CopySource: `${configuration.bucket}/${encodeStorageKey(input.storageKey)}`,
-    CopySourceIfMatch: staged.ETag,
-    MetadataDirective: "REPLACE",
-    ContentType: "image/webp",
-    CacheControl: CACHE_CONTROL,
-  }));
-  return { storageKey, url: getR2PublicUrl(storageKey) };
+  try {
+    await client.send(new PutObjectCommand({ Bucket: configuration.bucket, Key: storageKey, Body: bytes, ContentType: "image/webp", CacheControl: CACHE_CONTROL }), { abortSignal: AbortSignal.timeout(10000) });
+    return { storageKey, url: getR2PublicUrl(storageKey) };
+  } finally { client.destroy(); }
+}
+
+export async function freezeAdminCreatorAvatar(storageKey: string) {
+  if (!isStorageKeyForKind(storageKey, "creator-avatar")) throw new CreatorAvatarError("The uploaded photo key is invalid.");
+  return storeCreatorAvatar(await readCreatorAvatarObject(storageKey));
 }
 
 export async function discardOwnedAvatarUpload(userId: string, storageKey: string) {

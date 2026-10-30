@@ -34,9 +34,13 @@ export function sameXProfileSnapshot(a: CreatorXProfile, b: CreatorXProfile) {
 }
 
 export async function adminXProfileAccountId(url: string | null, existing?: CreatorXProfile) {
+  return (await adminXProfile(url, existing))?.id ?? null;
+}
+
+export async function adminXProfile(url: string | null, existing?: CreatorXProfile, includeAvatar = false): Promise<{ id: string; profileImageUrl?: string } | null> {
   if (!url) return null;
   if (existing?.xProfileUrl === url && (existing.xProfileAccountId || existing.xProviderId)) {
-    return existing.xProfileAccountId || existing.xProviderId;
+    return { id: (existing.xProfileAccountId || existing.xProviderId)! };
   }
-  return (await lookupXProfile(normalizeXProfileUrl(url))).id;
+  return includeAvatar ? lookupXProfile(normalizeXProfileUrl(url), { includeAvatar: true }) : lookupXProfile(normalizeXProfileUrl(url));
 }

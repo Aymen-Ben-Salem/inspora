@@ -1,7 +1,9 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { adminXProfileAccountId as resolveAdminXProfileAccountId } from "./x-profile";
+import { adminXProfile as resolveAdminXProfile } from "./x-profile";
+import { prepareAdminCreatorAvatar } from "../avatar-import";
+import { CreatorAvatarError, DEFAULT_CREATOR_AVATAR } from "../avatar-policy";
 import { XLookupError } from "../x-api";
 import { and, asc, count, eq, ilike, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -70,10 +72,18 @@ function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
 }
 
-async function adminXProfileAccountId(...args: Parameters<typeof resolveAdminXProfileAccountId>) {
-  try { return await resolveAdminXProfileAccountId(...args); }
+async function adminXProfile(...args: Parameters<typeof resolveAdminXProfile>) {
+  try { return await resolveAdminXProfile(...args); }
   catch (error) {
     if (error instanceof XLookupError) throw new AdminCreatorMutationError("invalid_input", error.message);
+    throw error;
+  }
+}
+
+async function adminAvatar(...args: Parameters<typeof prepareAdminCreatorAvatar>) {
+  try { return await prepareAdminCreatorAvatar(...args); }
+  catch (error) {
+    if (error instanceof CreatorAvatarError) throw new AdminCreatorMutationError("invalid_input", error.message);
     throw error;
   }
 }
@@ -243,9 +253,11 @@ async function createAdminCreatorRecord(
   transaction: WriteTx,
   input: AdminCreatorInput,
 ) {
-  const values = await newAdminCreatorValues(transaction, input);
-  const xProfileAccountId = await adminXProfileAccountId(values.xProfileUrl);
+  const initial = await newAdminCreatorValues(transaction, input);
+  const xAccount = await adminXProfile(initial.xProfileUrl, undefined, input.avatarUrl === DEFAULT_CREATOR_AVATAR);
+  const xProfileAccountId = xAccount?.id ?? null;
   if (xProfileAccountId) await assertXAccountAvailable(transaction, xProfileAccountId);
+  const values = { ...initial, ...await adminAvatar(input, undefined, xAccount?.profileImageUrl) };
   await protectPublicationMedia(transaction, [{ storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const { id: creatorId, username } = values;
   const [created] = await transaction
@@ -296,18 +308,13 @@ async function adminCreatorUpdateValues(
           { currentCreatorId: existing.id },
         )
       : existing.username;
+  const xAccount = await adminXProfile(nextXProfileUrl, existing, input.avatarUrl === DEFAULT_CREATOR_AVATAR);
+  if (xAccount?.id) await assertXAccountAvailable(database, xAccount.id, existing.id);
   const values = {
     ...creatorValues(input, username),
-    xProfileAccountId: await adminXProfileAccountId(nextXProfileUrl, existing),
-    // The form can clear metadata while editing and then restore the same URL.
-    ...(input.avatarUrl === existing.avatarUrl
-      ? {
-          avatarStorageProvider: existing.avatarStorageProvider,
-          avatarStorageKey: existing.avatarStorageKey,
-        }
-      : {}),
+    xProfileAccountId: xAccount?.id ?? null,
+    ...await adminAvatar(input, existing, xAccount?.profileImageUrl),
   };
-  if (values.xProfileAccountId) await assertXAccountAvailable(database, values.xProfileAccountId, existing.id);
   return { values, username };
 }
 

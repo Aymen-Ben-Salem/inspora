@@ -31,6 +31,7 @@ import { requireDatabase } from "@/db/client";
 import { eq } from "drizzle-orm";
 import { readAccountCapabilities } from "@/features/sponsorship/authorization";
 import { readSponsorSecurity } from "@/features/sponsorship/security";
+import { CreatorAvatarError } from "@/features/creators/avatar-policy";
 
 const avatarRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
@@ -124,7 +125,7 @@ export async function completeOwnAvatarUpload(input: unknown) {
     const avatar = await freezeOwnedAvatarUpload(userId, parsed.data);
     updated = await updateOwnedCreatorAvatar({ userId }, avatar);
   } catch (error) {
-    if (error instanceof ProfileMutationError) return { ok: false as const, message: error.message };
+    if (error instanceof ProfileMutationError || error instanceof CreatorAvatarError) return { ok: false as const, message: error.message };
     console.error("Profile photo update failed", error);
     return { ok: false as const, message: "The photo could not be saved. Try again." };
   }

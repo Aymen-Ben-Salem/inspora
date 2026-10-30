@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { lookupXProfile } from "./x-api";
+import { lookupXProfile, lookupXAccountById } from "./x-api";
 
 const request = vi.fn();
 beforeEach(() => { vi.stubGlobal("fetch", request); vi.stubEnv("X_API_BEARER_TOKEN", "test-token"); request.mockReset(); });
@@ -39,5 +39,19 @@ describe("official X profile lookup", () => {
     vi.stubEnv("X_API_BEARER_TOKEN", "");
     await expect(lookupXProfile("https://x.com/example")).rejects.toThrow("temporarily unavailable");
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("retrieves photo metadata in the same admin identity lookup", async () => {
+    request.mockResolvedValue(Response.json({ data: { id: "123", username: "Example", profile_image_url: "https://pbs.twimg.com/profile_images/123/a_normal.jpg" } }));
+    expect(await lookupXProfile("https://x.com/example", { includeAvatar: true })).toMatchObject({ id: "123", profileImageUrl: "https://pbs.twimg.com/profile_images/123/a_normal.jpg" });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0]).toContain("?user.fields=profile_image_url");
+  });
+
+  it("checks the stable authenticated account ID before accepting its photo", async () => {
+    request.mockResolvedValue(Response.json({ data: { id: "456", username: "renamed", profile_image_url: "https://pbs.twimg.com/profile_images/456/a.jpg" } }));
+    await expect(lookupXAccountById("123")).rejects.toThrow("could not confirm");
+    request.mockResolvedValue(Response.json({ data: { id: "123", username: "renamed", profile_image_url: "https://evil.example/a.jpg" } }));
+    expect(await lookupXAccountById("123")).toEqual({ id: "123", username: "renamed" });
   });
 });

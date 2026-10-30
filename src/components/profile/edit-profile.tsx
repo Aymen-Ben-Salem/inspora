@@ -194,7 +194,7 @@ export function EditProfile({
             </div>
             <div className="grid gap-1">
               <p className="font-medium">Profile photo</p>
-              <p className="text-xs text-[#767676]">JPG or PNG. Automatically optimized.</p>
+              <p className="text-xs text-[#767676]">JPG or PNG, at least 400 × 400 pixels. Cropped to a square.</p>
             </div>
           </div>
           <label className={`focus-within:ring-2 focus-within:ring-black ${editActionClass}`}>

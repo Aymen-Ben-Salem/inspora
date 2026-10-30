@@ -178,7 +178,7 @@ export function AdminCreatorEditor({
                   label="Upload new photo"
                   onUploaded={applyUploadedAvatar}
                 />
-                <p className="text-xs leading-relaxed text-[#777]">Upload a photo, or use the avatar URL below.</p>
+                <p className="text-xs leading-relaxed text-[#777]">Upload a photo or use the image URL below. At least 400 × 400 pixels; cropped to a square. Leave the default photo to use the linked X photo when available.</p>
               </div>
             ) : null}
             <label className={labelClass}>

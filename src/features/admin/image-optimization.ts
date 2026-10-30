@@ -1,4 +1,5 @@
 import type { MediaUploadKind } from "./media-upload";
+import { assertCreatorAvatarDimensions, MAX_CREATOR_AVATAR_SIZE } from "../creators/avatar-policy";
 
 export const RESPONSIVE_IMAGE_WIDTHS = [640, 960, 1600, 2560] as const;
 export const WEBP_QUALITY = 0.84;
@@ -14,7 +15,7 @@ export function getOptimizedImageWidths(sourceWidth: number, kind: MediaUploadKi
     kind === "creator-avatar" ||
     kind === "sponsor-icon" ||
     kind === "website-favicon";
-  const maximumWidth = isSmallAsset ? 256 : 2560;
+  const maximumWidth = kind === "creator-avatar" ? MAX_CREATOR_AVATAR_SIZE : isSmallAsset ? 256 : 2560;
   const outputWidth = Math.min(sourceWidth, maximumWidth);
   if (isSmallAsset) return [outputWidth];
 
@@ -51,11 +52,14 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind, sig
   }
 
   try {
-    const widths = getOptimizedImageWidths(bitmap.width, kind);
+    const avatar = kind === "creator-avatar";
+    if (avatar) assertCreatorAvatarDimensions(bitmap.width, bitmap.height);
+    const sourceSize = Math.min(bitmap.width, bitmap.height);
+    const widths = getOptimizedImageWidths(avatar ? sourceSize : bitmap.width, kind);
     const outputs: OptimizedImage[] = [];
     for (const width of widths) {
       signal?.throwIfAborted();
-      const height = Math.max(1, Math.round((bitmap.height * width) / bitmap.width));
+      const height = avatar ? width : Math.max(1, Math.round((bitmap.height * width) / bitmap.width));
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
@@ -63,7 +67,8 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind, sig
         const context = canvas.getContext("2d", { alpha: true });
         if (!context) throw new Error("The image optimizer could not start.");
 
-        context.drawImage(bitmap, 0, 0, width, height);
+        if (avatar) context.drawImage(bitmap, (bitmap.width - sourceSize) / 2, (bitmap.height - sourceSize) / 2, sourceSize, sourceSize, 0, 0, width, height);
+        else context.drawImage(bitmap, 0, 0, width, height);
         const blob = await canvasToWebp(canvas, context);
         signal?.throwIfAborted();
         outputs.push({

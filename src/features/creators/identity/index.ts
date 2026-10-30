@@ -13,6 +13,8 @@ import type { CreatorSummary, ResolvedCreatorProfile } from "../types";
 import { creatorUsernameCandidates } from "../validation";
 import { readAccountCapabilities } from "@/features/sponsorship/authorization";
 import { mapCreatorSummary, mapPublicCreatorProfile } from "./projections";
+import { DEFAULT_CREATOR_AVATAR } from "../avatar-policy";
+import { initializeCreatorAvatar } from "../initial-avatar";
 
 export { requestCreatorOwnershipClaimFromVerifiedX, reviewCreatorOwnershipClaim } from "./claims";
 
@@ -61,7 +63,7 @@ export async function ensureCreatorForOwner(principal: CreatorOwnerPrincipal): P
     user.primaryEmailAddress?.emailAddress.split("@")[0] ||
     "Creator";
   const preferredUsername = user.username?.trim() || name;
-  const avatarUrl = user.imageUrl || "/brand/default-avatar.svg";
+  const avatarUrl = DEFAULT_CREATOR_AVATAR;
 
   const result = await withWriteTransaction(async (tx) => {
     await tx
@@ -119,7 +121,14 @@ export async function ensureCreatorForOwner(principal: CreatorOwnerPrincipal): P
   });
   if (result.created) {
     // after runs outside render and only schedules invalidation after the commit.
-    after(() => revalidateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG, { expire: 0 }));
+    after(async () => {
+      revalidateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG, { expire: 0 });
+      try {
+        if (await initializeCreatorAvatar(result.profile.id, ownerUserId, user)) {
+          for (const tag of [PUBLIC_CREATOR_PROFILES_CACHE_TAG, "published-posts", "published-logos", "published-websites"]) revalidateTag(tag, { expire: 0 });
+        }
+      } catch { console.error("Initial creator photo could not be saved; the default photo remains available."); }
+    });
   }
   return result.profile;
 }

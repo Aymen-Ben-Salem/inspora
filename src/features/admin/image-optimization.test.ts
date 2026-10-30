@@ -63,7 +63,8 @@ describe("responsive image widths", () => {
   it("never upscales small images or creator avatars", () => {
     expect(getOptimizedImageWidths(480, "post-media")).toEqual([480]);
     expect(getOptimizedImageWidths(120, "creator-avatar")).toEqual([120]);
-    expect(getOptimizedImageWidths(1200, "creator-avatar")).toEqual([256]);
+    expect(getOptimizedImageWidths(1200, "creator-avatar")).toEqual([512]);
+    expect(getOptimizedImageWidths(400, "creator-avatar")).toEqual([400]);
   });
 });
 
@@ -129,8 +130,15 @@ describe("static image preparation", () => {
         format: "webp", width: output.width, height: output.height,
       });
     }
-    const [avatar] = await optimizeStaticImage(source, "creator-avatar");
-    expect(avatar).toMatchObject({ width: 256, height: 5 });
+    await expect(optimizeStaticImage(source, "creator-avatar")).rejects.toThrow("400 × 400");
+  });
+
+  it("crops avatar uploads to a square without enlarging them", async () => {
+    mockImageBrowser(new Blob(["webp"], { type: "image/webp" }), 1200, 800, false);
+    const file = new File(["png"], "photo.png", { type: "image/png" });
+    expect(await optimizeStaticImage(file, "creator-avatar")).toMatchObject([{ width: 512, height: 512 }]);
+    mockImageBrowser(new Blob(["webp"], { type: "image/webp" }), 400, 900, false);
+    expect(await optimizeStaticImage(file, "creator-avatar")).toMatchObject([{ width: 400, height: 400 }]);
   });
 
   it("uses the fallback when the native canvas export returns no blob", async () => {

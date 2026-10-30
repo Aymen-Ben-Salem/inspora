@@ -14,9 +14,14 @@ const external = vi.hoisted(() => ({
   restore: vi.fn(),
   remove: vi.fn(),
   review: vi.fn(),
+  permanentlyDelete: vi.fn(), cleanup: vi.fn(), admin: vi.fn(), has: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/auth/require-admin", () => ({ requireAdmin: external.admin, AdminAuthConfigurationError: class extends Error {} }));
+vi.mock("@clerk/nextjs/server", () => ({ auth: async () => ({ has: external.has }), reverificationError: () => ({ clerk_error: "reverification" }) }));
+vi.mock("@/features/creators/identity/permanent-delete", () => ({ permanentlyDeleteCreator: external.permanentlyDelete }));
+vi.mock("@/features/submissions/cleanup", () => ({ attemptCleanupKey: external.cleanup }));
 vi.mock("next/cache", () => ({
   updateTag: external.updateTag,
   revalidatePath: external.revalidatePath,
@@ -51,10 +56,11 @@ vi.mock("@/storage/media-storage", () => ({
 }));
 
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
-import { reviewCreatorClaimAction, saveCreatorAction, saveCreatorProfileAction, trashCreatorAction, restoreCreatorAction } from "./creator-actions";
+import { reviewCreatorClaimAction, saveCreatorAction, saveCreatorProfileAction, trashCreatorAction, restoreCreatorAction, deleteCreatorAction } from "./creator-actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  external.admin.mockResolvedValue({ userId: "admin" }); external.has.mockReturnValue(true);
   external.parse.mockReturnValue({
     id: "11111111-1111-4111-8111-111111111111",
     name: "Studio",
@@ -67,6 +73,28 @@ beforeEach(() => {
       { storageProvider: "r2", storageKey: "creators/old.webp", type: "image" },
     ],
   });
+});
+
+const deleteForm = () => { const form = new FormData(); form.set("creatorId", "11111111-1111-4111-8111-111111111111"); form.set("confirmation", "studio"); form.set("expectedUpdatedAt", "2026-10-30T00:00:00.000Z"); form.set("expectedWorkCount", "2"); return form; };
+it("requires admin authentication and recent identity verification before permanent deletion", async () => {
+  external.admin.mockRejectedValueOnce(new Error("denied"));
+  await expect(deleteCreatorAction({ status: "idle" }, deleteForm())).rejects.toThrow("denied");
+  external.has.mockReturnValueOnce(false);
+  await expect(deleteCreatorAction({ status: "idle" }, deleteForm())).resolves.toMatchObject({ clerk_error: "reverification" });
+  expect(external.permanentlyDelete).not.toHaveBeenCalled();
+});
+it("keeps failed storage or account cleanup visible after the deletion commits", async () => {
+  external.permanentlyDelete.mockResolvedValueOnce({ cleanupKeys: ["account:owner", "creator-media:id"] });
+  external.cleanup.mockResolvedValueOnce("pending").mockResolvedValueOnce("completed");
+  await expect(deleteCreatorAction({ status: "idle" }, deleteForm())).rejects.toThrow("redirect");
+  expect(external.redirect).toHaveBeenCalledWith("/admin/creators?view=trash&deleted=true&cleanup=pending");
+  expect(external.remove).not.toHaveBeenCalled();
+});
+it("does not run cleanup or invalidate caches when permanent deletion rolls back", async () => {
+  external.permanentlyDelete.mockRejectedValueOnce(new Error("Creator not found."));
+  await expect(deleteCreatorAction({ status: "idle" }, deleteForm())).resolves.toMatchObject({ status: "error" });
+  expect(external.cleanup).not.toHaveBeenCalled();
+  expect(external.updateTag).not.toHaveBeenCalled();
 });
 
 it.each([

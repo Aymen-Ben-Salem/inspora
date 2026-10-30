@@ -9,7 +9,7 @@ import {
   clerkWebhookReceipts,
   profileAccounts,
 } from "../../db/schema";
-import { withWriteTransaction } from "../../db/write-client";
+import { withWriteTransaction, type WriteTx } from "../../db/write-client";
 import type { SubmissionResult } from "../submissions/types";
 import { attemptCleanupJob, attemptCleanupKey } from "../submissions/cleanup";
 import { invalidateDeletedSponsor, queueSponsorIdentityDeletion } from "../sponsorship/deletion";
@@ -47,7 +47,13 @@ function accountCleanupKey(userId: string) {
 
 const productionAccountDeletionStore: AccountDeletionStore = {
   async request(userId) {
-    return withWriteTransaction(async (tx) => {
+    return withWriteTransaction(tx => queueAccountDeletion(tx, userId));
+  },
+};
+
+// Shared by owner deletion and an authenticated admin's permanent creator removal.
+// The caller's transaction decides which creator/work records are retained.
+export async function queueAccountDeletion(tx: WriteTx, userId: string): Promise<DeletionRequest | null> {
       const [account] = await tx
         .select({ status: profileAccounts.status })
         .from(profileAccounts)
@@ -94,9 +100,7 @@ const productionAccountDeletionStore: AccountDeletionStore = {
         .limit(1);
       if (!existing) throw new Error("The account cleanup job could not be found.");
       return { jobId: existing.id, state: "pending" };
-    });
-  },
-};
+}
 
 const productionWebhookDeletionStore: WebhookDeletionStore = {
   async record({ eventId, userId }) {

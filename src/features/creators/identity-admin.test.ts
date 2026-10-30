@@ -1,12 +1,14 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const external = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   requireDatabase: vi.fn(),
   withWriteTransaction: vi.fn(),
+  verifyStorage: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/storage/r2", async (original) => ({ ...await original<typeof import("@/storage/r2")>(), assertR2StorageKeysExist: external.verifyStorage }));
 vi.mock("./x-api", () => ({ lookupXProfile: vi.fn(async () => ({ id: "123456789", username: "studio_one" })), XLookupError: class extends Error {} }));
 vi.mock("@/auth/require-admin", () => ({
   requireAdmin: external.requireAdmin,
@@ -42,6 +44,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   external.requireAdmin.mockRejectedValue(new Error("redirect:/admin-access-denied"));
 });
+afterEach(() => vi.unstubAllEnvs());
 
 function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {}) {
   const existing: typeof creators.$inferSelect = {
@@ -69,6 +72,7 @@ function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {
   }));
   const audit = vi.fn().mockResolvedValue(undefined);
   const transaction = {
+    execute: vi.fn().mockResolvedValue(undefined),
     select: vi.fn(() => ({ from: () => ({ where: () => ({
       for: async () => [existing],
       limit: async () => [],
@@ -182,6 +186,17 @@ it("rejects direct permanent deletion of an active creator before touching their
   const { existing, audit } = creatorTransaction({ ownerUserId: null, recordOrigin: "preview" });
   await expect(deleteAdminCreator(existing.id)).rejects.toMatchObject({ code: "conflict", message: "Move this creator to Trash before deleting them permanently." });
   expect(audit).not.toHaveBeenCalled();
+});
+
+it("checks reused avatar URLs without storage metadata before allowing an admin update", async () => {
+  vi.stubEnv("R2_PUBLIC_BASE_URL", "https://media.example/public");
+  const avatarUrl = "https://media.example/public/creators/shared.webp";
+  const { existing, set, transaction } = creatorTransaction({ avatarUrl });
+  external.verifyStorage.mockRejectedValueOnce(new Error("missing media"));
+  await expect(updateAdminCreator(existing.id, { ...input, avatarUrl })).rejects.toMatchObject({ code: "database_unavailable" });
+  expect(transaction.execute).toHaveBeenCalledOnce();
+  expect(external.verifyStorage).toHaveBeenCalledWith(["creators/shared.webp"]);
+  expect(set).not.toHaveBeenCalled();
 });
 
 it("reports unavailable writes distinctly", async () => {

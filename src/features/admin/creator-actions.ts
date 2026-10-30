@@ -4,16 +4,17 @@ import { revalidatePath, updateTag } from "next/cache";
 import type { Route } from "next";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
+import { auth, reverificationError } from "@clerk/nextjs/server";
 
-import { AdminAuthConfigurationError } from "@/auth/require-admin";
+import { AdminAuthConfigurationError, requireAdmin } from "@/auth/require-admin";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
+import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import {
   AdminCreatorMutationError,
   reviewCreatorOwnershipClaim,
   createAdminCreator,
-  deleteAdminCreator,
   trashAdminCreator,
   restoreAdminCreator,
   updateAdminCreator,
@@ -24,6 +25,8 @@ import { creatorClaimReviewSchema } from "@/features/creators/claim-validation";
 import { CreatorClaimError } from "@/features/creators/identity/claim-requests";
 import type { ClaimActionState } from "@/features/creators/types";
 import { deleteManagedMediaAssetsSafely } from "@/storage/media-storage";
+import { permanentlyDeleteCreator } from "@/features/creators/identity/permanent-delete";
+import { attemptCleanupKey } from "@/features/submissions/cleanup";
 
 import { formatValidationError } from "./post-validation";
 import type { AdminActionState, AdminCreatorAttribution } from "./types";
@@ -96,16 +99,23 @@ export async function saveCreatorAction(
 export async function deleteCreatorAction(
   _previousState: AdminActionState,
   formData: FormData,
-): Promise<AdminActionState> {
+) {
+  await requireAdmin();
+  const authentication = await auth();
+  if (!authentication.has({ reverification: "strict" })) return reverificationError("strict");
+  let cleanupPending = false;
   try {
     const id = idSchema.parse(formData.get("creatorId"));
-    const deleted = await deleteAdminCreator(id);
-    await deleteManagedMediaAssetsSafely(deleted.removedManagedMedia);
+    const input = z.object({ confirmation: z.string().min(1), expectedUpdatedAt: z.iso.datetime(), expectedWorkCount: z.coerce.number().int().nonnegative() }).parse({ confirmation: formData.get("confirmation"), expectedUpdatedAt: formData.get("expectedUpdatedAt"), expectedWorkCount: formData.get("expectedWorkCount") });
+    const deleted = await permanentlyDeleteCreator(id, input);
+    if (deleted.accountClosureRequested) updateTag(SPONSOR_CACHE_TAG);
+    for (const key of deleted.cleanupKeys) if (await attemptCleanupKey(key) === "pending") cleanupPending = true;
   } catch (error) {
     return creatorErrorState(error);
   }
   revalidateCreatorPaths();
-  redirect("/admin/creators?deleted=true" as Route);
+  revalidatePath("/admin/cleanup");
+  redirect((cleanupPending ? "/admin/creators?view=trash&deleted=true&cleanup=pending" : "/admin/creators?view=trash&deleted=true") as Route);
 }
 
 export async function trashCreatorAction(_previousState: AdminActionState, formData: FormData): Promise<AdminActionState> {

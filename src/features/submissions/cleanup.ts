@@ -167,7 +167,7 @@ async function queuePublicationAttemptCleanup(
   return [...new Set([...attempts, ...alreadyQueued].map((attempt) => `publication-attempt:${attempt.id}`))];
 }
 
-async function removeSubmission(
+export async function removeSubmission(
   tx: WriteTx,
   submission: typeof submissions.$inferSelect,
   now: Date,

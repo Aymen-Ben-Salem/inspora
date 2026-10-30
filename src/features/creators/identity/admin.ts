@@ -258,7 +258,7 @@ async function createAdminCreatorRecord(
   const xProfileAccountId = xAccount?.id ?? null;
   if (xProfileAccountId) await assertXAccountAvailable(transaction, xProfileAccountId);
   const values = { ...initial, ...await adminAvatar(input, undefined, xAccount?.profileImageUrl) };
-  await protectPublicationMedia(transaction, [{ storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
+  await protectPublicationMedia(transaction, [{ url: values.avatarUrl, storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const { id: creatorId, username } = values;
   const [created] = await transaction
     .insert(creators)
@@ -335,7 +335,7 @@ async function updateAdminCreatorRecord(
   const { values, username } = await adminCreatorUpdateValues(
     transaction, existing, input, options,
   );
-  await protectPublicationMedia(transaction, [{ storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
+  await protectPublicationMedia(transaction, [{ url: values.avatarUrl, storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const [updated] = await transaction
     .update(creators)
     .set({ ...values, updatedAt: new Date() })

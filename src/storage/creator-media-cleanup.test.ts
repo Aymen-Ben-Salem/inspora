@@ -3,7 +3,7 @@ const io = vi.hoisted(() => ({ lock: vi.fn(), references: vi.fn(), remove: vi.fn
 vi.mock("server-only", () => ({}));
 vi.mock("@/db/write-client", () => ({ withWriteTransaction: (work: (tx: object) => unknown) => work({}) }));
 vi.mock("@/features/submissions/publication-assets", () => ({ lockPublicationAssets: io.lock, readPublicMediaReferenceKeys: io.references, publicationAssetKeys: (assets: { storageKey: string; variantStorageKeys?: string[] }[]) => [...new Set(assets.flatMap(a => [a.storageKey, ...(a.variantStorageKeys ?? [])]))] }));
-vi.mock("./r2", () => ({ deleteR2StorageKeys: io.remove }));
+vi.mock("./r2", () => ({ deleteR2StorageKeys: io.remove, getR2PublicUrl: (key: string) => `https://media.example/${key}` }));
 import { deleteUnreferencedCreatorMedia } from "./creator-media-cleanup";
 beforeEach(() => { vi.clearAllMocks(); io.references.mockResolvedValue(new Set(["shared.webp"])); io.remove.mockResolvedValue(undefined); });
 it("retains shared files and locks candidates before checking current references", async () => {

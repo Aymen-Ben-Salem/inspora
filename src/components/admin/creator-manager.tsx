@@ -9,6 +9,8 @@ import { CreatorWorkDrawer } from "./creator-work-drawer";
 import { CreatorEditDrawer } from "./creator-edit-drawer";
 import { CreatorDirectorySearch } from "./creator-directory-search";
 import { CreatorTrashDialog } from "./creator-trash-dialog";
+import { CreatorDeleteDialog } from "./creator-delete-dialog";
+import type { deleteCreatorAction } from "@/features/admin/creator-actions";
 
 import {
   blankAdminCreator,
@@ -33,6 +35,7 @@ export function CreatorManager({
   saveAction,
   trashAction,
   restoreAction,
+  deleteAction,
   directoryPage,
   claimsPage,
 }: {
@@ -47,6 +50,7 @@ export function CreatorManager({
     formData: FormData,
   ) => Promise<AdminActionState>;
   restoreAction: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
+  deleteAction?: typeof deleteCreatorAction;
   reviewAction?: (formData: FormData) => Promise<unknown>;
   lockExistingCreators: boolean;
   directoryPage?: { page: number; totalPages: number; query: string; trash?: boolean };
@@ -63,6 +67,8 @@ export function CreatorManager({
   const [workCreator, setWorkCreator] = useState<AdminCreatorRecord | null>(null);
   const [trashCreator, setTrashCreator] = useState<AdminCreatorRecord | null>(null);
   const dismissTrash = useCallback(() => setTrashCreator(null), []);
+  const [deleteCreator, setDeleteCreator] = useState<AdminCreatorRecord | null>(null);
+  const dismissDelete = useCallback(() => setDeleteCreator(null), []);
   const dismissEditor = useCallback(() => setIsEditorOpen(false), []);
   const dismissWork = useCallback(() => setWorkCreator(null), []);
   function openEditor(item?: AdminCreatorRecord) {
@@ -120,7 +126,7 @@ export function CreatorManager({
             <Link href="/admin/creators" aria-current={!directoryPage?.trash ? "page" : undefined} className={`focus-ring rounded-full px-4 py-2 text-sm ${!directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}>Active</Link>
             <Link href="/admin/creators?view=trash" aria-current={directoryPage?.trash ? "page" : undefined} className={`focus-ring inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm ${directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}><Trash2 aria-hidden="true" className="size-4" />Trash</Link>
           </nav>
-          {directoryPage?.trash ? <p className="text-sm leading-6 text-[#666]">Profiles and their work are hidden from the public site. Restore a creator to bring them back. Nothing here is permanently deleted.</p> : null}
+          {directoryPage?.trash ? <p className="text-sm leading-6 text-[#666]">Profiles and their work stay hidden until you restore them or choose Delete forever. There is no automatic deletion timer.</p> : null}
           {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, view: directoryPage.trash ? "trash" : undefined, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
           <div className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
             {filteredCreators.map((item) => {
@@ -161,6 +167,7 @@ export function CreatorManager({
                   </form> : <button type="button" aria-label={`Move to Trash: ${item.name}`} title="Move to Trash" aria-haspopup="dialog"
                     onClick={() => setTrashCreator(item)} disabled={isRestoring}
                     className="focus-ring flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-wait disabled:opacity-40"><Trash2 aria-hidden="true" className="size-4" /></button>}
+                  {item.trashedAt && deleteAction ? <button type="button" aria-label={`Delete forever: ${item.name}`} aria-haspopup="dialog" title="Delete forever" onClick={() => setDeleteCreator(item)} disabled={isRestoring} className="focus-ring flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"><Trash2 aria-hidden="true" className="size-4" /></button> : null}
                 </div>
               </div>
               );
@@ -225,6 +232,7 @@ export function CreatorManager({
       {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
       {isEditorOpen ? <CreatorEditDrawer key={editorSession} creator={selected} saveAction={saveAction} onDismiss={dismissEditor} /> : null}
       {trashCreator ? <CreatorTrashDialog key={trashCreator.id} creator={trashCreator} action={trashAction} onDismiss={dismissTrash} /> : null}
+      {deleteCreator && deleteAction ? <CreatorDeleteDialog key={deleteCreator.id} creator={deleteCreator} action={deleteAction} onDismiss={dismissDelete} /> : null}
     </div>
   );
 }

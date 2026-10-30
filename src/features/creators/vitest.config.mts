@@ -31,6 +31,7 @@ export default defineConfig({
     "src/features/admin/logo-website-actions.test.ts",
     "src/features/admin/logo-website-repository.preview.test.ts",
     "src/storage/owned-avatar.test.ts",
+    "src/storage/creator-media-cleanup.test.ts",
     "src/features/submissions/actions.test.ts",
     "src/features/submissions/upload-actions.test.ts",
     "src/features/profiles/repository.test.ts",

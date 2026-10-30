@@ -7,6 +7,12 @@ import type { AdminCreatorRecord } from "@/features/creators/types";
 import { parseAdminCreatorForm } from "@/features/creators/validation";
 
 vi.mock("next/image", () => ({ default: () => null }));
+vi.mock("@clerk/nextjs", () => ({ useReverification: (action: (...args: unknown[]) => Promise<object>) => async (...args: unknown[]) => {
+  const result = await action(...args);
+  if ("clerk_error" in result) throw { verificationCanceled: true };
+  return result;
+} }));
+vi.mock("@clerk/nextjs/errors", () => ({ isReverificationCancelledError: (error: { verificationCanceled?: boolean }) => error?.verificationCanceled === true }));
 const upload = vi.hoisted(() => ({ prepare: vi.fn() }));
 vi.mock("@/features/media/prepare-and-upload", () => ({
   defaultUploadOperations: {}, prepareAndUploadMedia: upload.prepare,
@@ -32,6 +38,7 @@ beforeEach(() => {
   upload.prepare.mockReset().mockResolvedValue({ type: "image", url: "https://media.example.com/creators/new.webp", storageProvider: "r2", storageKey: "creators/new.webp" });
   vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
   vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
+  vi.spyOn(HTMLDialogElement.prototype, "show").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
   vi.spyOn(HTMLFormElement.prototype, "reset").mockImplementation(function (this: HTMLFormElement) {
     if (this.dispatchEvent(new Event("reset", { bubbles: true, cancelable: true }))) reset.call(this);
   });
@@ -39,8 +46,8 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function render(saveAction = vi.fn().mockResolvedValue({ status: "idle" }), creators = [creator], lockExistingCreators = false, deleteAction = vi.fn()) {
-  await act(async () => root.render(<CreatorManager creators={creators} claims={[]} saveAction={saveAction} trashAction={deleteAction} restoreAction={deleteAction} reviewAction={async () => {}} lockExistingCreators={lockExistingCreators} />));
+async function render(saveAction = vi.fn().mockResolvedValue({ status: "idle" }), creators = [creator], lockExistingCreators = false, deleteAction = vi.fn(), permanentAction = vi.fn().mockResolvedValue({ status: "error", message: "Try again." })) {
+  await act(async () => root.render(<CreatorManager creators={creators} claims={[]} saveAction={saveAction} trashAction={deleteAction} restoreAction={deleteAction} deleteAction={permanentAction} reviewAction={async () => {}} lockExistingCreators={lockExistingCreators} />));
   return saveAction;
 }
 const dialog = () => container.querySelector<HTMLDialogElement>("dialog")!;
@@ -93,6 +100,40 @@ it("opens trash confirmation without blocking the click on a browser confirm dia
   await act(async () => button("Cancel").click());
   expect(dialog()).toBeNull();
   expect(document.activeElement).toBe(target);
+});
+
+it("offers permanent deletion only in Trash and requires the exact username", async () => {
+  const remove = vi.fn().mockResolvedValue({ status: "error", message: "Creator changed. Refresh Trash." });
+  await render(undefined, [creator], false, undefined, remove);
+  expect(container.querySelector('[aria-label="Delete forever: Studio One"]')).toBeNull();
+  await render(undefined, [{ ...creator, ownerUserId: "owner", trashedAt: "2026-10-30T00:00:00Z" }], false, undefined, remove);
+  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Delete forever: Studio One"]')!;
+  trigger.focus(); await act(async () => trigger.click());
+  expect(dialog().textContent).toContain("all 2 attributed works");
+  expect(dialog().textContent).toContain("linked user account will also be closed");
+  expect(button("Delete forever").disabled).toBe(true);
+  await change("confirmation", "wrong"); expect(button("Delete forever").disabled).toBe(true);
+  await change("confirmation", creator.username!); expect(button("Delete forever").disabled).toBe(false);
+  await submit();
+  expect(remove).toHaveBeenCalledOnce();
+  expect(remove.mock.calls[0][1].get("confirmation")).toBe(creator.username);
+  expect(remove.mock.calls[0][1].get("expectedWorkCount")).toBe("2");
+  expect(dialog().querySelector('[role="alert"]')?.textContent).toBe("Creator changed. Refresh Trash.");
+  await act(async () => button("Cancel").click());
+  expect(document.activeElement).toBe(trigger);
+});
+
+it("lets Clerk's verification portal receive focus and restores confirmation if verification is canceled", async () => {
+  const remove = vi.fn().mockResolvedValue({ clerk_error: "reverification" });
+  await render(undefined, [{ ...creator, trashedAt: "2026-10-30T00:00:00Z" }], false, undefined, remove);
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Delete forever: Studio One"]')!.click());
+  await change("confirmation", creator.username!);
+  await submit();
+  expect(HTMLDialogElement.prototype.show).toHaveBeenCalledOnce();
+  expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalledTimes(2);
+  expect(dialog().querySelector('[role="alert"]')?.textContent).toContain("Nothing was deleted");
+  expect(input("confirmation").value).toBe(creator.username);
+  expect(dialog().open).toBe(true);
 });
 
 it("moves the chosen creator to Trash without needing to open its editor", async () => {

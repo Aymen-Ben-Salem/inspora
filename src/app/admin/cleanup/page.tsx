@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { CleanupControl } from "../../../components/admin/cleanup-controls";
 import { getCleanupItems, getCleanupSummary } from "../../../features/submissions/cleanup-admin";
 
-const labels: Record<string, string> = { delete_account: "Account deletion", delete_private_upload: "Private upload deletion", delete_public_orphan: "Unused publication files" };
+const labels: Record<string, string> = { delete_account: "Account deletion", delete_private_upload: "Private upload deletion", delete_public_orphan: "Unused publication files", delete_creator_media: "Deleted creator's files" };
 
 async function CleanupContent() {
   const [summary, items] = await Promise.all([getCleanupSummary(), getCleanupItems()]);

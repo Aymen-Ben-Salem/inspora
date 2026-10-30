@@ -4,6 +4,7 @@ import { parseAdminPage } from "@/features/admin/library-pagination";
 import {
   trashCreatorAction,
   restoreCreatorAction,
+  deleteCreatorAction,
   reviewCreatorClaimAction,
   saveCreatorAction,
 } from "@/features/admin/creator-actions";
@@ -15,9 +16,9 @@ import {
 export default async function CreatorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; trashed?: string; restored?: string; view?: string; q?: string | string[]; page?: string | string[]; claimsPage?: string | string[] }>;
+  searchParams: Promise<{ saved?: string; trashed?: string; restored?: string; deleted?: string; cleanup?: string; view?: string; q?: string | string[]; page?: string | string[]; claimsPage?: string | string[] }>;
 }) {
-  const { saved, trashed, restored, view, q, page, claimsPage } = await searchParams;
+  const { saved, trashed, restored, deleted, cleanup, view, q, page, claimsPage } = await searchParams;
   const trash = view === "trash";
   const query = (Array.isArray(q) ? q[0] : q)?.trim().slice(0, 100) ?? "";
   const [creators, claims] = await Promise.all([
@@ -35,9 +36,10 @@ export default async function CreatorsPage({
             Manage creator profiles, editorial credit, and verified identity claims.
           </p>
         </div>
-        {saved || trashed || restored ? (
+        {saved || trashed || restored || deleted ? (
           <p role="status" className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">
-            {trashed ? "Creator moved to Trash." : restored ? "Creator restored." : "Creator saved."}
+            {deleted ? (cleanup === "pending" ? "Profile and work removed. Account or file cleanup is still pending." : "Creator and their work permanently deleted.") : trashed ? "Creator moved to Trash." : restored ? "Creator restored." : "Creator saved."}
+            {deleted && cleanup === "pending" ? <> <Link href="/admin/cleanup" className="focus-ring rounded underline underline-offset-4">Review cleanup</Link></> : null}
             {trashed ? <> <Link href="/admin/creators?view=trash" className="focus-ring rounded underline underline-offset-4">View Trash</Link></> : null}
           </p>
         ) : null}
@@ -50,6 +52,7 @@ export default async function CreatorsPage({
         saveAction={saveCreatorAction}
         trashAction={trashCreatorAction}
         restoreAction={restoreCreatorAction}
+        deleteAction={deleteCreatorAction}
         reviewAction={reviewCreatorClaimAction}
         lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
       />

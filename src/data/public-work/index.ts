@@ -13,6 +13,7 @@ import { readSavedCounts, readSavedPage, savedCountRequestSchema, savedPageReque
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import { PUBLIC_WORK_CACHE_LIFE, PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_POSTS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG } from "./cache";
 import { evaluationTime } from "./clock";
+import { publicCreatorPredicate } from "./creator-visibility";
 import { decodePersistedDesignArchiveCursor, encodeDesignArchiveCursor, InvalidPublicWorkCursorError, type DesignArchiveCursorKeys } from "./cursor";
 import { mapPostCard } from "./design-presentation";
 import { mapPublishedLogo } from "./logo-presentation";
@@ -114,6 +115,7 @@ async function readWebsiteArchive(view: "latest" | "featured"): Promise<WorkPage
   const rows = await database.query.websites.findMany({
     where: and(
       eq(websites.status, "published"),
+      publicCreatorPredicate(websites.creatorId),
       isNotNull(websites.publishedAt),
       lte(websites.publishedAt, now),
       completeWebsiteRecordingPredicate(),
@@ -144,6 +146,7 @@ async function readLogoArchive(): Promise<WorkPage<Logo>> {
   const rows = await database.query.logos.findMany({
     where: and(
       eq(logos.status, "published"),
+      publicCreatorPredicate(logos.creatorId),
       isNotNull(logos.publishedAt),
       lte(logos.publishedAt, now),
     ),
@@ -194,6 +197,7 @@ async function readDesignArchive(
     },
     where: and(
       eq(posts.status, "published"),
+      publicCreatorPredicate(posts.creatorId),
       isNotNull(posts.publishedAt),
       lte(posts.publishedAt, now),
       category ? eq(posts.category, category) : undefined,

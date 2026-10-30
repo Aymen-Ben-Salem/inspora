@@ -55,6 +55,14 @@ it("searches after deleting characters and restores the directory when cleared",
   expect(navigation.replace).toHaveBeenLastCalledWith("/admin/creators", { scroll: false });
 });
 
+it("keeps searches inside Trash while clearing success messages and pagination", async () => {
+  window.history.replaceState(null, "", "/admin/creators?view=trash&page=3&restored=true&trashed=true");
+  await render();
+  await type("Studio");
+  await wait();
+  expect(navigation.replace).toHaveBeenLastCalledWith("/admin/creators?view=trash&q=Studio", { scroll: false });
+});
+
 it("keeps focus and newer text when a preceding search result arrives", async () => {
   await render();
   const field = input();

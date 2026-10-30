@@ -43,6 +43,8 @@ export function CreatorDirectorySearch({ query }: { query: string }) {
     params.delete("page");
     params.delete("saved");
     params.delete("deleted");
+    params.delete("trashed");
+    params.delete("restored");
     requestedQueryRef.current = nextQuery;
     const href = `/admin/creators${params.size ? `?${params}` : ""}` as Route;
     startTransition(() => router.replace(href, { scroll: false }));

@@ -28,6 +28,7 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("fetch", vi.fn());
+  vi.stubGlobal("confirm", vi.fn(() => true));
   upload.prepare.mockReset().mockResolvedValue({ type: "image", url: "https://media.example.com/creators/new.webp", storageProvider: "r2", storageKey: "creators/new.webp" });
   vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
   vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
@@ -39,7 +40,7 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function render(saveAction = vi.fn().mockResolvedValue({ status: "idle" }), creators = [creator], lockExistingCreators = false, deleteAction = vi.fn()) {
-  await act(async () => root.render(<CreatorManager creators={creators} claims={[]} saveAction={saveAction} deleteAction={deleteAction} reviewAction={async () => {}} lockExistingCreators={lockExistingCreators} />));
+  await act(async () => root.render(<CreatorManager creators={creators} claims={[]} saveAction={saveAction} trashAction={deleteAction} restoreAction={deleteAction} reviewAction={async () => {}} lockExistingCreators={lockExistingCreators} />));
   return saveAction;
 }
 const dialog = () => container.querySelector<HTMLDialogElement>("dialog")!;
@@ -59,11 +60,11 @@ async function submit() {
   await act(async () => form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter })));
 }
 
-it("puts View work, Edit, and Delete together and opens all profile fields without a form below the directory", async () => {
+it("puts View work, Edit, and Trash together and opens all profile fields without a form below the directory", async () => {
   await render();
   expect(container.querySelector('[name="creatorName"]')).toBeNull();
   const edit = container.querySelector('[aria-label="Edit Studio One"]')!;
-  expect(edit.parentElement?.textContent).toBe("View workEditDelete");
+  expect(edit.parentElement?.textContent).toBe("View workEditMove to Trash");
   await open();
   expect(dialog().open).toBe(true);
   expect(document.activeElement).toBe(input("creatorName"));
@@ -75,10 +76,10 @@ it("puts View work, Edit, and Delete together and opens all profile fields witho
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("deletes the creator from the chosen row without needing to open its editor", async () => {
+it("moves the chosen creator to Trash without needing to open its editor", async () => {
   const remove = vi.fn().mockResolvedValue({ status: "error", message: "This creator has claim history." });
   await render(undefined, [creator, { ...second, workCount: 0 }], true, remove);
-  const target = container.querySelector<HTMLButtonElement>('[aria-label="Delete Studio Two"]')!;
+  const target = container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio Two"]')!;
   expect(target.disabled).toBe(false);
   await act(async () => target.click());
   expect(remove).toHaveBeenCalledOnce();
@@ -89,14 +90,27 @@ it("deletes the creator from the chosen row without needing to open its editor",
 
 it.each([
   { workCount: 1 }, { ownerUserId: "owner" }, { xProviderId: "provider" }, { pendingClaimCount: 1 }, { recordOrigin: "mirrored" as const },
-])("keeps unsafe creator deletion disabled for %j", async (restriction) => {
-  const remove = vi.fn();
+])("allows reversible Trash for creators with work, ownership, claims or imported origin: %j", async (restriction) => {
+  const remove = vi.fn().mockResolvedValue({ status: "idle" });
   await render(undefined, [{ ...creator, workCount: 0, ...restriction }], true, remove);
-  const target = container.querySelector<HTMLButtonElement>('[aria-label="Delete Studio One"]')!;
-  expect(target.disabled).toBe(true);
-  expect(target.title).toBeTruthy();
+  const target = container.querySelector<HTMLButtonElement>('[aria-label="Move to Trash: Studio One"]')!;
+  expect(target.disabled).toBe(false);
   await act(async () => target.click());
-  expect(remove).not.toHaveBeenCalled();
+  expect(remove).toHaveBeenCalledOnce();
+  expect(remove.mock.calls[0][1].get("operation")).toBe("trash");
+});
+
+it("restores a creator from Trash and permits cancelling a trash request", async () => {
+  const changeState = vi.fn().mockResolvedValue({ status: "idle" });
+  await render(undefined, [{ ...creator, trashedAt: "2026-10-30T00:00:00Z" }], true, changeState);
+  await act(async () => button("Restore").click());
+  expect(changeState.mock.calls[0][1].get("operation")).toBe("restore");
+  expect(window.confirm).not.toHaveBeenCalled();
+  changeState.mockClear();
+  await render(undefined, [creator], true, changeState);
+  vi.mocked(window.confirm).mockReturnValue(false);
+  await act(async () => button("Move to Trash").click());
+  expect(changeState).not.toHaveBeenCalled();
 });
 
 it("submits every edited profile field and retains the draft on errors for retry", async () => {

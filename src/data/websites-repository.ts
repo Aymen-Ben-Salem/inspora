@@ -6,6 +6,7 @@ import { websiteMedia, websites } from "@/db/schema";
 import type { Website } from "@/domain/website";
 import type { PostView } from "@/domain/post";
 import { readWorkPage } from "./public-work";
+import { publicCreatorPredicate } from "./public-work/creator-visibility";
 
 // Compatibility for existing non-archive consumers; not part of the reads API.
 export { mapPublishedWebsite, hasCompleteRecording, completeWebsiteRecordingPredicate } from "./public-work/website-presentation";
@@ -26,7 +27,7 @@ export async function getPublishedWebsiteAsset(id: string) {
   const database = getDatabase();
   if (!database) return null;
   const row = await database.query.websites.findFirst({
-    where: and(eq(websites.id, id), eq(websites.status, "published")),
+    where: and(eq(websites.id, id), eq(websites.status, "published"), publicCreatorPredicate(websites.creatorId)),
     columns: { slug: true },
     with: {
       media: {

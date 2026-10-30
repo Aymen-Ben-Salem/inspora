@@ -62,7 +62,7 @@ export async function approveCreatorOwnershipClaim(
       .for("update");
     const lockedProvisional = lockedCreators.find((row) => row.id === provisional.id);
     const target = lockedCreators.find((row) => row.id === claim.targetCreatorId);
-    if (!lockedProvisional || !target || lockedProvisional.ownerUserId !== claim.requesterUserId) {
+    if (!lockedProvisional || lockedProvisional.trashedAt || !target || lockedProvisional.ownerUserId !== claim.requesterUserId) {
       return { status: "conflict" };
     }
     if (!visibleClaimTarget(target)) return { status: "conflict", message: "This creator is unavailable in this environment." };

@@ -25,20 +25,12 @@ import {
 const inputClass =
   "focus-ring h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition-colors placeholder:text-[#aaa] focus:border-black/30";
 
-function deletionRestriction(creator: AdminCreatorRecord, lockExistingCreators: boolean) {
-  if (lockExistingCreators && creator.recordOrigin !== "preview") return "Only Preview-created records can be deleted in Preview.";
-  if (creator.ownerUserId || creator.xProviderId) return "Claimed or provider-associated creators cannot be deleted.";
-  if (creator.workCount > 0) return "Creators with credited work cannot be deleted.";
-  if (creator.pendingClaimCount > 0) return "Creators with pending claims cannot be deleted.";
-  return undefined;
-}
-
 export function CreatorManager({
   creators,
   claims,
   saveAction,
-  deleteAction,
-  lockExistingCreators,
+  trashAction,
+  restoreAction,
   directoryPage,
   claimsPage,
 }: {
@@ -48,17 +40,18 @@ export function CreatorManager({
     state: AdminActionState,
     formData: FormData,
   ) => Promise<AdminActionState>;
-  deleteAction: (
+  trashAction: (
     state: AdminActionState,
     formData: FormData,
   ) => Promise<AdminActionState>;
+  restoreAction: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   reviewAction?: (formData: FormData) => Promise<unknown>;
   lockExistingCreators: boolean;
-  directoryPage?: { page: number; totalPages: number; query: string };
+  directoryPage?: { page: number; totalPages: number; query: string; trash?: boolean };
   claimsPage?: { page: number; totalPages: number };
 }) {
   const [deleteState, deleteFormAction, isDeleting] = useActionState(
-    deleteAction,
+    (state: AdminActionState, formData: FormData) => formData.get("operation") === "restore" ? restoreAction(state, formData) : trashAction(state, formData),
     initialAdminActionState,
   );
   const [creator, setCreator] = useState<AdminCreatorInput>(blankAdminCreator());
@@ -119,10 +112,14 @@ export function CreatorManager({
               />
             </label>}
           </div>
-          {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
+          <nav aria-label="Creator status" className="flex gap-2">
+            <Link href="/admin/creators" aria-current={!directoryPage?.trash ? "page" : undefined} className={`focus-ring rounded-full px-4 py-2 text-sm ${!directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}>Active</Link>
+            <Link href="/admin/creators?view=trash" aria-current={directoryPage?.trash ? "page" : undefined} className={`focus-ring rounded-full px-4 py-2 text-sm ${directoryPage?.trash ? "bg-[#262626] text-white" : "bg-[#f3f3f1] text-[#555]"}`}>Trash</Link>
+          </nav>
+          {directoryPage?.trash ? <p className="text-sm leading-6 text-[#666]">Profiles and their work are hidden from the public site. Restore a creator to bring them back. Nothing here is permanently deleted.</p> : null}
+          {directoryPage ? <AdminLibraryPagination path="/admin/creators" page={directoryPage.page} totalPages={directoryPage.totalPages} query={{ q: directoryPage.query, view: directoryPage.trash ? "trash" : undefined, claimsPage: String(claimsPage?.page ?? 1) }} /> : null}
           <div className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
             {filteredCreators.map((item) => {
-              const deleteRestriction = deletionRestriction(item, lockExistingCreators);
               return (
               <div
                 key={item.id}
@@ -151,11 +148,14 @@ export function CreatorManager({
                     onClick={() => { setIsEditorOpen(false); setWorkCreator(item); }} className="focus-ring shrink-0 rounded-full border border-black/10 bg-white px-3 py-2 text-xs hover:bg-[#efefec]">View work</button>
                   <button type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
                     onClick={() => openEditor(item)} className="focus-ring shrink-0 rounded-full bg-black px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#252525]">Edit</button>
-                  <form action={deleteFormAction} className="flex">
+                  <form action={deleteFormAction} className="flex" onSubmit={(event) => {
+                    if (!item.trashedAt && !window.confirm(`Move ${item.name} to Trash? Their profile and work will be hidden. You can restore them from Trash.`)) event.preventDefault();
+                  }}>
                     <input type="hidden" name="creatorId" value={item.id} />
-                    <button type="submit" aria-label={`Delete ${item.name}`} title={deleteRestriction ?? "Delete unused creator"}
-                      disabled={Boolean(deleteRestriction) || isDeleting}
-                      className="focus-ring shrink-0 rounded-full border border-red-200 bg-white px-3 py-2 text-xs text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">Delete</button>
+                    <input type="hidden" name="operation" value={item.trashedAt ? "restore" : "trash"} />
+                    <button type="submit" aria-label={`${item.trashedAt ? "Restore" : "Move to Trash:"} ${item.name}`}
+                      disabled={isDeleting}
+                      className="focus-ring shrink-0 cursor-pointer rounded-full border border-black/10 bg-[#262626] px-3 py-2 text-xs text-white hover:bg-[#3f3f3f] disabled:cursor-wait disabled:opacity-40">{item.trashedAt ? "Restore" : "Move to Trash"}</button>
                   </form>
                 </div>
               </div>
@@ -216,7 +216,7 @@ export function CreatorManager({
             No creator claims have been submitted.
           </p>
         ) : null}
-        {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1) }} /> : null}
+        {claimsPage ? <AdminLibraryPagination path="/admin/creators" page={claimsPage.page} totalPages={claimsPage.totalPages} pageParam="claimsPage" query={{ q: directoryPage?.query, page: String(directoryPage?.page ?? 1), view: directoryPage?.trash ? "trash" : undefined }} /> : null}
       </aside>
       {workCreator ? <CreatorWorkDrawer creator={workCreator} onDismiss={dismissWork} /> : null}
       {isEditorOpen ? <CreatorEditDrawer key={editorSession} creator={selected} saveAction={saveAction} onDismiss={dismissEditor} /> : null}

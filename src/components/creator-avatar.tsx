@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 import type { MediaStorageProvider } from "@/storage/types";
+import { creatorAvatarUrl } from "@/features/creators/avatar-image-url";
 
 import { ResponsiveR2Image } from "./responsive-r2-image";
 
@@ -46,10 +47,11 @@ export function CreatorAvatar({
   ) : (
     <Image
       {...transitionAttributes}
-      src={creator.avatarUrl}
+      src={creatorAvatarUrl(creator.avatarUrl)}
       alt=""
       width={width}
       height={height}
+      sizes={sizes}
       className={className}
     />
   );

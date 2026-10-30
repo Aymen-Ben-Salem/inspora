@@ -51,6 +51,7 @@ function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {
     avatarUrl: input.avatarUrl,
     avatarStorageProvider: null,
     avatarStorageKey: null,
+    trashedAt: null,
     handle: null,
     url: null,
     xProfileUrl: null,

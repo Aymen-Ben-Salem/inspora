@@ -6,6 +6,7 @@ import { logos, posts, savedPosts, websites } from "@/db/schema";
 import { isSavedCategory, type SavedCategory } from "@/domain/saved-post";
 import type { WorkCardData } from "@/domain/work-card";
 import { evaluationTime } from "./clock";
+import { publicCreatorPredicate } from "./creator-visibility";
 import { mapPostCard } from "./design-presentation";
 import { mapPublishedLogo } from "./logo-presentation";
 import { decodeSavedCursor, encodeSavedCursor } from "./saved-cursor";
@@ -29,7 +30,7 @@ const savedCategory = sql<SavedCategory>`case when ${savedPosts.logoId} is not n
 
 function eligibleSavedWhere(request: SavedWorkCountRequest, now: Date) {
   const published = (table: typeof posts | typeof logos | typeof websites) =>
-    and(eq(table.status, "published"), isNotNull(table.publishedAt), lte(table.publishedAt, now));
+    and(eq(table.status, "published"), isNotNull(table.publishedAt), lte(table.publishedAt, now), publicCreatorPredicate(table.creatorId));
   return and(
     eq(savedPosts.userId, request.scope.userId),
     or(published(posts), published(logos), and(published(websites), completeWebsiteRecordingPredicate())),

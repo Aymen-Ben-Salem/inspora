@@ -48,7 +48,7 @@ function button(label: string) {
 
 it("fetches nothing on the creator tab until View work is clicked, then opens that creator's work", async () => {
   const action = vi.fn().mockResolvedValue({ status: "idle" });
-  await act(async () => root.render(<CreatorManager creators={[creator]} claims={[]} saveAction={action} deleteAction={action} reviewAction={async () => {}} lockExistingCreators={false} />));
+  await act(async () => root.render(<CreatorManager creators={[creator]} claims={[]} saveAction={action} trashAction={action} restoreAction={action} reviewAction={async () => {}} lockExistingCreators={false} />));
   expect(fetchMock).not.toHaveBeenCalled();
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="View work by Studio One"]')!.click());
   expect(container.querySelector("dialog")?.open).toBe(true);

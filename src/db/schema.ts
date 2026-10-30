@@ -44,6 +44,7 @@ export const creators = pgTable(
     avatarUrl: text("avatar_url").notNull(),
     avatarStorageProvider: text("avatar_storage_provider"),
     avatarStorageKey: text("avatar_storage_key"),
+    trashedAt: timestamp("trashed_at", { withTimezone: true, mode: "date" }),
     ...timestamps,
   },
   (table) => [

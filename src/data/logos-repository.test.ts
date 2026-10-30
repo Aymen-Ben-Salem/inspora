@@ -85,6 +85,7 @@ describe("published logos repository", () => {
         avatarUrl: "/brand/default-avatar.svg",
         avatarStorageProvider: null,
         avatarStorageKey: null,
+        trashedAt: null,
         createdAt: publishedAt,
         updatedAt: publishedAt,
       },

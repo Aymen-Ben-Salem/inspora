@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { after } from "next/server";
 import { getDatabase, requireDatabase } from "@/db/client";
@@ -22,6 +22,8 @@ export {
   AdminCreatorMutationError,
   createAdminCreator,
   deleteAdminCreator,
+  trashAdminCreator,
+  restoreAdminCreator,
   getAdminCreatorClaims,
   getAdminCreatorClaimPage,
   getAdminCreatorDirectory,
@@ -38,7 +40,7 @@ export type CreatorOwnerPrincipal = Readonly<{ userId: string }>;
 export async function getCreatorSummary(id: string): Promise<CreatorSummary | null> {
   const database = requireDatabase();
   const row = await database.query.creators.findFirst({
-    where: eq(creators.id, id),
+    where: and(eq(creators.id, id), isNull(creators.trashedAt)),
   });
   return row ? mapCreatorSummary(row) : null;
 }
@@ -147,11 +149,12 @@ export async function resolvePublicCreatorProfile(
           avatarStorageProvider: true,
           url: true,
           xProfileUrl: true,
+          trashedAt: true,
         },
       },
     },
   });
-  if (!alias?.creator?.username) return null;
+  if (!alias?.creator?.username || alias.creator.trashedAt) return null;
 
   return {
     profile: mapPublicCreatorProfile(alias.creator),

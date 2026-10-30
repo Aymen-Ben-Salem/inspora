@@ -20,6 +20,7 @@ import { PUBLISHED_POSTS_CACHE_TAG } from "./public-work/cache";
 import { mapPostCard } from "./public-work/design-presentation";
 import { InvalidPublicWorkCursorError } from "./public-work/cursor";
 import { readWorkPage } from "./public-work";
+import { publicCreatorPredicate } from "./public-work/creator-visibility";
 import { seedPosts } from "./seed-posts";
 
 export { PUBLISHED_POSTS_CACHE_TAG } from "./public-work/cache";
@@ -272,7 +273,7 @@ export async function getPostCardsByIds(ids: string[]): Promise<PostCardData[]> 
 }
 
 function publishedWhere(now: Date) {
-  return and(eq(posts.status, "published"), lte(posts.publishedAt, now));
+  return and(eq(posts.status, "published"), lte(posts.publishedAt, now), publicCreatorPredicate(posts.creatorId));
 }
 
 function fallbackNavigation(post: PostPosition) {

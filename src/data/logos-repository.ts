@@ -7,6 +7,7 @@ import { logos } from "@/db/schema";
 import type { Logo } from "@/domain/logo";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 import { readWorkPage } from "./public-work";
+import { publicCreatorPredicate } from "./public-work/creator-visibility";
 
 export { PUBLISHED_LOGOS_CACHE_TAG } from "./public-work/cache";
 export { mapPublishedLogo } from "./public-work/logo-presentation";
@@ -49,6 +50,7 @@ export async function getPublishedLogoAsset(
     where: and(
       eq(logos.id, id),
       eq(logos.status, "published"),
+      publicCreatorPredicate(logos.creatorId),
       lte(logos.publishedAt, new Date()),
     ),
     with: {

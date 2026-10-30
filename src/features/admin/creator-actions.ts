@@ -14,6 +14,8 @@ import {
   reviewCreatorOwnershipClaim,
   createAdminCreator,
   deleteAdminCreator,
+  trashAdminCreator,
+  restoreAdminCreator,
   updateAdminCreator,
 } from "@/features/creators/identity";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
@@ -104,6 +106,20 @@ export async function deleteCreatorAction(
   }
   revalidateCreatorPaths();
   redirect("/admin/creators?deleted=true" as Route);
+}
+
+export async function trashCreatorAction(_previousState: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  try { await trashAdminCreator(idSchema.parse(formData.get("creatorId"))); }
+  catch (error) { return creatorErrorState(error); }
+  revalidateCreatorPaths();
+  redirect("/admin/creators?trashed=true" as Route);
+}
+
+export async function restoreCreatorAction(_previousState: AdminActionState, formData: FormData): Promise<AdminActionState> {
+  try { await restoreAdminCreator(idSchema.parse(formData.get("creatorId"))); }
+  catch (error) { return creatorErrorState(error); }
+  revalidateCreatorPaths();
+  redirect("/admin/creators?view=trash&restored=true" as Route);
 }
 
 export async function saveCreatorProfileAction(

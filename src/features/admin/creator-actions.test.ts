@@ -10,6 +10,8 @@ const external = vi.hoisted(() => ({
   parse: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  trash: vi.fn(),
+  restore: vi.fn(),
   remove: vi.fn(),
   review: vi.fn(),
 }));
@@ -36,6 +38,8 @@ vi.mock("@/features/creators/identity", () => ({
   AdminCreatorMutationError: class extends Error {},
   createAdminCreator: external.create,
   deleteAdminCreator: vi.fn(),
+  trashAdminCreator: external.trash,
+  restoreAdminCreator: external.restore,
   updateAdminCreator: external.update,
   reviewCreatorOwnershipClaim: external.review,
 }));
@@ -47,7 +51,7 @@ vi.mock("@/storage/media-storage", () => ({
 }));
 
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
-import { reviewCreatorClaimAction, saveCreatorAction, saveCreatorProfileAction } from "./creator-actions";
+import { reviewCreatorClaimAction, saveCreatorAction, saveCreatorProfileAction, trashCreatorAction, restoreCreatorAction } from "./creator-actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -63,6 +67,30 @@ beforeEach(() => {
       { storageProvider: "r2", storageKey: "creators/old.webp", type: "image" },
     ],
   });
+});
+
+it.each([
+  [trashCreatorAction, external.trash, "/admin/creators?trashed=true"],
+  [restoreCreatorAction, external.restore, "/admin/creators?view=trash&restored=true"],
+] as const)("refreshes all public work after a committed lifecycle change without deleting media (%#)", async (action, mutate, location) => {
+  const form = new FormData();
+  form.set("creatorId", "11111111-1111-4111-8111-111111111111");
+  mutate.mockResolvedValueOnce(undefined);
+  await expect(action({ status: "idle" }, form)).rejects.toThrow("redirect");
+  expect(mutate).toHaveBeenCalledWith(form.get("creatorId"));
+  for (const tag of ["posts", "logos", "websites", PUBLIC_CREATOR_PROFILES_CACHE_TAG]) expect(external.updateTag).toHaveBeenCalledWith(tag);
+  expect(external.remove).not.toHaveBeenCalled();
+  expect(external.redirect).toHaveBeenCalledWith(location);
+});
+
+it.each([[trashCreatorAction, external.trash], [restoreCreatorAction, external.restore]] as const)("does not invalidate or delete media if a lifecycle change fails (%#)", async (action, mutate) => {
+  const form = new FormData();
+  form.set("creatorId", "11111111-1111-4111-8111-111111111111");
+  mutate.mockRejectedValueOnce(new Error("Creator not found."));
+  await expect(action({ status: "idle" }, form)).resolves.toMatchObject({ status: "error" });
+  expect(external.remove).not.toHaveBeenCalled();
+  expect(external.updateTag).not.toHaveBeenCalled();
+  expect(external.redirect).not.toHaveBeenCalled();
 });
 
 it("runs cleanup and creator-profile invalidation only after a committed save", async () => {

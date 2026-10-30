@@ -269,7 +269,7 @@ it("retains the creator profile details when saving returns an error", async () 
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(async () => root.render(<CreatorManager creators={[]} claims={[]} saveAction={action} deleteAction={action} reviewAction={async () => {}} lockExistingCreators={false} />));
+    await act(async () => root.render(<CreatorManager creators={[]} claims={[]} saveAction={action} trashAction={action} restoreAction={action} reviewAction={async () => {}} lockExistingCreators={false} />));
     await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Create a new creator")!.click());
     const form = container.querySelector("dialog form")! as HTMLFormElement;
     await enterText(textField(form, "creatorName"), "Keep this creator");

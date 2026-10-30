@@ -1,0 +1,1 @@
+ALTER TABLE "creators" ADD COLUMN "trashed_at" timestamp with time zone;

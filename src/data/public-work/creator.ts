@@ -11,6 +11,7 @@ import type { ProfileWorkCounts } from "@/features/profiles/types";
 import { PUBLIC_CREATOR_PROFILES_CACHE_TAG } from "@/features/profiles/cache";
 import { PUBLIC_WORK_CACHE_LIFE, PUBLISHED_POSTS_CACHE_TAG, PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG } from "./cache";
 import { evaluationTime } from "./clock";
+import { publicCreatorPredicate } from "./creator-visibility";
 import { mapPostCard } from "./design-presentation";
 import { mapPublishedLogo } from "./logo-presentation";
 import { completeWebsiteRecordingPredicate, hasCompleteRecording, mapPublishedWebsite } from "./website-presentation";
@@ -54,16 +55,19 @@ function eligibleCreatorWork(request: CreatorWorkCountRequest, now: Date) {
   return sql`
     select 'post' as kind, ${creatorKindRank('post')}::int as kind_rank, ${posts.id} as id, ${posts.publishedAt} as published_at, ${posts.category} as filter
     from ${posts} where ${posts.creatorId} = ${id}::uuid and ${posts.status} = 'published' and ${posts.publishedAt} <= ${now}
+      and ${publicCreatorPredicate(posts.creatorId)}
       and ${filter === "all" || isPostCategory(filter)} and (${filter === "all"} or ${posts.category} = ${filter})
     union all
     select 'website', ${creatorKindRank('website')}::int, ${websites.id}, ${websites.publishedAt}, 'websites'
     from ${websites} where ${websites.creatorId} = ${id}::uuid and ${websites.status} = 'published' and ${websites.publishedAt} <= ${now}
+      and ${publicCreatorPredicate(websites.creatorId)}
       and (${completeWebsiteRecordingPredicate()}) and ${filter === "all" || filter === "websites"}
     union all
     select case when ${logos.kind} = 'icon' then 'icon' else 'logo' end,
       case when ${logos.kind} = 'icon' then ${creatorKindRank('icon')}::int else ${creatorKindRank('logo')}::int end, ${logos.id}, ${logos.publishedAt},
       case when ${logos.kind} = 'icon' then 'app-icons' else 'logos' end
     from ${logos} where ${logos.creatorId} = ${id}::uuid and ${logos.status} = 'published' and ${logos.publishedAt} <= ${now}
+      and ${publicCreatorPredicate(logos.creatorId)}
       and (${filter === "all"} or (${filter === "logos"} and ${logos.kind} = 'logo') or (${filter === "app-icons"} and ${logos.kind} = 'icon'))
   `;
 }

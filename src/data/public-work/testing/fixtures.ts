@@ -39,6 +39,7 @@ export function websiteFixture(): Parameters<typeof mapPublishedWebsite>[0] {
         avatarUrl: "/brand/default-avatar.svg",
         avatarStorageProvider: null,
         avatarStorageKey: null,
+        trashedAt: null,
         createdAt: date,
         updatedAt: date,
       },

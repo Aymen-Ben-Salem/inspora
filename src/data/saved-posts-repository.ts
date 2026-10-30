@@ -1,4 +1,5 @@
 import "server-only";
+import { publicCreatorPredicate } from "./public-work/creator-visibility";
 
 import { and, eq, inArray, lte, or, sql } from "drizzle-orm";
 
@@ -64,7 +65,7 @@ export async function savePostForUser(userId: string, postId: string) {
   ] as const;
   for (const { table, key } of targets) {
     const [item] = await database.select({ id: table.id }).from(table)
-      .where(and(eq(table.id, postId), eq(table.status, "published"), lte(table.publishedAt, new Date())))
+      .where(and(eq(table.id, postId), eq(table.status, "published"), lte(table.publishedAt, new Date()), publicCreatorPredicate(table.creatorId)))
       .limit(1);
     if (!item) continue;
     await database.insert(savedPosts).values({ userId, [key]: postId }).onConflictDoNothing();

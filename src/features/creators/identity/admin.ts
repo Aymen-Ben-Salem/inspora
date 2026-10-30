@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { adminXProfileAccountId as resolveAdminXProfileAccountId } from "./x-profile";
 import { XLookupError } from "../x-api";
-import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
@@ -411,6 +411,8 @@ export async function saveAdminCreatorForAttribution(
     .for("update");
   assertAttributionCreatorVisible(existing);
 
+  if (existing.trashedAt) throw new AdminCreatorMutationError("conflict", "Restore this creator from Trash before attributing work to them.");
+
   if (shouldLockExistingCreator(existing, dataEnvironment)) {
     await transaction
       .update(creators)
@@ -439,6 +441,7 @@ export async function getAdminCreatorOptions() {
   await requireAdmin();
   const database = requireDatabase();
   const rows = await database.query.creators.findMany({
+    where: isNull(creators.trashedAt),
     orderBy: [asc(creators.name), asc(creators.id)],
   });
   return rows.filter((row) =>
@@ -446,27 +449,28 @@ export async function getAdminCreatorOptions() {
   ).map(mapAdminCreatorAttribution);
 }
 
-function creatorDirectoryWhere(query = "") {
+function creatorDirectoryWhere(query = "", trash = false) {
   const term = query.trim().slice(0, 100);
   return and(
+    trash ? isNotNull(creators.trashedAt) : isNull(creators.trashedAt),
     process.env.DATA_ENVIRONMENT === "development" ? undefined : sql`(${creators.handle} is null or lower(trim(${creators.handle})) not like 'dev-%')`,
     term ? or(...[creators.name, creators.handle, creators.username, creators.url, creators.xProfileUrl].map((column) => ilike(column, `%${term}%`))) : undefined,
   );
 }
 
-export async function getAdminCreatorDirectory({ query = "", page = 1 }: { query?: string; page?: number } = {}) {
+export async function getAdminCreatorDirectory({ query = "", page = 1, trash = false }: { query?: string; page?: number; trash?: boolean } = {}) {
   await requireAdmin();
-  const [total] = await requireDatabase().select({ total: count() }).from(creators).where(creatorDirectoryWhere(query));
+  const [total] = await requireDatabase().select({ total: count() }).from(creators).where(creatorDirectoryWhere(query, trash));
   const pagination = adminPageBounds(total?.total ?? 0, page);
-  const items = await getAdminCreators({ query, page: pagination.page });
+  const items = await getAdminCreators({ query, page: pagination.page, trash });
   return { ...pagination, items };
 }
 
-export async function getAdminCreators(options: { query?: string; page?: number } = {}) {
+export async function getAdminCreators(options: { query?: string; page?: number; trash?: boolean } = {}) {
   await requireAdmin();
   const database = requireDatabase();
   const rows = await database.query.creators.findMany({
-    where: creatorDirectoryWhere(options.query),
+    where: creatorDirectoryWhere(options.query, options.trash),
     orderBy: [asc(creators.name), asc(creators.id)],
     ...(options.page ? { limit: ADMIN_LIBRARY_PAGE_SIZE, offset: (options.page - 1) * ADMIN_LIBRARY_PAGE_SIZE } : {}),
   });
@@ -587,6 +591,22 @@ export async function updateAdminCreator(
     };
   });
 }
+
+async function setCreatorTrashState(id: string, trash: boolean) {
+  const { userId: actorId } = await requireAdmin();
+  return writeAdminCreator(async (tx) => {
+    const [existing] = await tx.select().from(creators).where(eq(creators.id, id)).for("update");
+    assertAttributionCreatorVisible(existing);
+    if (Boolean(existing.trashedAt) === trash) return;
+    // This reversible visibility change applies to owned and imported creators too.
+    // Ownership, publication states, media, aliases and bookmarks stay intact.
+    await tx.update(creators).set({ trashedAt: trash ? new Date() : null, updatedAt: new Date() }).where(eq(creators.id, id));
+    await tx.insert(adminAuditLogs).values({ actorId, action: trash ? "creator.trashed" : "creator.restored", resourceType: "creator", resourceId: id, details: { username: existing.username } });
+  });
+}
+
+export const trashAdminCreator = (id: string) => setCreatorTrashState(id, true);
+export const restoreAdminCreator = (id: string) => setCreatorTrashState(id, false);
 
 export async function deleteAdminCreator(id: string) {
   const { userId: actorId } = await requireAdmin();

@@ -24,6 +24,7 @@ const row = {
   xProviderId: null,
   xProfileAccountId: null,
   ownerUserId: null,
+  trashedAt: null,
   editedFields: [],
   recordOrigin: "preview",
   avatarUrl: "/avatar.svg",

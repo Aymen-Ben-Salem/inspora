@@ -9,6 +9,7 @@ export default defineConfig({
     "src/features/creators/claims*.test.ts",
     "src/features/creators/claim-actions.test.ts",
     "src/features/creators/x-api*.test.ts",
+    "src/features/creators/avatar-url.test.ts",
     "src/auth/creator-auth-return.test.ts",
     "scripts/lib/preview-build.test.ts",
     "src/app/profile/claim-match/page.test.tsx",

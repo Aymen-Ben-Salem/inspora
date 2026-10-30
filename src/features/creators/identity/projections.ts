@@ -87,6 +87,7 @@ export function mapAdminCreatorRecord(
 ): AdminCreatorRecord {
   return {
     ...mapAdminCreatorAttribution(row),
+    trashedAt: row.trashedAt?.toISOString(),
     workCount: counts.workCount,
     pendingClaimCount: counts.pendingClaimCount,
   };

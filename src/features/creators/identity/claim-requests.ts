@@ -20,7 +20,7 @@ export async function lockClaimAccount(tx: WriteTx, userId: string) {
 }
 
 export function visibleClaimTarget(target: typeof creators.$inferSelect | undefined) {
-  return Boolean(target && isCreatorVisibleInEnvironment(target.handle, process.env.DATA_ENVIRONMENT));
+  return Boolean(target && !target.trashedAt && isCreatorVisibleInEnvironment(target.handle, process.env.DATA_ENVIRONMENT));
 }
 
 export function normalizedClaimXUrl(value: string | null) {
@@ -44,7 +44,7 @@ export async function requestCreatorClaim(principal: CreatorOwnerPrincipal, raw:
     const locked = await tx.select().from(creators).where(inArray(creators.id, [...new Set([owned.id, input.targetCreatorId])].sort())).orderBy(asc(creators.id)).for("update");
     const source = locked.find((row) => row.id === owned.id);
     const target = locked.find((row) => row.id === input.targetCreatorId);
-    if (!target || !visibleClaimTarget(target) || !source || source.ownerUserId !== principal.userId) throw new CreatorClaimError("This creator is unavailable. Reload the profile and try again.");
+    if (!target || !visibleClaimTarget(target) || !source || source.trashedAt || source.ownerUserId !== principal.userId) throw new CreatorClaimError("This creator is unavailable. Reload the profile and try again.");
     if (target.ownerUserId === principal.userId) return { status: "already_owned", creatorId: target.id };
     const [recent] = await tx.select({ total: count() }).from(creatorClaims).where(and(eq(creatorClaims.requesterUserId, principal.userId), gte(creatorClaims.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000))));
     if (recent.total >= 5) throw new CreatorClaimError("You have submitted five requests in the last 24 hours. Please try again later.");

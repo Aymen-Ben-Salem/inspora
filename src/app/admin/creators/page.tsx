@@ -1,7 +1,8 @@
 import { CreatorManager } from "@/components/admin/creator-manager";
 import { parseAdminPage } from "@/features/admin/library-pagination";
 import {
-  deleteCreatorAction,
+  trashCreatorAction,
+  restoreCreatorAction,
   reviewCreatorClaimAction,
   saveCreatorAction,
 } from "@/features/admin/creator-actions";
@@ -13,12 +14,13 @@ import {
 export default async function CreatorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; deleted?: string; q?: string | string[]; page?: string | string[]; claimsPage?: string | string[] }>;
+  searchParams: Promise<{ saved?: string; trashed?: string; restored?: string; view?: string; q?: string | string[]; page?: string | string[]; claimsPage?: string | string[] }>;
 }) {
-  const { saved, deleted, q, page, claimsPage } = await searchParams;
+  const { saved, trashed, restored, view, q, page, claimsPage } = await searchParams;
+  const trash = view === "trash";
   const query = (Array.isArray(q) ? q[0] : q)?.trim().slice(0, 100) ?? "";
   const [creators, claims] = await Promise.all([
-    getAdminCreatorDirectory({ query, page: parseAdminPage(page) }),
+    getAdminCreatorDirectory({ query, page: parseAdminPage(page), trash }),
     getAdminCreatorClaimPage(parseAdminPage(claimsPage)),
   ]);
 
@@ -32,19 +34,20 @@ export default async function CreatorsPage({
             Manage creator profiles, editorial credit, and verified identity claims.
           </p>
         </div>
-        {saved || deleted ? (
+        {saved || trashed || restored ? (
           <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">
-            {deleted ? "Creator deleted." : "Creator saved."}
+            {trashed ? "Creator moved to Trash." : restored ? "Creator restored." : "Creator saved."}
           </p>
         ) : null}
       </div>
       <CreatorManager
         creators={creators.items}
         claims={claims.items}
-        directoryPage={{ page: creators.page, totalPages: creators.totalPages, query }}
+        directoryPage={{ page: creators.page, totalPages: creators.totalPages, query, trash }}
         claimsPage={{ page: claims.page, totalPages: claims.totalPages }}
         saveAction={saveCreatorAction}
-        deleteAction={deleteCreatorAction}
+        trashAction={trashCreatorAction}
+        restoreAction={restoreCreatorAction}
         reviewAction={reviewCreatorClaimAction}
         lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}
       />

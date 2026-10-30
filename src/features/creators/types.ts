@@ -84,6 +84,7 @@ export type AdminCreatorAttribution = AdminCreatorInput & {
 };
 
 export type AdminCreatorRecord = AdminCreatorAttribution & {
+  trashedAt?: string;
   workCount: number;
   pendingClaimCount: number;
 };

@@ -36,7 +36,7 @@ export async function claimCreatorWithX(principal: CreatorOwnerPrincipal, target
       }
       const locked = await tx.select().from(creators).where(inArray(creators.id, [owned.id, targetCreatorId].sort())).orderBy(asc(creators.id)).for("update");
       const target = locked.find(row => row.id === targetCreatorId);
-      if (target?.ownerUserId === principal.userId) return { result: { status: "already_owned", creatorId: target.id } as ClaimResult, identityChanged: false, displacedAvatarAssets: [] };
+      if (target && visibleClaimTarget(target) && target.ownerUserId === principal.userId) return { result: { status: "already_owned", creatorId: target.id } as ClaimResult, identityChanged: false, displacedAvatarAssets: [] };
       if (!target || target.ownerUserId || !visibleClaimTarget(target) || !sameXProfileSnapshot(snapshot, target)) {
         throw new CreatorClaimError("This profile changed while verifying X. Reload and try again.");
       }

@@ -39,6 +39,15 @@ export type ResolvedCreatorProfile = {
 /** Compatibility for owner forms and presentation components. */
 export type CreatorProfile = CreatorSummary;
 
+export type CreatorClaimPreview = {
+  profile: CreatorSummary;
+  resultingProfile?: CreatorSummary;
+  workCount: number;
+  combinedWorkCount: number;
+  merging: boolean;
+  thumbnails: { url: string; title: string }[];
+};
+
 export type ClaimResult =
   | { status: "pending"; claimId: string }
   | { status: "claimed" | "already_owned"; creatorId: string }
@@ -46,7 +55,7 @@ export type ClaimResult =
 
 export type CreatorClaimMethod = "x" | "manual" | "ownership_report";
 export type CreatorClaimStatus = "pending" | "approved" | "rejected" | "withdrawn" | "resolved";
-export type ClaimActionState = { status: "idle" | "success" | "error"; message?: string };
+export type ClaimActionState = { status: "idle" | "success" | "error"; message?: string; claimedCreatorId?: string };
 export type OwnCreatorClaim = {
   id: string;
   targetCreatorId: string;

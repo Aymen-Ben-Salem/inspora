@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+vi.mock("@/features/creators/identity/claim-presentation", () => ({ getCreatorClaimPreview: vi.fn(async () => undefined) }));
 vi.mock("@/features/creators/identity/x-profile", () => ({ resolveCreatorXAccount: vi.fn(async () => "123") }));
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), resolve: vi.fn(), target: vi.fn(), identity: vi.fn(), ensure: vi.fn(), counts: vi.fn() }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));

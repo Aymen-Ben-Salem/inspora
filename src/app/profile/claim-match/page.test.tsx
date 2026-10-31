@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), identity: vi.fn(), candidates: vi.fn(), resolve: vi.fn(), capabilities: vi.fn() }));
+vi.mock("@/features/creators/identity/claim-presentation", () => ({ getCreatorClaimPreview: vi.fn(async () => undefined) }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error("redirect:" + url); } }));
 vi.mock("@/features/creators/identity/external-identity", () => ({ verifiedXIdentityForUser: mocks.identity }));
@@ -20,7 +21,7 @@ beforeEach(() => {
 const visit = () => CreatorMatchPage({ searchParams: Promise.resolve({ returnTo: "/icons" }) });
 it("asks for confirmation without claiming on a sign-in return", async () => {
   const html = renderToStaticMarkup(await visit());
-  expect(html).toContain("Is this your creator profile?");
+  expect(html).toContain("Is this your profile?");
   expect(html).toContain('href="/icons"');
 });
 it("returns users without X or existing matches to their original page", async () => {

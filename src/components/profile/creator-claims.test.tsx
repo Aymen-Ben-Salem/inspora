@@ -3,19 +3,20 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { OwnCreatorClaim } from "@/features/creators/types";
-const mocks = vi.hoisted(() => ({ submit: vi.fn(), change: vi.fn(), review: vi.fn(), sync: vi.fn(), connect: vi.fn(), refresh: vi.fn(), viewer: vi.fn() }));
+const mocks = vi.hoisted(() => ({ submit: vi.fn(), change: vi.fn(), review: vi.fn(), sync: vi.fn(), connect: vi.fn(), refresh: vi.fn(), replace: vi.fn(), viewer: vi.fn() }));
 vi.mock("@clerk/nextjs", () => ({ useReverification: (action: unknown) => action, useUser: () => ({ isLoaded: true, user: { createExternalAccount: mocks.connect, reload: vi.fn() } }) }));
 vi.mock("@clerk/nextjs/legacy", () => ({ useSignIn: () => ({ signIn: undefined }) }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, replace: mocks.replace }) }));
 vi.mock("@/features/creators/claim-actions", () => ({ submitCreatorClaimAction: mocks.submit, changeOwnClaimAction: mocks.change, synchronizeOwnXAction: mocks.sync }));
 vi.mock("@/features/admin/creator-actions", () => ({ reviewCreatorClaimAction: mocks.review }));
 vi.mock("./use-viewer-profile", () => ({ refreshViewerProfile: mocks.viewer }));
 import { CreatorClaimForm } from "./creator-claim-form";
-import { CreatorClaimsPanel } from "./creator-claims-panel";
+import { CreatorClaimAttention, CreatorClaimsPanel } from "./creator-claims-panel";
+import { consumeClaimSuccess } from "./claim-success-notice";
 import { XIdentitySync } from "./x-identity-sync";
 import { CreatorClaimReviewForm } from "../admin/creator-claim-review-form";
 let container: HTMLDivElement; let root: Root;
-beforeEach(() => { vi.clearAllMocks(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
+beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 const button = (text: string) => [...container.querySelectorAll("button")].find((item) => item.textContent === text)!;
 async function renderClaim(connectedXUsername: string | null = null, xMatches = false, report = false) {
@@ -27,7 +28,7 @@ async function submit(buttonElement: HTMLButtonElement) {
 it("does not submit on mount, offers reports instead of manual claims, and retains the selected creator", async () => {
   await renderClaim();
   expect(mocks.submit).not.toHaveBeenCalled(); expect(button("Claim my profile")).toBeUndefined();
-  await act(async () => [...container.querySelectorAll("button")].find((item) => item.textContent?.includes("report incorrect attribution"))!.click());
+  await act(async () => button("This isn’t me").click());
   expect(container.querySelector<HTMLInputElement>('[name="method"]')?.value).toBe("ownership_report");
   expect(container.querySelector<HTMLInputElement>('[name="targetCreatorId"]')?.value).toBe("target");
   expect(container.querySelector<HTMLInputElement>('[name="evidenceUrl"]')?.required).toBe(true);
@@ -41,11 +42,15 @@ it("preserves the claim destination through connecting X", async () => {
   expect(mocks.submit).not.toHaveBeenCalled();
 });
 it("shows an explicit success after submitting a matching X claim", async () => {
-  mocks.submit.mockResolvedValue({ status: "success", message: "This profile is now yours." });
+  mocks.submit.mockResolvedValue({ status: "success", message: "This profile is now yours.", claimedCreatorId: "target" });
   await renderClaim("creator", true); await submit(button("Claim my profile"));
   expect(container.querySelector('[role="status"]')?.textContent).toBe("This profile is now yours.");
   expect(container.querySelector('a[href="/profile"]')).not.toBeNull();
   expect(mocks.viewer).toHaveBeenCalledOnce();
+  expect(mocks.replace).toHaveBeenCalledWith("/profile");
+  expect(consumeClaimSuccess("target")).toBe(true);
+  expect(consumeClaimSuccess("target")).toBe(false);
+  expect(mocks.submit.mock.calls[0][1].get("confirmed")).toBe("on");
 });
 const claim: OwnCreatorClaim = { id: "claim", targetCreatorId: "target", targetName: "Creator", targetUsername: "creator", status: "pending", method: "x", createdAt: "2026-10-29T00:00:00Z", dismissedAt: null, reviewReason: null, attentionReason: "Reconnect X before review." };
 it("shows recovery instructions and a withdrawal control for a pending request", async () => {
@@ -59,7 +64,7 @@ it("shows recovery instructions and a withdrawal control for a pending request",
 it("keeps rejected decisions in history with a corrected-evidence link", async () => {
   await act(async () => root.render(<CreatorClaimsPanel history claims={[{ ...claim, status: "rejected", attentionReason: null, reviewReason: "Please add your portfolio.", dismissedAt: "2026-10-29" }]} />));
   expect(container.textContent).toContain("Please add your portfolio.");
-  expect(container.querySelector('a[href="/creators/creator/claim"]')?.textContent).toBe("Submit corrected evidence");
+  expect(container.querySelector('a[href="/creators/creator/claim?report=1"]')?.textContent).toBe("Send a new report");
   expect(container.querySelector("button")).toBeNull();
 });
 it("offers report resolution without an approval option", async () => {
@@ -88,4 +93,59 @@ it("recovers from a network failure checking X", async () => {
   await act(async () => root.render(<XIdentitySync accountKey="x" />));
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("Please try again");
   expect(button("Try again")).toBeDefined();
+});
+
+it("makes a matching profile a visible action and removes it after successful synchronization", async () => {
+  mocks.sync.mockResolvedValueOnce({ status: "conflict", message: "Matched" });
+  await act(async () => root.render(<XIdentitySync accountKey="x" username="creator" />));
+  expect(container.querySelector('a[href="/profile/claim-match?returnTo=%2Fprofile%3Fmodal%3Dedit"]')?.textContent).toContain("Review profile");
+  expect(container.textContent).toContain("@creator");
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+  mocks.sync.mockResolvedValueOnce({ status: "synced", message: "Updated" });
+  await act(async () => root.render(<XIdentitySync key="synced" accountKey="x" username="creator" />));
+  expect(container.textContent).toBe("");
+});
+
+it("keeps completed claims and waiting reports out of the profile feed", async () => {
+  await act(async () => root.render(<CreatorClaimAttention claims={[{ ...claim, status: "approved", attentionReason: null }, { ...claim, method: "ownership_report", attentionReason: null }]} />));
+  expect(container.textContent).toBe("");
+  await act(async () => root.render(<CreatorClaimAttention claims={[claim]} />));
+  expect(container.querySelector('a[href="/profile/claims"]')?.textContent).toContain("needs your attention");
+});
+
+it("keeps claim history collapsed with no repeated success or dismissal controls", async () => {
+  await act(async () => root.render(<CreatorClaimsPanel history claims={[{ ...claim, status: "approved", attentionReason: null }]} />));
+  expect(container.querySelector("details")?.open).toBe(false);
+  expect(container.querySelector("summary")?.textContent).toContain("Claimed");
+  expect(container.querySelector("button")).toBeNull();
+  expect(container.querySelector('a[href="/profile"]')).toBeNull();
+});
+
+it("offers a single explicit claim button only after X matches", async () => {
+  await renderClaim("creator", true);
+  expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+  expect(button("Claim my profile").name).toBe("confirmed");
+  await renderClaim("different", false);
+  expect(button("Claim my profile")).toBeUndefined();
+  expect(mocks.submit).not.toHaveBeenCalled();
+});
+
+it("shows the resulting identity before the user confirms the merge", async () => {
+  const profile = { id: "target", name: "Editorial name", username: "editorial", avatarUrl: "/brand/default-avatar.svg", websiteUrl: null, xProfileUrl: null };
+  await act(async () => root.render(<CreatorClaimForm targetId="target" targetName={profile.name} returnPath="/creators/editorial/claim" connectedXUsername="creator" xMatches preview={{ profile, resultingProfile: { ...profile, name: "Owner name", username: "owner" }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
+  expect(container.querySelector('[aria-label="Creator profile to claim"]')?.textContent).toContain("Editorial name");
+  expect(container.textContent).toContain("Your profile after claiming");
+  expect(container.textContent).toContain("Owner name");
+  expect(container.textContent).toContain("@owner");
+  expect(container.textContent).toContain("2 works");
+  expect(mocks.submit).not.toHaveBeenCalled();
+});
+
+it("reports without sending the user to a claimed profile", async () => {
+  mocks.submit.mockResolvedValue({ status: "success", message: "Report sent." });
+  await renderClaim("different", false, true);
+  await submit(button("Send report"));
+  expect(container.querySelector('a[href="/profile/claims"]')?.textContent).toBe("View report");
+  expect(mocks.replace).not.toHaveBeenCalled();
+  expect(consumeClaimSuccess("target")).toBe(false);
 });

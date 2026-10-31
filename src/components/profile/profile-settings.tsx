@@ -3,6 +3,7 @@
 import { useAuth, useClerk, useReverification } from "@clerk/nextjs";
 import { isReverificationCancelledError } from "@clerk/nextjs/errors";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -10,7 +11,7 @@ import {
   requestOwnAccountDeletion,
 } from "@/features/profiles/actions";
 
-export function ProfileSettings({ onEdit }: { onEdit: () => void }) {
+export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: () => void; claimAttentionCount?: number }) {
   const { sessionId } = useAuth();
   const clerk = useClerk();
   const [signingOut, setSigningOut] = useState(false);
@@ -42,6 +43,10 @@ export function ProfileSettings({ onEdit }: { onEdit: () => void }) {
         </span>
         <Image src="/icons/profile/chevron.svg" alt="" width={12} height={7} className="h-[7px] w-3 shrink-0 -rotate-90" />
       </button>
+      <Link href="/profile/claims" className={`focus-ring cursor-pointer hover:bg-[#fafafa] ${rowClass}`}>
+        <span className="grid gap-1"><span className="font-medium text-[#262626]">Claims &amp; reports</span><span className="text-xs text-[#767676]">View profile claims and attribution reports</span></span>
+        <span className="flex items-center gap-3">{claimAttentionCount > 0 ? <span className="text-xs text-[#767676]">{claimAttentionCount} need attention</span> : null}<Image src="/icons/profile/chevron.svg" alt="" width={12} height={7} className="h-[7px] w-3 shrink-0 -rotate-90" /></span>
+      </Link>
       <section className={rowClass}>
         <div className="grid gap-1">
           <h3 className="font-medium text-[#262626]">Sign Out</h3>

@@ -3,9 +3,9 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
 import type { OwnCreatorClaim } from "@/features/creators/types";
-import { CreatorClaimsPanel } from "./creator-claims-panel";
+import { CreatorClaimAttention, claimNeedsAttention } from "./creator-claims-panel";
+import { ClaimSuccessNotice } from "./claim-success-notice";
 
 import type { CreatorViewsResult } from "@/analytics/creator-views";
 import { useSubmission } from "@/components/submissions/submission-provider";
@@ -76,7 +76,7 @@ export function ProfilePageClient({
         onSettings={() => openModal("settings")}
       />
       {claimEntry ? <div className="archive-frame mb-6 flex justify-end">{claimEntry}</div> : null}
-      {owner ? <div className="archive-frame mb-6 grid gap-4"><Link href="/profile/claims" className="focus-ring w-fit cursor-pointer text-sm underline">Your claims and ownership reports</Link><CreatorClaimsPanel claims={claims} /></div> : null}
+      {owner ? <><CreatorClaimAttention claims={claims} /><ClaimSuccessNotice creatorId={profile.id} workCount={counts.total} /></> : null}
       {owner ? <ProfileMessages messages={activity.messages} /> : null}
       <ProfileFeed
         key={filter}
@@ -98,7 +98,7 @@ export function ProfilePageClient({
         <EditProfile profile={profile} onDirtyChange={setDirty} onSaved={() => setDirty(false)} />
       </ProfileModal>
       <ProfileModal open={modal === "settings"} label="Settings" onDismiss={closeModal}>
-        <ProfileSettings onEdit={() => openModal("edit")} />
+        <ProfileSettings onEdit={() => openModal("edit")} claimAttentionCount={claims.filter(claimNeedsAttention).length} />
       </ProfileModal>
     </>
   );

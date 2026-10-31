@@ -251,7 +251,7 @@ export function EditProfile({
               <div key={provider} className="flex min-h-[63px] items-center justify-between gap-4 border-b border-[#f0f0f0] px-0 py-3 last:border-b-0 sm:px-4">
                 <div className="flex items-center gap-3">
                   {provider === "google" ? <span className="grid size-6 place-items-center rounded-full bg-[#fafafa]"><Image src="/icons/profile/google.png" alt="" width={12} height={12} className="size-3" /></span> : <Image src="/icons/profile/x-account.svg" alt="" width={24} height={24} className="size-6" />}
-                  <span className="font-medium">{provider === "google" ? "Google" : "X"}</span>
+                  <span className="grid min-w-0 gap-1"><span className="font-medium">{provider === "google" ? "Google" : "X"}</span>{provider === "x" && account?.username ? <span className="break-all text-xs text-[#767676]">@{account.username}</span> : null}</span>
                 </div>
                 <button type="button" disabled={connecting !== undefined || uploading || saving || !user || Boolean(account && !canDisconnect)}
                   aria-label={account ? `${provider === "google" ? "Google" : "X"} connected${canDisconnect ? "; disconnect" : ""}` : `Connect ${provider === "google" ? "Google" : "X"}`}
@@ -264,7 +264,7 @@ export function EditProfile({
             );
           })}
         </div>
-        <XIdentitySync key={xAccount?.id ?? "disconnected"} accountKey={xAccount ? xAccount.id + ":" + xAccount.username : null} />
+        <XIdentitySync key={xAccount?.id ?? "disconnected"} accountKey={xAccount ? xAccount.id + ":" + xAccount.username : null} username={xAccount?.username} />
         {fieldError?.field === "connections" ? <p role="alert" className="mt-2 text-sm text-red-700">{fieldError.message}</p> : null}
       </div>
       {fieldError?.field === "form" ? <p role="alert" className="mt-3 text-sm text-red-700">{fieldError.message}</p> : null}

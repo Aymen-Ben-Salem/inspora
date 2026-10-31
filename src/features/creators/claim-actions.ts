@@ -26,9 +26,9 @@ export async function submitCreatorClaimAction(_state: ClaimActionState, data: F
       confirmed: data.get("confirmed") === "on", evidenceUrl: data.get("evidenceUrl"), evidenceNote: data.get("evidenceNote") });
     const result = await requestCreatorClaim({ userId }, input);
     refreshCommittedClaim();
-    return result.status === "pending" ? { status: "success", message: "Your report has been sent. You can follow its status in Your claims." }
-      : result.status === "claimed" ? { status: "success", message: "This creator profile is now yours. Your credited work and previous profile addresses have been preserved." }
-      : result.status === "already_owned" ? { status: "success", message: "You already manage this creator. Open Your profile to edit it." }
+    return result.status === "pending" ? { status: "success", message: "Report sent. You can follow its progress in Settings → Claims & reports." }
+      : result.status === "claimed" ? { status: "success", message: "This profile is now yours.", claimedCreatorId: result.creatorId }
+      : result.status === "already_owned" ? { status: "success", message: "You already manage this profile.", claimedCreatorId: result.creatorId }
         : { status: "error", message: "This request could not be submitted. Reload and try again." };
   } catch (error) { return failure(error); }
 }

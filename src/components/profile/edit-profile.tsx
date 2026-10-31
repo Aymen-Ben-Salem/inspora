@@ -1,6 +1,7 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useReverification, useUser } from "@clerk/nextjs";
+import { isReverificationCancelledError } from "@clerk/nextjs/errors";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -50,6 +51,17 @@ export function EditProfile({
 }) {
   const router = useRouter();
   const { user } = useUser();
+  const createExternalAccount = useReverification(async (provider: Provider) => user?.createExternalAccount({
+    strategy: provider === "google" ? "oauth_google" : "oauth_x",
+    redirectUrl: `${window.location.origin}/profile?modal=edit`,
+  }));
+  const removeExternalAccount = useReverification(async (provider: Provider) => {
+    if (!user) return false;
+    const account = providerAccount(user, provider);
+    if (!account || !hasAlternativeSignIn(user, account.id)) return false;
+    await account.destroy();
+    return true;
+  });
   const xAccount = user ? providerAccount(user, "x") : undefined;
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(profile.name);
@@ -149,14 +161,13 @@ export function EditProfile({
     setConnecting(provider);
     setFieldError(undefined);
     try {
-      const account = await user.createExternalAccount({
-        strategy: provider === "google" ? "oauth_google" : "oauth_x",
-        redirectUrl: `${window.location.origin}/profile?modal=edit`,
-      });
+      const account = await createExternalAccount(provider);
+      if (!account) return;
       const redirectUrl = account.verification?.externalVerificationRedirectURL;
       if (redirectUrl) window.location.assign(redirectUrl.toString());
       else await user.reload();
     } catch (error) {
+      if (isReverificationCancelledError(error)) return;
       setFieldError({ field: "connections", message: error instanceof Error ? error.message : "The account could not be connected." });
     } finally {
       setConnecting(undefined);
@@ -168,11 +179,13 @@ export function EditProfile({
     const account = providerAccount(user, provider);
     if (!account || !hasAlternativeSignIn(user, account.id)) return;
     setConnecting(provider);
+    setFieldError(undefined);
     try {
-      await account.destroy();
+      if (!await removeExternalAccount(provider)) return;
       await user.reload();
       router.refresh();
     } catch (error) {
+      if (isReverificationCancelledError(error)) return;
       setFieldError({ field: "connections", message: error instanceof Error ? error.message : "The account could not be disconnected." });
     } finally {
       setConnecting(undefined);

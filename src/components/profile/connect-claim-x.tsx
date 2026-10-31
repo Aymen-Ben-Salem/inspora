@@ -1,12 +1,16 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useReverification, useUser } from "@clerk/nextjs";
+import { isReverificationCancelledError } from "@clerk/nextjs/errors";
 import { useSignIn } from "@clerk/nextjs/legacy";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function ConnectClaimX({ returnPath }: { returnPath: string }) {
   const { user, isLoaded } = useUser();
+  const createExternalAccount = useReverification(async () => user?.createExternalAccount({
+    strategy: "oauth_x", redirectUrl: window.location.origin + returnPath,
+  }));
   const { signIn } = useSignIn();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -15,14 +19,16 @@ export function ConnectClaimX({ returnPath }: { returnPath: string }) {
     setBusy(true); setError(undefined);
     try {
       if (user) {
-        const account = await user.createExternalAccount({ strategy: "oauth_x", redirectUrl: window.location.origin + returnPath });
+        const account = await createExternalAccount();
+        if (!account) return;
         const url = account.verification?.externalVerificationRedirectURL;
         if (url) window.location.assign(url.toString());
         else { await user.reload(); router.refresh(); }
       } else if (signIn) {
         await signIn.authenticateWithRedirect({ strategy: "oauth_x", redirectUrl: "/profile/x-callback?returnTo=" + encodeURIComponent(returnPath), redirectUrlComplete: returnPath });
       }
-    } catch {
+    } catch (error) {
+      if (isReverificationCancelledError(error)) return;
       setError("X could not be connected. If this X account belongs to another Inspora login, sign out and sign in with that X account.");
     } finally { setBusy(false); }
   }

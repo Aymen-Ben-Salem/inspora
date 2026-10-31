@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { OwnCreatorClaim } from "@/features/creators/types";
 const mocks = vi.hoisted(() => ({ submit: vi.fn(), change: vi.fn(), review: vi.fn(), sync: vi.fn(), connect: vi.fn(), refresh: vi.fn(), viewer: vi.fn() }));
-vi.mock("@clerk/nextjs", () => ({ useUser: () => ({ isLoaded: true, user: { createExternalAccount: mocks.connect, reload: vi.fn() } }) }));
+vi.mock("@clerk/nextjs", () => ({ useReverification: (action: unknown) => action, useUser: () => ({ isLoaded: true, user: { createExternalAccount: mocks.connect, reload: vi.fn() } }) }));
 vi.mock("@clerk/nextjs/legacy", () => ({ useSignIn: () => ({ signIn: undefined }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock("@/features/creators/claim-actions", () => ({ submitCreatorClaimAction: mocks.submit, changeOwnClaimAction: mocks.change, synchronizeOwnXAction: mocks.sync }));

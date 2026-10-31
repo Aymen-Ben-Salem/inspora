@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ authenticate: vi.fn(), connect: vi.fn(), reload: vi.fn(), refresh: vi.fn(), signedIn: false }));
-vi.mock("@clerk/nextjs", () => ({ useUser: () => ({ isLoaded: true, user: mocks.signedIn ? { createExternalAccount: mocks.connect, reload: mocks.reload } : null }) }));
+vi.mock("@clerk/nextjs", () => ({ useReverification: (action: unknown) => action, useUser: () => ({ isLoaded: true, user: mocks.signedIn ? { createExternalAccount: mocks.connect, reload: mocks.reload } : null }) }));
 vi.mock("@clerk/nextjs/legacy", () => ({ useSignIn: () => ({ signIn: { authenticateWithRedirect: mocks.authenticate } }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 import { ConnectClaimX } from "./connect-claim-x";

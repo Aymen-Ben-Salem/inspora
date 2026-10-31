@@ -15,6 +15,7 @@ export default defineConfig({
     "scripts/lib/preview-build.test.ts",
     "src/app/profile/claim-match/page.test.tsx",
     "src/components/profile/connect-claim-x.test.tsx",
+    "src/components/profile/connection-reverification.test.tsx",
     "src/components/auth/public-auth-page.test.tsx",
     "src/components/profile/creator-claims.test.tsx",
     "src/components/profile/creator-claim-entry.test.tsx",

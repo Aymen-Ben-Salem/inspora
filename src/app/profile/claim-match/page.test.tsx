@@ -21,7 +21,7 @@ beforeEach(() => {
 const visit = () => CreatorMatchPage({ searchParams: Promise.resolve({ returnTo: "/icons" }) });
 it("asks for confirmation without claiming on a sign-in return", async () => {
   const html = renderToStaticMarkup(await visit());
-  expect(html).toContain("Is this your profile?");
+  expect(html).toContain("Claim your profile");
   expect(html).toContain('href="/icons"');
 });
 it("returns users without X or existing matches to their original page", async () => {

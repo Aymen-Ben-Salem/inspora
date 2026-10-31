@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, LoaderCircle } from "lucide-react";
-import { CreatorAvatar } from "@/components/creator-avatar";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, LoaderCircle } from "lucide-react";
 import { checkClaimUsernameAction } from "@/features/creators/claim-actions";
 import { validateCreatorUsername } from "@/features/creators/validation";
 import type { ClaimProfileInput } from "@/features/creators/claim-validation";
@@ -29,22 +28,35 @@ export function useClaimUsernameAvailability(targetId: string, username: string,
 function Suggestions({ field, value, preview, onChange }: {
   field: "name" | "username"; value: string; preview?: CreatorClaimPreview; onChange: (value: string) => void;
 }) {
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  const [usedChoices, setUsedChoices] = useState(false);
   const options = [
     { label: "From X", value: preview?.xSuggestion?.[field] },
     { label: "My current profile", value: preview?.currentProfile?.[field] },
     { label: "Creator profile", value: preview?.profile[field] },
   ].filter((option, index, all): option is { label: string; value: string } => Boolean(option.value) && all.findIndex(other => other.value === option.value) === index);
   const prefix = field === "username" ? "@" : "";
-  if (options.length === 1 && options[0].value === value.trim()) return options[0].label === "From X" ? <p className="text-xs text-[#666]">Suggested from your X profile.</p> : null;
+  if (options.length === 1 && options[0].value === value.trim() && !usedChoices) return null;
   if (!options.length) return null;
-  return <div className="flex flex-wrap gap-2" role="group" aria-label={`${field === "name" ? "Name" : "Username"} suggestions`}>
-    {options.map(option => <button key={option.value} type="button" aria-pressed={value.trim() === option.value}
-      onClick={() => onChange(option.value)}
-      className="focus-ring flex min-h-11 min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-[3px] border border-[#e6e6e6] px-3 py-2 text-left text-xs leading-5 text-[#666] transition-colors hover:border-[#999] hover:text-[#262626] aria-pressed:border-[#999] aria-pressed:bg-[#f7f7f7] aria-pressed:text-[#262626]">
-      <span className="min-w-0 break-words">{option.label}{option.label === "From X" ? " (suggested)" : ""}{" "}<span className="inline-block max-w-full break-all align-bottom font-medium text-[#262626]">{prefix}{option.value}</span></span>
-      {value.trim() === option.value ? <Check size={13} className="shrink-0" aria-hidden="true" /> : null}
-    </button>)}
-  </div>;
+  return <details ref={disclosure} className="group">
+    <summary className="focus-ring flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 text-sm text-[#777] hover:text-[#262626] [&::-webkit-details-marker]:hidden">
+      Other {field} options<ChevronDown size={14} aria-hidden="true" className="transition-transform motion-reduce:transition-none group-open:rotate-180" />
+    </summary>
+    <div role="group" aria-label={`${field === "name" ? "Name" : "Username"} suggestions`} className="mb-2 border-y border-black/10">
+      {options.map(option => <button key={option.value} type="button" aria-pressed={value.trim() === option.value}
+        aria-label={`Use ${field} ${prefix}${option.value} from ${option.label === "From X" ? "X" : option.label.toLowerCase()}`}
+        onClick={() => {
+          setUsedChoices(true);
+          onChange(option.value);
+          if (disclosure.current) disclosure.current.open = false;
+          disclosure.current?.querySelector("summary")?.focus({ preventScroll: true });
+        }}
+        className="focus-ring flex min-h-14 w-full min-w-0 cursor-pointer items-center gap-3 border-b border-black/10 px-3 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-[#f7f7f7]">
+        <span className="min-w-0 flex-1"><span className="block break-all text-[#262626]">{prefix}{option.value}</span><span className="mt-1 block text-xs text-[#777]">{option.label}{option.label === "From X" ? " · Suggested" : ""}</span></span>
+        {value.trim() === option.value ? <Check size={15} className="shrink-0" aria-hidden="true" /> : null}
+      </button>)}
+    </div>
+  </details>;
 }
 
 export function ClaimProfileFields({ profile, preview, onChange, onBlur, errors, availability }: {
@@ -54,14 +66,12 @@ export function ClaimProfileFields({ profile, preview, onChange, onBlur, errors,
   errors: { name?: string; username?: string };
   availability: ReturnType<typeof useClaimUsernameAvailability>;
 }) {
-  const result = preview?.resultingProfile;
   const usernameMessage = errors.username ?? availability?.message ?? "Use 1–30 letters, numbers, or underscores.";
-  const inputClass = "focus-ring min-h-12 w-full min-w-0 rounded-[3px] border border-[#d9d9d9] bg-white px-3 py-3 text-base text-[#262626] transition-colors hover:border-[#aaa] aria-invalid:border-red-600";
-  return <section aria-labelledby="claim-profile-heading" className="border-t border-[#e6e6e6] pt-6">
-    <div className="mb-5 flex items-center gap-3">
-      {result ? <CreatorAvatar creator={result} role="dialog" width={40} height={40} sizes="40px" className="size-10 shrink-0 rounded-full object-cover" /> : null}
-      <div className="min-w-0 flex-1"><h2 id="claim-profile-heading" className="text-base font-medium">Your profile after claiming</h2><p className="mt-1 text-xs leading-5 text-[#666]">Choose your name and username. You can edit them later.</p></div>
-      {preview ? <span className="shrink-0 text-xs tabular-nums text-[#666]">{preview.combinedWorkCount} {preview.combinedWorkCount === 1 ? "work" : "works"}</span> : null}
+  const inputClass = "focus-ring min-h-12 w-full min-w-0 border border-black/15 bg-white px-3 py-3 text-base text-[#262626] transition-colors hover:border-black/40 aria-invalid:border-red-600";
+  return <section aria-labelledby="claim-profile-heading">
+    <div className="mb-8">
+      <h2 id="claim-profile-heading" className="text-[27px] font-normal leading-[1.1] tracking-[-0.035em] sm:text-[34px]">Your profile details</h2>
+      <p className="mt-4 max-w-[55ch] text-base leading-[1.7] text-[#777]">{preview?.xSuggestion?.name ? "We’ve filled in your X details. Keep them or edit them below." : preview?.xSuggestion ? "We’ve suggested your X username. Choose the name and username people will see." : "Choose the name and username people will see on Inspora."}</p>
     </div>
     {preview?.xSuggestionUnavailable ? <p className="mb-5 text-sm leading-6 text-[#666]">X suggestions are unavailable right now. Choose your details below to continue.</p> : null}
     <div className="grid gap-6">

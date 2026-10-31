@@ -125,6 +125,7 @@ it("offers a single explicit claim button only after X matches", async () => {
   await renderClaim("creator", true);
   expect(container.querySelector('input[type="checkbox"]')).toBeNull();
   expect(button("Claim my profile").name).toBe("confirmed");
+  expect(container.querySelectorAll('button[type="submit"][name="confirmed"]')).toHaveLength(1);
   await renderClaim("different", false);
   expect(button("Claim my profile")).toBeUndefined();
   expect(mocks.submit).not.toHaveBeenCalled();
@@ -134,7 +135,8 @@ it("shows the resulting identity before the user confirms the merge", async () =
   const profile = { id: "target", name: "Editorial name", username: "editorial", avatarUrl: "/brand/default-avatar.svg", websiteUrl: null, xProfileUrl: null };
   await act(async () => root.render(<CreatorClaimForm targetId="target" targetName={profile.name} returnPath="/creators/editorial/claim" connectedXUsername="creator" xMatches preview={{ profile, resultingProfile: { ...profile, name: "Owner name", username: "owner" }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
   expect(container.querySelector('[aria-label="Creator profile to claim"]')?.textContent).toContain("Editorial name");
-  expect(container.textContent).toContain("Your profile after claiming");
+  expect(container.querySelector('label[for="claim-name"]')?.textContent).toBe("Name");
+  expect(container.querySelector('label[for="claim-username"]')?.textContent).toBe("Username");
   expect(container.querySelector<HTMLInputElement>('[name="name"]')?.value).toBe("Owner name");
   expect(container.querySelector<HTMLInputElement>('[name="username"]')?.value).toBe("owner");
   expect(container.textContent).toContain("2 works");
@@ -146,6 +148,20 @@ async function renderChoices() {
   await act(async () => root.render(<CreatorClaimForm targetId="target" targetName="Creator name" returnPath="/creators/creator_name/claim" connectedXUsername="x_name" xMatches preview={{ profile: choiceProfile, resultingProfile: choiceProfile, currentProfile: { ...choiceProfile, id: "current", name: "My name", username: "My_Name" }, xSuggestion: { name: "X name", username: "X_Name" }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
 }
 const field = (name: string) => container.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+function suggestionDetails(field: "name" | "username") {
+  return [...container.querySelectorAll("details")].find(details => details.querySelector("summary")?.textContent?.includes(`Other ${field} options`))!;
+}
+async function chooseSuggestion(fieldName: "name" | "username", value: string) {
+  const details = suggestionDetails(fieldName);
+  expect(details.open).toBe(false);
+  await act(async () => details.querySelector("summary")!.click());
+  expect(details.open).toBe(true);
+  const groupLabel = fieldName === "name" ? "Name suggestions" : "Username suggestions";
+  const choice = [...container.querySelectorAll<HTMLButtonElement>(`[aria-label="${groupLabel}"] button`)].find(item => item.textContent?.includes(value))!;
+  await act(async () => choice.click());
+  expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(details.querySelector("summary"));
+}
 async function typeField(name: string, value: string) {
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field(name), value);
@@ -155,14 +171,30 @@ async function typeField(name: string, value: string) {
 it("suggests X names, allows keeping either profile's details, and submits the visible choices", async () => {
   await renderChoices();
   expect(field("name").value).toBe("X name"); expect(field("username").value).toBe("X_Name");
-  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Name suggestions"] button:nth-child(2)')!.click());
-  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Username suggestions"] button:nth-child(3)')!.click());
+  expect(suggestionDetails("name").open).toBe(false);
+  expect(suggestionDetails("username").open).toBe(false);
+  await chooseSuggestion("name", "My name");
+  await chooseSuggestion("username", "creator_name");
   expect(field("name").value).toBe("My name"); expect(field("username").value).toBe("creator_name");
+  expect(mocks.submit).not.toHaveBeenCalled();
   mocks.submit.mockResolvedValueOnce({ status: "error", message: "Retry" });
   await submit(button("Claim my profile"));
   expect(mocks.submit.mock.calls[0][1].get("name")).toBe("My name");
   expect(mocks.submit.mock.calls[0][1].get("username")).toBe("creator_name");
   expect(field("name").value).toBe("My name"); expect(field("username").value).toBe("creator_name");
+});
+it("retains edited profile details when visiting the report form and returning to claiming", async () => {
+  await renderChoices();
+  await typeField("name", "My chosen name"); await typeField("username", "My_Chosen_Name");
+  await act(async () => button("This isn’t me").click());
+  expect(container.querySelector<HTMLInputElement>('[name="method"]')?.value).toBe("ownership_report");
+  expect(container.querySelector('[name="name"]')).toBeNull();
+  await act(async () => button("Back to claiming").click());
+  expect(field("name").value).toBe("My chosen name");
+  expect(field("username").value).toBe("My_Chosen_Name");
+  expect(suggestionDetails("name").open).toBe(false);
+  expect(suggestionDetails("username").open).toBe(false);
+  expect(mocks.submit).not.toHaveBeenCalled();
 });
 it("checks typing and clearing, ignores outdated responses, and focuses an invalid username", async () => {
   vi.useFakeTimers();
@@ -199,11 +231,27 @@ it("hides duplicate suggestions and allows submission when the advisory availabi
   await act(async () => root.render(<CreatorClaimForm targetId="target" targetName="Creator name" returnPath="/creators/creator_name/claim" connectedXUsername="creator_name" xMatches preview={{ profile: choiceProfile, resultingProfile: choiceProfile, currentProfile: choiceProfile, xSuggestion: { name: choiceProfile.name, username: choiceProfile.username }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
   expect(container.querySelector('[aria-label="Name suggestions"]')).toBeNull();
   expect(container.querySelector('[aria-label="Username suggestions"]')).toBeNull();
+  expect(suggestionDetails("name")).toBeUndefined();
+  expect(suggestionDetails("username")).toBeUndefined();
   await act(async () => vi.advanceTimersByTimeAsync(350));
   expect(container.textContent).toContain("We’ll check again when you claim.");
   mocks.submit.mockResolvedValueOnce({ status: "error", message: "Retry" });
   await submit(button("Claim my profile"));
   expect(mocks.submit).toHaveBeenCalledOnce();
+});
+
+it("keeps the sole suggestion disclosure mounted and focused after restoring a preset", async () => {
+  await act(async () => root.render(<CreatorClaimForm targetId="target" targetName="Creator name" returnPath="/creators/creator_name/claim" connectedXUsername="creator_name" xMatches preview={{ profile: choiceProfile, resultingProfile: choiceProfile, currentProfile: choiceProfile, xSuggestion: { name: choiceProfile.name, username: choiceProfile.username }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
+  expect(suggestionDetails("name")).toBeUndefined();
+  await typeField("name", "Custom name");
+  const details = suggestionDetails("name");
+  expect(details.querySelectorAll("button")).toHaveLength(1);
+  await chooseSuggestion("name", choiceProfile.name);
+  expect(field("name").value).toBe(choiceProfile.name);
+  expect(suggestionDetails("name")).toBe(details);
+  expect(container.contains(details)).toBe(true);
+  expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(details.querySelector("summary"));
 });
 
 it("reports without sending the user to a claimed profile", async () => {

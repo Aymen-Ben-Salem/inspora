@@ -33,8 +33,8 @@ export default async function CreatorMatchPage({ searchParams }: { searchParams:
     }
   }
   const preview = target ? await getCreatorClaimPreview(target, matches ? userId : undefined, matches ? identity.providerAccountId : undefined) : undefined;
-  return <ClaimPageLayout title={target && !target.ownerUserId ? "Is this your profile?" : "Check your X attribution"}
-    description={target?.ownerUserId ? "This profile already has an owner. Let us know if its X attribution is incorrect." : `We found a creator profile linked to @${identity.username}. Review it before claiming your work.`}
+  return <ClaimPageLayout editorial title={target && !target.ownerUserId ? "Claim your profile" : "Check your X attribution"}
+    description={target?.ownerUserId ? "This profile already has an owner. Let us know if its X attribution is incorrect." : "Bring your work together and make this profile yours."}
     backHref={destination} backLabel="Back">
     {target ? <>
       <CreatorClaimForm key={`${target.id}:${matches}`} targetId={target.id} targetName={target.name} returnPath={"/creators/" + target.username + "/claim"} connectedXUsername={identity.username} xMatches={matches} verificationError={error} report={Boolean(target.ownerUserId)} preview={preview} />

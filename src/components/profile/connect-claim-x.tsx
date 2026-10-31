@@ -33,7 +33,7 @@ export function ConnectClaimX({ returnPath }: { returnPath: string }) {
     } finally { setBusy(false); }
   }
   return <div className="grid gap-3">
-    <button type="button" disabled={!isLoaded || busy || (!user && !signIn)} onClick={() => void connect()} className="focus-ring min-h-11 w-full cursor-pointer rounded-[3px] bg-[#262626] px-5 py-3 text-sm text-white transition-colors hover:bg-black disabled:cursor-wait disabled:opacity-50">{busy ? "Connecting…" : user ? "Connect X" : "Continue with X"}</button>
+    <button type="button" disabled={!isLoaded || busy || (!user && !signIn)} onClick={() => void connect()} className="focus-ring min-h-12 w-full cursor-pointer bg-[#262626] px-6 py-3 text-sm text-white transition-colors hover:bg-[#111] active:translate-y-px disabled:cursor-wait disabled:opacity-50 sm:w-fit sm:min-w-48">{busy ? "Connecting…" : user ? "Connect X" : "Continue with X"}</button>
     {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
   </div>;
 }

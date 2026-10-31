@@ -8,7 +8,7 @@ export class XLookupError extends Error {
   }
 }
 
-export type XAccount = { id: string; username: string; profileImageUrl?: string };
+export type XAccount = { id: string; username: string; name?: string; profileImageUrl?: string };
 
 // Only the official fixed host receives the token. Never follow a supplied URL.
 export async function lookupXProfile(profileUrl: string, options: { includeAvatar?: boolean } = {}): Promise<XAccount> {
@@ -18,9 +18,9 @@ export async function lookupXProfile(profileUrl: string, options: { includeAvata
   return lookupXAccount(`by/username/${encodeURIComponent(username)}`, { username }, options.includeAvatar);
 }
 
-export async function lookupXAccountById(id: string): Promise<XAccount> {
+export async function lookupXAccountById(id: string, options: { includeAvatar?: boolean } = { includeAvatar: true }): Promise<XAccount> {
   if (!/^[1-9]\d{0,24}$/.test(id)) throw new XLookupError("not_found", "This X account is invalid.");
-  return lookupXAccount(id, { id }, true);
+  return lookupXAccount(id, { id }, options.includeAvatar);
 }
 
 async function lookupXAccount(path: string, expected: { id?: string; username?: string }, includeAvatar = false): Promise<XAccount> {
@@ -54,7 +54,8 @@ async function lookupXAccount(path: string, expected: { id?: string; username?: 
         if (image.protocol === "https:" && image.hostname === "pbs.twimg.com" && !image.username && !image.password && image.pathname.startsWith("/profile_images/")) profileImageUrl = image.href;
       } catch { /* Photo metadata must not invalidate otherwise valid identity evidence. */ }
     }
-    return { id: data.id, username: data.username, ...(profileImageUrl ? { profileImageUrl } : {}) };
+    const name = "name" in data && typeof data.name === "string" && data.name.trim().length <= 80 ? data.name.trim() : undefined;
+    return { id: data.id, username: data.username, ...(name ? { name } : {}), ...(profileImageUrl ? { profileImageUrl } : {}) };
   } catch (error) {
     if (error instanceof XLookupError) throw error;
     // Do not log provider responses, request headers, or transport errors containing credentials.

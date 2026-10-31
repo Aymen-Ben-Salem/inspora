@@ -32,12 +32,12 @@ export default async function CreatorMatchPage({ searchParams }: { searchParams:
       error = failure.message;
     }
   }
-  const preview = target ? await getCreatorClaimPreview(target, matches ? userId : undefined) : undefined;
+  const preview = target ? await getCreatorClaimPreview(target, matches ? userId : undefined, matches ? identity.providerAccountId : undefined) : undefined;
   return <ClaimPageLayout title={target && !target.ownerUserId ? "Is this your profile?" : "Check your X attribution"}
     description={target?.ownerUserId ? "This profile already has an owner. Let us know if its X attribution is incorrect." : `We found a creator profile linked to @${identity.username}. Review it before claiming your work.`}
     backHref={destination} backLabel="Back">
     {target ? <>
-      <CreatorClaimForm targetId={target.id} targetName={target.name} returnPath={"/creators/" + target.username + "/claim"} connectedXUsername={identity.username} xMatches={matches} verificationError={error} report={Boolean(target.ownerUserId)} preview={preview} />
+      <CreatorClaimForm key={`${target.id}:${matches}`} targetId={target.id} targetName={target.name} returnPath={"/creators/" + target.username + "/claim"} connectedXUsername={identity.username} xMatches={matches} verificationError={error} report={Boolean(target.ownerUserId)} preview={preview} />
     </> : <div className="grid gap-4"><p className="text-sm">This X attribution needs correction before you can claim a profile.</p>{candidates.map(row => row.username ? <Link key={row.id} className="focus-ring cursor-pointer rounded-xl border border-black/15 p-4 underline" href={("/creators/" + row.username + "/claim?report=1") as Route}>Report attribution for {row.name}</Link> : <CreatorClaimForm key={row.id} targetId={row.id} targetName={row.name} returnPath="/profile/claim-match" connectedXUsername={identity.username} xMatches={false} report />)}</div>}
   </ClaimPageLayout>;
 }

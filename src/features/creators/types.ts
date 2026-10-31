@@ -42,6 +42,9 @@ export type CreatorProfile = CreatorSummary;
 export type CreatorClaimPreview = {
   profile: CreatorSummary;
   resultingProfile?: CreatorSummary;
+  currentProfile?: CreatorSummary;
+  xSuggestion?: { name?: string; username: string };
+  xSuggestionUnavailable?: boolean;
   workCount: number;
   combinedWorkCount: number;
   merging: boolean;
@@ -55,7 +58,9 @@ export type ClaimResult =
 
 export type CreatorClaimMethod = "x" | "manual" | "ownership_report";
 export type CreatorClaimStatus = "pending" | "approved" | "rejected" | "withdrawn" | "resolved";
-export type ClaimActionState = { status: "idle" | "success" | "error"; message?: string; claimedCreatorId?: string };
+export type ClaimActionState = { status: "idle" | "success" | "error"; message?: string; claimedCreatorId?: string;
+  fieldErrors?: { name?: string; username?: string }; submittedProfile?: { name: string; username: string } };
+export type ClaimUsernameAvailability = { status: "available" | "unavailable" | "error"; message: string };
 export type OwnCreatorClaim = {
   id: string;
   targetCreatorId: string;

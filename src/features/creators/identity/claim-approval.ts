@@ -9,13 +9,15 @@ import { decideCreatorOwnershipClaimEligibility } from "./claim-policy";
 import { claimReviewVersion, profileValuesForApprovedClaimMerge } from "./claim-review";
 import { normalizedClaimXUrl, visibleClaimTarget } from "./claim-requests";
 import type { verifiedXIdentityForUser } from "./external-identity";
+import { claimProfileSchema, type ClaimProfileInput } from "../claim-validation";
+import { ClaimProfileError, isClaimUsernameAvailable } from "./claim-profile";
 
 // Internal merge transaction; claimCreatorWithX establishes fresh X evidence and locks the target.
 export async function approveCreatorOwnershipClaim(
   claimId: string,
   actorId: string,
   reviewReason: string | null,
-  options: { identity: Awaited<ReturnType<typeof verifiedXIdentityForUser>>; version?: string; automatic?: boolean; verifiedTargetAccountId?: string },
+  options: { identity: Awaited<ReturnType<typeof verifiedXIdentityForUser>>; version?: string; automatic?: boolean; verifiedTargetAccountId?: string; profile?: ClaimProfileInput },
   transaction?: WriteTx,
 ) {
   let identityChanged = false;
@@ -111,6 +113,13 @@ export async function approveCreatorOwnershipClaim(
 
     if (lockedProvisional.id !== target.id) {
       const retained = profileValuesForApprovedClaimMerge(target, lockedProvisional);
+      if (options.automatic && options.profile) {
+        const selected = claimProfileSchema.parse(options.profile);
+        if (!(await isClaimUsernameAvailable(tx, selected.username, creatorIds))) {
+          throw new ClaimProfileError("username", "That username is unavailable. Choose another.");
+        }
+        Object.assign(retained, selected, { editedFields: [...new Set([...retained.editedFields, "name", "username"])] });
+      }
       // Preserve existing addresses until a canonical username can survive the merge.
       if (!retained.username) return { status: "conflict" };
       for (const creator of [target, lockedProvisional]) {

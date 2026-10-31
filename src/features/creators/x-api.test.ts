@@ -54,4 +54,9 @@ describe("official X profile lookup", () => {
     request.mockResolvedValue(Response.json({ data: { id: "123", username: "renamed", profile_image_url: "https://evil.example/a.jpg" } }));
     expect(await lookupXAccountById("123")).toEqual({ id: "123", username: "renamed" });
   });
+  it("returns X naming suggestions with original case without requesting photo metadata", async () => {
+    request.mockResolvedValue(Response.json({ data: { id: "123", username: "Aymen_Bsa", name: "Aymen ✦" } }));
+    expect(await lookupXAccountById("123", { includeAvatar: false })).toEqual({ id: "123", username: "Aymen_Bsa", name: "Aymen ✦" });
+    expect(request.mock.calls[0][0]).toBe("https://api.x.com/2/users/123");
+  });
 });

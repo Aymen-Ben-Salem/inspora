@@ -1,4 +1,14 @@
 import { z } from "zod";
+import { validateCreatorUsername } from "./validation";
+
+export const claimProfileSchema = z.object({
+  name: z.string().trim().min(1, "Enter your name.").max(80, "Use 80 characters or fewer."),
+  username: z.string().trim().superRefine((value, ctx) => {
+    const result = validateCreatorUsername(value);
+    if (!result.ok) ctx.addIssue({ code: "custom", message: result.message });
+  }),
+});
+export type ClaimProfileInput = z.infer<typeof claimProfileSchema>;
 
 const evidenceUrl = z.string().trim().max(2048).url("Enter a public portfolio or evidence URL.").refine((value) => {
   try {
@@ -8,7 +18,7 @@ const evidenceUrl = z.string().trim().max(2048).url("Enter a public portfolio or
 }, "Enter an http or https URL without credentials.");
 
 export const creatorClaimRequestSchema = z.discriminatedUnion("method", [
-  z.object({ targetCreatorId: z.uuid(), method: z.literal("x"), confirmed: z.literal(true) }),
+  z.object({ targetCreatorId: z.uuid(), method: z.literal("x"), confirmed: z.literal(true), profile: claimProfileSchema.optional() }),
   z.object({ targetCreatorId: z.uuid(), method: z.literal("ownership_report"), confirmed: z.literal(true),
     evidenceUrl, evidenceNote: z.string().trim().min(20, "Explain your connection to this creator in at least 20 characters.").max(2000) }),
 ]);

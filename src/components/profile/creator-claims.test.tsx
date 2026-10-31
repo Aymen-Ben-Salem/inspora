@@ -3,11 +3,11 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { OwnCreatorClaim } from "@/features/creators/types";
-const mocks = vi.hoisted(() => ({ submit: vi.fn(), change: vi.fn(), review: vi.fn(), sync: vi.fn(), connect: vi.fn(), refresh: vi.fn(), replace: vi.fn(), viewer: vi.fn() }));
+const mocks = vi.hoisted(() => ({ submit: vi.fn(), change: vi.fn(), review: vi.fn(), sync: vi.fn(), connect: vi.fn(), refresh: vi.fn(), replace: vi.fn(), viewer: vi.fn(), availability: vi.fn() }));
 vi.mock("@clerk/nextjs", () => ({ useReverification: (action: unknown) => action, useUser: () => ({ isLoaded: true, user: { createExternalAccount: mocks.connect, reload: vi.fn() } }) }));
 vi.mock("@clerk/nextjs/legacy", () => ({ useSignIn: () => ({ signIn: undefined }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, replace: mocks.replace }) }));
-vi.mock("@/features/creators/claim-actions", () => ({ submitCreatorClaimAction: mocks.submit, changeOwnClaimAction: mocks.change, synchronizeOwnXAction: mocks.sync }));
+vi.mock("@/features/creators/claim-actions", () => ({ submitCreatorClaimAction: mocks.submit, changeOwnClaimAction: mocks.change, synchronizeOwnXAction: mocks.sync, checkClaimUsernameAction: mocks.availability }));
 vi.mock("@/features/admin/creator-actions", () => ({ reviewCreatorClaimAction: mocks.review }));
 vi.mock("./use-viewer-profile", () => ({ refreshViewerProfile: mocks.viewer }));
 import { CreatorClaimForm } from "./creator-claim-form";
@@ -16,8 +16,8 @@ import { consumeClaimSuccess } from "./claim-success-notice";
 import { XIdentitySync } from "./x-identity-sync";
 import { CreatorClaimReviewForm } from "../admin/creator-claim-review-form";
 let container: HTMLDivElement; let root: Root;
-beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
-afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
+beforeEach(() => { vi.clearAllMocks(); mocks.availability.mockResolvedValue({ status: "available", message: "Available for your profile." }); sessionStorage.clear(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
+afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const button = (text: string) => [...container.querySelectorAll("button")].find((item) => item.textContent === text)!;
 async function renderClaim(connectedXUsername: string | null = null, xMatches = false, report = false) {
   await act(async () => root.render(<CreatorClaimForm targetId="target" targetName="Creator" returnPath="/creators/creator/claim" connectedXUsername={connectedXUsername} xMatches={xMatches} report={report} />));
@@ -135,10 +135,75 @@ it("shows the resulting identity before the user confirms the merge", async () =
   await act(async () => root.render(<CreatorClaimForm targetId="target" targetName={profile.name} returnPath="/creators/editorial/claim" connectedXUsername="creator" xMatches preview={{ profile, resultingProfile: { ...profile, name: "Owner name", username: "owner" }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
   expect(container.querySelector('[aria-label="Creator profile to claim"]')?.textContent).toContain("Editorial name");
   expect(container.textContent).toContain("Your profile after claiming");
-  expect(container.textContent).toContain("Owner name");
-  expect(container.textContent).toContain("@owner");
+  expect(container.querySelector<HTMLInputElement>('[name="name"]')?.value).toBe("Owner name");
+  expect(container.querySelector<HTMLInputElement>('[name="username"]')?.value).toBe("owner");
   expect(container.textContent).toContain("2 works");
   expect(mocks.submit).not.toHaveBeenCalled();
+});
+
+const choiceProfile = { id: "target", name: "Creator name", username: "creator_name", avatarUrl: "/brand/default-avatar.svg", websiteUrl: null, xProfileUrl: "https://x.com/X_Name" };
+async function renderChoices() {
+  await act(async () => root.render(<CreatorClaimForm targetId="target" targetName="Creator name" returnPath="/creators/creator_name/claim" connectedXUsername="x_name" xMatches preview={{ profile: choiceProfile, resultingProfile: choiceProfile, currentProfile: { ...choiceProfile, id: "current", name: "My name", username: "My_Name" }, xSuggestion: { name: "X name", username: "X_Name" }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
+}
+const field = (name: string) => container.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+async function typeField(name: string, value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field(name), value);
+    field(name).dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+it("suggests X names, allows keeping either profile's details, and submits the visible choices", async () => {
+  await renderChoices();
+  expect(field("name").value).toBe("X name"); expect(field("username").value).toBe("X_Name");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Name suggestions"] button:nth-child(2)')!.click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Username suggestions"] button:nth-child(3)')!.click());
+  expect(field("name").value).toBe("My name"); expect(field("username").value).toBe("creator_name");
+  mocks.submit.mockResolvedValueOnce({ status: "error", message: "Retry" });
+  await submit(button("Claim my profile"));
+  expect(mocks.submit.mock.calls[0][1].get("name")).toBe("My name");
+  expect(mocks.submit.mock.calls[0][1].get("username")).toBe("creator_name");
+  expect(field("name").value).toBe("My name"); expect(field("username").value).toBe("creator_name");
+});
+it("checks typing and clearing, ignores outdated responses, and focuses an invalid username", async () => {
+  vi.useFakeTimers();
+  let finishFirst!: (value: unknown) => void;
+  mocks.availability.mockReturnValueOnce(new Promise(resolve => { finishFirst = resolve; }));
+  await renderChoices();
+  await act(async () => vi.advanceTimersByTimeAsync(350));
+  await typeField("username", "Another_Name");
+  await act(async () => vi.advanceTimersByTimeAsync(350));
+  expect(mocks.availability).toHaveBeenLastCalledWith("target", "Another_Name");
+  await act(async () => finishFirst({ status: "unavailable", message: "Old result" }));
+  expect(container.textContent).not.toContain("Old result");
+  expect(container.textContent).toContain("Available for your profile.");
+  await typeField("username", "");
+  await submit(button("Claim my profile"));
+  expect(mocks.submit).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(field("username"));
+  expect(field("username").getAttribute("aria-invalid")).toBe("true");
+});
+it("keeps typed choices and focuses the username after a submit-time conflict", async () => {
+  await renderChoices();
+  await typeField("name", "Chosen display name"); await typeField("username", "Chosen_Name");
+  mocks.submit.mockResolvedValueOnce({ status: "error", fieldErrors: { username: "That username was just taken." }, submittedProfile: { name: "Chosen display name", username: "Chosen_Name" } });
+  await submit(button("Claim my profile"));
+  expect(field("name").value).toBe("Chosen display name");
+  expect(field("username").value).toBe("Chosen_Name");
+  expect(document.activeElement).toBe(field("username"));
+  expect(container.textContent).toContain("That username was just taken.");
+  await typeField("username", "Different_Name");
+  expect(container.textContent).not.toContain("That username was just taken.");
+});
+it("hides duplicate suggestions and allows submission when the advisory availability check fails", async () => {
+  vi.useFakeTimers(); mocks.availability.mockRejectedValue(new Error("Offline"));
+  await act(async () => root.render(<CreatorClaimForm targetId="target" targetName="Creator name" returnPath="/creators/creator_name/claim" connectedXUsername="creator_name" xMatches preview={{ profile: choiceProfile, resultingProfile: choiceProfile, currentProfile: choiceProfile, xSuggestion: { name: choiceProfile.name, username: choiceProfile.username }, merging: true, workCount: 1, combinedWorkCount: 2, thumbnails: [] }} />));
+  expect(container.querySelector('[aria-label="Name suggestions"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Username suggestions"]')).toBeNull();
+  await act(async () => vi.advanceTimersByTimeAsync(350));
+  expect(container.textContent).toContain("We’ll check again when you claim.");
+  mocks.submit.mockResolvedValueOnce({ status: "error", message: "Retry" });
+  await submit(button("Claim my profile"));
+  expect(mocks.submit).toHaveBeenCalledOnce();
 });
 
 it("reports without sending the user to a claimed profile", async () => {

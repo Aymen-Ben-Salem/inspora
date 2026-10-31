@@ -7,13 +7,19 @@ import { getPublishedCreatorWorkCounts, getPublishedCreatorWorkPage } from "@/fe
 import { profileValuesForApprovedClaimMerge } from "./claim-review";
 import { mapCreatorSummary } from "./projections";
 import type { CreatorClaimPreview } from "../types";
+import { getClaimXSuggestion } from "./claim-x-suggestion";
+import { XLookupError } from "../x-api";
 
 // Presentation only. Ownership and X evidence are checked again when claiming.
-export async function getCreatorClaimPreview(target: typeof creators.$inferSelect, verifiedUserId?: string): Promise<CreatorClaimPreview> {
-  const [counts, page, source] = await Promise.all([
+export async function getCreatorClaimPreview(target: typeof creators.$inferSelect, verifiedUserId?: string, verifiedXAccountId?: string): Promise<CreatorClaimPreview> {
+  const [counts, page, source, xSuggestion] = await Promise.all([
     getPublishedCreatorWorkCounts(target.id),
     getPublishedCreatorWorkPage({ creatorId: target.id, filter: "all" }),
     verifiedUserId ? requireDatabase().query.creators.findFirst({ where: eq(creators.ownerUserId, verifiedUserId) }) : undefined,
+    verifiedUserId && verifiedXAccountId ? getClaimXSuggestion(verifiedXAccountId).catch(error => {
+      if (error instanceof XLookupError) return null;
+      throw error;
+    }) : undefined,
   ]);
   const merging = source && source.id !== target.id && !source.trashedAt ? source : undefined;
   const result = merging ? { ...target, ...profileValuesForApprovedClaimMerge(target, merging) } : target;
@@ -21,6 +27,9 @@ export async function getCreatorClaimPreview(target: typeof creators.$inferSelec
   return {
     profile: mapCreatorSummary(target),
     resultingProfile: verifiedUserId ? mapCreatorSummary(result) : undefined,
+    currentProfile: merging ? mapCreatorSummary(merging) : undefined,
+    xSuggestion: xSuggestion ?? undefined,
+    xSuggestionUnavailable: xSuggestion === null,
     workCount: counts.total,
     combinedWorkCount: counts.total + sourceCount,
     merging: Boolean(merging),

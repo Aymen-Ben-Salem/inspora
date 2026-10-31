@@ -11,8 +11,10 @@ import { CreatorClaimError, lockClaimAccount, visibleClaimTarget } from "./claim
 import { approveCreatorOwnershipClaim } from "./claim-approval";
 import { refreshCommittedClaim } from "./claims";
 import { findXCreatorCandidates, resolveCreatorXAccount, sameXProfileSnapshot } from "./x-profile";
+import type { ClaimProfileInput } from "../claim-validation";
+import { ClaimProfileError } from "./claim-profile";
 
-export async function claimCreatorWithX(principal: CreatorOwnerPrincipal, targetCreatorId: string): Promise<ClaimResult> {
+export async function claimCreatorWithX(principal: CreatorOwnerPrincipal, targetCreatorId: string, profile?: ClaimProfileInput): Promise<ClaimResult> {
   if (!principal.userId?.trim()) throw new CreatorClaimError("Sign in with X to claim this profile.");
   const identity = await verifiedXIdentityForUser(principal.userId);
   if (!identity) throw new CreatorClaimError("Connect and verify your X account before claiming this profile.");
@@ -45,7 +47,7 @@ export async function claimCreatorWithX(principal: CreatorOwnerPrincipal, target
       // Old pending requests are retained as history; this confirmation uses fresh identity evidence.
       if (pending.length) await tx.update(creatorClaims).set({ status: "withdrawn", updatedAt: new Date() }).where(inArray(creatorClaims.id, pending.map(row => row.id)));
       const [claim] = await tx.insert(creatorClaims).values({ requesterUserId: principal.userId, targetCreatorId, method: "x", verifiedXProviderId: identity.providerAccountId, verifiedXUsername: identity.username }).returning({ id: creatorClaims.id });
-      const result = await approveCreatorOwnershipClaim(claim.id, principal.userId, "Claimed by confirming a matching authenticated X account.", { identity, automatic: true, verifiedTargetAccountId: accountId }, tx);
+      const result = await approveCreatorOwnershipClaim(claim.id, principal.userId, "Claimed by confirming a matching authenticated X account.", { identity, automatic: true, verifiedTargetAccountId: accountId, profile }, tx);
       if (result.result.status !== "claimed") throw new CreatorClaimError(result.result.status === "conflict" ? result.result.message ?? "This profile could not be claimed. Please report the ownership problem." : "This profile could not be claimed.");
       return result;
     });
@@ -55,7 +57,10 @@ export async function claimCreatorWithX(principal: CreatorOwnerPrincipal, target
   } catch (error) {
     let cause: unknown = error;
     while (cause && typeof cause === "object") {
-      const dbError = cause as { code?: string; cause?: unknown };
+      const dbError = cause as { code?: string; constraint?: string; cause?: unknown };
+      if (dbError.code === "23505" && ["creators_username_lower_unique", "creator_username_aliases_lower_unique"].includes(dbError.constraint ?? "")) {
+        throw new ClaimProfileError("username", "That username was just taken. Choose another and try again.");
+      }
       if (["23505", "40001", "40P01"].includes(dbError.code ?? "")) throw new CreatorClaimError("This X account or creator changed during your claim. Reload and try again.");
       cause = dbError.cause;
     }

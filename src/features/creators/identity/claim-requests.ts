@@ -31,7 +31,7 @@ export async function requestCreatorClaim(principal: CreatorOwnerPrincipal, raw:
   const input = creatorClaimRequestSchema.parse(raw);
   if (input.method === "x") {
     const { claimCreatorWithX } = await import("./instant-claim");
-    return claimCreatorWithX(principal, input.targetCreatorId);
+    return claimCreatorWithX(principal, input.targetCreatorId, input.profile);
   }
   const owned = await ensureCreatorForOwner(principal);
   return withWriteTransaction(async (tx) => {

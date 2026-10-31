@@ -36,10 +36,10 @@ export default async function CreatorClaimPage({ params, searchParams }: { param
       verificationError = error.message;
     }
   }
-  const preview = await getCreatorClaimPreview(target, xMatches && userId ? userId : undefined);
+  const preview = await getCreatorClaimPreview(target, xMatches && userId ? userId : undefined, xMatches ? identity?.providerAccountId : undefined);
   return <ClaimPageLayout title={report ? "Let’s correct this profile" : "Is this your profile?"}
     description={report ? "Let us know about an incorrect attribution or ownership problem." : "Bring your work together and manage your creator profile on Inspora."}
     backHref={"/creators/" + resolved.canonicalUsername} backLabel={`Back to ${target.name}`}>
-    <CreatorClaimForm targetId={target.id} targetName={target.name} returnPath={path} connectedXUsername={identity?.username ?? null} xMatches={xMatches} report={report} signedIn={Boolean(userId)} verificationError={verificationError} preview={preview} />
+    <CreatorClaimForm key={`${target.id}:${xMatches}`} targetId={target.id} targetName={target.name} returnPath={path} connectedXUsername={identity?.username ?? null} xMatches={xMatches} report={report} signedIn={Boolean(userId)} verificationError={verificationError} preview={preview} />
   </ClaimPageLayout>;
 }

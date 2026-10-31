@@ -38,11 +38,7 @@ function Suggestions({ field, value, preview, onChange }: {
   const prefix = field === "username" ? "@" : "";
   if (options.length === 1 && options[0].value === value.trim() && !usedChoices) return null;
   if (!options.length) return null;
-  return <details ref={disclosure} className="group">
-    <summary className="focus-ring flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 text-sm text-[#777] hover:text-[#262626] [&::-webkit-details-marker]:hidden">
-      Other {field} options<ChevronDown size={14} aria-hidden="true" className="transition-transform motion-reduce:transition-none group-open:rotate-180" />
-    </summary>
-    <div role="group" aria-label={`${field === "name" ? "Name" : "Username"} suggestions`} className="mb-2 border-y border-black/10">
+  const choices = <div role="group" aria-label={`${field === "name" ? "Name" : "Username"} suggestions`} className="mb-2 border-y border-black/10">
       {options.map(option => <button key={option.value} type="button" aria-pressed={value.trim() === option.value}
         aria-label={`Use ${field} ${prefix}${option.value} from ${option.label === "From X" ? "X" : option.label.toLowerCase()}`}
         onClick={() => {
@@ -55,7 +51,16 @@ function Suggestions({ field, value, preview, onChange }: {
         <span className="min-w-0 flex-1"><span className="block break-all text-[#262626]">{prefix}{option.value}</span><span className="mt-1 block text-xs text-[#777]">{option.label}{option.label === "From X" ? " · Suggested" : ""}</span></span>
         {value.trim() === option.value ? <Check size={15} className="shrink-0" aria-hidden="true" /> : null}
       </button>)}
-    </div>
+    </div>;
+  if (field === "username") return <div>
+    <p className="flex min-h-11 items-center text-sm text-[#777]">Other username options</p>
+    {choices}
+  </div>;
+  return <details ref={disclosure} className="group">
+    <summary className="focus-ring flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 text-sm text-[#777] hover:text-[#262626] [&::-webkit-details-marker]:hidden">
+      Other name options<ChevronDown size={14} aria-hidden="true" className="transition-transform motion-reduce:transition-none group-open:rotate-180" />
+    </summary>
+    {choices}
   </details>;
 }
 

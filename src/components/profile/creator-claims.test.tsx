@@ -153,14 +153,24 @@ function suggestionDetails(field: "name" | "username") {
 }
 async function chooseSuggestion(fieldName: "name" | "username", value: string) {
   const details = suggestionDetails(fieldName);
-  expect(details.open).toBe(false);
-  await act(async () => details.querySelector("summary")!.click());
-  expect(details.open).toBe(true);
+  if (fieldName === "name") {
+    expect(details.open).toBe(false);
+    await act(async () => details.querySelector("summary")!.click());
+    expect(details.open).toBe(true);
+  } else {
+    expect(details).toBeUndefined();
+  }
   const groupLabel = fieldName === "name" ? "Name suggestions" : "Username suggestions";
   const choice = [...container.querySelectorAll<HTMLButtonElement>(`[aria-label="${groupLabel}"] button`)].find(item => item.textContent?.includes(value))!;
-  await act(async () => choice.click());
-  expect(details.open).toBe(false);
-  expect(document.activeElement).toBe(details.querySelector("summary"));
+  await act(async () => { choice.focus(); choice.click(); });
+  if (fieldName === "name") {
+    expect(details.open).toBe(false);
+    expect(document.activeElement).toBe(details.querySelector("summary"));
+  } else {
+    expect(choice.closest("details")).toBeNull();
+    expect(choice.getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(choice);
+  }
 }
 async function typeField(name: string, value: string) {
   await act(async () => {
@@ -172,7 +182,8 @@ it("suggests X names, allows keeping either profile's details, and submits the v
   await renderChoices();
   expect(field("name").value).toBe("X name"); expect(field("username").value).toBe("X_Name");
   expect(suggestionDetails("name").open).toBe(false);
-  expect(suggestionDetails("username").open).toBe(false);
+  expect(suggestionDetails("username")).toBeUndefined();
+  expect(container.querySelectorAll('[aria-label="Username suggestions"] button')).toHaveLength(3);
   await chooseSuggestion("name", "My name");
   await chooseSuggestion("username", "creator_name");
   expect(field("name").value).toBe("My name"); expect(field("username").value).toBe("creator_name");
@@ -193,7 +204,8 @@ it("retains edited profile details when visiting the report form and returning t
   expect(field("name").value).toBe("My chosen name");
   expect(field("username").value).toBe("My_Chosen_Name");
   expect(suggestionDetails("name").open).toBe(false);
-  expect(suggestionDetails("username").open).toBe(false);
+  expect(suggestionDetails("username")).toBeUndefined();
+  expect(container.querySelectorAll('[aria-label="Username suggestions"] button')).toHaveLength(3);
   expect(mocks.submit).not.toHaveBeenCalled();
 });
 it("checks typing and clearing, ignores outdated responses, and focuses an invalid username", async () => {

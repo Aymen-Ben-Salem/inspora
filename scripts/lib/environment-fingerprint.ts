@@ -7,6 +7,8 @@ export type FingerprintedEnvironment = {
   r2BucketName: string;
   r2PublicBaseUrl: string;
   r2SubmissionsBucketName?: string;
+  releaseRehearsalTarget?: string;
+  deploymentEnvironment?: string;
 };
 
 export type EnvironmentFingerprint = {
@@ -30,6 +32,10 @@ export function runtimeDataEnvironmentFromValues(
     r2BucketName: values.R2_BUCKET_NAME ?? "",
     r2PublicBaseUrl: values.R2_PUBLIC_BASE_URL ?? "",
     r2SubmissionsBucketName: values.R2_SUBMISSIONS_BUCKET_NAME ?? "",
+    ...(values.RELEASE_REHEARSAL_TARGET ? {
+      releaseRehearsalTarget: values.RELEASE_REHEARSAL_TARGET,
+      deploymentEnvironment: values.VERCEL_ENV,
+    } : {}),
   };
 }
 
@@ -65,6 +71,13 @@ export const APPROVED_REHEARSAL_FINGERPRINT: EnvironmentFingerprint = {
   r2BucketSha256: sha256('inspora-media-rehearsal-20260929'),
   publicMediaHostSha256: sha256('pub-7fe6254d6647460f89db9822e4fa619a.r2.dev'),
   privateSubmissionsBucketSha256: sha256('inspora-submissions-rehearsal-20260929'),
+};
+
+/** Existing empty provider-contract fixture, using only the release rehearsal buckets. */
+export const APPROVED_SPONSORSHIP_REHEARSAL_FINGERPRINT: EnvironmentFingerprint = {
+  ...APPROVED_REHEARSAL_FINGERPRINT,
+  neonEndpointSha256: APPROVED_ENVIRONMENT_FINGERPRINTS.preview.neonEndpointSha256,
+  databaseNameSha256: sha256('/sponsorship_ticket01_cd37dc92154a4946a50035dfd68bfef4'),
 };
 
 function sha256(value: string) {
@@ -175,6 +188,17 @@ export function assertDataOperationEnvironment(
     approvedRehearsalFingerprint?: EnvironmentFingerprint;
   } = {},
 ) {
+  if (environment.releaseRehearsalTarget) {
+    if (environment.dataEnvironment !== 'rehearsal' || environment.deploymentEnvironment !== 'preview')
+      throw new Error('Release rehearsal requires an explicit preview deployment with rehearsal data.');
+    const expected = environment.releaseRehearsalTarget === 'release'
+      ? APPROVED_REHEARSAL_FINGERPRINT
+      : environment.releaseRehearsalTarget === 'sponsorship-fixture'
+        ? APPROVED_SPONSORSHIP_REHEARSAL_FINGERPRINT : null;
+    if (!expected) throw new Error('Release rehearsal target is not approved.');
+    assertEnvironmentFingerprint(environment, expected);
+    return;
+  }
   if(environment.dataEnvironment === 'rehearsal'){
     assertEnvironmentFingerprint(environment,options.approvedRehearsalFingerprint ?? APPROVED_REHEARSAL_FINGERPRINT);
     return;

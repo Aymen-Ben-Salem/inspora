@@ -61,6 +61,7 @@ async function main(){
   }
   const raw=readFileSync(path);if(releaseHash(raw)!==options['--sha256'])throw Error('Release content manifest digest mismatch');
   const pinned=JSON.parse(raw.toString('utf8')) as {media:PlannedMedia[];before:ContentSnapshot;[key:string]:unknown};
+  if(pinned.approvedForExecution===false)throw Error('Release content review-only manifest requires explicit approval and a fresh executable plan');
   for(const [key,value] of Object.entries({identity,code,plan,profiles}))if(canonicalHash(pinned[key])!==canonicalHash(value))throw Error('Release content pinned '+key+' drift');
   if(canonicalHash(pinned.before.tableHashes)!==canonicalHash(before.tableHashes)||canonicalHash(pinned.before.schema)!==canonicalHash(before.schema)||canonicalHash(pinned.before.ledger)!==canonicalHash(before.ledger))throw Error('Release content destination drift');
   let copied=0;

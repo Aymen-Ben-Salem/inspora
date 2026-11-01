@@ -48,4 +48,17 @@ describe('bounded release content',()=>{
   expect(Object.values(again.inserts).flat()).toEqual([]);expect(again.profileUpdates).toEqual([]);
   d.rows.logos[0].slug='changed';expect(()=>buildReleaseContentPlan(s,d,options)).toThrow(/Release content/);
  });
+ it('stops before importing a trashed credited creator or a conflicting pinned X account',()=>{
+  const f=make();f.s.rows.creators[1]={...f.s.rows.creators[1],trashed_at:'2026-10-31'};
+  expect(()=>buildReleaseContentPlan(f.s,f.d,options)).toThrow(/trashed/);
+  delete f.s.rows.creators[1].trashed_at;f.s.rows.creators[1].x_profile_account_id='123';
+  f.d.rows.creators.push({...profile('other','other'),x_profile_account_id:'123'});
+  expect(()=>buildReleaseContentPlan(f.s,f.d,options)).toThrow(/X account ID collision/);
+ });
+ it('captures same-origin URL-only logo media without inventing storage metadata',()=>{
+  const f=make();f.s.rows.logo_media[0].storage_key=null;f.s.rows.logo_media[0].storage_provider=null;
+  const p=buildReleaseContentPlan(f.s,f.d,options);
+  expect(p.mediaKeys).toContain(String(f.s.rows.logos[0].id));expect(p.inserts.logo_media[0].storage_key).toBeNull();
+  f.s.rows.logo_media[0].url+='?unreviewed=true';expect(()=>buildReleaseContentPlan(f.s,f.d,options)).toThrow(/mismatch/);
+ });
 });

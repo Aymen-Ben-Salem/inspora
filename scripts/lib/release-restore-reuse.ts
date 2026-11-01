@@ -6,6 +6,9 @@ export const RESTORE_REUSE_TARGET = {
   parentBranchId: 'br-fragrant-firefly-asbqbiqo', database: 'neondb',
   endpointSha256: '41216fa6801e563d2e658d1a0ceaaf96f2848e74984a1533d852eec485f75918',
 };
+export const WORKING_REHEARSAL_REUSE_TARGET = {
+  ...RESTORE_REUSE_TARGET, database: 'phase3_production_restore',
+};
 export type RestoreReusePlan = {
   version: 1; target: typeof RESTORE_REUSE_TARGET; beforeSha256: string;
   consumers: { reviewedAt: string; expiresAt: string; bindingsComplete: boolean; consumers: string[] };
@@ -17,9 +20,11 @@ const fail = (reason: string): never => { throw Error('Restore reuse: ' + reason
 
 export function guardRestoreReuse(url: string, plan: RestoreReusePlan, now: number, authorization?: string) {
   const u = new URL(url);
-  if (plan.version !== 1 || canonicalHash(plan.target) !== canonicalHash(RESTORE_REUSE_TARGET) ||
+  const target = plan.target.database === 'neondb' ? RESTORE_REUSE_TARGET
+    : plan.target.database === 'phase3_production_restore' ? WORKING_REHEARSAL_REUSE_TARGET : null;
+  if (!target || plan.version !== 1 || canonicalHash(plan.target) !== canonicalHash(target) ||
       !['postgres:', 'postgresql:'].includes(u.protocol) || u.hostname.includes('-pooler.') ||
-      digest(u.hostname) !== RESTORE_REUSE_TARGET.endpointSha256 || u.pathname !== '/neondb' ||
+      digest(u.hostname) !== target.endpointSha256 || u.pathname !== '/' + target.database ||
       digest(u.username) !== '6f198191100386e1f0c093fc1c902c0520c6382059d75fb4743ec1ec75cc7842' ||
       !u.password || u.port && u.port !== '5432' || !['require','verify-full'].includes(u.searchParams.get('sslmode') ?? '') || u.hash ||
       [...u.searchParams.keys()].some(k => !['sslmode','channel_binding'].includes(k))) fail('target rejected');

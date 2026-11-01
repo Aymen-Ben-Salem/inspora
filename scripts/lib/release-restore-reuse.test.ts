@@ -1,10 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { canonicalHash } from './content-transfer-plan';
-import { RESTORE_REUSE_TARGET, guardRestoreReuse, reuseRestoreTarget, type RestoreReusePlan } from './release-restore-reuse';
+import { RESTORE_REUSE_TARGET, WORKING_REHEARSAL_REUSE_TARGET, guardRestoreReuse, reuseRestoreTarget, type RestoreReusePlan } from './release-restore-reuse';
 const now = Date.parse('2026-10-22T20:00:00Z');
 const plan = (): RestoreReusePlan => ({ version:1, target: {...RESTORE_REUSE_TARGET}, beforeSha256:'a'.repeat(64),sourceArchiveSha256:'b'.repeat(64),consumers:{reviewedAt:'2026-10-22T19:55:00Z',expiresAt:'2026-10-22T20:10:00Z',bindingsComplete:true,consumers:[]},retainedCopy:{archiveSha256:'c'.repeat(64),verifiedDownloadSha256:'c'.repeat(64),independentlyRestored:true} });
 const url='postgresql://neondb_owner:fixture@ep-raspy-morning-aszy572t.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require';
 describe('existing isolated restore target',()=>{
+ it('requires a separately pinned plan and authorization for the working rehearsal',()=>{
+  const validation=plan(),working={...plan(),target:{...WORKING_REHEARSAL_REUSE_TARGET}};
+  const workingUrl=url.replace('/neondb?','/phase3_production_restore?');
+  expect(()=>guardRestoreReuse(workingUrl,working,now,'RESET-ISOLATED-DATABASE:'+canonicalHash(working))).not.toThrow();
+  expect(()=>guardRestoreReuse(workingUrl,working,now,'RESET-ISOLATED-DATABASE:'+canonicalHash(validation))).toThrow(/authorization/);
+  expect(()=>guardRestoreReuse(workingUrl,validation,now,'RESET-ISOLATED-DATABASE:'+canonicalHash(validation))).toThrow(/target/);
+  for(const database of ['phase3_preview_recovery','phase3_runtime_recovery_20261001','postgres']){
+   const other={...working,target:{...working.target,database}};
+   expect(()=>guardRestoreReuse(url.replace('/neondb?','/'+database+'?'),other,now,'RESET-ISOLATED-DATABASE:'+canonicalHash(other))).toThrow(/target/);
+  }
+ });
  it('requires exact target, current consumer clearance, retained proof and explicit plan authorization',()=>{
   const p=plan(),auth='RESET-ISOLATED-DATABASE:'+canonicalHash(p);expect(()=>guardRestoreReuse(url,p,now,auth)).not.toThrow();
   for(const mutate of [(p:RestoreReusePlan)=>{p.target.database='phase3_production_restore'},(p:RestoreReusePlan)=>{p.consumers.bindingsComplete=false},(p:RestoreReusePlan)=>{p.consumers.consumers=['historical alias']},(p:RestoreReusePlan)=>{p.retainedCopy.independentlyRestored=false},(p:RestoreReusePlan)=>{p.consumers.expiresAt='2026-10-22T19:59:00Z'}]){const p=plan();mutate(p);expect(()=>guardRestoreReuse(url,p,now,'RESET-ISOLATED-DATABASE:'+canonicalHash(p))).toThrow();}

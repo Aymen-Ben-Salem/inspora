@@ -6,13 +6,14 @@ import {initializeCreatorProfiles} from './creator-profile-backfill-database';
 import {planCreatorProfileBackfill} from './creator-profile-backfill';
 import {quoteReleaseIdentifier as quote,runReleaseTransaction} from './release-migration-execution';
 import {assertNoPreviewSponsorshipTransfer} from './sponsor-release-policy';
-import {RELEASE_PROFILE_FIELDS} from './release-content-identities';
+import {assertReviewedUpdateScope} from './release-content-identities';
 
 export function releaseProfilePlan(before:ContentSnapshot,plan:ReturnType<typeof buildReleaseContentPlan>,environment:'production'|'rehearsal'){
  const creators=structuredClone([...before.rows.creators,...plan.inserts.creators]);
  for(const change of plan.reviewedUpdates)if(change.table==='creators')Object.assign(creators.find(r=>r.id===change.id)!,change.values);
  for(const change of plan.profileUpdates)creators.find(r=>r.id===change.id)!.username=change.username;
- const aliases=[...before.rows.creator_username_aliases,...plan.inserts.creator_username_aliases];
+ const aliases=structuredClone([...before.rows.creator_username_aliases,...plan.inserts.creator_username_aliases]);
+ for(const change of plan.reviewedUpdates)if(change.table==='creator_username_aliases')Object.assign(aliases.find(r=>r.id===change.id)!,change.values);
  const ids=new Set(plan.selectedCreatorIds);
  return {ids:[...ids].sort(),changes:planCreatorProfileBackfill(creators.map(r=>({id:String(r.id),name:String(r.name),handle:r.handle as string|null,username:r.username as string|null,ownerUserId:r.has_owner?'owned':null,xProviderId:r.has_verified_x?'verified':null,recordOrigin:String(r.record_origin)})),aliases.map(r=>({creatorId:String(r.creator_id),username:String(r.username),isCurrent:r.is_current===true})),{environment,creatorIds:ids})};
 }
@@ -28,11 +29,16 @@ export async function applyReleaseContent(client:PoolClient,before:ContentSnapsh
   const tables=Object.keys(before.tableHashes).sort().map(t=>'public.'+quote(t));
   await client.query(`LOCK TABLE ${tables.join(',')} IN SHARE ROW EXCLUSIVE MODE`);
   assertSnapshotUnchanged(before,await captureContentSnapshot(client,'preview'));
-  for(const change of plan.reviewedUpdates){
+  // Release old current routes before promoting retained aliases. The unique
+  // current-alias index remains enforced throughout the transaction.
+  const updatePriority=(change:(typeof plan.reviewedUpdates)[number])=>change.table==='creator_username_aliases'?(change.values.is_current===false?-1:change.values.is_current===true?1:0):0;
+  const updateOrder=[...plan.reviewedUpdates].sort((a,b)=>updatePriority(a)-updatePriority(b));
+  for(const change of updateOrder){
    const columns=Object.keys(change.values);
-   if(!columns.length||columns.some(k=>!(change.table==='creators'?(RELEASE_PROFILE_FIELDS as readonly string[]).includes(k):change.table==='posts'&&k==='creator_id')))throw Error('Release content reviewed update scope rejected');
+   assertReviewedUpdateScope(change);
    const current=before.rows[change.table]?.find(r=>r.id===change.id);
    if(!current||Object.entries(change.before).some(([k,v])=>canonicalHash(current[k]??null)!==canonicalHash(v??null)))throw Error('Release content reviewed update before-state changed');
+   if(change.beforeRowSha256&&canonicalHash(current)!==change.beforeRowSha256)throw Error('Release content reviewed update row drift');
    const result=await client.query(`update public.${quote(change.table)} set ${columns.map((k,i)=>quote(k)+'=$'+(i+2)).join(',')} where id=$1`,[change.id,...columns.map(k=>change.values[k])]);
    if(result.rowCount!==1)throw Error('Release content reviewed update count changed');
   }
@@ -54,7 +60,7 @@ export async function applyReleaseContent(client:PoolClient,before:ContentSnapsh
   if(Object.values(plan.inserts).some(rows=>rows.length)||plan.profileUpdates.length||plan.reviewedUpdates.length){
    for(const id of plan.selectedWorkIds)await client.query("insert into admin_audit_logs(actor_id,action,resource_type,resource_id,details) values ('release-content-transfer','release.imported',$1,$2,$3::jsonb)",[releaseAuditResourceType(id,before.rows,plan.inserts),id,JSON.stringify({environment,selectedCreatorIds:plan.selectedCreatorIds})]);
   }
-  for(const change of plan.reviewedUpdates)await client.query("insert into admin_audit_logs(actor_id,action,resource_type,resource_id,details) values ('release-content-transfer','release.corrected',$1,$2,$3::jsonb)",[change.table==='posts'?'post':'creator',change.id,JSON.stringify({environment,fields:Object.keys(change.values),beforeHash:canonicalHash(change.before),afterHash:canonicalHash(change.values)})]);
+  for(const change of plan.reviewedUpdates)await client.query("insert into admin_audit_logs(actor_id,action,resource_type,resource_id,details) values ('release-content-transfer','release.corrected',$1,$2,$3::jsonb)",[change.table==='posts'?'post':change.table==='website_media'?'website':'creator',change.table==='website_media'?before.rows.website_media.find(r=>r.id===change.id)!.website_id:change.table==='creator_username_aliases'?before.rows.creator_username_aliases.find(r=>r.id===change.id)!.creator_id:change.id,JSON.stringify({environment,fields:Object.keys(change.values),mediaId:change.table==='website_media'?change.id:undefined,aliasId:change.table==='creator_username_aliases'?change.id:undefined,beforeHash:canonicalHash(change.before),afterHash:canonicalHash(change.values)})]);
   const after=await captureContentSnapshot(client,'preview');
   for(const [table,rows] of Object.entries(before.rows))for(const row of rows){
    const match=after.rows[table]?.find(r=>table==='design_categories'?r.name===row.name:r.id===row.id);

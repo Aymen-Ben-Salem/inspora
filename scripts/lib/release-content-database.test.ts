@@ -3,7 +3,8 @@ import type {PoolClient} from '@neondatabase/serverless';
 import type {ContentSnapshot} from './content-transfer-plan';
 import {captureContentSnapshot} from './content-transfer-database';
 import {initializeCreatorProfiles} from './creator-profile-backfill-database';
-import {applyReleaseContent} from './release-content-database';
+import {applyReleaseContent,releaseProfilePlan} from './release-content-database';
+import {canonicalHash} from './content-transfer-plan';
 vi.mock('./content-transfer-database',async original=>({...await original<object>(),captureContentSnapshot:vi.fn()}));
 vi.mock('./creator-profile-backfill-database',()=>({initializeCreatorProfiles:vi.fn()}));
 function fixture(){
@@ -21,4 +22,9 @@ describe('reviewed release update execution',()=>{
  it('executes the exact attribution correction, audits it and preserves other work, billing and analytics',async()=>{const f=fixture();vi.mocked(captureContentSnapshot).mockResolvedValueOnce(f.before).mockResolvedValueOnce(f.after);await applyReleaseContent(f.client,f.before,f.plan,'rehearsal');expect(f.query.mock.calls.filter(([s])=>s.startsWith('update'))).toEqual([['update public."posts" set "creator_id"=$2 where id=$1',['mixed','b']]]);expect(f.query.mock.calls.some(([s])=>s.includes('release.corrected'))).toBe(true);expect(f.query.mock.calls.some(([s])=>s==='COMMIT')).toBe(true);});
  it('rolls back if unrelated protected rows or another existing work changed',async()=>{for(const corrupt of [(f:ReturnType<typeof fixture>)=>{f.after.tableHashes.sponsor_accounts.sha256='changed'},(f:ReturnType<typeof fixture>)=>{f.after.rows.posts[1].creator_id='b'}]){const f=fixture();corrupt(f);vi.mocked(captureContentSnapshot).mockReset().mockResolvedValueOnce(f.before).mockResolvedValueOnce(f.after);await expect(applyReleaseContent(f.client,f.before,f.plan,'rehearsal')).rejects.toThrow(/unrelated|protected/);expect(f.query.mock.calls.some(([s])=>s==='ROLLBACK')).toBe(true);}});
  it('rolls back before update if the reviewed before-state differs',async()=>{const f=fixture();f.plan.reviewedUpdates[0].before.creator_id='other';vi.mocked(captureContentSnapshot).mockResolvedValue(f.before);await expect(applyReleaseContent(f.client,f.before,f.plan,'rehearsal')).rejects.toThrow(/before-state/);expect(f.query.mock.calls.some(([s])=>s.startsWith('update'))).toBe(false);});
+ it('plans initialization using reviewed current-alias transitions without mutating the before-image',()=>{
+  const f=fixture(),before=canonicalHash(f.before);
+  const plan={...f.plan,reviewedUpdates:[{table:'creators' as const,id:'b',before:{username:'alex_barashkov'},values:{username:'Barashkov'}},{table:'creator_username_aliases' as const,id:'aliasb',before:{is_current:true},values:{is_current:false},beforeRowSha256:canonicalHash(f.before.rows.creator_username_aliases[1])}],inserts:{...f.plan.inserts,creator_username_aliases:[{id:'newalias',creator_id:'b',username:'Barashkov',is_current:true}]}};
+  expect(releaseProfilePlan(f.before,plan,'rehearsal').changes).toEqual([]);expect(canonicalHash(f.before)).toBe(before);
+ });
 });

@@ -34,4 +34,38 @@ describe('reviewed release identities',()=>{
   decisions.corrections[0].values={title:'replace'};expect(()=>prepareReleaseIdentities(s,d,decisions)).toThrow(/scope/);
  });
  it('reassigns selected-work credit between distinct existing people without deleting either destination identity',()=>{const f=fixture();f.d.rows.creators.push({...f.s.rows.creators[0],url:'https://x.com/other_person'});f.decisions.mappings[0].sourceIds=['duplicate'];f.decisions.mappings[0].kind='attribution';const result=prepareReleaseIdentities(f.s,f.d,f.decisions);expect(result.destination.rows.creators.map(c=>c.id)).toEqual(['survivor','duplicate']);expect(result.source.rows.logos[0].creator_id).toBe('survivor');});
+ it('uses fresh survivor-only evidence after a completed merge without weakening missing-source guards',()=>{
+  const f=fixture();f.s.rows.creators=f.s.rows.creators.filter(c=>c.id==='survivor');
+  expect(()=>prepareReleaseIdentities(f.s,f.d,f.decisions)).toThrow(/source missing/);
+  f.decisions.mappings[0].sourceIds=['survivor'];
+  expect(prepareReleaseIdentities(f.s,f.d,f.decisions).source.rows.creators.map(c=>c.id)).toEqual(['survivor']);
+ });
+ it('reconciles only a pinned recording before-image and produces an empty second run',()=>{
+  const s=snapshot(),d=snapshot();s.rows.websites=[{id:'site'}];
+  const before={id:'recording',website_id:'site',role:'recording',url:'old.mp4',size_bytes:100,position:4};
+  d.rows.website_media=[before];
+  const decisions:ReleaseIdentityDecisions={version:1,status:'approved',mappings:[],corrections:[{table:'website_media',id:'recording',before:{url:'old.mp4',size_bytes:100},values:{url:'trimmed.mp4',size_bytes:90},beforeRowSha256:canonicalHash(before)}]};
+  const result=prepareReleaseIdentities(s,d,decisions);
+  expect(result.destination.rows.website_media[0]).toEqual({...before,url:'trimmed.mp4',size_bytes:90});
+  expect(prepareReleaseIdentities(s,result.destination,decisions).updates).toEqual([]);
+  for(const mutate of [(r:typeof before)=>{r.position=5},(r:typeof before)=>{r.role='favicon'},(r:typeof before)=>{r.website_id='other'}]){
+   const changed=structuredClone(d);mutate(changed.rows.website_media[0] as typeof before);
+   expect(()=>prepareReleaseIdentities(s,changed,decisions)).toThrow(/drift|target rejected/);
+  }
+  decisions.corrections[0].values={website_id:'other'};
+  expect(()=>prepareReleaseIdentities(s,d,decisions)).toThrow(/scope/);
+ });
+ it('retains a former route while changing only the reviewed current flag for the same creator',()=>{
+  const s=snapshot(),d=snapshot();const alias={id:'alias',creator_id:'same',username:'OldCase',is_current:true};
+  s.rows.creator_username_aliases=[{...alias,is_current:false}];d.rows.creator_username_aliases=[alias];
+  const decisions:ReleaseIdentityDecisions={version:1,status:'approved',mappings:[],corrections:[{table:'creator_username_aliases',id:'alias',before:{is_current:true},values:{is_current:false},beforeRowSha256:canonicalHash(alias)}]};
+  const r=prepareReleaseIdentities(s,d,decisions);expect(r.destination.rows.creator_username_aliases).toEqual([{...alias,is_current:false}]);
+  expect(prepareReleaseIdentities(s,r.destination,decisions).updates).toEqual([]);
+  s.rows.creator_username_aliases[0].creator_id='other';expect(()=>prepareReleaseIdentities(s,d,decisions)).toThrow(/alias correction target/);
+  s.rows.creator_username_aliases[0]={...alias,username:'OLDCASE',is_current:true};
+  decisions.corrections=[{table:'creator_username_aliases',id:'alias',before:{username:'OldCase'},values:{username:'OLDCASE'},beforeRowSha256:canonicalHash(alias)}];
+  expect(prepareReleaseIdentities(s,d,decisions).destination.rows.creator_username_aliases[0].username).toBe('OLDCASE');
+  decisions.corrections[0].values={username:'new_route'};expect(()=>prepareReleaseIdentities(s,d,decisions)).toThrow(/casing/);
+  decisions.corrections[0].values={creator_id:'other'};expect(()=>prepareReleaseIdentities(s,d,decisions)).toThrow(/scope/);
+ });
 });

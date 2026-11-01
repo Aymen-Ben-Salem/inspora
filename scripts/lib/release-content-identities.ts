@@ -1,13 +1,22 @@
-import { canonicalHash, type ContentSnapshot, type Row } from './content-transfer-plan';
+import { canonicalHash, EXCLUDED_WEBSITE_ID, type ContentSnapshot, type Row } from './content-transfer-plan';
 
-export type ReviewedUpdate = { table: 'creators' | 'posts'; id: string; before: Row; values: Row };
+export type ReviewedUpdate = { table: 'creators' | 'posts' | 'website_media' | 'creator_username_aliases'; id: string; before: Row; values: Row; beforeRowSha256?: string };
 export type ReleaseIdentityDecisions = {
   version: 1;
   status: 'approved' | 'pending';
   mappings: { kind?: 'combine' | 'attribution'; sourceIds: string[]; survivorId: string; sourceHashes: Record<string, string>; profile: Row }[];
   corrections: ReviewedUpdate[];
 };
-export const RELEASE_PROFILE_FIELDS = ['name', 'handle', 'url', 'username', 'x_profile_url', 'avatar_url', 'avatar_storage_provider', 'avatar_storage_key'] as const;
+export const RELEASE_PROFILE_FIELDS = ['name', 'handle', 'url', 'username', 'x_profile_url', 'x_profile_account_id', 'avatar_url', 'avatar_storage_provider', 'avatar_storage_key'] as const;
+const recordingFields = ['url', 'poster_url', 'size_bytes', 'storage_key', 'video_preview', 'poster_storage_key'];
+export function assertReviewedUpdateScope(change: ReviewedUpdate) {
+  const keys = Object.keys(change.values);
+  const allowed = change.table === 'creators' ? RELEASE_PROFILE_FIELDS : change.table === 'posts' ? ['creator_id'] : change.table === 'website_media' ? recordingFields : change.table === 'creator_username_aliases' ? ['is_current','username'] : [];
+  if (!keys.length || keys.some(k => !(allowed as readonly string[]).includes(k)) || !same(Object.keys(change.before).sort(), [...keys].sort()) || ['website_media','creator_username_aliases'].includes(change.table) && !/^[a-f0-9]{64}$/.test(change.beforeRowSha256 ?? '')) fail('correction scope rejected');
+  if (change.table === 'creator_username_aliases' && keys.includes('is_current') && typeof change.values.is_current !== 'boolean') fail('alias flag rejected');
+  if (change.table === 'creator_username_aliases' && keys.includes('username') && (typeof change.values.username !== 'string' || typeof change.before.username !== 'string' || change.values.username.toLowerCase() !== change.before.username.toLowerCase())) fail('alias casing rejected');
+  if (keys.includes('x_profile_account_id') && change.values.x_profile_account_id != null && !/^[1-9]\d{0,24}$/.test(String(change.values.x_profile_account_id))) fail('official X account ID rejected');
+}
 const fail = (reason: string): never => { throw Error('Release content: identity ' + reason); };
 const same = (a: unknown, b: unknown) => canonicalHash(a ?? null) === canonicalHash(b ?? null);
 const unowned = (c: Row) => !c.has_owner && !c.has_verified_x && !c.owner_user_id && !c.x_provider_id && !['user', 'development'].includes(String(c.record_origin));
@@ -20,10 +29,12 @@ export function prepareReleaseIdentities(source: ContentSnapshot, destination: C
   if (decisions.version !== 1 || decisions.status !== 'approved' || !Array.isArray(decisions.mappings) || !Array.isArray(decisions.corrections)) fail('decisions require approval');
   for (const correction of decisions.corrections) {
     const keys = Object.keys(correction.values);
-    if (!keys.length || keys.some(k => !(correction.table === 'creators' ? (RELEASE_PROFILE_FIELDS as readonly string[]).includes(k) : correction.table === 'posts' && k === 'creator_id')) || !same(Object.keys(correction.before).sort(), [...keys].sort())) fail('correction scope rejected');
+    assertReviewedUpdateScope(correction);
     const row = d.rows[correction.table]?.find(r => r.id === correction.id) ?? fail('correction target missing');
     if (correction.table === 'creators' && !unowned(row)) fail('correction target rejected');
+    if (correction.table === 'website_media' && (row.role !== 'recording' || row.website_id === EXCLUDED_WEBSITE_ID || !s.rows.websites.some(w => w.id === row.website_id))) fail('recording correction target rejected');
     if (keys.every(k => same(row[k], correction.values[k]))) continue;
+    if (correction.beforeRowSha256 && canonicalHash(row) !== correction.beforeRowSha256) fail('correction row drift');
     if (keys.some(k => !same(row[k], correction.before[k]))) fail('correction drift');
     if (correction.table === 'posts' && !d.rows.creators.some(c => c.id === correction.values.creator_id && unowned(c))) fail('attribution target rejected');
     updates.push(structuredClone(correction)); Object.assign(row, correction.values);
@@ -58,6 +69,11 @@ export function prepareReleaseIdentities(source: ContentSnapshot, destination: C
       }
     }
     approvedProfiles.add(mapping.survivorId);
+  }
+  for (const correction of decisions.corrections.filter(c=>c.table==='creator_username_aliases')) {
+    const row=d.rows.creator_username_aliases.find(r=>r.id===correction.id)!;
+    const sourceAlias=s.rows.creator_username_aliases.find(a=>String(a.username).toLowerCase()===String(row.username).toLowerCase());
+    if(!sourceAlias||sourceAlias.creator_id!==row.creator_id||sourceAlias.is_current!==row.is_current||sourceAlias.username!==row.username)fail('alias correction target rejected');
   }
   return { source: s, destination: d, updates, approvedProfiles };
 }

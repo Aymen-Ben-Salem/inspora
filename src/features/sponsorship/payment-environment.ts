@@ -1,8 +1,19 @@
 /** Shared by runtime billing and local recovery tooling; never infer mode from NODE_ENV. */
+import { assertDataOperationEnvironment, runtimeDataEnvironmentFromValues } from '../../../scripts/lib/environment-fingerprint';
+
 export type PaymentEnvironment = Record<string, string | undefined>;
 
 export function stripePaymentMode(values: PaymentEnvironment = process.env): "test" | "live" {
   const data = values.DATA_ENVIRONMENT;
+  if (values.RELEASE_REHEARSAL_TARGET) {
+    assertDataOperationEnvironment(runtimeDataEnvironmentFromValues(values));
+    if (values.STRIPE_REHEARSAL_ACCOUNT_ID !== 'acct_1USgzLRtLZ8OUdCw' ||
+        values.STRIPE_SPONSOR_PRICE_ID !== 'price_1USyKfRtLZ8OUdCwu4GCQLKg' ||
+        values.STRIPE_SPONSOR_ONE_TIME_PRICE_ID !== 'price_1USyKfRtLZ8OUdCwwD9uLes8' ||
+        values.STRIPE_SPONSOR_PORTAL_CONFIGURATION_ID !== 'bpc_1USyKfRtLZ8OUdCw8YGYtf26')
+      throw new Error('Release rehearsal requires the approved dedicated TEST catalog.');
+    return 'test';
+  }
   if (!["development", "preview", "production"].includes(data ?? ""))
     throw new Error("Explicit DATA_ENVIRONMENT is required for Stripe payments.");
   if (values.VERCEL_ENV && values.VERCEL_ENV !== data)

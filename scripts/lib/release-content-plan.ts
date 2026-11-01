@@ -34,7 +34,7 @@ export function buildReleaseContentPlan(source:ContentSnapshot,destination:Conte
   const r=value as Row;
   for(const [urlKey,keyKeys] of [['url',['storage_key','storageKey']],['poster_url',['poster_storage_key']],['avatar_url',['avatar_storage_key']]] as const){
    let key=keyKeys.map(k=>r[k]).find(Boolean);const url=r[urlKey];
-   // The schema permits legacy URL-only website assets. Include their exact
+   // The schema permits legacy URL-only editorial media. Include their exact
    // same-origin object dependency without changing nullable storage metadata.
    if(!key&&allowUrlOnly&&urlKey==='url'&&typeof url==='string'&&url.startsWith('https://'+options.sourceHost+'/'))key=decodeURIComponent(new URL(url).pathname.slice(1));
    if(typeof url==='string'&&url.startsWith('https://'+options.sourceHost+'/')&&!key)fail('missing managed media key');
@@ -48,7 +48,7 @@ export function buildReleaseContentPlan(source:ContentSnapshot,destination:Conte
   Object.values(r).forEach(v=>media(v));
  };
  const add=(table:string,sourceRow:Row,inspectMedia=false)=>{
-  if(inspectMedia)media(sourceRow,table==='website_media'&&sourceRow.storage_key==null&&sourceRow.storage_provider==null);
+  if(inspectMedia)media(sourceRow,['website_media','logo_media'].includes(table)&&sourceRow.storage_key==null&&sourceRow.storage_provider==null);
   const row=rewrite(clean(sourceRow)) as Row,existing=d[table].find(r=>r.id===row.id);
   if(existing){
    if(Object.entries(row).some(([k,v])=>canonicalHash(v)!==canonicalHash(existing[k])))fail('existing '+table+' differs: '+row.id);
@@ -60,10 +60,12 @@ export function buildReleaseContentPlan(source:ContentSnapshot,destination:Conte
  };
  for(const id of [...creatorIds].sort()){
   const c=s.creators.find(r=>r.id===id);if(!c)fail('missing credited creator');
+  if(c.trashed_at)fail('trashed creator requires an explicit visibility decision');
   if(c.has_owner||c.has_verified_x||c.owner_user_id||c.x_provider_id||c.record_origin==='user'||c.record_origin==='development')fail('account ownership requires an approved subplan');
   const existing=d.creators.find(r=>r.id===id);
   if(existing?.has_owner||existing?.has_verified_x)fail('destination identity is owned');
   const identity=xIdentity(c);
+  if(c.x_profile_account_id&&d.creators.some(r=>r.id!==id&&r.x_profile_account_id===c.x_profile_account_id))fail('official X account ID collision');
   if(identity&&s.creators.some(r=>r.id!==id&&creatorIds.has(r.id)&&xIdentity(r)===identity))fail('unapproved duplicate selected X identity');
   if(identity&&d.creators.some(r=>r.id!==id&&xIdentity(r)===identity))fail('unapproved duplicate X identity');
   const username=c.username;

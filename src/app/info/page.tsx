@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { AnalyticsPreferences } from "@/components/analytics-preferences";
 import { SiteNavbar } from "@/components/site-navbar";
@@ -302,6 +303,11 @@ export default function InfoPage() {
 
               <div className="mt-8">
                 <AnalyticsPreferences />
+                <p className="mt-6 text-sm text-[#777]">
+                  <Link className="focus-ring underline underline-offset-4" href="/privacy">Privacy policy</Link>
+                  <span aria-hidden="true"> &middot; </span>
+                  <Link className="focus-ring underline underline-offset-4" href="/terms">Terms of service</Link>
+                </p>
               </div>
             </section>
 

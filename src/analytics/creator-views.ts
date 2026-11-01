@@ -91,6 +91,7 @@ export function buildCreatorViewsQuery(
   eligible: EligibleWorkIds,
   cutoverAt: string,
   sessionCutoverAt?: string,
+  preserveLaterLegacy = false,
 ): HogQlQueryRequest {
   const sessionExpression = sessionCutoverAt
     ? `if(timestamp >= parseDateTimeBestEffort({session_cutover_at}) AND notEmpty(toString(properties.work_session_key)), concat('memory:',toString(properties.work_session_key)), toString(properties.$session_id))`
@@ -106,7 +107,7 @@ export function buildCreatorViewsQuery(
           ${sessionExpression} AS session_id
         FROM events
         WHERE event = {legacy_event}
-          AND timestamp < parseDateTimeBestEffort({cutover_at})
+          ${preserveLaterLegacy ? "" : "AND timestamp < parseDateTimeBestEffort({cutover_at})"}
           AND toString(properties.post_id) IN {design_ids}
           AND notEmpty(${sessionExpression})
         UNION ALL
@@ -160,6 +161,7 @@ async function getCachedCreatorViews(
   cutover: string,
   scope: string,
   sessionCutover?: string,
+  preserveLaterLegacy = false,
 ) {
   "use cache";
 
@@ -189,7 +191,7 @@ async function getCachedCreatorViews(
   const asOf = new Date().toISOString();
   const rows = await runHogQlQuery(
     configuration,
-    buildCreatorViewsQuery(eligible, cutover, sessionCutover),
+    buildCreatorViewsQuery(eligible, cutover, sessionCutover, preserveLaterLegacy),
   );
   return {
     status: "available",
@@ -226,9 +228,16 @@ export async function getCreatorViews(
       process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
       cutover,
     ];
-    const legacyScope = hash(legacyBoundary);
+    // Old production tabs continue sending legacy opens after preparation.
+    // Modern design event pairs share the memory key, so they still count once.
+    // Keep historical Preview query boundaries and snapshots unchanged.
+    const preserveLaterLegacy = environment === "production";
+    const queryBoundary = preserveLaterLegacy
+      ? [...legacyBoundary, "production-legacy-continuity-v1"]
+      : legacyBoundary;
+    const legacyScope = hash(queryBoundary);
     const scope = sessionCutover
-      ? hash([...legacyBoundary, sessionCutover])
+      ? hash([...queryBoundary, sessionCutover])
       : legacyScope;
     const key = hash([scope, creatorId]);
     const initialCheckedAt = new Date().toISOString();
@@ -247,6 +256,7 @@ export async function getCreatorViews(
         cutover,
         scope,
         sessionCutover,
+        preserveLaterLegacy,
       );
     } catch {
       const snapshot =

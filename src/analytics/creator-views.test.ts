@@ -123,6 +123,27 @@ it("retains pre-session-cutover snapshots with the same provider and eligibility
 });
 
 describe("creator views query", () => {
+  it("retains later legacy production opens while keeping the unified lower boundary", () => {
+    const request = buildCreatorViewsQuery(
+      { design: [designId], logo: [logoId], website: [websiteId] },
+      "2026-11-01T19:14:21.699Z",
+      "2026-11-01T19:14:21.699Z",
+      true,
+    );
+    expect(request.query).not.toContain("timestamp < parseDateTimeBestEffort({cutover_at})");
+    expect(request.query).toContain("timestamp >= parseDateTimeBestEffort({cutover_at})");
+    expect(request.query).toContain("uniqExact(work_kind, work_id, session_id)");
+  });
+  it("selects legacy continuity only for the actual Production caller", async () => {
+    configurePreviewAnalytics();
+    process.env.DATA_ENVIRONMENT = "production";
+    vi.mocked(getDatabase).mockReturnValue({execute: vi.fn().mockResolvedValue({rows: [{kind: "design", id: designId}]})} as never);
+    const fetchMock=vi.fn().mockResolvedValue(new Response(JSON.stringify({results:[[5]]})));
+    vi.stubGlobal("fetch",fetchMock);
+    expect(await getCreatorViews(creatorId)).toMatchObject({status:"available",count:5});
+    const body=JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.query.query).not.toContain("timestamp < parseDateTimeBestEffort({cutover_at})");
+  });
   it("uses the approved explicit memory-session cutover with historical and old-tab SDK fallback", () => {
     const request = buildCreatorViewsQuery(
       { design: [designId], logo: [logoId], website: [websiteId] },

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { captureAnalyticsEvent } from "@/analytics/client";
 import { ANALYTICS_EVENTS } from "@/analytics/events";
+import { getWorkSessionKey } from "@/analytics/work-session";
 import type { Post } from "@/domain/post";
 
 import { WorkAnalytics } from "./work-analytics";
@@ -16,6 +17,7 @@ export function PostAnalytics({ post }: { post: Post }) {
     capturedPostId.current = post.id;
 
     captureAnalyticsEvent(ANALYTICS_EVENTS.postOpened, {
+      work_session_key: getWorkSessionKey(),
       category: post.category,
       creator_id: post.creator.id,
       creator_name: post.creator.name,

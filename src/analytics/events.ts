@@ -15,6 +15,7 @@ export type AnalyticsEventProperties = {
       | "website-detail";
   };
   [ANALYTICS_EVENTS.postOpened]: {
+    work_session_key?: string;
     category: string;
     creator_id: string;
     creator_name: string;

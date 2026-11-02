@@ -36,9 +36,9 @@ const benefits = [
   "Put your brand alongside curated design work without interrupting the experience.",
   "Get repeated exposure across feeds, work, and pages — not just a single ad impression.",
 ];
-// Fixed audience figures selected from the September/October 2026 averages.
+// Owner-selected fixed figures; visitors use a conservative estimate below the Sep/Oct average.
 const audienceStatistics = [
-  ["visitors / month", "~78k"],
+  ["visitors / month", "~60k"],
   ["page views / month", "~230k"],
   ["average time on site", "3m 35s"],
 ] as const;

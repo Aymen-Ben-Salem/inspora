@@ -74,11 +74,20 @@
   margin-bottom: 16px;
 }
 
-[data-auth-dialog] .cl-card:has(.cl-otpCodeField) .cl-identityPreviewEditButton {
-  grid-column: 1;
-  grid-row: 7;
-  justify-self: start;
+/* Anchor Back to the card, including Clerk verification variants without the
+   OTP grid wrapper. Keep the original button and its navigation handler. */
+[data-auth-dialog] .cl-card:has(.cl-identityPreviewEditButton) {
+  position: relative;
+}
+
+[data-auth-dialog] .cl-card:has(.cl-identityPreviewEditButton) :is(.cl-header, .cl-identityPreview) {
   position: static;
+}
+
+[data-auth-dialog] .cl-card .cl-identityPreviewEditButton {
+  position: absolute;
+  top: 24px;
+  left: 24px;
   margin: 0;
 }
 

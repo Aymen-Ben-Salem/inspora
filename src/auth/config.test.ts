@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -36,6 +36,10 @@ describe("Clerk configuration", () => {
 });
 
 describe("admin authentication configuration", () => {
+  beforeEach(() => {
+    vi.stubEnv("ADMIN_ADDITIONAL_USER_IDS", undefined);
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -50,6 +54,31 @@ describe("admin authentication configuration", () => {
     vi.stubEnv("ADMIN_USER_IDS", " user_alpha,not-a-clerk-id,user_beta,user_alpha ");
 
     expect([...getConfiguredAdminUserIds()]).toEqual(["user_alpha", "user_beta"]);
+  });
+
+  it("preserves existing admins while adding and deduplicating additional IDs", () => {
+    vi.stubEnv("ADMIN_USER_IDS", "user_alpha,user_beta");
+    vi.stubEnv(
+      "ADMIN_ADDITIONAL_USER_IDS",
+      " user_gamma,user_alpha,not-a-clerk-id,user_REPLACE_ME,, ",
+    );
+
+    expect([...getConfiguredAdminUserIds()]).toEqual([
+      "user_alpha", "user_beta", "user_gamma",
+    ]);
+  });
+
+  it("does not grant admin access when both lists are absent", () => {
+    vi.stubEnv("ADMIN_USER_IDS", undefined);
+
+    expect(getConfiguredAdminUserIds().size).toBe(0);
+  });
+
+  it("accepts the additional list when no primary list is configured", () => {
+    vi.stubEnv("ADMIN_USER_IDS", undefined);
+    vi.stubEnv("ADMIN_ADDITIONAL_USER_IDS", "user_gamma");
+
+    expect([...getConfiguredAdminUserIds()]).toEqual(["user_gamma"]);
   });
 
   it("allowlists configured and Vercel deployment origins", () => {

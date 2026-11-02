@@ -42,7 +42,8 @@ function isClerkUserId(userId: string) {
 
 export function getConfiguredAdminUserIds() {
   return new Set(
-    (process.env.ADMIN_USER_IDS ?? "")
+    [process.env.ADMIN_USER_IDS ?? "", process.env.ADMIN_ADDITIONAL_USER_IDS ?? ""]
+      .join(",")
       .split(",")
       .map((userId) => userId.trim())
       .filter(isClerkUserId),

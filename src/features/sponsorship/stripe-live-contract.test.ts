@@ -19,9 +19,9 @@ afterEach(() => vi.unstubAllEnvs());
 function fixture(mode: SponsorBillingMode = "subscription", currency: SponsorCurrency = "eur", wrong?: string) {
   const amount = SPONSOR_AMOUNTS[currency], tax = 5000;
   const start = Date.UTC(2026, 0, 31) / 1000, end = Date.UTC(2026, 1, 28) / 1000;
-  const p = { id: "price_live", livemode: true, active: true, currency: "usd", unit_amount: 50000,
+  const p = { id: "price_live", livemode: true, active: true, currency: "usd", unit_amount: 75000,
     recurring: mode === "subscription" ? { interval: "month", interval_count: 1 } : null, tax_behavior: "exclusive",
-    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: 45000, tax_behavior: "exclusive" } } };
+    currency_options: { usd: { unit_amount: 75000, tax_behavior: "exclusive" }, eur: { unit_amount: 70000, tax_behavior: "exclusive" } } };
   const objects: Record<string, Record<string, unknown>> = {
     price: p,
     session: { id: "cs_live", livemode: true, mode: mode === "subscription" ? "subscription" : "payment",

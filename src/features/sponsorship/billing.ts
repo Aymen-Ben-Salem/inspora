@@ -1,5 +1,5 @@
 import { calendarMonthEnd, type SponsorBillingMode } from "./purchase-mode";
-import { sponsorAmount, SPONSOR_AMOUNTS } from "./pricing";
+import { sponsorAmount, SPONSOR_AMOUNTS, SPONSOR_OFFER_DESCRIPTION } from "./pricing";
 import { assertStripeObjectMode } from "./payment-environment";
 export const SPONSOR_RECOVERY_MS = 72 * 3600000;
 export type SponsorPrice = {
@@ -60,15 +60,18 @@ export function validateSponsorPrice(
   // Existing pinned USD subscriptions keep their original terms. This path
   // cannot start a new checkout with the retired 30-day price.
   const legacy = !requireActive && price.currency === "usd" &&
-    price.interval === "day" && price.intervalCount === 30;
-  // Old EUR payments stay bound to their original immutable Stripe price.
+    price.unitAmount === 50000 && price.interval === "day" && price.intervalCount === 30;
+  // Historical payments stay bound to their original immutable Stripe price.
   // This exception is for reconciliation/resuming pinned checkouts only.
-  const historicalEuro = !requireActive && price.currency === "eur" && price.unitAmount === 50000;
+  const historicalPrice = !requireActive && (
+    (price.currency === "usd" && price.unitAmount === 50000) ||
+    (price.currency === "eur" && [45000, 50000].includes(price.unitAmount ?? 0))
+  );
   if (
     price.id !== expectedId ||
     (requireActive && !price.active) ||
     !["usd", "eur"].includes(price.currency) ||
-    (price.unitAmount !== sponsorAmount(price.currency) && !historicalEuro) ||
+    (price.unitAmount !== sponsorAmount(price.currency) && !historicalPrice) ||
     (billingMode === "one_time" ? !once : (!monthly && !legacy)) ||
     (requireActive && (price.currency !== "usd" ||
       !price.currencyOptions || Object.keys(price.currencyOptions).length !== 2 ||
@@ -77,7 +80,7 @@ export function validateSponsorPrice(
     price.taxBehavior !== "exclusive"
   )
     throw new Error(
-      "A USD 500 or EUR 450 price with matching payment terms is required.",
+      `A ${SPONSOR_OFFER_DESCRIPTION} price with matching payment terms is required.`,
     );
 }
 function validPaidPeriod(invoice: PaidInvoice, observation: BillingObservation) {

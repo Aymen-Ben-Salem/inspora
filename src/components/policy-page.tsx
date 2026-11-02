@@ -13,7 +13,7 @@ export function PolicyPage({ policy }: { policy: SitePolicy }) {
         <h1 className="text-[32px] font-normal leading-tight tracking-[-0.04em] sm:text-[40px]">
           {policy.title}
         </h1>
-        <p className="mt-4 text-sm text-[#777]">Last updated November 1, 2026</p>
+        <p className="mt-4 text-sm text-[#777]">Last updated November {policy.path === "/terms" ? "2" : "1"}, 2026</p>
         <nav aria-label="Policy pages" className="mt-6 flex flex-wrap gap-5 text-sm">
           <Link className="focus-ring underline underline-offset-4" href="/info">About Inspora</Link>
           <Link className="focus-ring underline underline-offset-4" href="/privacy">Privacy policy</Link>

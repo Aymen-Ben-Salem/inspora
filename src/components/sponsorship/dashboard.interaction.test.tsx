@@ -113,7 +113,7 @@ it("reviews monthly billing in a modal without replacing its trigger and only op
     const dialog = container.querySelector<HTMLDialogElement>('dialog[aria-modal="true"]')!;
     expect(dialog.open).toBe(true);
     expect(dialog.textContent).toContain("remaining paid time is included");
-    expect(dialog.textContent).toContain("$500");
+    expect(dialog.textContent).toContain("$750");
     expect(dialog.textContent).toContain("9 Nov 2026, 20:31 UTC");
     expect(trigger.isConnected).toBe(true);
     expect(container.querySelector('#monthly-plan-title')!.closest('section')!.contains(dialog)).toBe(false);

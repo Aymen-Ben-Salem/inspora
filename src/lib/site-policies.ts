@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { SPONSOR_OFFER_DESCRIPTION } from "@/features/sponsorship/pricing";
 
 export type SitePolicy = {
   title: string;
@@ -110,7 +111,7 @@ export const termsPolicy: SitePolicy = {
       "id": "sponsorship",
       "title": "Sponsorship policy",
       "paragraphs": [
-        "USD 500 or EUR 450 before applicable tax. One-time covers one calendar month from verified payment, with no automatic renewal. Monthly renews every calendar month until cancelled and must be selected explicitly. For business and professional promotion.",
+        `${SPONSOR_OFFER_DESCRIPTION} before applicable tax. One-time covers one calendar month from verified payment, with no automatic renewal. Monthly renews every calendar month until cancelled and must be selected explicitly. For business and professional promotion.`,
         "Preparation stays private and uses no seat. Checkout reserves an available seat for 30 minutes; verified payment activates your campaign. One-time ends and releases its seat at expiry. Monthly cancellation preserves the paid period; a failed monthly renewal pauses promotion at expiry and holds your seat for 72 hours."
       ]
     },

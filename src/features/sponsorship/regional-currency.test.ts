@@ -12,6 +12,6 @@ it("uses the visitor's continent when available and ignores browser language", (
   expect(regionalSponsorCurrency(new Headers({ "x-vercel-ip-continent": "EU" }))).toBe("eur");
   expect(regionalSponsorCurrency(new Headers({ "x-vercel-ip-continent": "NA", "x-vercel-ip-country": "FR" }))).toBe("usd");
   expect(regionalSponsorCurrency(new Headers({ "accept-language": "fr-FR" }))).toBe("usd");
-  expect(sponsorPriceLabel("eur")).toBe("€450");
-  expect(sponsorPriceLabel("usd")).toBe("$500");
+  expect(sponsorPriceLabel("eur")).toBe("€700");
+  expect(sponsorPriceLabel("usd")).toBe("$750");
 });

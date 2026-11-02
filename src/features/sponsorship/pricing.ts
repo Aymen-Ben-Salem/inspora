@@ -1,5 +1,6 @@
 // Minor units, before tax. These are the only prices offered to new sponsors.
-export const SPONSOR_AMOUNTS = { usd: 50000, eur: 45000 } as const;
+export const SPONSOR_AMOUNTS = { usd: 75000, eur: 70000 } as const;
+export const SPONSOR_OFFER_DESCRIPTION = `USD ${SPONSOR_AMOUNTS.usd / 100} or EUR ${SPONSOR_AMOUNTS.eur / 100}`;
 export type SponsorCurrency = keyof typeof SPONSOR_AMOUNTS;
 export function isSponsorCurrency(value: unknown): value is SponsorCurrency {
   return value === "usd" || value === "eur";

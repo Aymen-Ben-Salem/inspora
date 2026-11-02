@@ -118,8 +118,8 @@ it.each(["one_time", "subscription"] as const)("saves current creative before op
   }
   const review = container.querySelector('[aria-labelledby="checkout-review-title"]')!;
   expect(review.textContent).toContain(billingMode === "subscription" ? "Subscribe · Monthly" : "One-off · 1 calendar month");
-  expect(review.textContent).toContain("$500");
-  expect(review.textContent).not.toContain("€450");
+  expect(review.textContent).toContain("$750");
+  expect(review.textContent).not.toContain("€700");
   expect(container.querySelector<HTMLInputElement>(`input[value="${billingMode}"]`)?.checked).toBe(true);
   let finishSave!: (response: Response) => void;
   fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { finishSave = resolve; }));
@@ -153,16 +153,16 @@ it("lets a European visitor change currency before payment and sends the display
   vi.spyOn(window.location, "assign").mockImplementation(() => {});
   await act(async () => root.render(<CampaignEditor initialCurrency="eur" />));
   const review = container.querySelector('[aria-labelledby="checkout-review-title"]')!;
-  expect(review.textContent).toContain("€450");
-  expect(review.textContent).not.toContain("$500");
+  expect(review.textContent).toContain("€700");
+  expect(review.textContent).not.toContain("$750");
   const select = container.querySelector<HTMLSelectElement>("select")!;
   expect(select.value).toBe("eur");
   await act(async () => { select.value = "usd"; select.dispatchEvent(new Event("change", { bubbles: true })); });
-  expect(review.textContent).toContain("$500");
-  expect(review.textContent).not.toContain("€450");
+  expect(review.textContent).toContain("$750");
+  expect(review.textContent).not.toContain("€700");
   const cards = container.querySelector('input[value="subscription"]')!.closest("fieldset")!;
-  expect(cards.textContent).toContain("$500");
-  expect(cards.textContent).not.toContain("€450");
+  expect(cards.textContent).toContain("$750");
+  expect(cards.textContent).not.toContain("€700");
   fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } }));
   fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/session" } }));
   await act(async () => { submitCheckout(); });

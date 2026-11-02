@@ -44,6 +44,27 @@ const paid: BillingObservation = {
   ],
 };
 describe("verified sponsor billing", () => {
+  it.each(["subscription", "one_time"] as const)("offers only the new amounts for %s while preserving pinned historical payments", mode => {
+    const current = { ...price, unitAmount: 75000,
+      interval: mode === "subscription" ? "month" : null,
+      intervalCount: mode === "subscription" ? 1 : null,
+      currencyOptions: { usd: { unitAmount: 75000, taxBehavior: "exclusive" }, eur: { unitAmount: 70000, taxBehavior: "exclusive" } } };
+    expect(() => validateSponsorPrice(current, price.id, true, mode)).not.toThrow();
+    for (const [currency, amount] of [["usd", 75000], ["eur", 70000], ["usd", 50000], ["eur", 45000], ["eur", 50000]] as const) {
+      const pinned = { ...current, currency, unitAmount: amount, active: false };
+      expect(() => validateSponsorPrice(pinned, price.id, false, mode)).not.toThrow();
+      expect(() => validateSponsorPrice(pinned, "price_other", false, mode)).toThrow();
+      const observation: BillingObservation = { ...paid, billingMode: mode, billingAnchor: start,
+        subscriptionId: mode === "one_time" ? null : "sub_1", price: pinned,
+        invoices: [{ ...paid.invoices[0], currency, amountPaid: amount, periodEnd: Date.UTC(2026, 10, 10) }] };
+      expect(billingDecision(observation, { paidThrough: null, periodStart: null }, start, price.id).state).toBe("active");
+      observation.invoices[0].amountPaid = amount - 1;
+      expect(billingDecision(observation, { paidThrough: null, periodStart: null }, start, price.id).state).toBe("pending");
+    }
+    expect(() => validateSponsorPrice({ ...current, unitAmount: 50000,
+      currencyOptions: { usd: { unitAmount: 50000, taxBehavior: "exclusive" }, eur: { unitAmount: 45000, taxBehavior: "exclusive" } } }, price.id, true, mode)).toThrow();
+    expect(() => validateSponsorPrice({ ...current, unitAmount: 75000, interval: "day", intervalCount: 30 }, price.id, false, mode)).toThrow();
+  });
   it("withdraws fully refunded monthly coverage while preserving a later independently paid month", () => {
     const refunded = {...paid.invoices[0],refunded:true,netBaseAmount:0};
     expect(billingDecision({...paid,invoices:[refunded]},{periodStart:start,paidThrough:end},start+1000,price.id)).toMatchObject({state:"inactive",terminate:true,invoiceId:null});
@@ -166,8 +187,8 @@ describe("verified sponsor billing", () => {
   it("starts only the monthly USD/EUR price and preserves retired USD terms for reconciliation", () => {
     expect(() => validateSponsorPrice(price, price.id)).toThrow();
     expect(() => validateSponsorPrice(price, price.id, false)).not.toThrow();
-    const monthly = { ...price, interval: "month", intervalCount: 1,
-      currencyOptions: { usd: { unitAmount: 50000, taxBehavior: "exclusive" }, eur: { unitAmount: 45000, taxBehavior: "exclusive" } } };
+    const monthly = { ...price, unitAmount: 75000, interval: "month", intervalCount: 1,
+      currencyOptions: { usd: { unitAmount: 75000, taxBehavior: "exclusive" }, eur: { unitAmount: 70000, taxBehavior: "exclusive" } } };
     expect(() => validateSponsorPrice(monthly, price.id)).not.toThrow();
     expect(() => validateSponsorPrice({ ...monthly, currencyOptions: { ...monthly.currencyOptions, eur: { unitAmount: 50000, taxBehavior: "exclusive" } } }, price.id)).toThrow();
     for (const currencyOptions of [undefined, { eur: { unitAmount: 49900, taxBehavior: "exclusive" } },

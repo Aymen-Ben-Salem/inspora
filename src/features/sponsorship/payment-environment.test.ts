@@ -59,12 +59,12 @@ it("keeps production billing recovery operational with checkout and campaign wri
 it.each(["subscription", "one_time"] as const)("reconciles simulated live %s USD/EUR prices and rejects mixed modes", mode => {
   environment(live);
   const start = Date.UTC(2026, 0, 31), end = Date.UTC(2026, 1, 28);
-  const price = { id: "price_live", livemode: true, active: true, currency: "usd", unitAmount: 50000,
+  const price = { id: "price_live", livemode: true, active: true, currency: "usd", unitAmount: 75000,
     interval: mode === "subscription" ? "month" : null, intervalCount: mode === "subscription" ? 1 : null,
-    taxBehavior: "exclusive", currencyOptions: { usd: { unitAmount: 50000, taxBehavior: "exclusive" }, eur: { unitAmount: 45000, taxBehavior: "exclusive" } } };
+    taxBehavior: "exclusive", currencyOptions: { usd: { unitAmount: 75000, taxBehavior: "exclusive" }, eur: { unitAmount: 70000, taxBehavior: "exclusive" } } };
   expect(() => validateSponsorPrice(price, price.id, true, mode)).not.toThrow();
   expect(() => validateSponsorPrice({ ...price, livemode: false }, price.id, true, mode)).toThrow();
-  for (const [currency, amount] of [["usd", 50000], ["eur", 45000]] as const) {
+  for (const [currency, amount] of [["usd", 75000], ["eur", 70000]] as const) {
     const observation: BillingObservation = { subscriptionId: mode === "subscription" ? "sub_live" : null,
       billingMode: mode, customerId: "cus_live", checkoutId: "checkout_live", livemode: true,
       price: { ...price, currency, unitAmount: amount }, status: "active", cancelAtPeriodEnd: false, billingAnchor: start,

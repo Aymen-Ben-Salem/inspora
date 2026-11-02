@@ -19,7 +19,7 @@ import { createStripeProvider } from "./stripe-client";
 it.each(["usd", "eur"] as const)("pins a monthly renewal in %s to the paid expiry without proration or an immediate charge", async currency => {
   const startsAt = "2026-11-17T12:00:00.000Z";
   const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => {
-    if (new URL(String(url)).pathname === "/v1/prices/price_monthly") return Response.json({ id:"price_monthly",livemode:false,active:true,currency:"usd",unit_amount:50000,recurring:{interval:"month",interval_count:1},tax_behavior:"exclusive",currency_options:{usd:{unit_amount:50000,tax_behavior:"exclusive"},eur:{unit_amount:45000,tax_behavior:"exclusive"}} });
+    if (new URL(String(url)).pathname === "/v1/prices/price_monthly") return Response.json({ id:"price_monthly",livemode:false,active:true,currency:"usd",unit_amount:75000,recurring:{interval:"month",interval_count:1},tax_behavior:"exclusive",currency_options:{usd:{unit_amount:75000,tax_behavior:"exclusive"},eur:{unit_amount:70000,tax_behavior:"exclusive"}} });
     const body = new URLSearchParams(String(options?.body));
     expect(body.get("mode")).toBe("subscription");
     expect(body.get("customer")).toBe("cus_original");
@@ -49,9 +49,9 @@ it.each([
   ["usd", "wrong_currency"], ["usd", "partial_amount"], ["usd", "uncaptured"], ["usd", "live_charge"],
   ["usd", "discount"], ["usd", "processing"], ["usd", "refunded"], ["usd", "partial_refund"], ["usd", "taxed_partial_refund"],
 ])("creates and verifies a single %s payment (%s)", async (currency, scenario) => {
-  const amount = currency === "eur" && scenario !== "legacy" ? 45000 : 50000;
-  const price = { id: "price_once", livemode: false, active: true, currency: "usd", unit_amount: 50000, recurring: null, tax_behavior: "exclusive",
-    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: scenario === "legacy" ? 50000 : 45000, tax_behavior: "exclusive" } } };
+  const amount = scenario === "legacy" ? 50000 : currency === "eur" ? 70000 : 75000;
+  const price = { id: "price_once", livemode: false, active: true, currency: "usd", unit_amount: 75000, recurring: null, tax_behavior: "exclusive",
+    currency_options: { usd: { unit_amount: 75000, tax_behavior: "exclusive" }, eur: { unit_amount: scenario === "legacy" ? 50000 : 70000, tax_behavior: "exclusive" } } };
   const session = { id: "cs_once", livemode: false, mode: "payment", status: "complete", payment_status: "paid", subscription: null,
     client_reference_id: "checkout_once", metadata: { sponsor_checkout_id: "checkout_once" }, expires_at: 1800000000,
     currency, amount_subtotal: amount, amount_total: amount + 5000, total_details: { amount_tax: 5000, amount_discount: 0 }, customer: "cus_once", payment_intent: "pi_once" };
@@ -69,7 +69,7 @@ it.each([
   if (scenario === "processing") intent.status = "processing";
   if (scenario === "refunded") charge.amount_refunded = amount + 5000;
   if (scenario === "partial_refund") {
-    session.amount_total = intent.amount = intent.amount_received = charge.amount = charge.amount_captured = 50000;
+    session.amount_total = intent.amount = intent.amount_received = charge.amount = charge.amount_captured = 75000;
     session.total_details.amount_tax = 0;
     charge.amount_refunded = 100;
   }
@@ -105,7 +105,7 @@ it.each([
   else if (scenario === "refunded") expect((await provider.observePayment("cs_once")).invoices)
     .toMatchObject([{ id: "refund:pi_once", paid: false, refunded: true }]);
   else if (scenario === "partial_refund") expect((await provider.observePayment("cs_once")).invoices)
-    .toMatchObject([{ id: "refund:pi_once", paid: false, refunded: true, netBaseAmount: 49900 }]);
+    .toMatchObject([{ id: "refund:pi_once", paid: false, refunded: true, netBaseAmount: 74900 }]);
   else if (scenario === "taxed_partial_refund") expect((await provider.observePayment("cs_once")).invoices)
     .toMatchObject([{ id: "refund:pi_once", paid: false, refunded: true, netBaseAmount: null }]);
   else await expect(provider.observePayment("cs_once")).rejects.toThrow();
@@ -125,13 +125,13 @@ it.each([["processing", false], ["requires_action", true]])("settles a single %s
   expect(cancel).toHaveBeenCalledTimes(safe ? 1 : 0);
 });
 
-it.each([["eur", 0, null, 0, false, "open"], ["eur", 0, null, 0, false, "lost"], ["eur", 0, 45000, 0, false, "won"], ["usd", 0, 50000, 0], ["eur", 0, 45000, 0], ["eur", 0, 50000, 0, true], ["eur", 100, 44900, 0], ["eur", 100, null, 5000], ["usd", 100, 49900, 0], ["usd", 50000, 0, 0],
-  ["usd", 100, null, 5000], ["usd", 55000, 0, 5000]] as const)(
+it.each([["eur", 0, null, 0, false, "open"], ["eur", 0, null, 0, false, "lost"], ["eur", 0, 70000, 0, false, "won"], ["usd", 0, 75000, 0], ["eur", 0, 70000, 0], ["eur", 0, 50000, 0, true], ["eur", 100, 69900, 0], ["eur", 100, null, 5000], ["usd", 100, 74900, 0], ["usd", 75000, 0, 0],
+  ["usd", 100, null, 5000], ["usd", 80000, 0, 5000]] as const)(
   "verifies monthly paid fee and refunds in %s (refund %s)", async (currency, refunded, netBaseAmount, tax, legacy = false, dispute?: string) => {
-  const amount = currency === "eur" && !legacy ? 45000 : 50000;
-  const price = { id: "price_monthly", livemode: false, active: true, currency: "usd", unit_amount: 50000,
+  const amount = legacy ? 50000 : currency === "eur" ? 70000 : 75000;
+  const price = { id: "price_monthly", livemode: false, active: true, currency: "usd", unit_amount: 75000,
     recurring: { interval: "month", interval_count: 1 }, tax_behavior: "exclusive",
-    currency_options: { usd: { unit_amount: 50000, tax_behavior: "exclusive" }, eur: { unit_amount: legacy ? 50000 : 45000, tax_behavior: "exclusive" } } };
+    currency_options: { usd: { unit_amount: 75000, tax_behavior: "exclusive" }, eur: { unit_amount: legacy ? 50000 : 70000, tax_behavior: "exclusive" } } };
   const fetcher = async (url: RequestInfo | URL, options?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     if (path === "/v1/prices/price_monthly") return Response.json(price);

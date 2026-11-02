@@ -36,6 +36,12 @@ const benefits = [
   "Put your brand alongside curated design work without interrupting the experience.",
   "Get repeated exposure across feeds, work, and pages — not just a single ad impression.",
 ];
+// Fixed audience figures selected from the September/October 2026 averages.
+const audienceStatistics = [
+  ["visitors / month", "~78k"],
+  ["page views / month", "~230k"],
+  ["average time on site", "3m 35s"],
+] as const;
 
 export function SponsorPage({
   availability,
@@ -106,17 +112,16 @@ export function SponsorPage({
         aria-label="Audience statistics"
         className="grid w-full max-w-[576px] grid-cols-3 gap-2 sm:gap-[18px]"
       >
-        {["visitors / month", "page views / month", "average time on site"].map(
-          (label) => (
+        {audienceStatistics.map(
+          ([label, value]) => (
             <div
               key={label}
               className="flex flex-col gap-1 rounded-md border border-[#e6e6e6] p-3 text-center sm:p-[15px]"
             >
               <span
                 className="text-[22px] font-bold leading-[27px] tracking-[0.2px]"
-                aria-label="Verified figure unavailable"
               >
-                —
+                {value}
               </span>
               <span className="text-xs leading-[normal] tracking-[0.2px] text-[#767676]">
                 {label}

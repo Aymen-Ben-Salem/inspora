@@ -22,7 +22,19 @@ it("shows waiting state and unavailable checkout without granting return-page en
   const html = renderToStaticMarkup(<SponsorDashboard initial={initial} />);
   expect(html).toContain("Waiting for verified payment");
   expect(html).toContain("No public campaign yet");
-  expect(html).toContain("Test checkout is not configured yet");
+  expect(html).toContain("Checkout is temporarily unavailable");
+});
+it("shows the automatic regional price without a currency selector", () => {
+  const html = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, checkout: { ...initial.checkout!, state: "ready" } }} initialCurrency="eur" />);
+  expect(html).toContain("€700");
+  expect(html).not.toContain("$750");
+  expect(html).not.toContain("<select");
+});
+it("keeps reserved pricing separate from the visitor's current region", () => {
+  const html = renderToStaticMarkup(<SponsorDashboard initial={{ ...initial, checkout: { ...initial.checkout!, currency: "usd" } }} initialCurrency="eur" />);
+  expect(html).toContain("Reserved price");
+  expect(html).not.toContain("€700");
+  expect(html).not.toContain("<select");
 });
 it("retains owner-scoped prepared campaigns before payment without granting paid editing", () => {
   const html = renderToStaticMarkup(<SponsorDashboard initial={{...initial, campaigns:[{id:"prepared",title:"My prepared creative",url:"https://example.com",state:"prepared"}]}} />);
@@ -117,5 +129,5 @@ it("disables purchase entry for a prepared owner when all four seats are held", 
     />,
   );
   expect(html).toContain("All four seats are occupied or reserved");
-  expect(html).toMatch(/disabled=""[^>]*>Continue to test checkout/);
+  expect(html).toMatch(/disabled=""[^>]*>Continue to checkout/);
 });

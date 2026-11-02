@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useSearchParams } from "next/navigation";
 import { PurchaseOptions } from "./purchase-options";
-import { SponsorCurrencySelect } from "./currency-select";
 import { SPONSOR_AMOUNTS, isSponsorCurrency, type SponsorCurrency } from "@/features/sponsorship/pricing";
 import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
@@ -104,7 +103,6 @@ export function SponsorDashboard({
   initialCurrency?: SponsorCurrency;
 }) {
   const params = useSearchParams();
-  const [currencyChoice, setCurrencyChoice] = useState(initialCurrency);
   const queryMode = params.get("billing");
   const choice = isSponsorBillingMode(queryMode) ? queryMode : initialMode;
   function setChoice(mode: SponsorBillingMode) {
@@ -129,7 +127,7 @@ export function SponsorDashboard({
   }
   const billingMode =
     data.checkout?.state === "reserved" ? data.checkout.billingMode : choice;
-  const currency = data.checkout?.state === "reserved" && data.checkout.currency ? data.checkout.currency : currencyChoice;
+  const currency = data.checkout?.state === "reserved" && data.checkout.currency ? data.checkout.currency : initialCurrency;
   const refresh = useCallback(async () => {
     if (refreshRequest.current) return;
     const controller = new AbortController();
@@ -385,7 +383,6 @@ export function SponsorDashboard({
                     busy || refreshing || data.checkout?.state === "reserved"
                   }
                 />
-                {data.checkout?.state !== "reserved" ? <SponsorCurrencySelect value={currency} onChange={setCurrencyChoice} disabled={busy || refreshing} /> : null}
               </div>
               {data.checkout?.state === "reserved" ? (
                 <p className="mt-3 text-xs text-[#66758c]">
@@ -408,11 +405,11 @@ export function SponsorDashboard({
                   void open("checkout");
                 }}
               >
-                Continue to test checkout
+                Continue to checkout
               </button>
               <p className="mt-4 text-sm leading-6 text-[#66758c]">
                 {!data.checkoutEnabled
-                  ? "Test checkout is not configured yet. Your saved preparation remains private."
+                  ? "Checkout is temporarily unavailable. Your saved preparation remains private."
                   : !data.capacityAvailable
                     ? "All four seats are occupied or reserved. Your preparation remains private; refresh to check availability."
                     : "Checkout reserves an available seat for 30 minutes. Only verified payment creates your paid account."}

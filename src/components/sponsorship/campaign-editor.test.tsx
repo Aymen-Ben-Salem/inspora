@@ -37,4 +37,5 @@ it("uses the regional euro price for both payment options and order review", () 
   const html = renderToStaticMarkup(<CampaignEditor initialCurrency="eur" />);
   expect(html.match(/€700/g)).toHaveLength(4);
   expect(html).not.toContain("$750");
+  expect(html).not.toContain("<select");
 });

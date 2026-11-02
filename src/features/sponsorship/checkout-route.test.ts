@@ -26,8 +26,8 @@ it.each(["eur", "usd"])("accepts an explicit supported %s currency", async curre
   expect((await POST(request({ currency }))).status).toBe(200);
   expect(start).toHaveBeenCalledWith(checkoutId, "one_time", currency);
 });
-it.each([["EU", "eur"], ["AF", "usd"]])("uses regional currency for clients without a selection (%s)", async (continent, currency) => {
-  expect((await POST(request({}, { "x-vercel-ip-continent": continent }))).status).toBe(200);
+it.each([["FR", "eur"], ["TN", "usd"], ["GB", "usd"]])("uses country currency for clients without an explicit currency (%s)", async (country, currency) => {
+  expect((await POST(request({}, { "x-vercel-ip-country": country }))).status).toBe(200);
   expect(start).toHaveBeenCalledWith(checkoutId, "one_time", currency);
 });
 it.each([{ currency: "gbp" }, { currency: "EUR" }, { currency: "eur", amount: 1 }, { currency: "usd", priceId: "price_attacker" }])("rejects unsupported currency or client price overrides %j", async extra => {

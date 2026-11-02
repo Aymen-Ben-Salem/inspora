@@ -149,24 +149,20 @@ it("shows save failures below checkout without starting payment", async () => {
   expect(navigate).not.toHaveBeenCalled();
 });
 
-it("lets a European visitor change currency before payment and sends the displayed selection", async () => {
+it("sends the automatic euro price without offering a currency selector", async () => {
   vi.spyOn(window.location, "assign").mockImplementation(() => {});
   await act(async () => root.render(<CampaignEditor initialCurrency="eur" />));
   const review = container.querySelector('[aria-labelledby="checkout-review-title"]')!;
   expect(review.textContent).toContain("€700");
   expect(review.textContent).not.toContain("$750");
-  const select = container.querySelector<HTMLSelectElement>("select")!;
-  expect(select.value).toBe("eur");
-  await act(async () => { select.value = "usd"; select.dispatchEvent(new Event("change", { bubbles: true })); });
-  expect(review.textContent).toContain("$750");
-  expect(review.textContent).not.toContain("€700");
+  expect(container.querySelector("select")).toBeNull();
   const cards = container.querySelector('input[value="subscription"]')!.closest("fieldset")!;
-  expect(cards.textContent).toContain("$750");
-  expect(cards.textContent).not.toContain("€700");
+  expect(cards.textContent).toContain("€700");
+  expect(cards.textContent).not.toContain("$750");
   fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { checkoutId: "checkout-a", revision: 5 } }));
   fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/session" } }));
   await act(async () => { submitCheckout(); });
-  expect(JSON.parse(fetchMock.mock.lastCall![1].body)).toEqual({ checkoutId: "checkout-a", billingMode: "one_time", currency: "usd" });
+  expect(JSON.parse(fetchMock.mock.lastCall![1].body)).toEqual({ checkoutId: "checkout-a", billingMode: "one_time", currency: "eur" });
 });
 
 it("preserves the saved revision when checkout is unavailable", async () => {

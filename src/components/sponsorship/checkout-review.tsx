@@ -3,14 +3,12 @@ import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 import { sponsorButton } from "./button-styles";
 import { SponsorSpinner } from "./sponsor-loading";
 import { sponsorPriceLabel, type SponsorCurrency } from "@/features/sponsorship/pricing";
-import { SponsorCurrencySelect } from "./currency-select";
 
-export function CheckoutReview({ billingMode, disabled, busy, currency, onCurrencyChange }: {
+export function CheckoutReview({ billingMode, disabled, busy, currency }: {
   billingMode: SponsorBillingMode;
   disabled: boolean;
   busy: boolean;
   currency: SponsorCurrency;
-  onCurrencyChange: (currency: SponsorCurrency) => void;
 }) {
   return (
     <section aria-labelledby="checkout-review-title" className="space-y-5 border-t border-[#e6e6e6] pt-8">
@@ -35,7 +33,6 @@ export function CheckoutReview({ billingMode, disabled, busy, currency, onCurren
           Navbar · Feed · Sidebar
         </p>
       </div>
-      <SponsorCurrencySelect value={currency} onChange={onCurrencyChange} disabled={disabled} />
       <p className={`${campaignType.body} pt-3 text-[#767676]`}>Manage your campaign from your dashboard after checkout.</p>
       <button type="submit" name="action" value="checkout" disabled={disabled} aria-busy={busy} className={`${sponsorButton.primary} gap-2`}>
         {busy ? <SponsorSpinner className="size-4" /> : null}

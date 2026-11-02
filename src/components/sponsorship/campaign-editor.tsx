@@ -88,7 +88,7 @@ function CampaignEditorContent({
   const initial = paid?.campaign?.creative;
   const router = useRouter();
   const [billingMode, setBillingMode] = useState<SponsorBillingMode>("one_time");
-  const [currency, setCurrency] = useState(initialCurrency);
+  const currency = initialCurrency;
   const [fields, setFields] = useState<PreviewFields>(() => ({ ...empty, ...initial, feedDescription: initial?.feedDescription ?? "", mediaId: initial?.mediaId ?? "", posterId: initial?.posterId ?? "", videoPreviewId: initial?.videoPreviewId ?? "" })),
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>(initial?.assets ?? []),
     [variants, setVariants] = useState<string[]>(initial?.variantIds ?? []),
@@ -550,7 +550,7 @@ function CampaignEditorContent({
             </p>
           ) : null}
           {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} currency={currency} /></div> : null}
-          {!paid ? <CheckoutReview billingMode={billingMode} currency={currency} onCurrencyChange={setCurrency} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
+          {!paid ? <CheckoutReview billingMode={billingMode} currency={currency} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
           <p
             role={failed ? "alert" : "status"}
             aria-live="polite"

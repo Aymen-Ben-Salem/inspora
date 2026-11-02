@@ -64,7 +64,7 @@ export async function startSponsorCheckout(
       ok: false,
       code: "unavailable",
       message:
-        "Test checkout is not configured yet. Your saved preparation remains private.",
+        "Checkout is temporarily unavailable. Your saved preparation remains private.",
     };
   // Reject foreign IDs before any provider operation, including maintenance.
   const own = await withSponsorWrite(

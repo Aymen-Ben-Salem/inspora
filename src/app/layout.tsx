@@ -8,6 +8,8 @@ import { FeedPlaybackProvider } from "@/components/looping-video";
 import { PostTransitionProvider } from "@/components/post-transition-provider";
 import { PublicSponsorsProvider } from "@/components/sponsorship/public-sponsors";
 import { PlacementAnalytics } from "@/components/sponsorship/placement-analytics";
+import { DataBullAnalytics } from "@/components/databull-analytics";
+import { getDataBullConfig } from "@/analytics/databull-config";
 import { Suspense } from "react";
 import {
   buildWebsiteStructuredData,
@@ -78,6 +80,7 @@ export default function RootLayout({
   children: ReactNode;
   modal?: ReactNode;
 }) {
+  const dataBull = getDataBullConfig();
   return (
     <html lang="en" className={inter.variable}>
       <head>
@@ -98,6 +101,7 @@ export default function RootLayout({
               <PublicSponsorsProvider>
                 <Suspense fallback={null}>
                   <PlacementAnalytics />
+                  {dataBull ? <DataBullAnalytics config={dataBull} /> : null}
                 </Suspense>
                 {children}
                 {modal}

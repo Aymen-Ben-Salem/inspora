@@ -28,7 +28,7 @@ export const privacyPolicy: SitePolicy = {
       "title": "Payments and service providers",
       "paragraphs": [
         "When payment features are available and you use them, Stripe processes checkout and billing. Inspora keeps the account, payment references, status and history needed to provide and reconcile sponsorship.",
-        "Clerk, X, Stripe and PostHog process information for their respective services. Their privacy notices are linked below. Contact information and material you send with a support, correction or removal request are used to handle that request."
+        "Clerk, X, Stripe, PostHog and Cloudflare process information for their respective services. Their privacy notices are linked below. Contact information and material you send with a support, correction or removal request are used to handle that request."
       ],
       "links": [
         {
@@ -46,6 +46,10 @@ export const privacyPolicy: SitePolicy = {
         {
           "label": "PostHog privacy notice",
           "href": "https://posthog.com/privacy"
+        },
+        {
+          "label": "Cloudflare privacy policy",
+          "href": "https://www.cloudflare.com/privacypolicy/"
         }
       ]
     },
@@ -54,6 +58,8 @@ export const privacyPolicy: SitePolicy = {
       "title": "Privacy and audience analytics",
       "paragraphs": [
         "Inspora measures public page views and sponsorship delivery with its own accepted-event records. PostHog provides a separate audience source where configured. Private account, sponsorship and administrator pages are excluded.",
+        "Where enabled, DataBull provides additional public-page analytics in Inspora's own Cloudflare account. It receives public page paths, limited marketing campaign labels, referring origins and foreground-time updates. It derives browser and operating-system categories and versions, and approximate network-based country, region and city information; this does not establish your precise location. Account identities, payment details, arbitrary URL parameters and URL fragments are not sent to this collector.",
+        "DataBull runs in cookieless mode: it creates daily pseudonymous visitor identifiers on the server from transient network and browser information, without storing raw IP addresses or visitor identifiers in your cookies or browser storage. These daily estimates can count returning visitors again and do not replace sponsorship delivery reports. DataBull traffic, session and bot-history retention is set to ninety days, with cleanup performed periodically. Automatic click capture and payment linking are not enabled in this integration.",
         "Analytics visitor identifiers are not stored in cookies or browser storage. Our monthly anonymous counting key uses transient trusted network and browser information; raw IP addresses, full browser identifiers, account identities and sensitive URLs are not retained in our event records. Shared networks can count together, and changing networks or browsers can count again. Monthly resets can count a returning visitor again in a range crossing months. Missing trustworthy identity contributes delivery, with no invented unique visitor.",
         "A sponsor impression requires at least half the placement to be visible continuously for one foreground second. Clicks count actual outbound activations. Unique visitors counts qualifying impression identities for sponsors and page-view identities for site audience; it is an estimate, not an exact count of people. Video figures measure the displayed preview and exclude repeat loops. A click does not prove a destination visit, signup or sale.",
         "Country uses trusted deployment network geolocation, with an Unknown bucket when unavailable. VPNs, relays and incomplete mapping affect it; this does not establish a visitor's physical location or nationality. We retain coarse devices and sanitized referring domains. PostHog resets anonymous identifiers daily, so their longer-range reach cannot replace our monthly sponsorship reach. Work opens use a tab-only session that resets on reload or after thirty minutes of inactivity.",

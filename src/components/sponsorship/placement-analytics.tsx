@@ -22,7 +22,6 @@ export function PlacementAnalytics() {
     const sent = new Set<string>(),
       queue: AnalyticsEvent[] = [];
     let tokens: Token[] = [],
-      pageToken = "",
       expiresAt = 0,
       offset = 0,
       stopped = false,
@@ -60,7 +59,6 @@ export function PlacementAnalytics() {
       clearTimeout(expiryTimer);
       expiresAt = 0;
       tokens = [];
-      pageToken = "";
       // Fresh observers must qualify visibility again after an outage.
       disconnect();
       void context();
@@ -131,10 +129,37 @@ export function PlacementAnalytics() {
             ].join(":"),
           });
         });
+      document
+        .querySelectorAll<HTMLElement>("a[data-sponsor-copy]")
+        .forEach((element) => {
+          if (
+            element.dataset.campaignId &&
+            element.dataset.versionId &&
+            !element.closest('[aria-hidden="true"]') &&
+            !tokens.some(
+              (token) =>
+                token.campaignId === element.dataset.campaignId &&
+                token.versionId === element.dataset.versionId &&
+                token.placement === "detail",
+            )
+          )
+            missing = true;
+        });
       if (missing) void context();
     }
     async function context() {
       if (fetching || stopped || isAnalyticsDisabled()) return;
+      const hasSponsor = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "[data-sponsor-placement], a[data-sponsor-copy]",
+        ),
+      ).some(
+        (element) =>
+          element.dataset.campaignId &&
+          element.dataset.versionId &&
+          !element.closest('[aria-hidden="true"]'),
+      );
+      if (!hasSponsor) return;
       fetching = true;
       const current = generation;
       try {
@@ -171,7 +196,6 @@ export function PlacementAnalytics() {
         )
           return;
         tokens = body.tokens;
-        pageToken = body.pageToken;
         offset = body.serverTime - Date.now();
         expiresAt = body.expiresAt;
         clearTimeout(expiryTimer);
@@ -180,9 +204,6 @@ export function PlacementAnalytics() {
           Math.max(0, expiresAt - Date.now() - offset),
         );
         scan();
-        if (!sent.has("page") && enqueue("site_page_view", pageToken)) {
-          sent.add("page");
-        }
       } catch {
         /* Collection gaps are not fabricated delivery. */
       } finally {
@@ -244,7 +265,6 @@ export function PlacementAnalytics() {
       clearTimeout(expiryTimer);
       expiresAt = 0;
       tokens = [];
-      pageToken = "";
       disconnect();
       queue.length = 0;
       // Dropped occurrences must not suppress fresh measurements on re-enable.

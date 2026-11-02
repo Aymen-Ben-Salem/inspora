@@ -54,16 +54,19 @@ function fixture() {
     }
     return result;
   });
-  const collector = createAnalyticsCollector({
-    now: () => now,
-    decode: () => page,
-    visitor: async () => ({
+  const decode = vi.fn(() => page);
+  const visitor = vi.fn(async () => ({
       visitorKey: "2026-10:opaque",
       countryCode: null,
       device: "desktop",
       referrerDomain: null,
-    }),
-    allowed: async () => true,
+    }));
+  const allowed = vi.fn(async () => true);
+  const collector = createAnalyticsCollector({
+    now: () => now,
+    decode,
+    visitor,
+    allowed,
     store,
   });
   const event = {
@@ -72,7 +75,7 @@ function fixture() {
     occurredAt: now.toISOString(),
     token: "signed",
   };
-  return { collector, event, store, rows };
+  return { collector, event, store, rows, decode, visitor, allowed };
 }
 it("acknowledges durable retries and duplicate impression keys without another exposure", async () => {
   const f = fixture();
@@ -111,4 +114,26 @@ it("never acknowledges a failed durable write as accepted", async () => {
   await expect(f.collector(request, { events: [f.event] })).rejects.toThrow(
     "database unavailable",
   );
+});
+
+it("excludes legacy page views before token decoding, identity or database work", async () => {
+  const f = fixture();
+  const event = { ...f.event, kind: "site_page_view", token: "site-traffic-disabled" };
+  expect(await f.collector(request, { events: [event] })).toEqual({
+    accepted: [], duplicate: [], excluded: [event.occurrenceId],
+  });
+  for (const dependency of [f.decode, f.visitor, f.allowed, f.store])
+    expect(dependency).not.toHaveBeenCalled();
+});
+
+it("keeps sponsor delivery when older clients include a general page view", async () => {
+  const f = fixture();
+  const old = { ...f.event, occurrenceId: randomUUID(), kind: "site_page_view", token: "site-traffic-disabled" };
+  expect(await f.collector(request, { events: [old, f.event] })).toEqual({
+    accepted: [f.event.occurrenceId], duplicate: [], excluded: [old.occurrenceId],
+  });
+  expect(f.rows).toHaveLength(1);
+  expect(f.rows[0].kind).toBe("sponsor_impression");
+  expect(f.decode).toHaveBeenCalledTimes(1);
+  expect(f.visitor).toHaveBeenCalledTimes(1);
 });

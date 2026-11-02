@@ -18,14 +18,11 @@ import {
 } from "@/analytics/posthog-data";
 import { AudienceTechnologyCard, TrafficChart } from "./analytics-tabs";
 import { LiveVisitorsCard } from "./live-visitors-card";
-import { AdminAnalyticsSources } from "@/components/sponsorship/admin-analytics";
-import type { SponsorRange } from "@/analytics/first-party/types";
 
 type AnalyticsPageProps = {
-  searchParams: Promise<{ days?: string | string[]; audience?: string | string[] }>;
+  searchParams: Promise<{ days?: string | string[] }>;
 };
 
-const audienceRanges = ["1d", "7d", "30d"] as const;
 const compactNumber = new Intl.NumberFormat("en", { notation: "compact" });
 const exactNumber = new Intl.NumberFormat("en");
 function parseRange(value: string | string[] | undefined): AnalyticsRange {
@@ -41,11 +38,6 @@ function formatRangeLabel(range: AnalyticsRange) {
   if (range === "today") return "Today";
   if (range === "yesterday") return "Yesterday";
   return `${range}d`;
-}
-
-function parseAudienceRange(value: string | string[] | undefined): SponsorRange {
-  const raw = Array.isArray(value) ? value[0] : value;
-  return audienceRanges.find(range => range === raw) ?? "30d";
 }
 
 function SetupState() {
@@ -365,9 +357,8 @@ function PostHogToolLinks({ tools }: { tools: PostHogTool[] }) {
 export default async function AnalyticsPage({
   searchParams,
 }: AnalyticsPageProps) {
-  const { days, audience } = await searchParams;
+  const { days } = await searchParams;
   const range = parseRange(days);
-  const audienceRange = parseAudienceRange(audience);
   const visitorUnit = "visitors";
 
   let analytics: AdminAnalytics | null = null;
@@ -414,7 +405,7 @@ export default async function AnalyticsPage({
             {ANALYTICS_RANGES.map((option) => (
               <Link prefetch={false}
                 key={option}
-                href={`/admin/analytics?days=${option}&audience=${audienceRange}` as Route}
+                href={`/admin/analytics?days=${option}` as Route}
                 aria-current={range === option ? "page" : undefined}
                 className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
                   range === option
@@ -430,29 +421,9 @@ export default async function AnalyticsPage({
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[#777]">Accepted events · Rolling days · UTC</p>
-        <nav aria-label="Accepted-event date range" className="flex rounded-full bg-[#e5e5e1] p-1">
-          {audienceRanges.map(option => (
-            <Link prefetch={false}
-              key={option}
-              href={`/admin/analytics?days=${range}&audience=${option}` as Route}
-              aria-current={audienceRange === option ? "page" : undefined}
-              className={`focus-ring inline-flex h-8 items-center rounded-full px-3.5 text-xs transition-colors ${
-                audienceRange === option
-                  ? "bg-white text-black shadow-sm"
-                  : "text-[#666] hover:text-black"
-              }`}
-            >
-              {option}
-            </Link>
-          ))}
-        </nav>
-      </div>
-      <AdminAnalyticsSources range={audienceRange} />
       <h2 className="text-2xl font-medium">PostHog</h2>
       <p className="text-sm text-[#777]">
-        Separately measured audience. Cookieless identifiers reset daily and can
+        Cookieless identifiers reset daily and can
         count returning visitors again across days; these figures do not supply
         sponsor period reach or CTR.
       </p>

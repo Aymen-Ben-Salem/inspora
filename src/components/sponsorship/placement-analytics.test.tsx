@@ -191,6 +191,26 @@ function fixture() {
   };
 }
 
+it("does no analytics requests without sponsors, then measures a dynamically inserted placement", async () => {
+  const f = fixture();
+  placement.remove();
+  await f.mount();
+  await act(async () => vi.advanceTimersByTimeAsync(300000));
+  expect(f.control.contextCalls).toBe(0);
+  expect(f.batches).toEqual([]);
+  await act(async () => {
+    document.body.appendChild(placement);
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.control.contextCalls).toBe(1);
+  intersect(1);
+  placement.click();
+  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  expect(f.impressions()).toHaveLength(1);
+  expect(f.clicks()).toHaveLength(1);
+  expect(f.batches.flat().some(event => event.kind === "site_page_view")).toBe(false);
+});
+
 it("collects after re-enabling while an earlier context request is pending", async () => {
   const f = fixture();
   f.control.deferNextContext = true;
@@ -204,7 +224,7 @@ it("collects after re-enabling while an earlier context request is pending", asy
   await act(async () => vi.advanceTimersByTimeAsync(1000));
   expect(f.control.contextCalls).toBe(2);
   expect(f.clicks()).toHaveLength(1);
-  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(1);
+  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(0);
 });
 
 it("drops clicks without a valid context and accepts new clicks after refresh recovery", async () => {
@@ -293,7 +313,7 @@ it("stops collection while opted out, including a pending context response", asy
   expect(f.control.contextCalls).toBe(1);
 });
 
-it("recovers a page view dropped from the unsent queue by a preference reset", async () => {
+it("does not collect general page views after a preference reset", async () => {
   const f = fixture();
   await f.mount();
   await act(async () => {
@@ -301,16 +321,16 @@ it("recovers a page view dropped from the unsent queue by a preference reset", a
     setAnalyticsDisabled(false);
   });
   await act(async () => vi.advanceTimersByTimeAsync(1000));
-  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(1);
+  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(0);
 });
 
 it("remeasures an unsent impression after re-enable and deduplicates accepted exposure", async () => {
   const f = fixture();
   await f.mount();
   intersect(1);
-  // The interval flushes the page before the one-second impression is queued.
+  // The interval runs before the one-second impression is queued.
   await act(async () => vi.advanceTimersByTimeAsync(1000));
-  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(1);
+  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(0);
   expect(f.impressions()).toHaveLength(0);
   await act(async () => {
     setAnalyticsDisabled(true);
@@ -319,7 +339,7 @@ it("remeasures an unsent impression after re-enable and deduplicates accepted ex
   intersect(1);
   await act(async () => vi.advanceTimersByTimeAsync(2000));
   expect(f.impressions()).toHaveLength(1);
-  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(1);
+  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(0);
   await act(async () => {
     setAnalyticsDisabled(true);
     setAnalyticsDisabled(false);
@@ -327,5 +347,5 @@ it("remeasures an unsent impression after re-enable and deduplicates accepted ex
   intersect(1);
   await act(async () => vi.advanceTimersByTimeAsync(2000));
   expect(f.impressions()).toHaveLength(1);
-  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(1);
+  expect(f.rows.filter((event) => event.kind === "site_page_view")).toHaveLength(0);
 });

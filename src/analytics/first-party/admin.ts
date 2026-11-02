@@ -6,10 +6,6 @@ import { sponsorAccounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { readMetricsReport } from "./reports";
 import type { SponsorRange } from "./types";
-export async function readSiteAudienceMetrics(range: SponsorRange) {
-  await requireAdmin();
-  return readMetricsReport(null, { range });
-}
 export async function readAdminSponsorMetrics(
   accountId: string,
   range: SponsorRange,

@@ -50,6 +50,8 @@ it.each(["/websites", "/logos"])(
     }));
     expect(response.status).toBe(200);
     const body = await response.json();
+    expect(body.pageToken).toBe("site-traffic-disabled");
+    expect(() => decodeDeliveryToken(body.pageToken)).toThrow();
     const detail = body.tokens.find((token: { placement: string }) => token.placement === "detail");
     expect(detail).toBeDefined();
     expect(decodeDeliveryToken(detail.token)).toMatchObject({ pageId, path, campaignId, versionId, placement: "detail" });

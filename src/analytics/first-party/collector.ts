@@ -45,6 +45,12 @@ export function createAnalyticsCollector(deps: {
       excluded: string[] = [];
     const visitors = new Map<string, VisitorContext>();
     for (const event of parsed.data.events) {
+      // Acknowledge older open tabs without decoding, identifying or storing
+      // general traffic. Sponsor delivery remains independently validated.
+      if (event.kind === "site_page_view") {
+        excluded.push(event.occurrenceId);
+        continue;
+      }
       const at = Date.parse(event.occurredAt),
         context = deps.decode(event.token);
       if (
@@ -57,7 +63,7 @@ export function createAnalyticsCollector(deps: {
         throw new AnalyticsInputError("Expired analytics context.");
       if (
         isPrivateAnalyticsPath(context.path) ||
-        (event.kind === "site_page_view") !== !context.campaignId ||
+        !context.campaignId ||
         (event.kind === "sponsor_preview_progress") !==
           (event.milestone !== undefined) ||
         (event.kind.startsWith("sponsor_preview") &&

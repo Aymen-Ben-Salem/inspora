@@ -72,7 +72,9 @@ export async function POST(request: Request) {
       );
     return Response.json(
       {
-        pageToken: issueDeliveryToken(base),
+        // Older tabs require a nonempty token. Their page events are excluded
+        // by the collector, avoiding both new records and repeated retries.
+        pageToken: "site-traffic-disabled",
         tokens,
         expiresAt: base.expiresAt,
         serverTime: now,

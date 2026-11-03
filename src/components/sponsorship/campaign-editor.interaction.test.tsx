@@ -567,6 +567,52 @@ it("restores local files after verified sign-in, uploads them privately, saves a
   expect(state.clearDraft).toHaveBeenCalledOnce();
 });
 
+it("shows restored-file progress above the form throughout a slow checkout handoff", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:local-preview");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+    state.readDraft.mockResolvedValue({
+      ownerUserId: null, contact: { company: "Example", email: "owner@example.com" },
+      billingMode: "one_time", expiresAt: Date.now() + 60000,
+      fields: { title: "Local campaign", url: "https://example.com", feedDescription: "Campaign before login",
+        iconId: "local-icon", wordmarkId: "wordmark-ready", mediaId: "", posterId: "", videoPreviewId: "" },
+      files: { icon: new File(["fixture"], "icon.png", { type: "image/png" }) },
+    });
+    let finishUpload!: (value: never) => void;
+    vi.mocked(prepareAndUploadMedia).mockImplementation((_file, _kind, _operations, onStatus) => {
+      onStatus?.("uploading");
+      return new Promise(resolve => { finishUpload = resolve; });
+    });
+    let finishSave!: (value: Response) => void, finishCheckout!: (value: Response) => void;
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: preparation("owner-a") }))
+      .mockImplementationOnce(() => new Promise(resolve => { finishSave = resolve; }))
+      .mockImplementationOnce(() => new Promise(resolve => { finishCheckout = resolve; }));
+    await act(async () => root.render(<CampaignEditor />));
+    const progress = () => container.querySelector('[role="status"][aria-label="Checkout progress"]');
+    expect(progress()?.textContent).toContain("Uploading compact icon (1 of 1)");
+    expect(progress()!.compareDocumentPosition(container.querySelector("form")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(checkoutButton().disabled).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(progress()?.textContent).toContain("taking longer than usual");
+    // A slow upload must not start a second save or checkout in the background.
+    await act(async () => { submitCheckout(); submitCheckout(); });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => finishUpload({
+      original: { id: "original" }, primary: { id: "icon-ready", kind: "icon", url: "/fixture.png", contentType: "image/png", width: 64, height: 64 }, variants: [],
+    } as never));
+    expect(progress()?.textContent).toContain("Saving your campaign");
+    await act(async () => finishSave(Response.json({ ok: true, value: { revision: 1, checkoutId: "owned-checkout" } })));
+    expect(progress()?.textContent).toContain("Opening secure checkout");
+    await act(async () => finishCheckout(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/fixture" } })));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/fixture");
+    expect(state.clearDraft).toHaveBeenCalledOnce();
+    expect(progress()).toBeNull();
+  } finally { vi.useRealTimers(); }
+});
+
 it.each([false, true])("suggests before sign-in, preserves manual fields and carries images through email verification (replace: %s)", async replace => {
   state.auth = { isLoaded: true, isSignedIn: false, userId: null };
   let sequence = 0;

@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
+import { prepareAndUploadMedia, type UploadStatus } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
 import type {
   OwnedCampaign,
@@ -44,6 +44,13 @@ const uploadRoles = {
   wordmark: { kind: "sponsor-wordmark", field: "wordmarkId" },
   poster: { kind: "website-poster", field: "posterId" },
 } as const;
+const uploadLabels = { media: "feed media", icon: "compact icon", wordmark: "full wordmark", poster: "video poster" } as const;
+const uploadStages: Record<UploadStatus, string> = {
+  idle: "Preparing", analyzing: "Checking", optimizing: "Optimizing",
+  "loading-converter": "Preparing", "analyzing-gif": "Checking", "optimizing-animation": "Optimizing",
+  "analyzing-video": "Checking", "cropping-video": "Cropping", "optimizing-video": "Optimizing",
+  signing: "Preparing upload for", uploading: "Uploading", verifying: "Verifying",
+};
 type UploadRole = keyof typeof uploadRoles;
 type UploadState = { busy: boolean; message: string; failed: boolean };
 export type PaidEditorMode = { campaign?: OwnedCampaign; readonly: boolean };
@@ -114,6 +121,12 @@ function CampaignEditorContent({
     [failed, setFailed] = useState(false);
   const [suggestionFeedback, setSuggestionFeedback] = useState<{ message: string; failed: boolean }>();
   const suggestionStatusId = useId();
+  const [checkoutTakingLonger, setCheckoutTakingLonger] = useState(false);
+  useEffect(() => {
+    if (busy !== "checkout") return;
+    const timer = window.setTimeout(() => setCheckoutTakingLonger(true), 15000);
+    return () => window.clearTimeout(timer);
+  }, [busy]);
 
   const suggesting = busy === "suggest";
   const suggestingTitle = suggesting && !fields.title;
@@ -253,6 +266,7 @@ function CampaignEditorContent({
     const controller = new AbortController();
     pending.current.add(controller);
     setBusy(action);
+    setCheckoutTakingLonger(false);
     setMessage("");
     setFailed(false);
     setSuggestionFeedback(undefined);
@@ -277,17 +291,22 @@ function CampaignEditorContent({
     if (!parsed.success) throw new Error(parsed.error.issues[0].message);
     if (!fields.iconId || !fields.wordmarkId)
       throw new Error("Choose a compact icon and full wordmark before checkout.");
+    setMessage("Keeping your campaign ready for email verification…");
     await saveLocalDraft({ ownerUserId: ownerUserId ?? null, fields, contact: parsed.data, billingMode, files: localFiles.current });
+    setMessage("Opening email verification…");
     window.location.assign("/api/sponsorship/intent");
   }
   async function flushLocalFiles(signal: AbortSignal) {
     const currentFields = { ...fields };
     let currentVariants = variants;
-    for (const kind of ["media", "icon", "wordmark", "poster"] as const) {
+    const roles = (["media", "icon", "wordmark", "poster"] as const).filter(kind => localFiles.current[kind]);
+    for (const [index, kind] of roles.entries()) {
       const file = localFiles.current[kind];
       if (!file) continue;
       const result = await prepareAndUploadMedia(file, uploadRoles[kind].kind,
-        sponsorUploadOperations(kind, signal), status => { if (!signal.aborted) setMessage(status + "…"); },
+        sponsorUploadOperations(kind, signal), status => {
+          if (!signal.aborted) setMessage(`${uploadStages[status]} ${uploadLabels[kind]} (${index + 1} of ${roles.length})…`);
+        },
         controller => { if (signal.aborted) controller.abort(); else signal.addEventListener("abort", () => controller.abort(), { once: true }); });
       signal.throwIfAborted();
       currentFields[uploadRoles[kind].field] = result.primary.id;
@@ -414,6 +433,18 @@ function CampaignEditorContent({
           {paid ? paid.readonly ? "View your past campaign." : "Saved changes go live immediately." : "Add your details and creative, then check out."}
         </p>
       </div>
+      {busy === "checkout" ? (
+        <div role="status" aria-label="Checkout progress" aria-live="polite" aria-atomic="true"
+          style={{ top: "calc(2 * var(--archive-header-pad-y, 20px) + 56px)" }}
+          className="sticky z-10 mb-8 flex items-start gap-3 rounded-md border border-[#e6e6e6] bg-[#fafafa] p-4 shadow-sm">
+          <SponsorSpinner className="mt-0.5 size-4 shrink-0 text-[#767676]" />
+          <div>
+            <p className={campaignType.heading}>{ready ? "Preparing your checkout" : "Continuing with email"}</p>
+            <p className={`${campaignType.body} mt-1 text-[#767676]`}>{message || "Preparing your campaign…"}</p>
+            {checkoutTakingLonger ? <p className={`${campaignType.caption} mt-2 text-[#767676]`}>This is taking longer than usual. Please keep this tab open.</p> : null}
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <form
           ref={form}
@@ -433,6 +464,7 @@ function CampaignEditorContent({
               // reaches us. Retry that checkout without trying to edit it again.
               const retry = checkout && checkoutRetry.current?.signature === signature
                 ? checkoutRetry.current.campaign : null;
+              setMessage("Saving your campaign…");
               const c = retry ?? await sponsorRequest<OwnedCampaign>(
                 paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
                 paid && !campaignId ? "POST" : "PUT",
@@ -459,6 +491,7 @@ function CampaignEditorContent({
               router.refresh();
               if (checkout) {
                 checkoutRetry.current = { signature, campaign: c };
+                setMessage("Opening secure checkout…");
                 const result = await sponsorRequest<{ url: string }>(
                   "checkout", "POST", { checkoutId: c.checkoutId, billingMode, currency }, signal,
                 );
@@ -679,7 +712,7 @@ function CampaignEditorContent({
             aria-live="polite"
             className={`${campaignType.body} min-h-6 ${failed ? "text-[#b42318]" : "text-[#767676]"}`}
           >
-            {busy === "checkout" ? "Saving your campaign and opening checkout…" : busy === "save" ? paid ? "Saving changes…" : "Saving preparation…" : message}
+            {busy === "checkout" ? null : busy === "save" ? message || (paid ? "Saving changes…" : "Saving preparation…") : message}
           </p>
           {!paid && failed && checkoutRetry.current ? (
             <Link href={`/sponsor/dashboard?billing=${billingMode}` as Route} className={`${campaignType.body} focus-ring inline-flex min-h-11 cursor-pointer items-center underline`}>

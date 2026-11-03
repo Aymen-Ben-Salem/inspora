@@ -267,3 +267,12 @@ it("stores contact details privately without putting them into published creativ
   }
   expect(await f.service.save({ ...f.input, contact: { ...contact, email: "bad" } })).toMatchObject({ ok: false, code: "invalid_input" });
 });
+
+it("accepts Company and Email without a contact name", async () => {
+  const f = fixture();
+  await f.service.begin();
+  const contact = { company: "Example company", email: "owner@example.com" };
+  expect(await f.service.save({ ...f.input, contact })).toMatchObject({ ok: true });
+  expect(f.preparations.get("owner-a")?.contact).toEqual(contact);
+  expect(await f.service.save({ ...f.input, contact: { ...contact, company: "" } })).toMatchObject({ ok: false, code: "invalid_input" });
+});

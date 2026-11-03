@@ -114,7 +114,7 @@ it.each([false, true])("lets visitors enter a campaign without a setup gate (sig
   expect(container.textContent).not.toContain("authenticator");
   expect(container.textContent).not.toContain("Only visible to you");
   expect(container.querySelector('input[name="company"]')).not.toBeNull();
-  expect(container.querySelector('input[name="contactName"]')).not.toBeNull();
+  expect(container.querySelector('input[name="contactName"]')).toBeNull();
   expect(container.querySelector('input[name="email"]')).not.toBeNull();
 });
 
@@ -565,4 +565,57 @@ it("restores local files after verified sign-in, uploads them privately, saves a
   expect(JSON.parse(save![1].body)).toMatchObject({ title: "Local campaign", iconId: "sponsor-icon-verified", wordmarkId: "sponsor-wordmark-verified", contact });
   expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/fixture");
   expect(state.clearDraft).toHaveBeenCalledOnce();
+});
+
+it.each([false, true])("suggests before sign-in, preserves manual fields and carries images through email verification (replace: %s)", async replace => {
+  state.auth = { isLoaded: true, isSignedIn: false, userId: null };
+  let sequence = 0;
+  vi.spyOn(URL, "createObjectURL").mockImplementation(() => `blob:local-${++sequence}`);
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor />));
+  const setInput = async (input: HTMLInputElement, value: string) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+  await setInput(nameInput(), "My chosen name");
+  await setInput(container.querySelector('input[type="url"]')!, "https://product.example");
+  await setInput(container.querySelector('input[name="company"]')!, "Example company");
+  await setInput(container.querySelector('input[name="email"]')!, "owner@example.com");
+  const icon = container.querySelector<HTMLInputElement>('input[aria-label="Compact icon"]')!;
+  Object.defineProperty(icon, "files", { value: [new File(["manual"], "my-icon.png", { type: "image/png" })], configurable: true });
+  await act(async () => icon.dispatchEvent(new Event("change", { bubbles: true })));
+  for (const label of ["Feed image or video (optional)", "Replace video poster (optional)"]) {
+    const input = container.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+    Object.defineProperty(input, "files", { value: [new File(["manual"], "manual.png", { type: "image/png" })], configurable: true });
+    await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
+  }
+  if (replace) await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: {
+    title: "Suggested name", feedDescription: "Suggested description", missingAssets: [],
+    files: ["icon", "media", "wordmark"].map(kind => ({ kind, contentType: "image/png", base64: btoa("suggested") })),
+  } }));
+  const suggest = Array.from(container.querySelectorAll("button")).find(button => button.textContent?.includes("Suggest from website"))!;
+  expect(suggest.disabled).toBe(false);
+  await act(async () => suggest.click());
+  expect(fetchMock).toHaveBeenCalledOnce();
+  expect(fetchMock.mock.calls[0][0]).toBe("/api/sponsorship/metadata-draft");
+  expect(nameInput().value).toBe("My chosen name");
+  expect(container.querySelector("textarea")!.value).toBe("Suggested description");
+  expect(container.textContent).not.toContain("0/160");
+  expect(container.textContent).not.toContain("0/320");
+  expect(container.textContent).not.toContain("We’ll use this email");
+  await act(async () => submitCheckout());
+  expect(state.saveDraft).toHaveBeenCalledOnce();
+  const draft = state.saveDraft.mock.calls[0][0];
+  expect(draft.contact).toEqual({ company: "Example company", email: "owner@example.com" });
+  expect(draft.files.icon.name).toBe(replace ? "website-icon.png" : "my-icon.png");
+  expect(await draft.files.wordmark.text()).toBe("suggested");
+  expect(await draft.files.media.text()).toBe(replace ? "suggested" : "manual");
+  expect(draft.fields.posterId).toBe(replace ? "" : "local-poster");
+  expect(Boolean(draft.files.poster)).toBe(!replace);
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("/api/sponsorship/intent");
+  expect(fetchMock).toHaveBeenCalledOnce();
 });

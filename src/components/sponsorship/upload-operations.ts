@@ -34,7 +34,7 @@ export async function sponsorRequest<T>(
     throw new Error(
       typeof result?.message === "string" && result.message
         ? result.message
-        : path === "metadata"
+        : path === "metadata" || path === "metadata-draft"
           ? "Suggestions are unavailable. Continue with manual fields and uploads."
           : "Sponsor preparation is unavailable.",
     );

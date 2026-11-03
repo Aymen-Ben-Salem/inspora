@@ -1,7 +1,8 @@
 import { z } from "zod";
 export const sponsorContactSchema = z.object({
   company: z.string().trim().min(1, "Company is required.").max(160),
-  contactName: z.string().trim().min(1, "Contact name is required.").max(160),
+  // Retain compatibility with older private preparations; new forms omit this.
+  contactName: z.string().trim().max(160).optional(),
   email: z.string().trim().max(320).email("Enter a valid email address."),
 }).strict();
 export const destinationSchema = z

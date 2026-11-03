@@ -24,6 +24,7 @@ import { PurchaseOptions } from "./purchase-options";
 import { CheckoutReview } from "./checkout-review";
 import { clearLocalDraft, localPreviewAsset, pendingDraftEmail, readLocalDraft, saveLocalDraft, type LocalFiles } from "./local-campaign-draft";
 import { sponsorContactSchema } from "@/features/sponsorship/validation";
+import type { DraftWebsiteSuggestions } from "@/features/sponsorship/draft-suggestions";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
   title: "",
@@ -92,7 +93,7 @@ function CampaignEditorContent({
   initialCurrency: SponsorCurrency;
 }) {
   const initial = paid?.campaign?.creative;
-  const [contact, setContact] = useState<SponsorContact>({ company: "", contactName: "", email: accountEmail });
+  const [contact, setContact] = useState<SponsorContact>({ company: "", email: accountEmail });
   const localFiles = useRef<LocalFiles>({});
   const localUrls = useRef(new Set<string>());
   const form = useRef<HTMLFormElement>(null);
@@ -164,7 +165,7 @@ function CampaignEditorContent({
       .then(async (p) => {
         if (!active) return;
         setReady(true);
-        setContact({ company: "", contactName: "", ...p.contact, email: accountEmail });
+        setContact({ company: "", ...p.contact, email: accountEmail });
         setExpiresAt(new Date(p.expiresAt).toISOString());
         // Restore manual fields after verification only when no saved creative exists.
         try {
@@ -474,19 +475,17 @@ function CampaignEditorContent({
         >
           {!paid ? <section className="space-y-5" aria-labelledby="sponsor-contact-title">
             <h2 id="sponsor-contact-title" className={campaignType.heading}>Contact details</h2>
-            {([["company", "Company", 160], ["contactName", "Contact name", 160], ["email", "Email", 320]] as const).map(([key, label, limit]) =>
+            {([["company", "Company", 160], ["email", "Email", 320]] as const).map(([key, label, limit]) =>
               <label key={key} className={`${campaignType.label} block`}>
                 {label}
                 <span className="relative mt-2 block">
                   <input name={key} type={key === "email" ? "email" : "text"} required maxLength={limit}
-                    autoComplete={key === "company" ? "organization" : key === "contactName" ? "name" : "email"}
-                    className={`${fieldClass} pr-16`} disabled={Boolean(busy)}
+                    autoComplete={key === "company" ? "organization" : "email"}
+                    className={fieldClass} disabled={Boolean(busy)}
                     readOnly={key === "email" && Boolean(isSignedIn && accountEmail)}
                     value={contact[key]} onChange={event => setContact(previous => ({ ...previous, [key]: event.target.value }))} />
-                  <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#767676]">{contact[key].length}/{limit}</span>
                 </span>
               </label>)}
-            <p className={`${campaignType.caption} text-[#767676]`}>We’ll use this email for campaign access and receipts.</p>
           </section> : null}
           <h2 className={`${campaignType.heading} ${!paid ? "border-t border-[#e6e6e6] pt-8" : ""}`}>Campaign details</h2>
           <label className={`${campaignType.label} block`}>
@@ -525,31 +524,52 @@ function CampaignEditorContent({
             />
 
           </label>
-          {ready ? <div>
+          <div>
             <button
               type="button"
               aria-busy={suggesting}
               aria-describedby={suggesting || suggestionFeedback ? suggestionStatusId : undefined}
-              disabled={!ready || Boolean(busy) || uploading || !fields.url || paid?.readonly}
+              disabled={Boolean(busy) || uploading || !fields.url || paid?.readonly}
               className={sponsorButton.secondary}
               onClick={() =>
                 void run("suggest", async (signal) => {
-                  const s = await sponsorRequest<
-                    MetadataSuggestions & { assets: VerifiedSponsorAsset[] }
-                  >("metadata", "POST", { url: fields.url }, signal);
+                  let s: MetadataSuggestions & { assets: VerifiedSponsorAsset[] };
+                  if (ready) {
+                    s = await sponsorRequest("metadata", "POST", { url: fields.url }, signal);
+                    for (const kind of ["icon", "wordmark", "media"] as const) {
+                      const field = uploadRoles[kind].field;
+                      if (s[field] && (replaceWebsiteAssets || !fields[field])) delete localFiles.current[kind];
+                    }
+                  } else {
+                    const draft = await sponsorRequest<DraftWebsiteSuggestions>("metadata-draft", "POST", { url: fields.url }, signal);
+                    s = { title: draft.title, feedDescription: draft.feedDescription, missingAssets: draft.missingAssets, assets: [] };
+                    for (const item of draft.files) {
+                      const field = uploadRoles[item.kind].field;
+                      if (fields[field] && !replaceWebsiteAssets) continue;
+                      const bytes = Uint8Array.from(atob(item.base64), character => character.charCodeAt(0));
+                      const file = new File([bytes], `website-${item.kind}.${item.contentType.split("/")[1]}`, { type: item.contentType });
+                      const asset = localPreviewAsset(file, item.kind);
+                      localFiles.current[item.kind] = file;
+                      localUrls.current.add(asset.url);
+                      s[field] = asset.id;
+                      s.assets.push(asset);
+                    }
+                  }
                   setFields((f) => {
                     const filled = fillEmptySponsorFields(
                       f,
                       s,
                       replaceWebsiteAssets,
                     );
-                    return filled.mediaId !== f.mediaId
+                    return s.mediaId && (replaceWebsiteAssets || !f.mediaId)
                       ? { ...filled, posterId: "", videoPreviewId: "" }
                       : filled;
                   });
-                  if (s.mediaId && (replaceWebsiteAssets || !fields.mediaId))
+                  if (s.mediaId && (replaceWebsiteAssets || !fields.mediaId)) {
                     setVariants([]);
-                  setAssets((a) => [...a, ...s.assets]);
+                    delete localFiles.current.poster;
+                  }
+                  setAssets((a) => [...a.filter(asset => !s.assets.some(next => next.id === asset.id)), ...s.assets]);
                   setSuggestionFeedback({
                     failed: false,
                     message: s.missingAssets?.length
@@ -566,13 +586,13 @@ function CampaignEditorContent({
                 {suggesting ? "Finding suggestions…" : suggestionFeedback?.message}
               </p>
             ) : null}
-          </div> : null}
-          {ready && (fields.iconId || fields.wordmarkId || fields.mediaId) ? (
+          </div>
+          {(fields.iconId || fields.wordmarkId || fields.mediaId) ? (
             <label className={`${campaignType.body} flex items-center gap-2 text-[#767676]`}>
               <input
                 type="checkbox"
                 checked={replaceWebsiteAssets}
-                disabled={!ready || Boolean(busy) || uploading}
+                disabled={Boolean(busy) || uploading}
                 onChange={(event) =>
                   setReplaceWebsiteAssets(event.target.checked)
                 }
@@ -580,9 +600,9 @@ function CampaignEditorContent({
               Replace current assets with website suggestions
             </label>
           ) : null}
-          {ready ? <p className={`${campaignType.caption} text-[#767676]`}>
+          <p className={`${campaignType.caption} text-[#767676]`}>
             Imports your website’s name, description and images. You can edit them below.
-          </p> : null}
+          </p>
           <fieldset
             disabled={Boolean(busy) || paid?.readonly}
             className="grid gap-4 border-t border-[#e6e6e6] pt-8 disabled:opacity-50 sm:grid-cols-2"

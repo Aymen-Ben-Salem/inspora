@@ -28,7 +28,7 @@ export const privacyPolicy: SitePolicy = {
       "title": "Payments and service providers",
       "paragraphs": [
         "When payment features are available and you use them, Stripe processes checkout and billing. Inspora keeps the account, payment references, status and history needed to provide and reconcile sponsorship.",
-        "Sponsor preparations include a company name, contact name and email for campaign access, communication and receipts. These contact details are kept privately, separately from the creative you choose to publish. The verified account email is used to prefill Stripe Checkout.",
+        "Sponsor preparations include a company name and email for campaign access, communication and receipts. These contact details are kept privately, separately from the creative you choose to publish. The verified account email is used to prefill Stripe Checkout.",
         "While you verify your email, your browser keeps a temporary copy of your campaign fields and selected files so you can continue without entering them again. The copy is cleared when you continue to payment. Unfinished copies expire after twenty-four hours and are removed when you next use draft storage.",
         "Clerk, X, Stripe, PostHog and Cloudflare process information for their respective services. Their privacy notices are linked below. Contact information and material you send with a support, correction or removal request are used to handle that request."
       ],

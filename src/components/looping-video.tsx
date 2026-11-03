@@ -99,6 +99,10 @@ export function useFeedPlaybackSuspension() {
   return context.suspend;
 }
 
+export function useFeedSuspended() {
+  return Boolean(useContext(FeedPlaybackContext)?.suspended);
+}
+
 function playSilently(video: HTMLVideoElement) {
   video.controls = false;
   video.removeAttribute("controls");

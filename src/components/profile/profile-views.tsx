@@ -89,10 +89,10 @@ export function ProfileViews({ creatorId, initialViews }: {
     };
   }, [creatorId]);
 
-  const definition = "Published work opens are counted once per analytics session, not per person. Privacy choices and historical coverage can reduce this total.";
+  const definition = "Published work is counted once per analytics session when opened or when at least 75% of its feed preview is visible for one continuous second in an active tab. Viewing then opening the same work counts once. This is not a unique-person count. Historical totals include opens only; privacy choices can reduce coverage.";
   const title = views.status === "unavailable"
     ? "Views are temporarily unavailable. Counts refresh automatically."
-    : `${definition} ${views.status === "stale" ? "Last confirmed" : "Updated"}: ${new Date(views.asOf).toUTCString()}. Counts refresh automatically; recent opens can take a few minutes to appear.`;
+    : `${definition} ${views.status === "stale" ? "Last confirmed" : "Updated"}: ${new Date(views.asOf).toUTCString()}. Counts refresh automatically; recent views can take a few minutes to appear.`;
   return <>
     <dd aria-label={views.status === "unavailable" ? "Views unavailable" : `${views.count} published-work views`}
       title={title} className="text-[#262626]">

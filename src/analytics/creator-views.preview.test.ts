@@ -11,7 +11,7 @@ vi.mock("next/cache", () => ({cacheLife:vi.fn(),cacheTag:vi.fn()}));
 // Explicit opt-in; importing/running ordinary tests never reads credentials or sends events.
 const suite = process.env.RUN_PREVIEW_VIEWS_INTEGRATION === "1" ? describe : describe.skip;
 suite("isolated Preview PostHog query semantics", () => {
-  it("counts three memory sessions exactly once each and keeps work kinds separate", async () => {
+  it("deduplicates feed views and opens by memory session and work kind", async () => {
     const values = parse(readFileSync(".env.preview.local", "utf8"));
     previewEnvironmentFromValues(values);
     const { verifyPreviewAnalyticsProject } = await import("./preview-configuration");
@@ -28,8 +28,8 @@ suite("isolated Preview PostHog query semantics", () => {
       const run = replay?.run ?? "profile-views-" + randomUUID(), workId = replay?.workId ?? randomUUID();
       const sdk = randomUUID(), sessions = [randomUUID(), randomUUID(), randomUUID()];
       const fixtureCutover = replay?.fixtureCutover ?? new Date(Date.now() - 60000).toISOString();
-      const event = (kind: string, session?: string, sdkSession: string | null = sdk) => ({
-        uuid: randomUUID(), event: "work opened", timestamp: new Date(Date.now() - 1000).toISOString(),
+      const event = (kind: string, session?: string, sdkSession: string | null = sdk, name = "work opened") => ({
+        uuid: randomUUID(), event: name, timestamp: new Date(Date.now() - 1000).toISOString(),
         properties: { distinct_id: run, profile_views_fixture: run, $process_person_profile: false,
           work_kind: kind, work_id: workId,
           ...(session ? { work_session_key: session } : {}),
@@ -41,6 +41,9 @@ suite("isolated Preview PostHog query semantics", () => {
         event("design", sessions[1]), event("design", sessions[2]),
         event("logo", sessions[0]), event("website", sessions[0]),
         event("design", undefined, randomUUID()), event("design", undefined, null),
+        event("design", sessions[0], sdk, "work viewed in feed"),
+        event("logo", sessions[0], sdk, "work viewed in feed"),
+        event("design", randomUUID(), sdk, "work viewed in feed"),
       ];
       const count = async (eligible: { design: string[]; logo: string[]; website: string[] }) =>
         parseCreatorViewsRows(await runHogQlQuery(configuration,
@@ -50,7 +53,7 @@ suite("isolated Preview PostHog query semantics", () => {
       // same query, rather than reusing that cached zero after events arrive.
       expect(await count({ design: [workId], logo: [], website: [] })).toBe(0);
       mkdirSync(".scratch/profile-views", { recursive: true });
-      writeFileSync(".scratch/profile-views/" + run + ".json", JSON.stringify({ run, workId, fixtureCutover, expected: 6 }));
+      writeFileSync(".scratch/profile-views/" + run + ".json", JSON.stringify({ run, workId, fixtureCutover, expected: 7 }));
       const capture = await fetch(values.NEXT_PUBLIC_POSTHOG_HOST + "/batch/", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ api_key: values.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN, batch }),
@@ -58,11 +61,11 @@ suite("isolated Preview PostHog query semantics", () => {
       });
       expect(capture.ok).toBe(true);
       }
-      // Three browser sessions plus one old-tab SDK fallback; repeated opens do
-      // not add views, even when all memory sessions share one SDK session.
+      // Three opened sessions, one feed-only session and one old-tab SDK fallback.
+      // Feed views followed by opens do not add extra views in the same session.
       await expect.poll(() => count({ design: [workId], logo: [], website: [] }),
-        { timeout: 180000, interval: 5000 }).toBe(4);
-      expect(await count({ design: [workId], logo: [workId], website: [workId] })).toBe(6);
+        { timeout: 180000, interval: 5000 }).toBe(5);
+      expect(await count({ design: [workId], logo: [workId], website: [workId] })).toBe(7);
     } finally { vi.unstubAllEnvs(); }
   }, 210000);
 

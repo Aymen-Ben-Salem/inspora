@@ -116,7 +116,7 @@ export function buildCreatorViewsQuery(
           toString(properties.work_id) AS work_id,
           ${sessionExpression} AS session_id
         FROM events
-        WHERE event = {unified_event}
+        WHERE event IN ({unified_event}, {feed_event})
           AND timestamp >= parseDateTimeBestEffort({cutover_at})
           AND notEmpty(${sessionExpression})
           AND (
@@ -131,6 +131,7 @@ export function buildCreatorViewsQuery(
     values: {
       legacy_event: ANALYTICS_EVENTS.postOpened,
       unified_event: ANALYTICS_EVENTS.workOpened,
+      feed_event: ANALYTICS_EVENTS.workFeedViewed,
       cutover_at: cutoverAt,
       ...(sessionCutoverAt ? { session_cutover_at: sessionCutoverAt } : {}),
       design_ids: eligible.design,

@@ -17,7 +17,7 @@ export function captureAnalyticsEvent<EventName extends AnalyticsEventName>(
     isPrivateAnalyticsPath(window.location.pathname) ||
     process.env.NEXT_PUBLIC_POSTHOG_COOKIELESS_ENABLED !== "true"
   )
-    return;
+    return false;
 
-  posthog.capture(event, properties);
+  return Boolean(posthog.capture(event, properties));
 }

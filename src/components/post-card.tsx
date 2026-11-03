@@ -38,6 +38,7 @@ export function PostCard({
       <div className="group relative">
       <IntentPrefetchLink
         data-feed-post-id={post.id}
+        data-feed-work-kind="design"
         data-feed-post-pathname={`/posts/${post.slug}`}
         data-feed-post-title={post.title}
         data-feed-creator-name={post.creator.name}

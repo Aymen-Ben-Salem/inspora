@@ -182,11 +182,23 @@ describe("creator views query", () => {
     expect(request.values).toMatchObject({
       legacy_event: "post opened",
       unified_event: "work opened",
+      feed_event: "work viewed in feed",
       cutover_at: "2026-09-21T12:00:00.000Z",
       design_ids: [designId],
       logo_ids: [logoId],
       website_ids: [websiteId],
     });
+  });
+
+  it("combines feed views with opens before session/work deduplication", () => {
+    const request = buildCreatorViewsQuery(
+      { design: [designId], logo: [logoId], website: [websiteId] },
+      "2026-11-01T19:14:21.699Z", "2026-11-01T19:14:21.699Z", true,
+    );
+    expect(request.query).toContain("event IN ({unified_event}, {feed_event})");
+    expect(request.query).toContain("uniqExact(work_kind, work_id, session_id)");
+    expect(request.query).not.toContain("uniqExact(event");
+    expect(request.values?.feed_event).toBe("work viewed in feed");
   });
 
   it("parses the controlled aggregate fixture value instead of recounting events in JavaScript", () => {

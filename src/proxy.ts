@@ -36,6 +36,7 @@ export const config = {
     "/api/profile/:path*",
     "/api/submissions/:path*",
     "/sponsor/start/:path*",
+    "/sponsor/checkout/:path*",
     "/sponsor/access/:path*",
     "/sponsor/verify/:path*",
     "/sponsor/security/:path*",

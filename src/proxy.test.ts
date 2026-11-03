@@ -50,6 +50,7 @@ describe("Clerk proxy routing", () => {
     "/profile/claims",
     "/sponsor/campaigns",
     "/sponsor/security",
+    "/sponsor/checkout",
     "/sponsor/campaigns/new",
     "/sponsor/campaigns/11111111-1111-4111-8111-111111111111",
     "/api/profile",

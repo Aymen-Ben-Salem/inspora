@@ -47,7 +47,7 @@ export function StickyHeader({
   }, [secondary]);
 
   return (
-    <header data-feed-header className="sticky top-0 z-40 h-[72px] bg-white xl:h-20">
+    <header className="sticky top-0 z-40 h-[72px] bg-white xl:h-20">
       <div className="mx-auto flex h-full max-w-[1705px] items-center justify-between gap-3 px-4 sm:px-5 xl:px-6 2xl:px-8 min-[1700px]:px-[46px]">
         {primary}
       </div>

@@ -36,7 +36,6 @@ export function LogoCard({
       <button
         type="button"
         data-feed-post-id={logo.id}
-        data-feed-work-kind="logo"
         data-feed-post-pathname={`/logos?logo=${logo.slug}`}
         data-feed-post-title={logo.title}
         data-feed-creator-name={logo.creator.name}

@@ -9,7 +9,6 @@ import { PostTransitionProvider } from "@/components/post-transition-provider";
 import { PublicSponsorsProvider } from "@/components/sponsorship/public-sponsors";
 import { PlacementAnalytics } from "@/components/sponsorship/placement-analytics";
 import { DataBullAnalytics } from "@/components/databull-analytics";
-import { WorkFeedAnalytics } from "@/components/work-feed-analytics";
 import { getDataBullConfig } from "@/analytics/databull-config";
 import { Suspense } from "react";
 import {
@@ -102,7 +101,6 @@ export default function RootLayout({
               <PublicSponsorsProvider>
                 <Suspense fallback={null}>
                   <PlacementAnalytics />
-                  <WorkFeedAnalytics />
                   {dataBull ? <DataBullAnalytics config={dataBull} /> : null}
                 </Suspense>
                 {children}

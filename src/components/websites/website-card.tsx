@@ -25,7 +25,6 @@ export function WebsiteCard({
       <button
         type="button"
         data-feed-post-id={website.id}
-        data-feed-work-kind="website"
         data-feed-post-pathname={`/websites?website=${website.slug}`}
         data-feed-post-title={website.title}
         data-feed-creator-name={website.creator.name}

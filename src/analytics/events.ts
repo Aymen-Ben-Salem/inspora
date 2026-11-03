@@ -3,7 +3,6 @@ export const ANALYTICS_EVENTS = {
   postOpened: "post opened",
   postSourceVisited: "post source visited",
   workOpened: "work opened",
-  workFeedViewed: "work viewed in feed",
 } as const;
 
 export type AnalyticsEventProperties = {
@@ -33,11 +32,6 @@ export type AnalyticsEventProperties = {
   };
   [ANALYTICS_EVENTS.workOpened]: {
     work_session_key?: string;
-    work_id: string;
-    work_kind: "design" | "logo" | "website";
-  };
-  [ANALYTICS_EVENTS.workFeedViewed]: {
-    work_session_key: string;
     work_id: string;
     work_kind: "design" | "logo" | "website";
   };

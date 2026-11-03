@@ -9,7 +9,7 @@ let dispose: (()=>void)|undefined;
 let serial=0;
 beforeEach(()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date("2026-11-02T12:00:00Z"));
-  vi.stubGlobal("fetch",fetchMock);fetchMock.mockClear();
+  vi.stubGlobal("fetch",fetchMock);fetchMock.mockReset();fetchMock.mockResolvedValue({ok:true});
   vi.stubGlobal("location",new URL(`https://www.inspora.design/posts/fixture-${++serial}`));
   vi.stubGlobal("navigator",{doNotTrack:"0",globalPrivacyControl:false});
   vi.spyOn(document,"visibilityState","get").mockReturnValue("visible");
@@ -22,6 +22,73 @@ afterEach(()=>{
 });
 function start(){dispose=trackDataBullPage(config,window.location.pathname);vi.advanceTimersByTime(0);}
 function bodies(){return fetchMock.mock.calls.map(([,o])=>JSON.parse(o.body));}
+
+describe("DataBull engagement delivery",()=>{
+  function hide(){vi.spyOn(document,"visibilityState","get").mockReturnValue("hidden");document.dispatchEvent(new Event("visibilitychange"));}
+  function finish(){window.dispatchEvent(new Event("pagehide"));dispose?.();dispose=undefined;}
+  function heartbeats(){return bodies().filter(body=>body.type==="heartbeat");}
+  async function settle(){await vi.advanceTimersByTimeAsync(0);}
+
+  it("coalesces identical exit updates and lets the final request finish",()=>{
+    fetchMock.mockImplementation(()=>new Promise(()=>{}));
+    start();vi.advanceTimersByTime(5_000);hide();finish();
+    expect(heartbeats()).toHaveLength(1);
+    expect(heartbeats()[0].engagement.time).toBe(5_000);
+    expect(fetchMock.mock.calls.every(([,options])=>!options.signal.aborted)).toBe(true);
+    setAnalyticsDisabled(true);
+    expect(fetchMock.mock.calls.every(([,options])=>options.signal.aborted)).toBe(true);
+  });
+
+  it("does not resend an identical exit update that was delivered",async()=>{
+    start();vi.advanceTimersByTime(5_000);hide();await settle();finish();
+    expect(heartbeats()).toHaveLength(1);
+  });
+
+  it.each(["network","http"])("retries a coalesced final update once after %s failure",async failure=>{
+    let reject!: (error:Error)=>void;
+    let resolve!: (response:{ok:boolean})=>void;
+    fetchMock.mockResolvedValue({ok:true});start();
+    fetchMock.mockImplementationOnce(()=>new Promise((yes,no)=>{resolve=yes;reject=no;}));
+    vi.advanceTimersByTime(5_000);hide();finish();
+    expect(heartbeats()).toHaveLength(1);
+    if(failure==="network")reject(new Error("offline"));else resolve({ok:false});
+    await settle();expect(heartbeats()).toHaveLength(2);
+    expect(heartbeats()[1]).toEqual(heartbeats()[0]);
+  });
+
+  it("bounds the fallback and does not retry after privacy opt-out",async()=>{
+    let reject!: (error:Error)=>void;
+    fetchMock.mockResolvedValue({ok:true});start();
+    fetchMock.mockImplementationOnce(()=>new Promise((_,no)=>{reject=no;}));
+    vi.advanceTimersByTime(5_000);hide();finish();setAnalyticsDisabled(true);
+    reject(new Error("aborted"));await settle();expect(heartbeats()).toHaveLength(1);
+  });
+
+  it("does not create an infinite retry loop when both final attempts fail",async()=>{
+    fetchMock.mockResolvedValue({ok:true});start();
+    fetchMock.mockRejectedValue(new Error("offline"));
+    vi.advanceTimersByTime(5_000);hide();finish();await settle();
+    expect(heartbeats()).toHaveLength(2);await settle();expect(heartbeats()).toHaveLength(2);
+  });
+
+  it("still sends a resumed session heartbeat even with unchanged engagement",async()=>{
+    start();vi.advanceTimersByTime(5_000);hide();await settle();
+    vi.advanceTimersByTime(10*60_000);
+    vi.spyOn(document,"visibilityState","get").mockReturnValue("visible");document.dispatchEvent(new Event("visibilitychange"));
+    expect(heartbeats()).toHaveLength(2);
+    expect(heartbeats()[1].engagement.time).toBe(5_000);
+    vi.advanceTimersByTime(60_000);
+    expect(heartbeats().at(-1).engagement.time).toBe(60_000);
+    finish();expect(heartbeats().at(-1).engagement.time).toBe(65_000);
+  });
+
+  it("keeps the newer final engagement value on navigation",()=>{
+    start();vi.advanceTimersByTime(60_000);vi.advanceTimersByTime(5_000);
+    vi.stubGlobal("location",new URL("https://www.inspora.design/profile?secret=private"));finish();
+    expect(heartbeats().map(body=>body.engagement.time)).toEqual([60_000,65_000]);
+    expect(JSON.stringify(heartbeats())).not.toContain("secret");
+  });
+});
 
 describe("DataBull privacy boundary",()=>{
   it.each(["/admin","/admin/users","/sign-in","/sign-up","/profile","/saved","/submit","/sponsor/start","/sponsor/campaigns/123","/creators/person/claim","/unexpected/token"])("never collects %s",pathname=>{

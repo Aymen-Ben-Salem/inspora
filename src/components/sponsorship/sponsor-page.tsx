@@ -38,7 +38,7 @@ const benefits = [
 ];
 // Owner-selected fixed figures; visitors use a conservative estimate below the Sep/Oct average.
 const audienceStatistics = [
-  ["visitors / month", "~60k"],
+  ["visitors / month", "~75k"],
   ["page views / month", "~230k"],
   ["average time on site", "3m 35s"],
 ] as const;

@@ -67,6 +67,7 @@ const preparation = (owner: string, saved = false) => ({
 });
 beforeEach(() => {
   state.refresh.mockReset();
+  vi.mocked(prepareAndUploadMedia).mockReset();
   state.saveDraft.mockReset().mockResolvedValue(undefined);
   state.readDraft.mockReset().mockResolvedValue(null);
   state.clearDraft.mockReset().mockResolvedValue(undefined);
@@ -539,7 +540,7 @@ it("replaces existing assets only by explicit choice and clears superseded video
   expect(body).not.toHaveProperty("videoPreviewId");
 });
 
-it("restores local files after verified sign-in, uploads them privately, saves and opens Checkout once", async () => {
+it.each([false, true])("restores local files after verified sign-in and opens Checkout once (handoff: %s)", async checkoutHandoff => {
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:local-preview");
   vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   const contact = { company: "Example", contactName: "Owner", email: "owner@example.com" };
@@ -558,13 +559,67 @@ it("restores local files after verified sign-in, uploads them privately, saves a
     .mockResolvedValueOnce(Response.json({ ok: true, value: { revision: 1, checkoutId: "owned-checkout" } }))
     .mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/fixture" } }));
   const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
-  await act(async () => root.render(<CampaignEditor />));
+  await act(async () => root.render(<CampaignEditor checkoutHandoff={checkoutHandoff} />));
   expect(state.readDraft).toHaveBeenCalledWith("owner-a", "owner@example.com");
+  if (!checkoutHandoff) {
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => { submitCheckout(); });
+  }
   expect(prepareAndUploadMedia).toHaveBeenCalledTimes(2);
   const save = fetchMock.mock.calls.find(([, init]) => init.method === "PUT");
   expect(JSON.parse(save![1].body)).toMatchObject({ title: "Local campaign", iconId: "sponsor-icon-verified", wordmarkId: "sponsor-wordmark-verified", contact });
   expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/fixture");
   expect(state.clearDraft).toHaveBeenCalledOnce();
+  if (checkoutHandoff) {
+    expect(container.querySelector("form")).toBeNull();
+    expect(container.querySelector("input")).toBeNull();
+    expect(container.textContent).not.toContain("Prepare your campaign");
+  }
+});
+
+it.each(["missing", "foreign", "existing"])("does not open payment for a %s draft on the handoff page", async scenario => {
+  if (scenario === "foreign") state.readDraft.mockRejectedValue(new Error("Sign in with the email entered for this campaign."));
+  if (scenario === "existing") state.readDraft.mockResolvedValue({ contact: { email: "owner@example.com" } });
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: preparation("owner-a", scenario === "existing") }));
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor checkoutHandoff />));
+  expect(container.querySelector('[role="alert"]')).not.toBeNull();
+  expect(container.querySelector('a[href="/sponsor/start"]')?.textContent).toBe("Review your campaign");
+  expect(container.querySelector("form")).toBeNull();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(state.clearDraft).not.toHaveBeenCalled();
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+it("keeps a failed handoff available to retry without displaying the campaign form", async () => {
+  state.readDraft.mockResolvedValue({
+    ownerUserId: "owner-a", contact: { company: "Example", email: "owner@example.com" },
+    billingMode: "one_time", fields: { title: "Local", url: "https://example.com", feedDescription: "Private",
+      iconId: "icon-ready", wordmarkId: "wordmark-ready", mediaId: "", posterId: "", videoPreviewId: "" }, files: {},
+  });
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: preparation("owner-a") }))
+    .mockResolvedValueOnce(Response.json({ ok: true, value: { revision: 1, checkoutId: "owned-checkout" } }))
+    .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor checkoutHandoff />));
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Failed to fetch");
+  expect(container.querySelector("form")).toBeNull();
+  expect(state.clearDraft).not.toHaveBeenCalled();
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/retry" } }));
+  const retry = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Try again")!;
+  await act(async () => { retry.click(); retry.click(); });
+  expect(fetchMock.mock.calls.filter(([, options]) => options.method === "PUT")).toHaveLength(1);
+  expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/checkout"))).toHaveLength(2);
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/retry");
+});
+
+it("does not prepare payment when the handoff page is opened signed out", async () => {
+  state.auth = { isLoaded: true, isSignedIn: false, userId: null };
+  await act(async () => root.render(<CampaignEditor checkoutHandoff />));
+  expect(container.querySelector('a[href="/api/sponsorship/intent"]')?.textContent).toBe("Continue with email");
+  expect(container.querySelector("form")).toBeNull();
+  expect(fetchMock).not.toHaveBeenCalled();
 });
 
 it("shows restored-file progress above the form throughout a slow checkout handoff", async () => {
@@ -590,6 +645,7 @@ it("shows restored-file progress above the form throughout a slow checkout hando
       .mockImplementationOnce(() => new Promise(resolve => { finishSave = resolve; }))
       .mockImplementationOnce(() => new Promise(resolve => { finishCheckout = resolve; }));
     await act(async () => root.render(<CampaignEditor />));
+    await act(async () => { submitCheckout(); });
     const progress = () => container.querySelector('[role="status"][aria-label="Checkout progress"]');
     expect(progress()?.textContent).toContain("Uploading compact icon (1 of 1)");
     expect(progress()!.compareDocumentPosition(container.querySelector("form")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

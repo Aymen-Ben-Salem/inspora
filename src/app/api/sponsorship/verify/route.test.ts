@@ -45,7 +45,7 @@ it("binds the verified owner before the fixed callback and clears one-use flow i
   );
   expect(adapters.capabilities).toHaveBeenCalledWith("verified-owner");
   expect(response.headers.get("location")).toBe(
-    "https://preview.example/sponsor/start",
+    "https://preview.example/sponsor/checkout",
   );
   expect(response.headers.get("cache-control")).toContain("no-store");
   expect(response.headers.get("set-cookie")).toContain("inspora_sponsor_flow=");

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       new URL(
         returning || (p && !p.ok && p.code === "conflict")
           ? "/sponsor/dashboard"
-          : "/sponsor/start",
+          : "/sponsor/checkout",
         request.url,
       ),
     );

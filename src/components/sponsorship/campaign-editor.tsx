@@ -5,7 +5,8 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
+import { BrandMark } from "../brand-mark";
 import { prepareAndUploadMedia, type UploadStatus } from "@/features/media/prepare-and-upload";
 import { fillEmptySponsorFields } from "@/features/sponsorship/suggestion-fields";
 import type {
@@ -58,18 +59,20 @@ export function CampaignEditor({
   authenticationEnabled = true,
   paid,
   initialCurrency = "usd",
+  checkoutHandoff = false,
 }: {
   authenticationEnabled?: boolean;
   paid?: PaidEditorMode;
   initialCurrency?: SponsorCurrency;
+  checkoutHandoff?: boolean;
 }) {
   return authenticationEnabled ? (
-    <AuthenticatedCampaignEditor paid={paid} initialCurrency={initialCurrency} />
+    <AuthenticatedCampaignEditor paid={paid} initialCurrency={initialCurrency} checkoutHandoff={checkoutHandoff} />
   ) : (
-    <CampaignEditorContent isSignedIn={false} isLoaded paid={paid} initialCurrency={initialCurrency} />
+    <CampaignEditorContent isSignedIn={false} isLoaded paid={paid} initialCurrency={initialCurrency} checkoutHandoff={checkoutHandoff} />
   );
 }
-function AuthenticatedCampaignEditor({ paid, initialCurrency }: { paid?: PaidEditorMode; initialCurrency: SponsorCurrency }) {
+function AuthenticatedCampaignEditor({ paid, initialCurrency, checkoutHandoff }: { paid?: PaidEditorMode; initialCurrency: SponsorCurrency; checkoutHandoff: boolean }) {
   const { isSignedIn, isLoaded, userId } = useAuth();
   const { user } = useUser();
   return (
@@ -81,6 +84,7 @@ function AuthenticatedCampaignEditor({ paid, initialCurrency }: { paid?: PaidEdi
       accountEmail={user?.primaryEmailAddress?.emailAddress ?? ""}
       paid={paid}
       initialCurrency={initialCurrency}
+      checkoutHandoff={checkoutHandoff}
     />
   );
 }
@@ -91,6 +95,7 @@ function CampaignEditorContent({
   accountEmail = "",
   paid,
   initialCurrency,
+  checkoutHandoff,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
@@ -98,13 +103,14 @@ function CampaignEditorContent({
   accountEmail?: string;
   paid?: PaidEditorMode;
   initialCurrency: SponsorCurrency;
+  checkoutHandoff: boolean;
 }) {
   const initial = paid?.campaign?.creative;
   const [contact, setContact] = useState<SponsorContact>({ company: "", email: accountEmail });
   const localFiles = useRef<LocalFiles>({});
   const localUrls = useRef(new Set<string>());
-  const form = useRef<HTMLFormElement>(null);
   const [resumeCheckout, setResumeCheckout] = useState(false);
+  const [handoffHasDraft, setHandoffHasDraft] = useState(false);
   const router = useRouter();
   const [billingMode, setBillingMode] = useState<SponsorBillingMode>("one_time");
   const currency = initialCurrency;
@@ -218,8 +224,16 @@ function CampaignEditorContent({
           setRevision(p.revision);
         }
         const draft = await readLocalDraft(ownerUserId!, accountEmail);
-        if (!active || !draft) return;
+        if (!active) return;
+        if (!draft) {
+          if (checkoutHandoff) {
+            setFailed(true);
+            setMessage("Open your campaign to continue. There is no pending campaign in this browser tab.");
+          }
+          return;
+        }
         if (p.campaign) {
+          if (checkoutHandoff) setFailed(true);
           setMessage("You already have a saved preparation. Review it before continuing; your new draft remains in this browser tab.");
           return;
         }
@@ -233,7 +247,8 @@ function CampaignEditorContent({
         setAssets(localAssets);
         setContact(draft.contact);
         setBillingMode(draft.billingMode);
-        setResumeCheckout(true);
+        setHandoffHasDraft(true);
+        setResumeCheckout(checkoutHandoff);
       })
       .catch((error) => {
         if (active && !controller.signal.aborted) {
@@ -245,12 +260,12 @@ function CampaignEditorContent({
       active = false;
       controller.abort();
     };
-  }, [isSignedIn, isLoaded, ownerUserId, paid, accountEmail]);
+  }, [isSignedIn, isLoaded, ownerUserId, paid, accountEmail, checkoutHandoff]);
+  const resumePayment = useEffectEvent(() => submitCampaign(true));
   useEffect(() => {
     if (!resumeCheckout || !ready || busy) return;
     setResumeCheckout(false);
-    const button = form.current?.querySelector<HTMLButtonElement>('button[value="checkout"]');
-    if (button) form.current?.requestSubmit(button);
+    resumePayment();
   }, [resumeCheckout, ready, busy]);
   function update(key: keyof PreviewFields, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
@@ -417,6 +432,80 @@ function CampaignEditorContent({
       pending.current.delete(controller);
     }
   }
+  function submitCampaign(checkout: boolean) {
+    if (paid?.readonly || activeUploads.current.size) return;
+    void run(checkout ? "checkout" : "save", async (signal) => {
+      if (!ready) { if (checkout) await verify(); return; }
+      const parsedContact = paid ? null : sponsorContactSchema.safeParse(contact);
+      if (parsedContact && !parsedContact.success) throw new Error(parsedContact.error.issues[0].message);
+      const { fields: currentFields, variants: currentVariants } = await flushLocalFiles(signal);
+      const signature = JSON.stringify({ fields: currentFields, variants: currentVariants, contact, billingMode, currency });
+      // Checkout may reserve the saved preparation before its response
+      // reaches us. Retry that checkout without trying to edit it again.
+      const retry = checkout && checkoutRetry.current?.signature === signature
+        ? checkoutRetry.current.campaign : null;
+      setMessage("Saving your campaign…");
+      const c = retry ?? await sponsorRequest<OwnedCampaign>(
+        paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
+        paid && !campaignId ? "POST" : "PUT",
+        {
+          title: currentFields.title,
+          url: currentFields.url,
+          feedDescription: currentFields.feedDescription,
+          iconId: currentFields.iconId,
+          wordmarkId: currentFields.wordmarkId,
+          mediaId: currentFields.mediaId || undefined,
+          posterId: currentFields.posterId || undefined,
+          videoPreviewId: currentFields.videoPreviewId || undefined,
+          variantIds: currentVariants,
+          ...(parsedContact?.success ? { contact: parsedContact.data } : {}),
+          expectedRevision: revision,
+        },
+        signal,
+      );
+      setRevision(c.revision);
+      if (paid) {
+        setCampaignId(c.id);
+        window.dispatchEvent(new Event("sponsorship-changed"));
+      }
+      router.refresh();
+      if (checkout) {
+        checkoutRetry.current = { signature, campaign: c };
+        setMessage("Opening secure checkout…");
+        const result = await sponsorRequest<{ url: string }>(
+          "checkout", "POST", { checkoutId: c.checkoutId, billingMode, currency }, signal,
+        );
+        try { await clearLocalDraft(); } catch {}
+        window.location.assign(result.url);
+        return;
+      }
+      checkoutRetry.current = null;
+      setMessage(
+        paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Continue to checkout when you're ready.",
+      );
+    });
+  }
+  if (checkoutHandoff) {
+    const signedOut = isLoaded && !isSignedIn;
+    return (
+      <main className="flex min-h-dvh items-center justify-center px-4 py-12 text-[#262626]">
+        <div className="w-full max-w-md rounded-lg border border-[#e6e6e6] bg-white px-6 py-10 text-center sm:px-10">
+          <div className="mb-8 flex justify-center"><BrandMark /></div>
+          <h1 className="text-xl font-medium">{signedOut ? "Sign in to continue" : failed ? "Checkout needs your attention" : "Preparing your payment…"}</h1>
+          <div role={failed ? "alert" : "status"} aria-label="Checkout progress" aria-live="polite" aria-atomic="true" className="mt-5 text-sm leading-6 text-[#767676]">
+            {!failed && !signedOut ? <SponsorSpinner className="mx-auto mb-3 size-5" /> : null}
+            <p>{signedOut ? "Verify your email to continue to payment." : message || "Restoring your campaign…"}</p>
+            {checkoutTakingLonger && !failed && !signedOut ? <p className="mt-3">This is taking longer than usual. Please keep this tab open.</p> : null}
+          </div>
+          {signedOut ? <Link href={"/api/sponsorship/intent" as Route} className={`${sponsorButton.primary} mt-6`}>Continue with email</Link> : null}
+          {failed ? <div className="mt-6 flex flex-col items-center gap-4">
+            {handoffHasDraft ? <button type="button" className={sponsorButton.primary} onClick={() => submitCampaign(true)}>Try again</button> : null}
+            <Link href={(checkoutRetry.current ? "/sponsor/dashboard" : "/sponsor/start") as Route} className="focus-ring text-sm underline underline-offset-4">{checkoutRetry.current ? "Manage pending checkout" : "Review your campaign"}</Link>
+          </div> : null}
+        </div>
+      </main>
+    );
+  }
   if (!isLoaded || (isSignedIn && !paid && !ready && !failed)) return <SponsorLoading label="Loading campaign…" />;
   return (
     <main className={`${campaignType.body} mx-auto max-w-[1120px] px-4 pb-20 pt-6 text-[#262626] sm:px-8 sm:pt-10`}>
@@ -447,63 +536,13 @@ function CampaignEditorContent({
       ) : null}
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <form
-          ref={form}
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
             if (paid?.readonly || activeUploads.current.size) return;
             const submitter = (event.nativeEvent as SubmitEvent).submitter;
             const checkout = !paid && submitter instanceof HTMLButtonElement && submitter.value === "checkout";
-            void run(checkout ? "checkout" : "save", async (signal) => {
-              if (!ready) { if (checkout) await verify(); return; }
-              const parsedContact = paid ? null : sponsorContactSchema.safeParse(contact);
-              if (parsedContact && !parsedContact.success) throw new Error(parsedContact.error.issues[0].message);
-              const { fields: currentFields, variants: currentVariants } = await flushLocalFiles(signal);
-              const signature = JSON.stringify({ fields: currentFields, variants: currentVariants, contact, billingMode, currency });
-              // Checkout may reserve the saved preparation before its response
-              // reaches us. Retry that checkout without trying to edit it again.
-              const retry = checkout && checkoutRetry.current?.signature === signature
-                ? checkoutRetry.current.campaign : null;
-              setMessage("Saving your campaign…");
-              const c = retry ?? await sponsorRequest<OwnedCampaign>(
-                paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
-                paid && !campaignId ? "POST" : "PUT",
-                {
-                  title: currentFields.title,
-                  url: currentFields.url,
-                  feedDescription: currentFields.feedDescription,
-                  iconId: currentFields.iconId,
-                  wordmarkId: currentFields.wordmarkId,
-                  mediaId: currentFields.mediaId || undefined,
-                  posterId: currentFields.posterId || undefined,
-                  videoPreviewId: currentFields.videoPreviewId || undefined,
-                  variantIds: currentVariants,
-                  ...(parsedContact?.success ? { contact: parsedContact.data } : {}),
-                  expectedRevision: revision,
-                },
-                signal,
-              );
-              setRevision(c.revision);
-              if (paid) {
-                setCampaignId(c.id);
-                window.dispatchEvent(new Event("sponsorship-changed"));
-              }
-              router.refresh();
-              if (checkout) {
-                checkoutRetry.current = { signature, campaign: c };
-                setMessage("Opening secure checkout…");
-                const result = await sponsorRequest<{ url: string }>(
-                  "checkout", "POST", { checkoutId: c.checkoutId, billingMode, currency }, signal,
-                );
-                try { await clearLocalDraft(); } catch {}
-                window.location.assign(result.url);
-                return;
-              }
-              checkoutRetry.current = null;
-              setMessage(
-                paid ? c.state === "published" ? "Public changes saved. All three placements use this version." : "Draft saved. Open Campaigns to make it public." : "Preparation saved. Continue to checkout when you're ready.",
-              );
-            });
+            submitCampaign(checkout);
           }}
         >
           {!paid ? <section className="space-y-5" aria-labelledby="sponsor-contact-title">

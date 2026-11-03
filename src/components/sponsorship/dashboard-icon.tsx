@@ -3,13 +3,14 @@ import {
   ArrowDownRight, ArrowUpRight, CalendarDays, ChartNoAxesColumnIncreasing,
   ChevronDown, ChevronLeft, ChevronRight, CreditCard, Download, Eye,
   Layers, LayoutDashboard, LoaderCircle, MousePointer2, Users, X,
-  Plus, Trash2, Archive, FilePenLine, ExternalLink, ReceiptText, RefreshCw, ListFilter,
+  Plus, Trash2, Archive, FilePenLine, ExternalLink, ReceiptText, RefreshCw, ListFilter, Settings,
 } from "lucide-react";
 
 const icons = {
   overview: LayoutDashboard,
   campaigns: Layers,
   billing: CreditCard,
+  settings: Settings,
   eye: Eye,
   click: MousePointer2,
   chart: ChartNoAxesColumnIncreasing,

@@ -9,6 +9,7 @@ import { SPONSOR_AMOUNTS, isSponsorCurrency, type SponsorCurrency } from "@/feat
 import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
 import { DashboardIcon } from "./dashboard-icon";
+import { DashboardNavigation, dashboardSections as sections } from "./dashboard-navigation";
 import styles from "./dashboard.module.css";
 import {
   isSponsorBillingMode,
@@ -88,11 +89,6 @@ function MonthlyReviewDialog({ amount, startsAt, busy, refreshing, error, onConf
   </dialog>;
 }
 
-const sections = [
-  { id: "overview", label: "Overview" },
-  { id: "campaigns", label: "Campaigns" },
-  { id: "billing", label: "Billing" },
-] as const;
 export function SponsorDashboard({
   initial,
   initialMode = "one_time",
@@ -221,23 +217,7 @@ export function SponsorDashboard({
     <main className={`${styles.shell} archive-frame grid min-h-[80dvh] items-start gap-6 pb-16 pt-8 lg:grid-cols-[184px_minmax(0,1fr)] lg:gap-8`}>
       <aside className="min-w-0 lg:min-h-[calc(100dvh-140px)] lg:self-stretch lg:border-r lg:border-[#f0f0f0] lg:pr-5">
         <div className="lg:sticky lg:top-28">
-        <p className={styles.sidebarTitle}><span className={styles.brandMark}><DashboardIcon name="chart" className="size-5" /></span>Your sponsorship</p>
-        <nav aria-label="Sponsorship sections" className="flex gap-1 lg:flex-col">
-          {sections.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              aria-current={section === item.id ? "page" : undefined}
-              aria-controls={item.id}
-              onClick={() => changeSection(item.id)}
-              className={`${styles.navItem} focus-ring inline-flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg px-3 py-2 text-sm transition-colors lg:flex-none lg:justify-start ${section === item.id ? "font-medium" : "text-[#66758c] hover:bg-[#f3f6fc] hover:text-[#262626]"}`}
-            >
-              <DashboardIcon name={item.id} />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <Link href="/sponsor/security" className="focus-ring mt-2 flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-[#66758c] hover:bg-[#f3f6fc] hover:text-[#262626]">Settings</Link>
+        <DashboardNavigation section={section} onChange={changeSection} />
         {section === "overview" && account ? (
           <nav aria-label="On this report" className="mt-10 hidden border-t border-[#f0f0f0] pt-5 lg:block">
             <p className="mb-2 px-3 text-xs text-[#66758c]">On this report</p>
@@ -276,7 +256,7 @@ export function SponsorDashboard({
         aria-live="polite"
         className="mt-3 text-sm leading-6 text-[#66758c]"
       >
-        {data.checkout?.exceptionCode === "payment_dispute"
+        {section === "settings" ? "Manage your account security and sign-in preferences." : data.checkout?.exceptionCode === "payment_dispute"
           ? "A payment dispute has paused this sponsorship. Review the payment in Billing."
           : finishing
           ? "Payment received. Finishing publication — we’ll retry automatically."

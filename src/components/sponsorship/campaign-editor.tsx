@@ -128,6 +128,9 @@ function CampaignEditorContent({
   const [suggestionFeedback, setSuggestionFeedback] = useState<{ message: string; failed: boolean }>();
   const suggestionStatusId = useId();
   const [checkoutTakingLonger, setCheckoutTakingLonger] = useState(false);
+  const checkoutWaitMessage = ready
+    ? "Please keep this tab open. We’ll take you to payment when your campaign is ready."
+    : "Please keep this tab open. Email verification will open automatically.";
   useEffect(() => {
     if (busy !== "checkout") return;
     const timer = window.setTimeout(() => setCheckoutTakingLonger(true), 15000);
@@ -495,7 +498,7 @@ function CampaignEditorContent({
           <div role={failed ? "alert" : "status"} aria-label="Checkout progress" aria-live="polite" aria-atomic="true" className="mt-5 text-sm leading-6 text-[#767676]">
             {!failed && !signedOut ? <SponsorSpinner className="mx-auto mb-3 size-5" /> : null}
             <p>{signedOut ? "Verify your email to continue to payment." : message || "Restoring your campaign…"}</p>
-            {checkoutTakingLonger && !failed && !signedOut ? <p className="mt-3">This is taking longer than usual. Please keep this tab open.</p> : null}
+            {checkoutTakingLonger && !failed && !signedOut ? <p className="mt-3">{checkoutWaitMessage}</p> : null}
           </div>
           {signedOut ? <Link href={"/api/sponsorship/intent" as Route} className={`${sponsorButton.primary} mt-6`}>Continue with email</Link> : null}
           {failed ? <div className="mt-6 flex flex-col items-center gap-4">
@@ -530,7 +533,7 @@ function CampaignEditorContent({
           <div>
             <p className={campaignType.heading}>{ready ? "Preparing your checkout" : "Continuing with email"}</p>
             <p className={`${campaignType.body} mt-1 text-[#767676]`}>{message || "Preparing your campaign…"}</p>
-            {checkoutTakingLonger ? <p className={`${campaignType.caption} mt-2 text-[#767676]`}>This is taking longer than usual. Please keep this tab open.</p> : null}
+            {checkoutTakingLonger ? <p className={`${campaignType.caption} mt-2 text-[#767676]`}>{checkoutWaitMessage}</p> : null}
           </div>
         </div>
       ) : null}

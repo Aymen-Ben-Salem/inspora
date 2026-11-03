@@ -13,8 +13,8 @@ import { QRCodeSVG } from "qrcode.react";
 import type { SponsorSecurityState } from "@/features/sponsorship/security-state";
 import { SponsorLoading } from "./sponsor-loading";
 import { sponsorButton } from "./button-styles";
+import styles from "./dashboard.module.css";
 
-const buttonClass = sponsorButton.primary;
 const linkClass =
   "focus-ring cursor-pointer text-sm text-[#767676] underline underline-offset-4 hover:text-[#262626] disabled:cursor-not-allowed";
 type Phase =
@@ -50,22 +50,30 @@ async function securityState(
 
 export function SponsorSecurity({
   authenticationEnabled = true,
+  embedded = false,
+  onReady,
 }: {
   authenticationEnabled?: boolean;
+  embedded?: boolean;
+  onReady?: () => void;
 }) {
   return authenticationEnabled ? (
-    <AuthenticatedSecurity />
+    <AuthenticatedSecurity embedded={embedded} onReady={onReady} />
   ) : (
-    <main className="p-8">Sponsor verification is currently unavailable.</main>
+    <div className="p-8">Sponsor verification is currently unavailable.</div>
   );
 }
-function AuthenticatedSecurity() {
+function SecurityLoading({ embedded }: { embedded: boolean }) {
+  return embedded ? <p role="status" className={`text-sm ${styles.muted}`}>Loading account security…</p> : <SponsorLoading label="Loading account security…" />;
+}
+function AuthenticatedSecurity({ embedded, onReady }: { embedded: boolean; onReady?: () => void }) {
   const { isLoaded, isSignedIn, userId, sessionId } = useAuth();
   const { user } = useUser();
-  if (!isLoaded) return <SponsorLoading label="Loading account security…" />;
+  const Container = embedded ? "div" : "main";
+  if (!isLoaded) return <SecurityLoading embedded={embedded} />;
   if (!isSignedIn || !userId)
     return (
-      <main className="mx-auto max-w-[560px] px-4 py-16">
+      <Container className={embedded ? styles.surface : "mx-auto max-w-[560px] px-4 py-16"}>
         <p>Sign in to secure your sponsor account.</p>
         <a
           href="/api/sponsorship/intent"
@@ -73,13 +81,16 @@ function AuthenticatedSecurity() {
         >
           Sign in
         </a>
-      </main>
+      </Container>
     );
-  if (!user) return <SponsorLoading label="Loading account security…" />;
-  return <SecuritySetup key={`${userId}:${sessionId}`} />;
+  if (!user) return <SecurityLoading embedded={embedded} />;
+  return <SecuritySetup key={`${userId}:${sessionId}`} embedded={embedded} onReady={onReady} />;
 }
 
-function SecuritySetup() {
+function SecuritySetup({ embedded, onReady }: { embedded: boolean; onReady?: () => void }) {
+  const Container = embedded ? "div" : "main";
+  const Heading = embedded ? "h2" : "h1";
+  const buttonClass = `${sponsorButton.primary} ${embedded ? styles.primaryButton : ""}`;
   const { user } = useUser();
   const { session } = useSession();
   const initialTotpEnabled = useRef(user?.totpEnabled);
@@ -172,7 +183,15 @@ function SecuritySetup() {
     const state = await securityState();
     if (!active.current) return;
     setCode("");
-    if (state === "ready") window.location.replace("/api/sponsorship/verify");
+    if (state === "ready") {
+      if (embedded) {
+        setPhase("ready");
+        setTotp(undefined);
+        setCodes([]);
+        setSavedCodes(false);
+        onReady?.();
+      } else window.location.replace("/api/sponsorship/verify");
+    }
     else if (state === "verification_required") setPhase("verify");
     else if (state === "setup_required") {
       setTotp(undefined);
@@ -219,25 +238,25 @@ function SecuritySetup() {
     );
 
   return (
-    <main className="mx-auto max-w-[560px] px-4 py-10 text-[#262626] sm:px-8">
+    <Container className={embedded ? styles.surface : "mx-auto max-w-[560px] px-4 py-10 text-[#262626] sm:px-8"}>
       <div className="flex items-center justify-between gap-4">
-        <a className={linkClass} href="/sponsor/dashboard">
+        {embedded ? <h2 className="text-lg font-medium">Account security</h2> : <a className={linkClass} href="/sponsor/dashboard">
           ← Dashboard
-        </a>
+        </a>}
         <SignOutButton redirectUrl="/sponsor">
           <button type="button" className={`${linkClass} min-h-11`}>
             Sign out
           </button>
         </SignOutButton>
       </div>
-      <h1 className="mt-5 text-3xl font-semibold tracking-tight">
+      {!embedded ? <Heading className="mt-5 text-3xl font-semibold tracking-tight">
         Account security
-      </h1>
+      </Heading> : null}
       <p className="mt-4 text-sm leading-6 text-[#767676]">
         Sign in with your email and a verification code. For extra protection,
         you can add an authenticator app. This is optional.
       </p>
-      <section className="mt-8 space-y-5 rounded-md border border-[#e6e6e6] p-5">
+      <section className={embedded ? "mt-6 space-y-5 border-t border-[#e1e7f0] pt-6" : "mt-8 space-y-5 rounded-md border border-[#e6e6e6] p-5"}>
         {phase === "checking" ? (
           <p role="status" className="text-sm text-[#767676]">
             Checking account security…
@@ -346,7 +365,7 @@ function SecuritySetup() {
                     )
                   }
                 >
-                  Continue
+                  {embedded ? "Done" : "Continue"}
                 </button>
               </>
             ) : (
@@ -419,7 +438,7 @@ function SecuritySetup() {
             <p className="text-sm leading-6">
               Authenticator 2FA is enabled and this sign-in is verified.
             </p>
-            <button
+            {!embedded ? <button
               type="button"
               className={buttonClass}
               disabled={busy}
@@ -431,7 +450,7 @@ function SecuritySetup() {
               }
             >
               Continue to sponsorship
-            </button>
+            </button> : null}
             <p className="text-xs leading-5 text-[#767676]">
               Generating new recovery codes replaces your previous set.
             </p>
@@ -461,7 +480,7 @@ function SecuritySetup() {
           </p>
         ) : null}
       </section>
-    </main>
+    </Container>
   );
 }
 function CodeInput({

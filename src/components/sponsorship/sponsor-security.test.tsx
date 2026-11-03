@@ -15,11 +15,14 @@ const state = vi.hoisted(() => ({
   startVerification: vi.fn(),
   attempt: vi.fn(),
   token: vi.fn(),
+  totpEnabled: false,
 }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams("section=settings"), useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => state.auth,
   useUser: () => ({
     user: {
+      totpEnabled: state.totpEnabled,
       createTOTP: state.createTotp,
       verifyTOTP: state.verifyTotp,
       createBackupCode: state.createBackup,
@@ -37,6 +40,7 @@ vi.mock("@clerk/nextjs", () => ({
   SignOutButton: ({ children }: { children: ReactNode }) => children,
 }));
 import { SponsorSecurity } from "./sponsor-security";
+import { SponsorDashboardBoundary } from "./dashboard-settings";
 it("offers optional authenticator setup to an email-only sponsor whose access is ready", async () => {
   fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ state: "ready" }) });
   await act(async () => root.render(<SponsorSecurity />));
@@ -49,6 +53,7 @@ const fetchMock = vi.fn(),
   replace = vi.fn();
 beforeEach(() => {
   vi.resetAllMocks();
+  state.totpEnabled = false;
   state.auth = {
     isLoaded: true,
     isSignedIn: true,
@@ -106,8 +111,28 @@ async function submit() {
   );
 }
 
-it("enrolls locally, requires recovery-code acknowledgement and verifies before continuing", async () => {
-  await act(async () => root.render(<SponsorSecurity />));
+it("keeps enrollment recovery codes visible when MFA becomes enabled inside dashboard Settings", async () => {
+  const render = () => root.render(<SponsorDashboardBoundary ownerUserId="owner-a"><p>Private campaign</p></SponsorDashboardBoundary>);
+  await act(async () => render());
+  await click("Set up authenticator");
+  await enterCode("123456");
+  await submit();
+  expect(container.textContent).toContain("fixture-recovery-a");
+  state.totpEnabled = true;
+  await act(async () => render());
+  expect(container.textContent).toContain("fixture-recovery-a");
+  expect(container.textContent).not.toContain("Private campaign");
+  expect(button("Overview").disabled).toBe(true);
+  state.auth.userId = "owner-b";
+  await act(async () => render());
+  expect(container.textContent).not.toContain("fixture-recovery-a");
+  expect(container.textContent).not.toContain("Private campaign");
+});
+
+it.each([false, true])("enrolls, acknowledges recovery codes and verifies readiness (embedded: %s)", async embedded => {
+  const onReady = vi.fn();
+  const continueLabel = embedded ? "Done" : "Continue";
+  await act(async () => root.render(<SponsorSecurity embedded={embedded} onReady={onReady} />));
   await click("Set up authenticator");
   expect(container.querySelector("svg title")?.textContent).toBe(
     "Authenticator setup QR code",
@@ -116,7 +141,7 @@ it("enrolls locally, requires recovery-code acknowledgement and verifies before 
   await enterCode("123456");
   await submit();
   expect(state.verifyTotp).toHaveBeenCalledWith({ code: "123456" });
-  expect(button("Continue").disabled).toBe(true);
+  expect(button(continueLabel).disabled).toBe(true);
   expect(container.textContent).toContain("fixture-recovery-a");
   await act(async () =>
     container
@@ -127,7 +152,7 @@ it("enrolls locally, requires recovery-code acknowledgement and verifies before 
     ok: true,
     json: async () => ({ state: "verification_required" }),
   });
-  await click("Continue");
+  await click(continueLabel);
   expect(replace).not.toHaveBeenCalled();
   await enterCode("654321");
   fetchMock.mockResolvedValue({
@@ -143,7 +168,13 @@ it("enrolls locally, requires recovery-code acknowledgement and verifies before 
     code: "654321",
   });
   expect(state.token).toHaveBeenCalledWith({ skipCache: true });
-  expect(replace).toHaveBeenCalledWith("/api/sponsorship/verify");
+  if (embedded) {
+    expect(replace).not.toHaveBeenCalled();
+    expect(onReady).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain("2FA is enabled");
+    expect(container.textContent).not.toContain("fixture-recovery-a");
+    expect(container.querySelector("main")).toBeNull();
+  } else expect(replace).toHaveBeenCalledWith("/api/sponsorship/verify");
 });
 it("allows recovery-code sign-in without bypassing the server readiness check", async () => {
   fetchMock.mockResolvedValue({

@@ -651,7 +651,7 @@ it("shows restored-file progress above the form throughout a slow checkout hando
     expect(progress()!.compareDocumentPosition(container.querySelector("form")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(checkoutButton().disabled).toBe(true);
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
-    expect(progress()?.textContent).toContain("taking longer than usual");
+    expect(progress()?.textContent).toContain("We’ll take you to payment when your campaign is ready.");
     // A slow upload must not start a second save or checkout in the background.
     await act(async () => { submitCheckout(); submitCheckout(); });
     expect(fetchMock).toHaveBeenCalledTimes(1);

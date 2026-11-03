@@ -3,6 +3,13 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const navigation = vi.hoisted(() => ({ search: "", listeners: new Set<() => void>() }));
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ isLoaded: true, isSignedIn: true, userId: "owner", sessionId: "session" }),
+  useUser: () => ({ user: { totpEnabled: false } }),
+  useSession: () => ({ session: {} }),
+  useReverification: (fn: unknown) => fn,
+  SignOutButton: ({ children }: { children: import("react").ReactNode }) => children,
+}));
 vi.mock("next/navigation", async () => {
   const { useSyncExternalStore } = await import("react");
   return { useRouter: () => ({ refresh: vi.fn() }), useSearchParams: () => new URLSearchParams(useSyncExternalStore(
@@ -26,6 +33,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); });
 import { SponsorDashboard, type SponsorDashboardData } from "./dashboard";
+import { SponsorDashboardBoundary } from "./dashboard-settings";
 
 const initial: SponsorDashboardData = {
   ownerUserId: "owner",
@@ -48,16 +56,15 @@ const initial: SponsorDashboardData = {
   capacityAvailable: true,
 };
 
-it("switches three dashboard sections while preserving payment choice and hiding unrelated panels", async () => {
+it("switches dashboard sections and keeps Settings inside the same dashboard", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("/dashboard") ? {ok:true,value:initial} : url.endsWith("/campaigns") ? {ok:true,value:{ownerUserId:"owner",campaigns:[],readonly:false}} : { data: { status: "unavailable", source: "Inspora accepted events" } })));
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("/security") ? {state:"ready"} : url.endsWith("/dashboard") ? {ok:true,value:initial} : url.endsWith("/campaigns") ? {ok:true,value:{ownerUserId:"owner",campaigns:[],readonly:false}} : { data: { status: "unavailable", source: "Inspora accepted events" } })));
   navigate("?billing=subscription");
   const container = document.createElement("div"), root = createRoot(container);
   try {
-    await act(async () => root.render(<SponsorDashboard initial={initial} />));
-    const nav = container.querySelector('nav[aria-label="Sponsorship sections"]')!;
-    expect(nav).not.toBeNull();
-    const select = (label: string) => Array.from(nav.querySelectorAll("button")).find(b => b.textContent === label)!;
+    await act(async () => root.render(<SponsorDashboardBoundary ownerUserId="owner"><SponsorDashboard initial={initial} /></SponsorDashboardBoundary>));
+    expect(container.querySelector('nav[aria-label="Sponsorship sections"]')).not.toBeNull();
+    const select = (label: string) => Array.from(container.querySelectorAll('nav[aria-label="Sponsorship sections"] button')).find(b => b.textContent === label)! as HTMLButtonElement;
     expect(select("Overview").getAttribute("aria-current")).toBe("page");
     expect(container.querySelector<HTMLElement>('#billing')!.hidden).toBe(true);
     await act(async () => select("Billing").click());
@@ -68,6 +75,17 @@ it("switches three dashboard sections while preserving payment choice and hiding
     await act(async () => select("Campaigns").click());
     expect(container.querySelector<HTMLElement>('#campaigns')!.hidden).toBe(false);
     expect(container.querySelector<HTMLElement>('#billing')!.hidden).toBe(true);
+    await act(async () => select("Settings").click());
+    expect(window.location.pathname).toBe("/sponsor/dashboard");
+    expect(new URLSearchParams(navigation.search).get("section")).toBe("settings");
+    expect(new URLSearchParams(navigation.search).get("billing")).toBe("subscription");
+    expect(select("Settings").getAttribute("aria-current")).toBe("page");
+    expect(container.querySelector<HTMLElement>('#settings')!.hidden).toBe(false);
+    expect(container.querySelector('#settings')!.textContent).toContain("Set up authenticator");
+    expect(container.querySelectorAll('main')).toHaveLength(1);
+    expect(container.querySelector('a[href="/sponsor/security"]')).toBeNull();
+    await act(async () => select("Overview").click());
+    expect(container.querySelector('#settings')).toBeNull();
   } finally { await act(async () => root.unmount()); vi.unstubAllGlobals(); }
 });
 

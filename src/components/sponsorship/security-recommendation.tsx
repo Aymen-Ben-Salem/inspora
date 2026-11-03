@@ -27,6 +27,11 @@ function SecurityNotice({ owner }: { owner: string }) {
         onClick={() => { setDismissed(true); try { localStorage.setItem(key, "true"); } catch {} }}>×</button>
     </div>
     <p className="mt-2 text-sm leading-6 text-[#767676]">We recommend optional two-factor authentication to help protect your campaign and account.</p>
-    <a href="/sponsor/security" className="focus-ring mt-3 inline-flex min-h-11 items-center text-sm underline underline-offset-4">Open security settings</a>
+    <button type="button" className="focus-ring mt-3 inline-flex min-h-11 cursor-pointer items-center text-sm underline underline-offset-4" onClick={() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("section", "settings");
+      window.history.replaceState(null, "", url);
+      setDismissed(true);
+    }}>Open security settings</button>
   </aside>;
 }

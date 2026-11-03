@@ -13,6 +13,7 @@ function validSponsorForm() {
   form.set("mediaHeight", "800");
   form.set("mediaAlt", "Mobbin preview");
   form.set("iconUrl", "/media/mobbin-icon.png");
+  form.set("wordmarkUrl", "/media/mobbin-wordmark.png");
   form.set("isActive", "true");
   return form;
 }
@@ -48,6 +49,7 @@ describe("admin sponsor validation", () => {
     form.delete("tagline");
     form.delete("iconUrl");
     form.delete("mediaUrl");
+    form.set("isActive", "false");
     const result = parseAdminSponsorForm(form);
 
     expect(result.tagline).toBeUndefined();
@@ -89,5 +91,30 @@ describe("admin sponsor validation", () => {
     form.set("mediaWidth", "0");
 
     expect(() => parseAdminSponsorForm(form)).toThrow();
+  });
+
+  it("requires both brand assets for activation but permits an incomplete draft", () => {
+    const form = validSponsorForm();
+    form.delete("wordmarkUrl");
+    expect(() => parseAdminSponsorForm(form)).toThrow("full wordmark");
+    form.set("isActive", "false");
+    expect(parseAdminSponsorForm(form).isActive).toBe(false);
+  });
+
+  it("persists a wordmark without accepting client payment or owner fields", () => {
+    const form = validSponsorForm();
+    form.set("wordmarkStorageKey", "sponsors/wordmark.webp");
+    form.set("ownerUserId", "user_attacker"); form.set("accountId", "forged");
+    form.set("campaignState", "published"); form.set("paidThrough", "2099-01-01");
+    const parsed = parseAdminSponsorForm(form);
+    expect(parsed.wordmarkStorageKey).toBe("sponsors/wordmark.webp");
+    for (const key of ["ownerUserId", "accountId", "campaignState", "paidThrough"]) expect(parsed).not.toHaveProperty(key);
+  });
+
+  it("rejects executable destination URLs and incomplete active video", () => {
+    const form = validSponsorForm(); form.set("url", "javascript:alert(1)");
+    expect(() => parseAdminSponsorForm(form)).toThrow();
+    form.set("url", "https://example.com"); form.set("mediaType", "video");
+    expect(() => parseAdminSponsorForm(form)).toThrow("poster and feed preview");
   });
 });

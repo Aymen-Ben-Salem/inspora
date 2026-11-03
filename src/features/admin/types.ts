@@ -170,6 +170,8 @@ export type AdminSponsorInput = {
   iconUrl?: string;
   iconStorageProvider?: MediaStorageProvider;
   iconStorageKey?: string;
+  wordmarkUrl?: string;
+  wordmarkStorageKey?: string;
   isActive: boolean;
 };
 

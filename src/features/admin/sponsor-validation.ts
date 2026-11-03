@@ -23,7 +23,8 @@ const localOrRemoteAssetUrl = z
 const targetDestinationUrl = z
   .string()
   .trim()
-  .url("A valid website URL is required (e.g. https://example.com).");
+  .url("A valid website URL is required (e.g. https://example.com).")
+  .refine((value) => /^https?:\/\//i.test(value), "Use an http:// or https:// website URL.");
 
 const optionalAssetUrl = z
   .union([z.literal(""), localOrRemoteAssetUrl])
@@ -75,7 +76,20 @@ export const sponsorInputSchema = z
     iconUrl: optionalAssetUrl,
     iconStorageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),
     iconStorageKey: z.string().trim().min(1).max(1024).optional(),
+    wordmarkUrl: optionalAssetUrl,
+    wordmarkStorageKey: z.string().trim().min(1).max(1024).optional(),
     isActive: z.boolean().default(true),
+  })
+  .refine((sponsor) => !sponsor.isActive || Boolean(sponsor.iconUrl && sponsor.wordmarkUrl), {
+    message: "Add a compact icon and full wordmark before showing this sponsor on the website.",
+    path: ["wordmarkUrl"],
+  })
+  .refine((sponsor) => !sponsor.isActive || !sponsor.mediaUrl || sponsor.mediaType !== "video" || Boolean(sponsor.mediaPosterUrl && sponsor.mediaVideoPreview), {
+    message: "Upload the video with its poster and feed preview before showing this sponsor on the website.",
+    path: ["mediaPosterUrl"],
+  })
+  .refine((sponsor) => !sponsor.wordmarkStorageKey || Boolean(sponsor.wordmarkUrl), {
+    message: "A wordmark URL is required for an uploaded wordmark.", path: ["wordmarkUrl"],
   })
   .refine(
     (sponsor) =>
@@ -144,6 +158,8 @@ export function parseAdminSponsorForm(formData: FormData): AdminSponsorInput {
     iconUrl: formData.get("iconUrl") ?? undefined,
     iconStorageProvider: formData.get("iconStorageProvider") || undefined,
     iconStorageKey: formData.get("iconStorageKey") || undefined,
+    wordmarkUrl: formData.get("wordmarkUrl") ?? undefined,
+    wordmarkStorageKey: formData.get("wordmarkStorageKey") || undefined,
     isActive,
   });
 }

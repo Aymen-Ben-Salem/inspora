@@ -78,10 +78,11 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-it.each([0, 1, 2, 3, 4])(
+it.each([0, 1, 2, 3, 4, 5])(
   "renders %i eligible campaigns once per header/feed/detail with decorative unfocusable copies",
   async (count) => {
-    active = ["a", "b", "c", "d"].slice(0, count).map(campaign);
+    active = ["a", "b", "c", "d", "e"].slice(0, count).map(campaign);
+    if (count === 5) { active[4].paidThrough = undefined; active[4].versionId = undefined; }
     await act(async () =>
       root.render(
         <PublicSponsorsProvider>
@@ -106,7 +107,7 @@ it.each([0, 1, 2, 3, 4])(
     expect(clones.length).toBe(count ? count * 2 : 0);
     for (const clone of clones) {
       expect(clone.tabIndex).toBe(-1);
-      expect(clone.href).toMatch(/^https:\/\/[a-d]\.example\.com\/$/);
+      expect(clone.href).toMatch(/^https:\/\/[a-e]\.example\.com\/$/);
       expect(clone.hasAttribute("data-sponsor-copy")).toBe(true);
       expect(active.map(sponsor => sponsor.id)).toContain(clone.dataset.campaignId);
     }
@@ -116,7 +117,7 @@ it.each([0, 1, 2, 3, 4])(
     for (const a of container.querySelectorAll<HTMLAnchorElement>(
       '[data-sponsor-placement="detail"]',
     ))
-      expect(a.href).toMatch(/^https:\/\/[a-d]\.example\.com\/$/);
+      expect(a.href).toMatch(/^https:\/\/[a-e]\.example\.com\/$/);
   },
 );
 it("refreshes all mounted placements together on foreground and within 30 seconds; expiry uses server-time offset", async () => {

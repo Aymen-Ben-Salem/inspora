@@ -3,7 +3,7 @@ import { campaignType } from "./campaign-typography";
 import Image from "next/image";
 import { useState } from "react";
 import { SponsoredPostCard } from "@/components/sponsored-post-card";
-import type { VerifiedSponsorAsset } from "@/features/sponsorship/types";
+import type { CampaignDisplayAsset } from "./campaign-display-asset";
 export type PreviewFields = {
   title: string;
   url: string;
@@ -20,7 +20,7 @@ export function CampaignPreview({
   paid = false,
 }: {
   fields: PreviewFields;
-  assets: VerifiedSponsorAsset[];
+  assets: CampaignDisplayAsset[];
   paid?: boolean;
 }) {
   const [feedVariant, setFeedVariant] = useState<"website" | "default">("website");

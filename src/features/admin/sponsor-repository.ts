@@ -14,6 +14,11 @@ import type {
 
 type SponsorRow = typeof sponsors.$inferSelect;
 
+// This editor never manages customer-owned or paid campaigns.
+function manualSponsorScope() {
+  return and(isNull(sponsors.ownerUserId), isNull(sponsors.accountId), eq(sponsors.campaignState, "legacy"), isNull(sponsors.deletedAt));
+}
+
 function isStorageProvider(value: string | null) {
   return MEDIA_STORAGE_PROVIDERS.some((provider) => provider === value);
 }
@@ -42,6 +47,8 @@ function mapAdminSponsor(row: SponsorRow): AdminSponsorRecord {
       ? (row.iconStorageProvider as AdminSponsorRecord["iconStorageProvider"])
       : undefined,
     iconStorageKey: row.iconStorageKey ?? undefined,
+    wordmarkUrl: row.wordmarkUrl ?? undefined,
+    wordmarkStorageKey: row.wordmarkStorageKey ?? undefined,
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -64,7 +71,7 @@ export async function getAdminSponsor(): Promise<AdminSponsorRecord | null> {
     const rows = await database
       .select()
       .from(sponsors)
-      .where(and(isNull(sponsors.ownerUserId), eq(sponsors.campaignState, "legacy")))
+      .where(manualSponsorScope())
       .orderBy(desc(sponsors.createdAt))
       .limit(1);
 
@@ -104,11 +111,19 @@ export async function saveAdminSponsor(
     iconUrl: input.iconUrl ?? null,
     iconStorageProvider: input.iconStorageProvider ?? null,
     iconStorageKey: input.iconStorageKey ?? null,
+    wordmarkUrl: input.wordmarkUrl ?? null,
+    wordmarkStorageKey: input.wordmarkStorageKey ?? null,
     isActive: input.isActive,
     updatedBy: actorId,
   };
 
   if (existing) {
+    if (existing.wordmarkStorageKey && existing.wordmarkStorageKey !== input.wordmarkStorageKey) {
+      removedManagedMedia.push({ type: "image", storageProvider: "r2", storageKey: existing.wordmarkStorageKey });
+    }
+    if (existing.mediaPosterStorageKey && existing.mediaPosterStorageKey !== input.mediaPosterStorageKey && existing.mediaStorageKey === input.mediaStorageKey) {
+      removedManagedMedia.push({ type: "image", storageProvider: "r2", storageKey: existing.mediaPosterStorageKey });
+    }
     // Check if media changed
     if (
       existing.mediaStorageKey &&
@@ -141,7 +156,7 @@ export async function saveAdminSponsor(
     const [updatedRow] = await database
       .update(sponsors)
       .set(values)
-      .where(eq(sponsors.id, existing.id))
+      .where(and(eq(sponsors.id, existing.id), manualSponsorScope()))
       .returning();
 
     await database.insert(adminAuditLogs).values({
@@ -162,6 +177,9 @@ export async function saveAdminSponsor(
     .insert(sponsors)
     .values({
       ...values,
+      ownerUserId: null,
+      accountId: null,
+      campaignState: "legacy",
       createdBy: actorId,
     })
     .returning();
@@ -191,7 +209,7 @@ export async function setAdminSponsorActive(
   const [updatedRow] = await database
     .update(sponsors)
     .set({ isActive, updatedBy: actorId })
-    .where(eq(sponsors.id, existing.id))
+    .where(and(eq(sponsors.id, existing.id), manualSponsorScope()))
     .returning();
 
   await database.insert(adminAuditLogs).values({
@@ -220,6 +238,7 @@ export async function deleteAdminSponsor(actorId: string) {
         ?.map((v) => v.storageKey)
         .filter(Boolean) as string[],
       posterStorageKey: existing.mediaPosterStorageKey,
+      videoPreviewStorageKey: existing.mediaVideoPreview?.storageKey,
     });
   }
   if (existing.iconStorageKey) {
@@ -230,7 +249,11 @@ export async function deleteAdminSponsor(actorId: string) {
     });
   }
 
-  await database.delete(sponsors).where(eq(sponsors.id, existing.id));
+  if (existing.wordmarkStorageKey) {
+    removedManagedMedia.push({ type: "image", storageProvider: "r2", storageKey: existing.wordmarkStorageKey });
+  }
+
+  await database.delete(sponsors).where(and(eq(sponsors.id, existing.id), manualSponsorScope()));
 
   await database.insert(adminAuditLogs).values({
     actorId,

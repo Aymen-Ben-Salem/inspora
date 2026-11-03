@@ -1,6 +1,13 @@
 import { expect, it } from "vitest";
 import { buildPlacementSequence } from "./placement-sequence";
 const sponsors = ["a", "b", "c", "d"];
+it.each([1, 3, 4])("includes a separate manual sponsor with four paid sponsors at %i columns", (columns) => {
+  const all = [...sponsors, "manual"];
+  const ordinaryIds = Array.from({ length: 50 }, (_, index) => String(index));
+  const result = buildPlacementSequence({ ordinaryIds, sponsors: all, columns, seed: "manual-extra" });
+  expect(result.items.filter(item => item.kind === "sponsor").map(item => item.id).sort()).toEqual(all);
+  expect(result.items.filter(item => item.kind === "ordinary").map(item => item.id)).toEqual(ordinaryIds);
+});
 it("starts sponsors in the first or second desktop row and uses successive early rows with randomized columns", () => {
   const ordinaryIds = Array.from({ length: 50 }, (_, i) => String(i));
   const result = buildPlacementSequence({

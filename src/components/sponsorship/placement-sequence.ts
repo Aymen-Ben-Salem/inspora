@@ -20,7 +20,8 @@ export function buildPlacementSequence(input: {
 }) {
   const columns = Math.max(1, input.columns),
     random = randomFor(input.seed);
-  const sponsors = [...new Set(input.sponsors)].slice(0, 4);
+  // Public eligibility already limits paid seats; manual placements are extra.
+  const sponsors = [...new Set(input.sponsors)];
   const firstRow = random() < 0.5 ? 1 : 2;
   const rows = sponsors.map((_, i) => firstRow + i);
   const columnOrder = Array.from({ length: columns }, (_, i) => i);

@@ -58,7 +58,7 @@ function fixture() {
   const visitor = vi.fn(async () => ({
       visitorKey: "2026-10:opaque",
       countryCode: null,
-      device: "desktop",
+      device: "desktop" as const,
       referrerDomain: null,
     }));
   const allowed = vi.fn(async () => true);

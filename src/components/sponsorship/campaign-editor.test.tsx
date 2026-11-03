@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), usePathname: () => "/sponsor/start" }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: false }),
+  useUser: () => ({ user: null }),
   SignOutButton: ({ children }: { children: import("react").ReactNode }) => children,
 }));
 vi.mock("@/features/media/prepare-and-upload", () => ({
@@ -18,8 +19,9 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).not.toContain("Tagline");
   expect(html).not.toContain("Sign out");
   expect(html).toContain("Full wordmark");
-  expect(html).toContain("Set up your sponsor account");
-  expect(html).toContain("Continue with account setup");
+  expect(html).toContain("Company");
+  expect(html).toContain("Email");
+  expect(html).not.toContain("Continue with account setup");
   expect(html).toContain("disabled");
   expect(html).toContain("10 MiB");
   expect(html).toContain("50 MiB");
@@ -30,7 +32,7 @@ it("allows typing before verification and shows three previews with upload and b
   expect(html).toContain('id="checkout-review-title"');
   expect(html).toContain("$750");
   expect(html).not.toContain("€700");
-  expect(html).toContain("Never");
+  expect(html).toContain("Checkout");
   expect(html).not.toContain("Open sponsorship dashboard");
 });
 it("uses the regional euro price for both payment options and order review", () => {

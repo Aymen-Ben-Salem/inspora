@@ -2,11 +2,11 @@
 import { campaignType } from "./campaign-typography";
 import Image from "next/image";
 import { useId, useState } from "react";
-import type { VerifiedSponsorAsset } from "@/features/sponsorship/types";
+import type { CampaignDisplayAsset } from "./campaign-display-asset";
 import { SponsorSpinner } from "./sponsor-loading";
 
 export function CampaignUpload({ label, accept, hint, asset, disabled = false, busy = false, suggesting = false, message, failed = false, large = false, onUpload }: {
-  label: string; accept: string; hint: string; asset?: VerifiedSponsorAsset;
+  label: string; accept: string; hint: string; asset?: CampaignDisplayAsset;
   disabled?: boolean; busy?: boolean; suggesting?: boolean; message?: string; failed?: boolean;
   large?: boolean; onUpload: (file: File) => void;
 }) {

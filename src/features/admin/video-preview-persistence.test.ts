@@ -62,6 +62,9 @@ function videoSponsorForm() {
   form.set("mediaStorageProvider", "r2");
   form.set("mediaStorageKey", "sponsors/original.mp4");
   form.set("mediaVideoPreview", JSON.stringify(videoPreview));
+  form.set("mediaPosterUrl", "https://pub-example.r2.dev/sponsors/poster.webp");
+  form.set("iconUrl", "https://pub-example.r2.dev/sponsors/icon.webp");
+  form.set("wordmarkUrl", "https://pub-example.r2.dev/sponsors/wordmark.webp");
   form.set("mediaWidth", "3052");
   form.set("mediaHeight", "2160");
   form.set("mediaAlt", "Sponsor motion");

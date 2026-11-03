@@ -212,15 +212,16 @@ it("retains sponsor details and the active selection after a failed save", async
     await enterText(textField(form, "title"), "Keep this sponsor");
     await enterText(textField(form, "url"), "https://example.com/sponsor");
     const active = form.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-    await act(async () => active.click());
     expect(active.checked).toBe(false);
+    await act(async () => active.click());
+    expect(active.checked).toBe(true);
 
     await submit(form);
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Save failed.");
     expect(textField(form, "title").value).toBe("Keep this sponsor");
-    expect(active.checked).toBe(false);
-    expect(textField(form, "isActive").value).toBe("false");
+    expect(active.checked).toBe(true);
+    expect(textField(form, "isActive").value).toBe("true");
   } finally {
     await act(async () => root.unmount());
     container.remove();

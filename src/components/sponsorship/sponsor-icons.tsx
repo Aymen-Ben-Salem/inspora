@@ -6,7 +6,6 @@ export function SponsorIcons() {
   return (
     <div role="group" aria-label="Sponsors" className="flex items-center gap-1">
       {sponsors
-        .slice(0, 4)
         .filter((s) => s.iconUrl)
         .map((s) => (
           <a

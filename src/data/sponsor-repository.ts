@@ -49,7 +49,17 @@ export async function getActiveSponsor(): Promise<ActiveSponsor | null> {
     const rows = await database
       .select()
       .from(sponsors)
-      .where(eq(sponsors.isActive, true))
+      .where(and(
+        eq(sponsors.isActive, true),
+        isNull(sponsors.ownerUserId),
+        isNull(sponsors.accountId),
+        eq(sponsors.campaignState, "legacy"),
+        isNull(sponsors.deletedAt),
+        isNotNull(sponsors.createdBy),
+        sql`length(trim(${sponsors.iconUrl})) > 0`,
+        sql`length(trim(${sponsors.wordmarkUrl})) > 0`,
+        sql`(${sponsors.mediaUrl} is null or (${sponsors.mediaType} <> 'video' or (${sponsors.mediaPosterUrl} is not null and ${sponsors.mediaVideoPreview} is not null)))`,
+      ))
       .limit(1);
 
     const row = rows[0];
@@ -60,6 +70,8 @@ export async function getActiveSponsor(): Promise<ActiveSponsor | null> {
       title: row.title,
       url: row.url,
       tagline: row.tagline ?? undefined,
+      feedDescription: row.tagline ?? undefined,
+      wordmarkUrl: row.wordmarkUrl ?? undefined,
       mediaType: row.mediaType as "image" | "video",
       mediaUrl: row.mediaUrl ?? undefined,
       mediaPosterUrl: row.mediaPosterUrl ?? undefined,
@@ -134,7 +146,7 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
     )
     .orderBy(sponsorSeats.slot)
     .limit(4);
-  return rows.map(({ campaign: row, paidThrough, versionId, feedDescription }) => ({
+  const paid: ActiveSponsor[] = rows.map(({ campaign: row, paidThrough, versionId, feedDescription }) => ({
     id: row.id,
     versionId,
     title: row.title,
@@ -156,6 +168,10 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
     paidThrough: paidThrough!.toISOString(),
     serverTime: now.toISOString(),
   }));
+  // Manual placements are independent of the four paid seats. They neither
+  // reserve billing capacity nor disappear when all paid seats are occupied.
+  const manual = await getActiveSponsor();
+  return manual ? [...paid, manual] : paid;
 }
 
 // Keep the ticket02 and Design callers on the shared eligibility query.

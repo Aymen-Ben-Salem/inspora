@@ -385,7 +385,7 @@ function CampaignEditorContent({
           <label className={`${campaignType.label} block`}>
             Public name
             <span className="relative mt-2 block">
-              <input className={`${fieldClass} ${suggestingTitle ? "pr-11" : ""}`} required maxLength={160} aria-busy={suggestingTitle} aria-describedby={suggestingTitle ? suggestionStatusId : undefined} disabled={paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
+              <input className={`${fieldClass} ${suggestingTitle ? "pr-11" : ""}`} required maxLength={160} aria-busy={suggestingTitle} aria-describedby={suggestingTitle ? suggestionStatusId : undefined} disabled={!ready || paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
               {suggestingTitle ? <SponsorSpinner className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#767676]" /> : null}
             </span>
           </label>
@@ -394,7 +394,7 @@ function CampaignEditorContent({
             <input
               className={`${fieldClass} mt-2`}
               type="url"
-              disabled={paid?.readonly || Boolean(busy)}
+              disabled={!ready || paid?.readonly || Boolean(busy)}
               required
               maxLength={2048}
               value={fields.url}
@@ -412,7 +412,7 @@ function CampaignEditorContent({
               required
               maxLength={300}
               aria-describedby={feedDescriptionHintId}
-              disabled={paid?.readonly || Boolean(busy)}
+              disabled={!ready || paid?.readonly || Boolean(busy)}
               value={fields.feedDescription}
               onChange={(event) => update("feedDescription", event.target.value)}
               placeholder="A short sentence about your product"
@@ -549,7 +549,7 @@ function CampaignEditorContent({
               Draft expires {new Date(expiresAt).toLocaleString()}.
             </p>
           ) : null}
-          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} currency={currency} /></div> : null}
+          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={!ready || Boolean(busy)} currency={currency} /></div> : null}
           {!paid ? <CheckoutReview billingMode={billingMode} currency={currency} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
           <p
             role={failed ? "alert" : "status"}

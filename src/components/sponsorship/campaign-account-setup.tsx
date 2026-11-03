@@ -19,22 +19,17 @@ export function CampaignAccountSetup({ id, ready, signedIn, onContinue }: {
     <section id={id} aria-labelledby={`${id}-title`} tabIndex={-1} className="focus-ring scroll-mt-28 space-y-4 rounded-lg border border-[#e6e6e6] bg-[#fafafa] p-5 sm:p-6">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h2 id={`${id}-title`} className={campaignType.heading}>
-          {signedIn ? "Finish setting up your sponsor account" : "Set up your sponsor account"}
+          {signedIn ? "Finish setting up your sponsor account to continue" : "Set up your sponsor account to continue"}
         </h2>
-        <span className={`${campaignType.caption} rounded border border-[#e6e6e6] bg-white px-2 py-0.5 text-[#767676]`}>Required</span>
+        <span className={`${campaignType.caption} rounded border border-[#febbbb] bg-white px-2 py-0.5 text-[#ff0404]`}>Required</span>
       </div>
       <p className={`${campaignType.body} text-[#767676]`}>
-        {signedIn
-          ? "Finish setup to upload, save and check out."
-          : "Sign in or create an account to upload, save and check out."}
+        Email verification and authenticator setup required.
       </p>
       <button type="button" onClick={onContinue} className={`${sponsorButton.primary} gap-2`}>
         {signedIn ? "Continue setup" : "Continue with account setup"}
         <span aria-hidden="true">→</span>
       </button>
-      <p className={`${campaignType.caption} text-[#767676]`}>
-        Email verification and authenticator setup required.
-      </p>
     </section>
   );
 }

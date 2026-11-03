@@ -19,7 +19,7 @@ function ClerkPublicSignIn({ redirectUrl, basePath = "/sign-in", initialEmail }:
       path={basePath}
       initialValues={initialEmail ? { emailAddress: initialEmail } : undefined}
       withSignUp
-      appearance={basePath === "/sponsor/access" ? { ...publicAuthAppearance, elements: { ...publicAuthAppearance.elements, socialButtonsBlock: { display: "none" }, dividerRow: { display: "none" } } } : publicAuthAppearance}
+      appearance={basePath === "/sponsor/access" ? { ...publicAuthAppearance, elements: { ...publicAuthAppearance.elements, socialButtonsRoot: { display: "none" }, dividerRow: { display: "none" } } } : publicAuthAppearance}
       forceRedirectUrl={redirectUrl}
       signUpForceRedirectUrl={redirectUrl}
     />

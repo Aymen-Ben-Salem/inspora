@@ -69,5 +69,6 @@ it("keeps sponsor email verification and signup completion on sponsor routes", (
   expect(renderSignIn).toHaveBeenCalledWith(expect.objectContaining({
     path: "/sponsor/access", initialValues: { emailAddress: "owner@example.com" },
     forceRedirectUrl: "/sponsor/verify", signUpForceRedirectUrl: "/sponsor/verify",
+    appearance: expect.objectContaining({ elements: expect.objectContaining({ socialButtonsRoot: { display: "none" } }) }),
   }), undefined);
 });

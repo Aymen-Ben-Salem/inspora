@@ -6,13 +6,15 @@ import type { MembersResult } from "@/features/admin/members-data";
 
 const result: MembersResult = {
   query: { query: "Sam", filter: "joined7", sort: "newest", page: 2 },
-  summary: { total: 80, joined7: 11, joined30: 19, active30: 24 },
+  summary: { total: 80, joined24h: 4, joined7: 11, joined30: 19, active30: 24 },
   list: { total: 55, totalPages: 3, rows: [{ id: "fixture", name: "Sam Example", email: "sam@example.com", imageUrl: null, xUsername: "samexample", joinedAt: Date.UTC(2026, 10, 2), lastSignInAt: null }] },
 };
 
 it("renders a read-only account directory, filtered navigation and honest account activity labels", () => {
   const html = renderToStaticMarkup(<MembersView result={result} />);
   expect(html).toContain("Sam Example");
+  expect(html).toContain("Joined in 24 hours");
+  expect(html).toContain('href="/admin/subscribers?q=Sam&amp;filter=joined24h"');
   expect(html).toContain("sam@example.com");
   expect(html).toContain('href="https://x.com/samexample"');
   expect(html).toContain("Not recorded");
@@ -22,7 +24,7 @@ it("renders a read-only account directory, filtered navigation and honest accoun
 });
 
 it("distinguishes provider failure from empty membership", () => {
-  const failed = renderToStaticMarkup(<MembersView result={{ ...result, list: null, summary: { total: null, joined7: null, joined30: null, active30: null } }} />);
+  const failed = renderToStaticMarkup(<MembersView result={{ ...result, list: null, summary: { total: null, joined24h: null, joined7: null, joined30: null, active30: null } }} />);
   expect(failed).toContain("Unavailable");
   expect(failed).toContain("Members couldn’t be loaded");
   expect(failed).not.toContain("No matching members");

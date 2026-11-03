@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@/auth/require-admin", () => ({ requireAdmin: vi.fn(async () => ({ userId: "admin-fixture" })) }));
-vi.mock("@/features/admin/members-repository", () => ({ getAdminMembers: vi.fn(async () => ({ query: { query: "", page: 1, filter: "all", sort: "newest" }, summary: { total: 0, joined7: 0, joined30: 0, active30: 0 }, list: { total: 0, totalPages: 1, rows: [] } })) }));
+vi.mock("@/features/admin/members-repository", () => ({ getAdminMembers: vi.fn(async () => ({ query: { query: "", page: 1, filter: "all", sort: "newest" }, summary: { total: 0, joined24h: 0, joined7: 0, joined30: 0, active30: 0 }, list: { total: 0, totalPages: 1, rows: [] } })) }));
 vi.mock("@/features/admin/subscribers-repository", () => ({ getAdminSubscribers: vi.fn(async () => ({ rows: [], total: 101, page: 2, totalPages: 3 })) }));
 vi.mock("@/features/admin/actions", () => ({ deleteSubscriberAction: vi.fn(), unsubscribeSubscriberAction: vi.fn() }));
 

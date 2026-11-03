@@ -19,7 +19,7 @@ function setup() {
   const authorize = vi.fn(async () => {});
   const source = {
     getCount: vi.fn(async () => 70),
-    getUserList: vi.fn<MembersDirectory["getUserList"]>(async (options) => ({ data: options.limit === 1 ? [] : [account], totalCount: options.limit === 1 ? 12 : 70 })),
+    getUserList: vi.fn<MembersDirectory["getUserList"]>(async (options) => ({ data: options.limit === 1 ? [] : [account], totalCount: options.limit === 1 ? (options.createdAtAfter === at - day ? 3 : 12) : 70 })),
   };
   const directory = vi.fn(async () => source);
   let clock = at;
@@ -56,7 +56,7 @@ describe("admin member directory", () => {
     expect(s.source.getUserList).toHaveBeenCalledWith({ limit: 1, createdAtAfter: at - 7 * day });
     expect(s.source.getUserList).toHaveBeenCalledWith({ limit: 1, createdAtAfter: at - 30 * day });
     expect(s.source.getUserList).toHaveBeenCalledWith({ limit: 1, lastActiveAtAfter: at - 30 * day });
-    expect(result.summary).toEqual({ total: 70, joined7: 12, joined30: 12, active30: 12 });
+    expect(result.summary).toEqual({ total: 70, joined24h: 3, joined7: 12, joined30: 12, active30: 12 });
     expect(result.list?.totalPages).toBe(3);
   });
 
@@ -64,9 +64,9 @@ describe("admin member directory", () => {
     const s = setup();
     await Promise.all([s.read({}), s.read({ q: "example" })]);
     expect(s.source.getCount).toHaveBeenCalledTimes(1);
-    expect(s.source.getUserList).toHaveBeenCalledTimes(5);
-    await s.read({});
     expect(s.source.getUserList).toHaveBeenCalledTimes(6);
+    await s.read({});
+    expect(s.source.getUserList).toHaveBeenCalledTimes(7);
     s.advance(60_001);
     await s.read({});
     expect(s.source.getCount).toHaveBeenCalledTimes(2);
@@ -87,7 +87,7 @@ describe("admin member directory", () => {
       return { data: [], totalCount: 0 };
     });
     const result = await s.read({});
-    expect(result.summary).toEqual({ total: null, joined7: 0, joined30: 0, active30: 0 });
+    expect(result.summary).toEqual({ total: null, joined24h: 0, joined7: 0, joined30: 0, active30: 0 });
     expect(result.list).toBeNull();
     expect(JSON.stringify(result)).not.toContain("provider error");
     await s.read({});
@@ -97,7 +97,22 @@ describe("admin member directory", () => {
   it("returns unavailable if the client cannot be obtained, without swallowing auth failures", async () => {
     const s = setup();
     s.directory.mockRejectedValueOnce(new Error("missing config"));
-    expect(await s.read({})).toMatchObject({ list: null, summary: { total: null, joined7: null, joined30: null, active30: null } });
+    expect(await s.read({})).toMatchObject({ list: null, summary: { total: null, joined24h: null, joined7: null, joined30: null, active30: null } });
+  });
+
+  it("uses the same rolling 24-hour boundary for the summary and member filter, rather than calendar midnight", async () => {
+    const s = setup();
+    const users = [at - day - 1, at - day, at - day + 1, at - 2 * 3_600_000].map((createdAt, index) => ({ ...account, id: `boundary-${index}`, createdAt }));
+    s.source.getUserList.mockImplementation(async (options) => {
+      const matching = users.filter(user => options.createdAtAfter === undefined || user.createdAt > options.createdAtAfter);
+      return { data: matching.slice(0, options.limit), totalCount: matching.length };
+    });
+    const result = await s.read({ filter: "joined24h" });
+    expect(result.summary.joined24h).toBe(2);
+    expect(result.list?.rows.map(row => row.id)).toEqual(["boundary-2", "boundary-3"]);
+    expect(s.source.getUserList).toHaveBeenCalledWith({ limit: 1, createdAtAfter: at - day });
+    expect(s.source.getUserList).toHaveBeenCalledWith(expect.objectContaining({ limit: 25, createdAtAfter: at - day }));
+    expect(membersHref(result.query, { page: 2 })).toBe("/admin/subscribers?filter=joined24h&page=2");
   });
 
   it("normalizes untrusted query values and preserves filters when paging", () => {

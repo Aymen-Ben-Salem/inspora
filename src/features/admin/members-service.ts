@@ -26,7 +26,7 @@ export type MembersDirectory = {
 };
 
 const DAY = 86_400_000;
-const EMPTY_SUMMARY: MemberSummary = { total: null, joined7: null, joined30: null, active30: null };
+const EMPTY_SUMMARY: MemberSummary = { total: null, joined24h: null, joined7: null, joined30: null, active30: null };
 const orderBy = { newest: "-created_at", oldest: "+created_at", active: "-last_active_at" } as const;
 const timestamp = (value: number | null) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 
@@ -55,6 +55,7 @@ function projectMember(user: SourceUser): AdminMember {
 }
 
 function filterOptions(filter: MemberQuery["filter"], now: number): Partial<ListOptions> {
+  if (filter === "joined24h") return { createdAtAfter: now - DAY };
   if (filter === "joined7") return { createdAtAfter: now - 7 * DAY };
   if (filter === "joined30") return { createdAtAfter: now - 30 * DAY };
   if (filter === "active30") return { lastActiveAtAfter: now - 30 * DAY };
@@ -75,12 +76,13 @@ export function createMembersReader({ authorize, directory, now = Date.now }: {
     if (pending) return pending;
     pending = Promise.allSettled([
       source.getCount(),
+      source.getUserList({ limit: 1, createdAtAfter: at - DAY }).then((result) => result.totalCount),
       source.getUserList({ limit: 1, createdAtAfter: at - 7 * DAY }).then((result) => result.totalCount),
       source.getUserList({ limit: 1, createdAtAfter: at - 30 * DAY }).then((result) => result.totalCount),
       source.getUserList({ limit: 1, lastActiveAtAfter: at - 30 * DAY }).then((result) => result.totalCount),
     ]).then((results) => {
       const counts = results.map((result) => result.status === "fulfilled" ? result.value : null);
-      const summary = { total: counts[0], joined7: counts[1], joined30: counts[2], active30: counts[3] };
+      const summary = { total: counts[0], joined24h: counts[1], joined7: counts[2], joined30: counts[3], active30: counts[4] };
       if (counts.every((count) => count !== null)) cached = { expiresAt: now() + 60_000, summary };
       return summary;
     }).finally(() => { pending = undefined; });

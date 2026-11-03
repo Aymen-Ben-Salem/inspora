@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Activity, ArrowUpRight, CalendarDays, ChevronDown, Search, UserPlus, Users } from "lucide-react";
+import { Activity, ArrowUpRight, CalendarDays, ChevronDown, Clock, Search, UserPlus, Users } from "lucide-react";
 
 import { NavbarMenu } from "@/components/navbar-menu";
 import { MEMBER_FILTERS, MEMBER_PAGE_SIZE, MEMBER_SORTS, membersHref, type MembersResult } from "@/features/admin/members-data";
@@ -12,6 +12,7 @@ const date = new Intl.DateTimeFormat("en", { day: "numeric", month: "short", yea
 const fullDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Tunis" });
 const metrics = [
   { key: "total", label: "Total members", description: "Registered accounts", Icon: Users },
+  { key: "joined24h", label: "Joined in 24 hours", description: "New accounts", Icon: Clock },
   { key: "joined7", label: "Joined in 7 days", description: "New accounts", Icon: UserPlus },
   { key: "joined30", label: "Joined in 30 days", description: "New accounts", Icon: CalendarDays },
   { key: "active30", label: "Active in 30 days", description: "Accounts with recent activity", Icon: Activity },

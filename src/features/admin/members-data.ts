@@ -3,6 +3,7 @@ import type { Route } from "next";
 export const MEMBER_PAGE_SIZE = 25;
 export const MEMBER_FILTERS = {
   all: "All members",
+  joined24h: "Joined in 24 hours",
   joined7: "Joined in 7 days",
   joined30: "Joined in 30 days",
   active30: "Active in 30 days",
@@ -31,6 +32,7 @@ export type AdminMember = {
 };
 export type MemberSummary = {
   total: number | null;
+  joined24h: number | null;
   joined7: number | null;
   joined30: number | null;
   active30: number | null;

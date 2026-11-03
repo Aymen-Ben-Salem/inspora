@@ -1,5 +1,5 @@
 .view { display: grid; gap: 1.5rem; color: #171717; }
-.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .875rem; }
+.metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .875rem; }
 .metric { border: 1px solid #e6e6e3; border-radius: .75rem; background: white; padding: 1.15rem 1.25rem; }
 .metricLabel { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #666; font-size: .8125rem; }
 .metricLabel svg { flex-shrink: 0; }
@@ -53,6 +53,7 @@
 .disabled { color: #737373; }
 @media (max-width: 1000px) {
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric:first-child { grid-column: 1 / -1; }
   .table th, .table td { padding-left: .875rem; padding-right: .875rem; }
   .table th:first-child { width: 35%; }
 }

@@ -472,7 +472,23 @@ function CampaignEditorContent({
             });
           }}
         >
-          <h2 className={campaignType.heading}>Campaign details</h2>
+          {!paid ? <section className="space-y-5" aria-labelledby="sponsor-contact-title">
+            <h2 id="sponsor-contact-title" className={campaignType.heading}>Contact details</h2>
+            {([["company", "Company", 160], ["contactName", "Contact name", 160], ["email", "Email", 320]] as const).map(([key, label, limit]) =>
+              <label key={key} className={`${campaignType.label} block`}>
+                {label}
+                <span className="relative mt-2 block">
+                  <input name={key} type={key === "email" ? "email" : "text"} required maxLength={limit}
+                    autoComplete={key === "company" ? "organization" : key === "contactName" ? "name" : "email"}
+                    className={`${fieldClass} pr-16`} disabled={Boolean(busy)}
+                    readOnly={key === "email" && Boolean(isSignedIn && accountEmail)}
+                    value={contact[key]} onChange={event => setContact(previous => ({ ...previous, [key]: event.target.value }))} />
+                  <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#767676]">{contact[key].length}/{limit}</span>
+                </span>
+              </label>)}
+            <p className={`${campaignType.caption} text-[#767676]`}>We’ll use this email for campaign access and receipts.</p>
+          </section> : null}
+          <h2 className={`${campaignType.heading} ${!paid ? "border-t border-[#e6e6e6] pt-8" : ""}`}>Campaign details</h2>
           <label className={`${campaignType.label} block`}>
             Public name
             <span className="relative mt-2 block">
@@ -591,7 +607,7 @@ function CampaignEditorContent({
                   failed={uploads[kind]?.failed}
                   asset={assets.find((asset) => asset.id === fields[uploadRoles[kind].field])}
                   large={kind === "media"}
-                  hint={kind === "media" ? "PNG, JPG, WebP, AVIF, GIF · 10 MiB. MP4, WebM · 50 MiB." : "PNG, JPG, WebP, AVIF · Static · 10 MiB max."}
+                  hint={kind === "media" ? "PNG, JPG, WebP, AVIF, GIF · 10 MiB\nMP4, WebM · 50 MiB max." : "PNG, JPG, WebP, AVIF\nStatic images · 10 MiB max."}
                   accept={
                     kind === "media"
                       ? "image/png,image/jpeg,image/webp,image/avif,image/gif,video/mp4,video/webm"
@@ -622,22 +638,6 @@ function CampaignEditorContent({
               </button>
             ) : null}
           </fieldset>
-          {!paid ? <section className="space-y-5 border-t border-[#e6e6e6] pt-8" aria-labelledby="sponsor-contact-title">
-            <h2 id="sponsor-contact-title" className={campaignType.heading}>Contact details</h2>
-            {([["company", "Company", 160], ["contactName", "Contact name", 160], ["email", "Email", 320]] as const).map(([key, label, limit]) =>
-              <label key={key} className={`${campaignType.label} block`}>
-                {label}
-                <span className="relative mt-2 block">
-                  <input name={key} type={key === "email" ? "email" : "text"} required maxLength={limit}
-                    autoComplete={key === "company" ? "organization" : key === "contactName" ? "name" : "email"}
-                    className={`${fieldClass} pr-16`} disabled={Boolean(busy)}
-                    readOnly={key === "email" && Boolean(isSignedIn && accountEmail)}
-                    value={contact[key]} onChange={event => setContact(previous => ({ ...previous, [key]: event.target.value }))} />
-                  <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#767676]">{contact[key].length}/{limit}</span>
-                </span>
-              </label>)}
-            <p className={`${campaignType.caption} text-[#767676]`}>We’ll use this email for campaign access and receipts.</p>
-          </section> : null}
           {ready && !paid?.readonly ? (
             <button
               disabled={!ready || Boolean(busy) || uploading}

@@ -235,7 +235,7 @@ it("keeps the current route intact when saving a preparation fails", async () =>
 
 it("clears an owner's private campaign when switching to another owner or signing out", async () => {
   await act(async () => root.render(<CampaignEditor />));
-  expect(container.querySelector("form")!.firstElementChild?.textContent).toContain("Campaign details");
+  expect(container.querySelector("form")!.firstElementChild?.textContent).toContain("Contact details");
   expect(container.textContent).not.toContain("Complete account setup above");
   expect(nameInput().value).toBe("Owner A private campaign");
   expect(container.textContent).not.toContain("Sign out");

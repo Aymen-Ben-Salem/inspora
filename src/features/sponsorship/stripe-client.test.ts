@@ -301,3 +301,21 @@ it.each([
   const stripe = new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 });
   expect(await createStripeProvider(stripe).terminate("sub_test")).toBe(safe);
 });
+
+it.each(["one_time", "subscription"] as const)("prefills the server-pinned receipt email in %s Checkout", async billingMode => {
+  const fetcher = vi.fn(async (url: RequestInfo | URL, options?: RequestInit) => {
+    if (new URL(String(url)).pathname.startsWith("/v1/prices/")) return Response.json({
+      id: "price_monthly", livemode: false, active: true, currency: "usd", unit_amount: 75000,
+      recurring: billingMode === "subscription" ? { interval: "month", interval_count: 1 } : null,
+      tax_behavior: "exclusive", currency_options: { usd: { unit_amount: 75000, tax_behavior: "exclusive" }, eur: { unit_amount: 70000, tax_behavior: "exclusive" } },
+    });
+    const body = new URLSearchParams(String(options?.body));
+    expect(body.get("customer_email")).toBe("owner@example.com");
+    expect(body.get("client_reference_id")).toBe("owned-checkout");
+    return Response.json({ id: "cs_fixture", livemode: false, mode: billingMode === "one_time" ? "payment" : "subscription",
+      status: "open", url: "https://checkout.stripe.com/fixture", client_reference_id: "owned-checkout", expires_at: 1800000000 });
+  });
+  const provider = createStripeProvider(new Stripe("sk_test_fixture", { httpClient: Stripe.createFetchHttpClient(fetcher), maxNetworkRetries: 0 }));
+  await provider.createCheckout({ checkoutId: "owned-checkout", priceId: "price_monthly", key: "fixture", expiresAt: 1800000000000,
+    billingMode, currency: "usd", customerEmail: "owner@example.com" });
+});

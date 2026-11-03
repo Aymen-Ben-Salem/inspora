@@ -1,17 +1,14 @@
 "use client";
-import { SignIn } from "@clerk/nextjs";
-import { publicAuthAppearance } from "@/auth/appearance";
+import { useSyncExternalStore } from "react";
+import { PublicSignIn } from "@/components/auth/public-sign-in";
+import { pendingDraftEmail } from "./local-campaign-draft";
+const subscribe = () => () => {};
 export function SponsorSignIn() {
+  const email = useSyncExternalStore(subscribe, pendingDraftEmail, () => undefined);
+  if (email === undefined) return <p role="status">Loading verification…</p>;
   return (
     <div className="w-full max-w-[429px] [&_button:enabled]:cursor-pointer [&_button:disabled]:cursor-not-allowed">
-      <SignIn
-        routing="path"
-        path="/sponsor/access"
-        withSignUp
-        appearance={publicAuthAppearance}
-        forceRedirectUrl="/sponsor/verify"
-        signUpForceRedirectUrl="/sponsor/verify"
-      />
+      <PublicSignIn basePath="/sponsor/access" redirectUrl="/sponsor/verify" initialEmail={email} />
     </div>
   );
 }

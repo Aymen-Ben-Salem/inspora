@@ -30,6 +30,7 @@ export type BillingProvider = {
     /** Only set for an existing server-owned seat reservation. */
     pinned?: boolean;
     currency?: SponsorCurrency;
+    customerEmail?: string;
     renewal?: { customerId: string; startsAt: string };
   }): Promise<CheckoutSession>;
   session(id: string): Promise<CheckoutSession>;
@@ -153,6 +154,7 @@ export function createStripeProvider(stripe: Stripe): BillingProvider {
           mode: once ? "payment" : "subscription",
           adaptive_pricing: { enabled: false },
           ...(input.currency ? { currency: input.currency } : {}),
+          ...(!input.renewal && input.customerEmail ? { customer_email: input.customerEmail } : {}),
           ...(input.renewal ? { customer: input.renewal.customerId, customer_update: { address: "auto" as const, name: "auto" as const }, payment_method_collection: "always" as const } : {}),
           client_reference_id: input.checkoutId,
           metadata: { sponsor_checkout_id: input.checkoutId },

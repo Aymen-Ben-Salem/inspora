@@ -21,6 +21,7 @@ import type { SponsorshipResult } from "./types";
 import type { SponsorBillingMode } from "./purchase-mode";
 import { isSponsorCurrency, type SponsorCurrency } from "./pricing";
 import { prepareMonthlyRenewal } from "./monthly-renewal";
+import { verifiedCheckoutEmail } from "./checkout-email";
 
 export async function startOwnMonthlyRenewal(): Promise<SponsorshipResult<{ url: string }>> {
   const owner = await verifiedSponsorOwner("write");
@@ -71,7 +72,7 @@ export async function startSponsorCheckout(
     async (tx) =>
       (
         await tx
-          .select({ id: sponsorCheckouts.id, state: sponsorCheckouts.state, priceId: sponsorCheckouts.priceId, billingMode: sponsorCheckouts.billingMode })
+          .select({ id: sponsorCheckouts.id, state: sponsorCheckouts.state, priceId: sponsorCheckouts.priceId, billingMode: sponsorCheckouts.billingMode, snapshot: sponsorCheckouts.snapshot })
           .from(sponsorCheckouts)
           .where(
             and(
@@ -87,6 +88,9 @@ export async function startSponsorCheckout(
       code: "forbidden",
       message: "Owned preparation not found.",
     };
+  // Only the provider-verified account email can seed a new checkout.
+  // Existing reserved sessions keep their original immutable receipt address.
+  const checkoutEmail = own.state === "reserved" ? undefined : await verifiedCheckoutEmail(owner, own.snapshot?.contact);
   await runSponsorMaintenance();
   if (own.state === "reserved" && own.billingMode !== billingMode)
     return { ok: false, code: "conflict", message: "This checkout already has reserved payment terms." };
@@ -94,7 +98,7 @@ export async function startSponsorCheckout(
     pinned = own.state === "reserved" && own.priceId,
     priceId = pinned || (billingMode === "one_time" ? process.env.STRIPE_SPONSOR_ONE_TIME_PRICE_ID : process.env.STRIPE_SPONSOR_PRICE_ID)!;
   if (!pinned) await provider.price(priceId, billingMode);
-  const reserved = await reserveSponsorSeat(owner, checkoutId, priceId, new Date(), billingMode, currency);
+  const reserved = await reserveSponsorSeat(owner, checkoutId, priceId, new Date(), billingMode, currency, checkoutEmail);
   if (!reserved.ok) return reserved;
   return {
     ok: true,

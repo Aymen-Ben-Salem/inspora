@@ -12,23 +12,27 @@ import { BrandMark } from "../brand-mark";
 import { continueEmailSignUp, type EmailSignUpContinuation } from "./continue-email-sign-up";
 import { useAuthPathname } from "./use-auth-pathname";
 
-function ClerkPublicSignIn({ redirectUrl }: { redirectUrl: string }) {
+function ClerkPublicSignIn({ redirectUrl, basePath = "/sign-in", initialEmail }: AuthProps) {
   return (
     <SignIn
       routing="path"
-      path="/sign-in"
+      path={basePath}
+      initialValues={initialEmail ? { emailAddress: initialEmail } : undefined}
       withSignUp
-      appearance={publicAuthAppearance}
+      appearance={basePath === "/sponsor/access" ? { ...publicAuthAppearance, elements: { ...publicAuthAppearance.elements, socialButtonsBlock: { display: "none" }, dividerRow: { display: "none" } } } : publicAuthAppearance}
       forceRedirectUrl={redirectUrl}
       signUpForceRedirectUrl={redirectUrl}
     />
   );
 }
 
-function ContinueEmailSignUp({ signUp, emailAddress, redirectUrl }: {
+type AuthProps = { redirectUrl: string; basePath?: "/sign-in" | "/sponsor/access"; initialEmail?: string };
+
+function ContinueEmailSignUp({ signUp, emailAddress, redirectUrl, basePath = "/sign-in" }: {
   signUp: SignUpResource;
   emailAddress: string;
   redirectUrl: string;
+  basePath?: "/sign-in" | "/sponsor/access";
 }) {
   const clerk = useClerk();
   const router = useRouter();
@@ -46,14 +50,14 @@ function ContinueEmailSignUp({ signUp, emailAddress, redirectUrl }: {
       if (result.kind === "required-fields") {
         setState("required-fields");
       } else if (result.kind === "navigate") {
-        router.replace(result.path, { scroll: false });
+        router.replace(result.path.replace("/sign-in", basePath) as Route, { scroll: false });
       } else {
         await clerk.setActive({
           session: result.sessionId,
           navigate: async ({ session, decorateUrl }) => {
             if (!active) return;
             const destination = session?.currentTask
-              ? "/sign-in/create/tasks"
+              ? basePath + "/create/tasks"
               : redirectUrl;
             router.replace(decorateUrl(destination) as Route, { scroll: false });
           },
@@ -63,10 +67,10 @@ function ContinueEmailSignUp({ signUp, emailAddress, redirectUrl }: {
       if (active) setState("error");
     });
     return () => { active = false; };
-  }, [clerk, redirectUrl, retry, router, submission]);
+  }, [clerk, redirectUrl, retry, router, submission, basePath]);
 
   if (state === "required-fields") {
-    return <ClerkPublicSignIn redirectUrl={redirectUrl} />;
+    return <ClerkPublicSignIn redirectUrl={redirectUrl} basePath={basePath} />;
   }
 
   return (
@@ -87,29 +91,30 @@ function ContinueEmailSignUp({ signUp, emailAddress, redirectUrl }: {
   );
 }
 
-export function PublicSignIn({ redirectUrl = "/" }: { redirectUrl?: string }) {
+export function PublicSignIn({ redirectUrl = "/", basePath = "/sign-in", initialEmail }: Partial<AuthProps>) {
   const pathname = useAuthPathname();
   const { signUp } = useSignUp();
   const [entry, setEntry] = useState({ path: pathname, fromEmailForm: false });
   if (entry.path !== pathname) {
     setEntry({
       path: pathname,
-      fromEmailForm: entry.path === "/sign-in" && pathname === "/sign-in/create",
+      fromEmailForm: entry.path === basePath && pathname === basePath + "/create",
     });
   }
 
   // Only the combined flow's initial email transfer needs this handoff.
   // A fresh email submission may replace a stale unfinished sign-up attempt.
   // Direct resumes, OAuth callbacks and verification stay with Clerk.
-  if (pathname === "/sign-in/create" && signUp?.emailAddress && (!signUp.id || entry.fromEmailForm)) {
+  if (pathname === basePath + "/create" && signUp?.emailAddress && (!signUp.id || entry.fromEmailForm)) {
     return (
       <ContinueEmailSignUp
         key={signUp.emailAddress}
         signUp={signUp}
         emailAddress={signUp.emailAddress}
         redirectUrl={redirectUrl}
+        basePath={basePath}
       />
     );
   }
-  return <ClerkPublicSignIn redirectUrl={redirectUrl} />;
+  return <ClerkPublicSignIn redirectUrl={redirectUrl} basePath={basePath} initialEmail={initialEmail} />;
 }

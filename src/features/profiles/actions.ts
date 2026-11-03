@@ -153,7 +153,7 @@ export async function requestOwnAccountDeletion() {
   }
   try {
     if ((await readAccountCapabilities(authentication.userId)).sponsor && (await readSponsorSecurity()).state !== "ready")
-      return { ok: false as const, code: "forbidden" as const, message: "Verify authenticator 2FA in Account security before deleting your sponsor account." };
+      return { ok: false as const, code: "forbidden" as const, message: "Verify your account in Account security before deleting your sponsor account." };
     return await requestAccountDeletion(authentication.userId);
   } catch (error) {
     console.error("Account deletion request failed", error);

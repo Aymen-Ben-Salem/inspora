@@ -37,14 +37,14 @@ beforeEach(() => {
     account: "active",
   });
 });
-it("requires an enrolled authenticator, even for an email-verified paid owner", async () => {
+it("allows a verified-email sponsor without mandatory authenticator enrollment", async () => {
   adapters.user.mockResolvedValue({
     primaryEmailAddress: { verification: { status: "verified" } },
     totpEnabled: false,
-    twoFactorEnabled: true,
+    twoFactorEnabled: false,
   });
-  expect(await verifiedSponsorOwner()).toBeNull();
-  expect(adapters.identity).not.toHaveBeenCalled();
+  adapters.auth.mockResolvedValue({ userId: "owner", sessionClaims: { fva: [0, -1] } });
+  expect(await verifiedSponsorOwner()).toBe("owner");
 });
 it.each([undefined, [-1, -1], [0, -1], [0], [0, "0"], [0, NaN]])(
   "rejects missing or unverified second-factor session evidence: %j",
@@ -59,6 +59,11 @@ it.each([undefined, [-1, -1], [0, -1], [0], [0, "0"], [0, NaN]])(
 );
 it("accepts an enrolled authenticator and a verified second factor in this session", async () => {
   expect(await verifiedSponsorOwner("write")).toBe("owner");
+});
+it("still rejects unverified email when MFA enrollment is optional", async () => {
+  adapters.user.mockResolvedValue({ primaryEmailAddress: { verification: { status: "unverified" } }, totpEnabled: false });
+  expect(await verifiedSponsorOwner()).toBeNull();
+  expect(adapters.identity).not.toHaveBeenCalled();
 });
 it("still denies a revoked sponsor after successful MFA", async () => {
   adapters.identity.mockResolvedValue({

@@ -45,7 +45,8 @@ function fixture() {
         ? item.asset
         : null;
     },
-    freezeCampaign: async (p, creative) => {
+    freezeCampaign: async (p, creative, contact) => {
+      p.contact = contact;
       const campaign = {
         id: p.campaign?.id ?? randomUUID(),
         checkoutId: p.id,
@@ -251,4 +252,18 @@ describe("owned unpaid sponsor preparation", () => {
       });
     },
   );
+});
+
+it("stores contact details privately without putting them into published creative", async () => {
+  const f = fixture();
+  await f.service.begin();
+  const contact = { company: " Private company ", contactName: " Person ", email: "owner@example.com" };
+  const result = await f.service.save({ ...f.input, contact });
+  expect(result.ok).toBe(true);
+  expect(f.preparations.get("owner-a")?.contact).toEqual({ company: "Private company", contactName: "Person", email: "owner@example.com" });
+  if (result.ok) {
+    expect(result.value.creative).not.toHaveProperty("contact");
+    expect(JSON.stringify(result.value.creative)).not.toContain("owner@example.com");
+  }
+  expect(await f.service.save({ ...f.input, contact: { ...contact, email: "bad" } })).toMatchObject({ ok: false, code: "invalid_input" });
 });

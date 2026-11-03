@@ -17,9 +17,7 @@ export async function readSponsorSecurity(): Promise<{
   const state: SponsorSecurityState =
     user.primaryEmailAddress?.verification?.status !== "verified"
       ? "email_required"
-      : !user.totpEnabled
-        ? "setup_required"
-        : !hasSponsorSecondFactor(sessionClaims?.fva)
+      : user.totpEnabled && !hasSponsorSecondFactor(sessionClaims?.fva)
           ? "verification_required"
           : "ready";
   return { state, userId };

@@ -76,6 +76,7 @@ async function storedSession(
     billingMode: p.billingMode,
     pinned: true,
     ...(p.snapshot?.checkoutCurrency ? { currency: p.snapshot.checkoutCurrency } : {}),
+    ...(p.snapshot?.checkoutEmail ? { customerEmail: p.snapshot.checkoutEmail } : {}),
     ...(p.snapshot?.renewal ? { renewal: p.snapshot.renewal } : {}),
   });
   if (session.checkoutId !== p.id || session.billingMode !== p.billingMode)

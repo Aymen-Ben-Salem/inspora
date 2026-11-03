@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   refresh: vi.fn(),
+  saveDraft: vi.fn(), readDraft: vi.fn(), clearDraft: vi.fn(),
   auth: {
     isLoaded: true,
     isSignedIn: true,
@@ -14,6 +15,7 @@ const state = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: state.refresh }), usePathname: () => "/sponsor/start" }));
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => state.auth,
+  useUser: () => ({ user: state.auth.isSignedIn ? { primaryEmailAddress: { emailAddress: "owner@example.com" } } : null }),
   SignOutButton: ({
     children,
     redirectUrl,
@@ -25,6 +27,11 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("@/features/media/prepare-and-upload", () => ({
   prepareAndUploadMedia: vi.fn(),
 }));
+vi.mock("./local-campaign-draft", async importOriginal => ({
+  ...await importOriginal<typeof import("./local-campaign-draft")>(),
+  saveLocalDraft: state.saveDraft, readLocalDraft: state.readDraft, clearLocalDraft: state.clearDraft,
+}));
+import { prepareAndUploadMedia } from "@/features/media/prepare-and-upload";
 import { CampaignEditor } from "./campaign-editor";
 
 let container: HTMLDivElement, root: Root;
@@ -35,6 +42,7 @@ const preparation = (owner: string, saved = false) => ({
   state: saved ? "ready" : "preparing",
   expiresAt: "2026-10-10T12:00:00Z",
   revision: saved ? 4 : 0,
+  contact: { company: "Fixture company", contactName: "Fixture owner", email: "owner@example.com" },
   campaign: saved
     ? {
         creative: {
@@ -59,6 +67,9 @@ const preparation = (owner: string, saved = false) => ({
 });
 beforeEach(() => {
   state.refresh.mockReset();
+  state.saveDraft.mockReset().mockResolvedValue(undefined);
+  state.readDraft.mockReset().mockResolvedValue(null);
+  state.clearDraft.mockReset().mockResolvedValue(undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.auth = { isLoaded: true, isSignedIn: true, userId: "owner-a" };
   fetchMock.mockImplementation(async () => ({
@@ -91,30 +102,20 @@ const submitCheckout = () => container.querySelector("form")!.dispatchEvent(
   new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: checkoutButton() }),
 );
 
-it.each([false, true])("opens account setup without submitting the campaign (signed in: %s)", async (signedIn) => {
+it.each([false, true])("lets visitors enter a campaign without a setup gate (signed in: %s)", async signedIn => {
   state.auth = { isLoaded: true, isSignedIn: signedIn, userId: signedIn ? "owner-a" : null };
-  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "Verify sponsor access before saving or uploading." }, { status: 401 }));
-  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: false, message: "Verify sponsor access." }, { status: 401 }));
   await act(async () => root.render(<CampaignEditor />));
-  const setup = container.querySelector("form")!.firstElementChild!;
-  expect(setup.textContent).toContain(signedIn ? "Finish setting up your sponsor account" : "Set up your sponsor account");
-  expect(nameInput().disabled).toBe(true);
-  expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.disabled).toBe(true);
-  expect(container.querySelector<HTMLTextAreaElement>('textarea[name="feedDescription"]')!.disabled).toBe(true);
-  expect(container.querySelector<HTMLInputElement>('input[value="subscription"]')!.closest("fieldset")!.disabled).toBe(true);
-  expect(checkoutButton().disabled).toBe(true);
-  const button = setup.querySelector("button")!;
-  expect(button.textContent).toContain(signedIn ? "Continue setup" : "Continue with account setup");
-  const hintLinks = container.querySelectorAll(`a[href]`);
-  expect(Array.from(hintLinks).filter((link) => link.getAttribute("href") === `#${setup.id}`)).toHaveLength(2);
-  fetchMock.mockClear();
-  await act(async () => { submitCheckout(); });
-  expect(fetchMock).not.toHaveBeenCalled();
-  expect(navigate).not.toHaveBeenCalled();
-  await act(async () => button.click());
-  expect(navigate).toHaveBeenCalledExactlyOnceWith("/api/sponsorship/intent");
-  expect(fetchMock).not.toHaveBeenCalled();
-  expect(JSON.parse(sessionStorage.getItem("inspora:sponsor-typed")!).ownerUserId).toBe(signedIn ? "owner-a" : null);
+  expect(nameInput().disabled).toBe(false);
+  expect(container.querySelector<HTMLInputElement>('input[type="url"]')!.disabled).toBe(false);
+  expect(checkoutButton().disabled).toBe(false);
+  expect(container.querySelector<HTMLInputElement>('input[type="file"]')!.disabled).toBe(false);
+  expect(container.textContent).not.toContain("Finish setting up");
+  expect(container.textContent).not.toContain("authenticator");
+  expect(container.textContent).not.toContain("Only visible to you");
+  expect(container.querySelector('input[name="company"]')).not.toBeNull();
+  expect(container.querySelector('input[name="contactName"]')).not.toBeNull();
+  expect(container.querySelector('input[name="email"]')).not.toBeNull();
 });
 
 it.each(["one_time", "subscription"] as const)("saves current creative before opening %s checkout directly", async (billingMode) => {
@@ -201,10 +202,10 @@ it("retries checkout without editing a preparation reserved before a lost respon
   expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/reserved");
 });
 
-it("keeps checkout unavailable before verification and out of the paid editor", async () => {
+it("requires valid contact details before authentication and keeps checkout out of the paid editor", async () => {
   state.auth = { isLoaded: true, isSignedIn: false, userId: null };
   await act(async () => root.render(<CampaignEditor />));
-  expect(checkoutButton().disabled).toBe(true);
+  expect(checkoutButton().disabled).toBe(false);
   await act(async () => { submitCheckout(); });
   expect(fetchMock).not.toHaveBeenCalled();
   await act(async () => root.render(<CampaignEditor key="paid-page" paid={{ readonly: false }} />));
@@ -234,7 +235,7 @@ it("keeps the current route intact when saving a preparation fails", async () =>
 
 it("clears an owner's private campaign when switching to another owner or signing out", async () => {
   await act(async () => root.render(<CampaignEditor />));
-  expect(container.querySelector("form")!.firstElementChild?.textContent).toContain("Account ready");
+  expect(container.querySelector("form")!.firstElementChild?.textContent).toContain("Campaign details");
   expect(container.textContent).not.toContain("Complete account setup above");
   expect(nameInput().value).toBe("Owner A private campaign");
   expect(container.textContent).not.toContain("Sign out");
@@ -245,7 +246,7 @@ it("clears an owner's private campaign when switching to another owner or signin
   expect(container.innerHTML).not.toContain("/api/sponsorship/assets/icon-a");
   state.auth = { isLoaded: true, isSignedIn: false, userId: null };
   await act(async () => root.render(<CampaignEditor />));
-  expect(container.textContent).toContain("Continue with account setup");
+  expect(container.querySelector('input[name="email"]')?.getAttribute("readonly")).toBeNull();
   expect(container.textContent).not.toContain("Save for later");
   expect(container.textContent).not.toContain("Sign out");
 });
@@ -536,4 +537,32 @@ it("replaces existing assets only by explicit choice and clears superseded video
   });
   expect(body).not.toHaveProperty("posterId");
   expect(body).not.toHaveProperty("videoPreviewId");
+});
+
+it("restores local files after verified sign-in, uploads them privately, saves and opens Checkout once", async () => {
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:local-preview");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  const contact = { company: "Example", contactName: "Owner", email: "owner@example.com" };
+  state.readDraft.mockResolvedValue({
+    ownerUserId: null, contact, billingMode: "one_time", expiresAt: Date.now() + 60000,
+    fields: { title: "Local campaign", url: "https://example.com", feedDescription: "Campaign before login",
+      iconId: "local-icon", wordmarkId: "local-wordmark", mediaId: "", posterId: "", videoPreviewId: "" },
+    files: { icon: new File(["fixture"], "icon.png", { type: "image/png" }), wordmark: new File(["fixture"], "wordmark.png", { type: "image/png" }) },
+  });
+  vi.mocked(prepareAndUploadMedia).mockImplementation(async (_file, kind) => ({
+    original: { id: kind + "-original" },
+    primary: { id: kind + "-verified", kind: kind === "sponsor-icon" ? "icon" : "wordmark", url: "/fixture.png", width: 64, height: 64, contentType: "image/png" },
+    variants: [],
+  }) as never);
+  fetchMock.mockResolvedValueOnce(Response.json({ ok: true, value: preparation("owner-a") }))
+    .mockResolvedValueOnce(Response.json({ ok: true, value: { revision: 1, checkoutId: "owned-checkout" } }))
+    .mockResolvedValueOnce(Response.json({ ok: true, value: { url: "https://checkout.stripe.com/fixture" } }));
+  const navigate = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  await act(async () => root.render(<CampaignEditor />));
+  expect(state.readDraft).toHaveBeenCalledWith("owner-a", "owner@example.com");
+  expect(prepareAndUploadMedia).toHaveBeenCalledTimes(2);
+  const save = fetchMock.mock.calls.find(([, init]) => init.method === "PUT");
+  expect(JSON.parse(save![1].body)).toMatchObject({ title: "Local campaign", iconId: "sponsor-icon-verified", wordmarkId: "sponsor-wordmark-verified", contact });
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("https://checkout.stripe.com/fixture");
+  expect(state.clearDraft).toHaveBeenCalledOnce();
 });

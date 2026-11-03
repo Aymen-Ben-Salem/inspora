@@ -1,5 +1,5 @@
 import { resolveSponsorCreative } from "./creative";
-import { campaignInputSchema } from "./validation";
+import { preparationInputSchema } from "./validation";
 import {
   SPONSOR_PREPARATION_HOURS,
   type CreativeSnapshot,
@@ -7,6 +7,7 @@ import {
   type SponsorPreparation,
   type SponsorshipResult,
   type VerifiedSponsorAsset,
+  type SponsorContact,
 } from "./types";
 
 export type PreparationTransaction = {
@@ -26,6 +27,7 @@ export type PreparationTransaction = {
   freezeCampaign(
     preparation: SponsorPreparation,
     creative: CreativeSnapshot,
+    contact?: SponsorContact,
   ): Promise<OwnedCampaign>;
 };
 export type PreparationStore = {
@@ -89,7 +91,7 @@ export function createPreparationService(deps: {
     read: () =>
       withPreparation(false, async (_tx, p) => ({ ok: true, value: p })),
     async save(raw: unknown): Promise<SponsorshipResult<OwnedCampaign>> {
-      const parsed = campaignInputSchema.safeParse(raw);
+      const parsed = preparationInputSchema.safeParse(raw);
       if (!parsed.success)
         return failure(
           "invalid_input",
@@ -98,9 +100,10 @@ export function createPreparationService(deps: {
       return withPreparation(false, async (tx, p, now) => {
         if (p.revision !== parsed.data.expectedRevision)
           return failure("conflict", "Your preparation changed. Reload before saving.");
-        const creative = await resolveSponsorCreative(parsed.data, id => tx.findOwnedAsset(p.ownerUserId, id, p.id, now));
+        const { contact, ...input } = parsed.data;
+        const creative = await resolveSponsorCreative(input, id => tx.findOwnedAsset(p.ownerUserId, id, p.id, now));
         if (!creative.ok) return creative;
-        return { ok: true, value: await tx.freezeCampaign(p, creative.value) };
+        return { ok: true, value: await tx.freezeCampaign(p, creative.value, contact ?? p.contact) };
       });
     },
   };

@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
     snapshot: undefined as { renewal: object } | undefined, expiresAt: undefined as Date | undefined, releasedAt: null as Date | null },
   price: vi.fn(), reserve: vi.fn(), session: vi.fn(), maintenance: vi.fn(), prepareMonthly: vi.fn(), reconcile: vi.fn(),
 }));
+vi.mock("./checkout-email", () => ({ verifiedCheckoutEmail: async () => "owner@example.com" }));
 vi.mock("./authorization", () => ({ verifiedSponsorOwner: async () => state.owner }));
 vi.mock("./config", () => ({ sponsorshipWritesEnabled: () => true }));
 vi.mock("./stripe-client", () => ({ stripeCheckoutConfigured: () => true, sponsorBillingProvider: () => ({ price: state.price }) }));
@@ -31,18 +32,18 @@ afterEach(() => vi.unstubAllEnvs());
 it("validates the configured price for a new reservation", async () => {
   expect((await startSponsorCheckout("checkout-a", "subscription")).ok).toBe(true);
   expect(state.price).toHaveBeenCalledWith("price_new450", "subscription");
-  expect(state.reserve).toHaveBeenCalledWith("owner-a", "checkout-a", "price_new450", expect.any(Date), "subscription", undefined);
+  expect(state.reserve).toHaveBeenCalledWith("owner-a", "checkout-a", "price_new450", expect.any(Date), "subscription", undefined, "owner@example.com");
 });
 it("resumes the pinned price after rotation instead of changing reserved terms", async () => {
   state.preparation = { ...state.preparation, state: "reserved", priceId: "price_old500" };
   expect((await startSponsorCheckout("checkout-a", "subscription")).ok).toBe(true);
   expect(state.price).not.toHaveBeenCalled();
-  expect(state.reserve).toHaveBeenCalledWith("owner-a", "checkout-a", "price_old500", expect.any(Date), "subscription", undefined);
+  expect(state.reserve).toHaveBeenCalledWith("owner-a", "checkout-a", "price_old500", expect.any(Date), "subscription", undefined, undefined);
   expect(state.session).toHaveBeenCalled();
 });
 it("passes only the selected currency to the atomic reservation", async () => {
   expect((await startSponsorCheckout("checkout-a", "subscription", "eur")).ok).toBe(true);
-  expect(state.reserve).toHaveBeenCalledWith("owner-a", "checkout-a", "price_new450", expect.any(Date), "subscription", "eur");
+  expect(state.reserve).toHaveBeenCalledWith("owner-a", "checkout-a", "price_new450", expect.any(Date), "subscription", "eur", "owner@example.com");
 });
 it("rejects changes to reserved billing mode", async () => {
   state.preparation = { ...state.preparation, state: "reserved", priceId: "price_old500" };

@@ -61,6 +61,7 @@ export function SponsorSecurity({
 }
 function AuthenticatedSecurity() {
   const { isLoaded, isSignedIn, userId, sessionId } = useAuth();
+  const { user } = useUser();
   if (!isLoaded) return <SponsorLoading label="Loading account security…" />;
   if (!isSignedIn || !userId)
     return (
@@ -74,12 +75,14 @@ function AuthenticatedSecurity() {
         </a>
       </main>
     );
+  if (!user) return <SponsorLoading label="Loading account security…" />;
   return <SecuritySetup key={`${userId}:${sessionId}`} />;
 }
 
 function SecuritySetup() {
   const { user } = useUser();
   const { session } = useSession();
+  const initialTotpEnabled = useRef(user?.totpEnabled);
   const [phase, setPhase] = useState<Phase>("checking");
   const [totp, setTotp] = useState<{ uri: string; secret: string }>();
   const [code, setCode] = useState("");
@@ -100,7 +103,7 @@ function SecuritySetup() {
         if (!active.current || controller.signal.aborted) return;
         setPhase(
           state === "ready"
-            ? "ready"
+            ? initialTotpEnabled.current ? "ready" : "setup"
             : state === "setup_required"
               ? "setup"
               : state === "verification_required"
@@ -218,8 +221,8 @@ function SecuritySetup() {
   return (
     <main className="mx-auto max-w-[560px] px-4 py-10 text-[#262626] sm:px-8">
       <div className="flex items-center justify-between gap-4">
-        <a className={linkClass} href="/sponsor">
-          ← Sponsorship
+        <a className={linkClass} href="/sponsor/dashboard">
+          ← Dashboard
         </a>
         <SignOutButton redirectUrl="/sponsor">
           <button type="button" className={`${linkClass} min-h-11`}>
@@ -228,12 +231,11 @@ function SecuritySetup() {
         </SignOutButton>
       </div>
       <h1 className="mt-5 text-3xl font-semibold tracking-tight">
-        Secure your sponsor account
+        Account security
       </h1>
       <p className="mt-4 text-sm leading-6 text-[#767676]">
-        Keep signing in with email or Google. Sponsorship requires a second
-        verification from an authenticator app. Your Profile, Saved and Submit
-        work remain available.
+        Sign in with your email and a verification code. For extra protection,
+        you can add an authenticator app. This is optional.
       </p>
       <section className="mt-8 space-y-5 rounded-md border border-[#e6e6e6] p-5">
         {phase === "checking" ? (
@@ -243,8 +245,7 @@ function SecuritySetup() {
         ) : null}
         {phase === "email" ? (
           <p className="text-sm leading-6">
-            Sign in again with your verified primary email before setting up
-            sponsor access.
+            Sign in again with your verified primary email to manage account security.
           </p>
         ) : null}
         {phase === "setup" ? (

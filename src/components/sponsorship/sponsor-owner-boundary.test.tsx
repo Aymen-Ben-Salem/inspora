@@ -19,14 +19,18 @@ it("hides cached private sponsor content immediately when the browser account sw
     expect(container.textContent).toContain("Owner B creative");
   } finally { await act(async () => root.unmount()); viewer.userId = "owner-a"; vi.unstubAllGlobals(); }
 });
-it.each(["missing_mfa", "unenrolled"])("hides cached content in a session without sponsor security: %s", async reason => {
+it("requires the second factor only when the owner previously enabled it", async () => {
+  const reason = "missing_mfa";
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   viewer.sessionClaims.fva = reason === "missing_mfa" ? [0, -1] : [0, 0];
-  viewer.totpEnabled = reason !== "unenrolled";
+  viewer.totpEnabled = true;
   const container = document.createElement("div"), root = createRoot(container);
   try {
     await act(async () => root.render(<SponsorOwnerBoundary ownerUserId="owner-a"><p>Private paid creative</p></SponsorOwnerBoundary>));
     expect(container.textContent).not.toContain("Private paid creative");
     expect(container.querySelector('a[href="/sponsor/security"]')).not.toBeNull();
+    viewer.totpEnabled = false;
+    await act(async () => root.render(<SponsorOwnerBoundary ownerUserId="owner-a"><p>Private paid creative</p></SponsorOwnerBoundary>));
+    expect(container.textContent).toContain("Private paid creative");
   } finally { await act(async () => root.unmount()); viewer.sessionClaims.fva = [0, 0]; viewer.totpEnabled = true; vi.unstubAllGlobals(); }
 });

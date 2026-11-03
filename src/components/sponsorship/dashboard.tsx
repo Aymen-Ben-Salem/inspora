@@ -237,6 +237,7 @@ export function SponsorDashboard({
             </button>
           ))}
         </nav>
+        <Link href="/sponsor/security" className="focus-ring mt-2 flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-[#66758c] hover:bg-[#f3f6fc] hover:text-[#262626]">Settings</Link>
         {section === "overview" && account ? (
           <nav aria-label="On this report" className="mt-10 hidden border-t border-[#f0f0f0] pt-5 lg:block">
             <p className="mb-2 px-3 text-xs text-[#66758c]">On this report</p>

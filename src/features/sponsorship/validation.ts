@@ -1,4 +1,9 @@
 import { z } from "zod";
+export const sponsorContactSchema = z.object({
+  company: z.string().trim().min(1, "Company is required.").max(160),
+  contactName: z.string().trim().min(1, "Contact name is required.").max(160),
+  email: z.string().trim().max(320).email("Enter a valid email address."),
+}).strict();
 export const destinationSchema = z
   .string()
   .trim()
@@ -31,3 +36,6 @@ export const campaignInputSchema = z
     variantIds: z.array(z.uuid()).max(4).default([]),
   })
   .strict();
+export const preparationInputSchema = campaignInputSchema.extend({
+  contact: sponsorContactSchema.optional(),
+});

@@ -62,3 +62,12 @@ describe("public sign-in handoff", () => {
     expect(renderSignIn).toHaveBeenCalledOnce();
   });
 });
+
+it("keeps sponsor email verification and signup completion on sponsor routes", () => {
+  pathname.mockReturnValue("/sponsor/access");
+  renderToStaticMarkup(<PublicSignIn basePath="/sponsor/access" redirectUrl="/sponsor/verify" initialEmail="owner@example.com" />);
+  expect(renderSignIn).toHaveBeenCalledWith(expect.objectContaining({
+    path: "/sponsor/access", initialValues: { emailAddress: "owner@example.com" },
+    forceRedirectUrl: "/sponsor/verify", signUpForceRedirectUrl: "/sponsor/verify",
+  }), undefined);
+});

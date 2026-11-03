@@ -124,6 +124,7 @@ function preparation(
     expiresAt: row.expiresAt,
     revision: row.revision,
     campaign: row.snapshot,
+    contact: row.snapshot?.contact,
   };
 }
 export function preparationTransaction(tx: WriteTx): PreparationTransaction {
@@ -171,7 +172,7 @@ export function preparationTransaction(tx: WriteTx): PreparationTransaction {
         );
       return row ? assetView(row as SponsorUpload) : null;
     },
-    freezeCampaign: async (p, creative: CreativeSnapshot) => {
+    freezeCampaign: async (p, creative: CreativeSnapshot, contact) => {
       const id = p.campaign?.id ?? randomUUID(),
         versionId = randomUUID(),
         revision = p.revision + 1;
@@ -222,7 +223,7 @@ export function preparationTransaction(tx: WriteTx): PreparationTransaction {
       };
       await tx
         .update(sponsorCheckouts)
-        .set({ campaignId: id, revision, state: "ready", snapshot: campaign })
+        .set({ campaignId: id, revision, state: "ready", snapshot: { ...campaign, ...(contact ? { contact } : {}) } })
         .where(
           and(
             eq(sponsorCheckouts.id, p.id),

@@ -37,6 +37,13 @@ vi.mock("@clerk/nextjs", () => ({
   SignOutButton: ({ children }: { children: ReactNode }) => children,
 }));
 import { SponsorSecurity } from "./sponsor-security";
+it("offers optional authenticator setup to an email-only sponsor whose access is ready", async () => {
+  fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ state: "ready" }) });
+  await act(async () => root.render(<SponsorSecurity />));
+  expect(container.textContent).toContain("This is optional.");
+  expect(container.textContent).toContain("Set up authenticator");
+  expect(container.textContent).not.toContain("Sponsorship requires");
+});
 let root: Root, container: HTMLDivElement;
 const fetchMock = vi.fn(),
   replace = vi.fn();

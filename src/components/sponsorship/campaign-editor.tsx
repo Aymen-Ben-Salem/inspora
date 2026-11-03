@@ -1,7 +1,7 @@
 "use client";
 import { campaignType } from "./campaign-typography";
 import type { SponsorCurrency } from "@/features/sponsorship/pricing";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ import type {
   SponsorPreparation,
   VerifiedSponsorAsset,
   MetadataSuggestions,
+  SponsorContact,
 } from "@/features/sponsorship/types";
 import { CampaignPreview, type PreviewFields } from "./campaign-preview";
 import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
@@ -21,7 +22,8 @@ import { SponsorLoading, SponsorSpinner } from "./sponsor-loading";
 import { sponsorButton } from "./button-styles";
 import { PurchaseOptions } from "./purchase-options";
 import { CheckoutReview } from "./checkout-review";
-import { AccountSetupHint, CampaignAccountSetup } from "./campaign-account-setup";
+import { clearLocalDraft, localPreviewAsset, pendingDraftEmail, readLocalDraft, saveLocalDraft, type LocalFiles } from "./local-campaign-draft";
+import { sponsorContactSchema } from "@/features/sponsorship/validation";
 import type { SponsorBillingMode } from "@/features/sponsorship/purchase-mode";
 const empty: PreviewFields = {
   title: "",
@@ -61,12 +63,14 @@ export function CampaignEditor({
 }
 function AuthenticatedCampaignEditor({ paid, initialCurrency }: { paid?: PaidEditorMode; initialCurrency: SponsorCurrency }) {
   const { isSignedIn, isLoaded, userId } = useAuth();
+  const { user } = useUser();
   return (
     <CampaignEditorContent
       key={isSignedIn && userId ? userId : "anonymous"}
       isSignedIn={Boolean(isSignedIn && userId)}
       isLoaded={isLoaded}
       ownerUserId={isSignedIn ? (userId ?? undefined) : undefined}
+      accountEmail={user?.primaryEmailAddress?.emailAddress ?? ""}
       paid={paid}
       initialCurrency={initialCurrency}
     />
@@ -76,16 +80,23 @@ function CampaignEditorContent({
   isSignedIn,
   isLoaded,
   ownerUserId,
+  accountEmail = "",
   paid,
   initialCurrency,
 }: {
   isSignedIn: boolean;
   isLoaded: boolean;
   ownerUserId?: string;
+  accountEmail?: string;
   paid?: PaidEditorMode;
   initialCurrency: SponsorCurrency;
 }) {
   const initial = paid?.campaign?.creative;
+  const [contact, setContact] = useState<SponsorContact>({ company: "", contactName: "", email: accountEmail });
+  const localFiles = useRef<LocalFiles>({});
+  const localUrls = useRef(new Set<string>());
+  const form = useRef<HTMLFormElement>(null);
+  const [resumeCheckout, setResumeCheckout] = useState(false);
   const router = useRouter();
   const [billingMode, setBillingMode] = useState<SponsorBillingMode>("one_time");
   const currency = initialCurrency;
@@ -102,10 +113,7 @@ function CampaignEditorContent({
     [failed, setFailed] = useState(false);
   const [suggestionFeedback, setSuggestionFeedback] = useState<{ message: string; failed: boolean }>();
   const suggestionStatusId = useId();
-  const accountSetupId = useId();
-  const suggestionSetupHintId = useId();
-  const uploadSetupHintId = useId();
-  const feedDescriptionHintId = useId();
+
   const suggesting = busy === "suggest";
   const suggestingTitle = suggesting && !fields.title;
   const loaded = useRef<string | undefined>(undefined);
@@ -120,10 +128,29 @@ function CampaignEditorContent({
   const uploading = Object.values(uploads).some((upload) => upload.busy);
   useEffect(() => {
     const controllers = pending.current;
+    const urls = localUrls.current;
     return () => {
       for (const controller of controllers) controller.abort();
+      for (const url of urls) URL.revokeObjectURL(url);
     };
   }, []);
+  useEffect(() => {
+    if (!isLoaded || isSignedIn || paid) return;
+    let active = true;
+    void readLocalDraft(null, pendingDraftEmail()).then(draft => {
+      if (!active || !draft) return;
+      localFiles.current = draft.files;
+      setFields(draft.fields);
+      setContact(draft.contact);
+      setBillingMode(draft.billingMode);
+      setAssets(Object.entries(draft.files).map(([role, file]) => {
+        const asset = localPreviewAsset(file, role as UploadRole);
+        localUrls.current.add(asset.url);
+        return asset;
+      }));
+    }).catch(() => { /* Never show an identified owner's draft after sign-out. */ });
+    return () => { active = false; };
+  }, [isLoaded, isSignedIn, paid]);
   useEffect(() => {
     if (!isLoaded || !isSignedIn || paid) return;
     let active = true;
@@ -134,9 +161,10 @@ function CampaignEditorContent({
       undefined,
       controller.signal,
     )
-      .then((p) => {
+      .then(async (p) => {
         if (!active) return;
         setReady(true);
+        setContact({ company: "", contactName: "", ...p.contact, email: accountEmail });
         setExpiresAt(new Date(p.expiresAt).toISOString());
         // Restore manual fields after verification only when no saved creative exists.
         try {
@@ -175,6 +203,23 @@ function CampaignEditorContent({
           setVariants(c.variantIds);
           setRevision(p.revision);
         }
+        const draft = await readLocalDraft(ownerUserId!, accountEmail);
+        if (!active || !draft) return;
+        if (p.campaign) {
+          setMessage("You already have a saved preparation. Review it before continuing; your new draft remains in this browser tab.");
+          return;
+        }
+        localFiles.current = draft.files;
+        const localAssets = Object.entries(draft.files).map(([role, file]) => {
+          const asset = localPreviewAsset(file, role as UploadRole);
+          localUrls.current.add(asset.url);
+          return asset;
+        });
+        setFields(draft.fields);
+        setAssets(localAssets);
+        setContact(draft.contact);
+        setBillingMode(draft.billingMode);
+        setResumeCheckout(true);
       })
       .catch((error) => {
         if (active && !controller.signal.aborted) {
@@ -186,7 +231,13 @@ function CampaignEditorContent({
       active = false;
       controller.abort();
     };
-  }, [isSignedIn, isLoaded, ownerUserId, paid]);
+  }, [isSignedIn, isLoaded, ownerUserId, paid, accountEmail]);
+  useEffect(() => {
+    if (!resumeCheckout || !ready || busy) return;
+    setResumeCheckout(false);
+    const button = form.current?.querySelector<HTMLButtonElement>('button[value="checkout"]');
+    if (button) form.current?.requestSubmit(button);
+  }, [resumeCheckout, ready, busy]);
   function update(key: keyof PreviewFields, value: string) {
     setFields((f) => ({ ...f, [key]: value }));
     setMessage("");
@@ -220,22 +271,56 @@ function CampaignEditorContent({
       if (!controller.signal.aborted) setBusy(undefined);
     }
   }
-  function verify() {
-    try {
-      sessionStorage.setItem(
-        "inspora:sponsor-typed",
-        JSON.stringify({
-          ownerUserId: ownerUserId ?? null,
-          title: fields.title,
-          url: fields.url,
-          feedDescription: fields.feedDescription,
-        }),
-      );
-    } catch {}
+  async function verify() {
+    const parsed = sponsorContactSchema.safeParse(contact);
+    if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+    if (!fields.iconId || !fields.wordmarkId)
+      throw new Error("Choose a compact icon and full wordmark before checkout.");
+    await saveLocalDraft({ ownerUserId: ownerUserId ?? null, fields, contact: parsed.data, billingMode, files: localFiles.current });
     window.location.assign("/api/sponsorship/intent");
+  }
+  async function flushLocalFiles(signal: AbortSignal) {
+    const currentFields = { ...fields };
+    let currentVariants = variants;
+    for (const kind of ["media", "icon", "wordmark", "poster"] as const) {
+      const file = localFiles.current[kind];
+      if (!file) continue;
+      const result = await prepareAndUploadMedia(file, uploadRoles[kind].kind,
+        sponsorUploadOperations(kind, signal), status => { if (!signal.aborted) setMessage(status + "…"); },
+        controller => { if (signal.aborted) controller.abort(); else signal.addEventListener("abort", () => controller.abort(), { once: true }); });
+      signal.throwIfAborted();
+      currentFields[uploadRoles[kind].field] = result.primary.id;
+      if (kind === "media") {
+        currentFields.posterId = result.poster?.id ?? "";
+        currentFields.videoPreviewId = result.videoPreview?.id ?? "";
+        currentVariants = result.variants.map(a => a.id);
+      }
+      delete localFiles.current[kind];
+      setAssets(previous => [...previous.filter(a => a.id !== "local-" + kind), result.original, result.primary, ...result.variants,
+        ...(result.poster ? [result.poster] : []), ...(result.videoPreview ? [result.videoPreview] : [])]);
+      // Preserve completed uploads if a later file needs a retry.
+      setFields({ ...currentFields });
+      setVariants(currentVariants);
+    }
+    return { fields: currentFields, variants: currentVariants };
   }
   async function upload(file: File, kind: UploadRole) {
     if (busy || paid?.readonly || activeUploads.current.has(kind)) return;
+    if (!ready) {
+      try {
+        const asset = localPreviewAsset(file, kind);
+        localUrls.current.add(asset.url);
+        localFiles.current[kind] = file;
+        setAssets(previous => [...previous.filter(a => a.id !== asset.id), asset]);
+        setFields(previous => ({ ...previous, [uploadRoles[kind].field]: asset.id,
+          ...(kind === "media" ? { posterId: "", videoPreviewId: "" } : {}) }));
+        if (kind === "media") { delete localFiles.current.poster; setVariants([]); }
+        setUploads(previous => ({ ...previous, [kind]: { busy: false, failed: false, message: "" } }));
+      } catch (error) {
+        setUploads(previous => ({ ...previous, [kind]: { busy: false, failed: true, message: error instanceof Error ? error.message : "Choose another file." } }));
+      }
+      return;
+    }
     const controller = new AbortController(),
       signal = controller.signal;
     const posterRevision = manualPosterRevision.current;
@@ -330,14 +415,19 @@ function CampaignEditorContent({
       </div>
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <form
+          ref={form}
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!ready || paid?.readonly || activeUploads.current.size) return;
+            if (paid?.readonly || activeUploads.current.size) return;
             const submitter = (event.nativeEvent as SubmitEvent).submitter;
             const checkout = !paid && submitter instanceof HTMLButtonElement && submitter.value === "checkout";
             void run(checkout ? "checkout" : "save", async (signal) => {
-              const signature = JSON.stringify({ fields, variants, billingMode, currency });
+              if (!ready) { if (checkout) await verify(); return; }
+              const parsedContact = paid ? null : sponsorContactSchema.safeParse(contact);
+              if (parsedContact && !parsedContact.success) throw new Error(parsedContact.error.issues[0].message);
+              const { fields: currentFields, variants: currentVariants } = await flushLocalFiles(signal);
+              const signature = JSON.stringify({ fields: currentFields, variants: currentVariants, contact, billingMode, currency });
               // Checkout may reserve the saved preparation before its response
               // reaches us. Retry that checkout without trying to edit it again.
               const retry = checkout && checkoutRetry.current?.signature === signature
@@ -346,15 +436,16 @@ function CampaignEditorContent({
                 paid ? campaignId ? `campaigns/${campaignId}` : "campaigns" : "preparation",
                 paid && !campaignId ? "POST" : "PUT",
                 {
-                  title: fields.title,
-                  url: fields.url,
-                  feedDescription: fields.feedDescription,
-                  iconId: fields.iconId,
-                  wordmarkId: fields.wordmarkId,
-                  mediaId: fields.mediaId || undefined,
-                  posterId: fields.posterId || undefined,
-                  videoPreviewId: fields.videoPreviewId || undefined,
-                  variantIds: variants,
+                  title: currentFields.title,
+                  url: currentFields.url,
+                  feedDescription: currentFields.feedDescription,
+                  iconId: currentFields.iconId,
+                  wordmarkId: currentFields.wordmarkId,
+                  mediaId: currentFields.mediaId || undefined,
+                  posterId: currentFields.posterId || undefined,
+                  videoPreviewId: currentFields.videoPreviewId || undefined,
+                  variantIds: currentVariants,
+                  ...(parsedContact?.success ? { contact: parsedContact.data } : {}),
                   expectedRevision: revision,
                 },
                 signal,
@@ -370,6 +461,7 @@ function CampaignEditorContent({
                 const result = await sponsorRequest<{ url: string }>(
                   "checkout", "POST", { checkoutId: c.checkoutId, billingMode, currency }, signal,
                 );
+                try { await clearLocalDraft(); } catch {}
                 window.location.assign(result.url);
                 return;
               }
@@ -380,12 +472,11 @@ function CampaignEditorContent({
             });
           }}
         >
-          {!paid ? <CampaignAccountSetup id={accountSetupId} ready={ready} signedIn={isSignedIn} onContinue={verify} /> : null}
           <h2 className={campaignType.heading}>Campaign details</h2>
           <label className={`${campaignType.label} block`}>
             Public name
             <span className="relative mt-2 block">
-              <input className={`${fieldClass} ${suggestingTitle ? "pr-11" : ""}`} required maxLength={160} aria-busy={suggestingTitle} aria-describedby={suggestingTitle ? suggestionStatusId : undefined} disabled={!ready || paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
+              <input className={`${fieldClass} ${suggestingTitle ? "pr-11" : ""}`} required maxLength={160} aria-busy={suggestingTitle} aria-describedby={suggestingTitle ? suggestionStatusId : undefined} disabled={paid?.readonly || Boolean(busy)} value={fields.title} onChange={(event) => update("title", event.target.value)} placeholder="Your product" />
               {suggestingTitle ? <SponsorSpinner className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#767676]" /> : null}
             </span>
           </label>
@@ -394,7 +485,7 @@ function CampaignEditorContent({
             <input
               className={`${fieldClass} mt-2`}
               type="url"
-              disabled={!ready || paid?.readonly || Boolean(busy)}
+              disabled={paid?.readonly || Boolean(busy)}
               required
               maxLength={2048}
               value={fields.url}
@@ -411,21 +502,18 @@ function CampaignEditorContent({
               rows={2}
               required
               maxLength={300}
-              aria-describedby={feedDescriptionHintId}
-              disabled={!ready || paid?.readonly || Boolean(busy)}
+              disabled={paid?.readonly || Boolean(busy)}
               value={fields.feedDescription}
               onChange={(event) => update("feedDescription", event.target.value)}
               placeholder="A short sentence about your product"
             />
-            <span id={feedDescriptionHintId} className={`${campaignType.caption} mt-1 block text-[#767676]`}>
-              Shown beside your icon beneath the sponsor media on the websites page. Up to 300 characters.
-            </span>
+
           </label>
-          <div>
+          {ready ? <div>
             <button
               type="button"
               aria-busy={suggesting}
-              aria-describedby={!ready ? suggestionSetupHintId : suggesting || suggestionFeedback ? suggestionStatusId : undefined}
+              aria-describedby={suggesting || suggestionFeedback ? suggestionStatusId : undefined}
               disabled={!ready || Boolean(busy) || uploading || !fields.url || paid?.readonly}
               className={sponsorButton.secondary}
               onClick={() =>
@@ -457,14 +545,13 @@ function CampaignEditorContent({
             >
               Suggest from website (optional)
             </button>
-            {!ready ? <AccountSetupHint id={suggestionSetupHintId} setupId={accountSetupId} /> : null}
             {suggesting || suggestionFeedback ? (
               <p id={suggestionStatusId} role={suggestionFeedback?.failed ? "alert" : "status"} aria-live="polite" className={`${campaignType.body} mt-3 ${suggestionFeedback?.failed ? "text-[#b42318]" : "text-[#767676]"}`}>
                 {suggesting ? "Finding suggestions…" : suggestionFeedback?.message}
               </p>
             ) : null}
-          </div>
-          {fields.iconId || fields.wordmarkId || fields.mediaId ? (
+          </div> : null}
+          {ready && (fields.iconId || fields.wordmarkId || fields.mediaId) ? (
             <label className={`${campaignType.body} flex items-center gap-2 text-[#767676]`}>
               <input
                 type="checkbox"
@@ -477,12 +564,11 @@ function CampaignEditorContent({
               Replace current assets with website suggestions
             </label>
           ) : null}
-          <p className={`${campaignType.caption} text-[#767676]`}>
+          {ready ? <p className={`${campaignType.caption} text-[#767676]`}>
             Imports your website’s name, description and images. You can edit them below.
-          </p>
+          </p> : null}
           <fieldset
-            disabled={!ready || Boolean(busy) || paid?.readonly}
-            aria-describedby={!ready ? uploadSetupHintId : undefined}
+            disabled={Boolean(busy) || paid?.readonly}
             className="grid gap-4 border-t border-[#e6e6e6] pt-8 disabled:opacity-50 sm:grid-cols-2"
           >
             <legend className="sr-only">Creative assets</legend>
@@ -498,7 +584,7 @@ function CampaignEditorContent({
               <div key={kind} className={kind === "media" || kind === "poster" ? "sm:col-span-2" : ""}>
                 <CampaignUpload
                   label={label}
-                  disabled={!ready || Boolean(busy) || paid?.readonly}
+                  disabled={Boolean(busy) || paid?.readonly}
                   busy={uploads[kind]?.busy}
                   suggesting={suggesting && kind !== "poster" && (replaceWebsiteAssets || !fields[uploadRoles[kind].field])}
                   message={uploads[kind]?.message}
@@ -528,13 +614,30 @@ function CampaignEditorContent({
                     videoPreviewId: "",
                   }));
                   setVariants([]);
+                  delete localFiles.current.media;
+                  delete localFiles.current.poster;
                 }}
               >
                 Use brand card instead
               </button>
             ) : null}
           </fieldset>
-          {!ready ? <AccountSetupHint id={uploadSetupHintId} setupId={accountSetupId} /> : null}
+          {!paid ? <section className="space-y-5 border-t border-[#e6e6e6] pt-8" aria-labelledby="sponsor-contact-title">
+            <h2 id="sponsor-contact-title" className={campaignType.heading}>Contact details</h2>
+            {([["company", "Company", 160], ["contactName", "Contact name", 160], ["email", "Email", 320]] as const).map(([key, label, limit]) =>
+              <label key={key} className={`${campaignType.label} block`}>
+                {label}
+                <span className="relative mt-2 block">
+                  <input name={key} type={key === "email" ? "email" : "text"} required maxLength={limit}
+                    autoComplete={key === "company" ? "organization" : key === "contactName" ? "name" : "email"}
+                    className={`${fieldClass} pr-16`} disabled={Boolean(busy)}
+                    readOnly={key === "email" && Boolean(isSignedIn && accountEmail)}
+                    value={contact[key]} onChange={event => setContact(previous => ({ ...previous, [key]: event.target.value }))} />
+                  <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#767676]">{contact[key].length}/{limit}</span>
+                </span>
+              </label>)}
+            <p className={`${campaignType.caption} text-[#767676]`}>We’ll use this email for campaign access and receipts.</p>
+          </section> : null}
           {ready && !paid?.readonly ? (
             <button
               disabled={!ready || Boolean(busy) || uploading}
@@ -549,8 +652,8 @@ function CampaignEditorContent({
               Draft expires {new Date(expiresAt).toLocaleString()}.
             </p>
           ) : null}
-          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={!ready || Boolean(busy)} currency={currency} /></div> : null}
-          {!paid ? <CheckoutReview billingMode={billingMode} currency={currency} disabled={!ready || Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
+          {!paid ? <div className="border-t border-[#e6e6e6] pt-8"><PurchaseOptions value={billingMode} onChange={setBillingMode} disabled={Boolean(busy)} currency={currency} /></div> : null}
+          {!paid ? <CheckoutReview billingMode={billingMode} currency={currency} disabled={Boolean(busy) || uploading} busy={busy === "checkout"} /> : null}
           <p
             role={failed ? "alert" : "status"}
             aria-live="polite"

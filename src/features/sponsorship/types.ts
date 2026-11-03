@@ -69,10 +69,16 @@ export type SponsorPreparation = {
   expiresAt: Date;
   revision: number;
   campaign: OwnedCampaign | null;
+  contact?: SponsorContact;
 };
+export type SponsorContact = { company: string; contactName: string; email: string };
 // Currency is pinned alongside the campaign when its seat is reserved. Older
 // reservations omit it and keep their existing Stripe localization behavior.
 export type SponsorCheckoutSnapshot = OwnedCampaign & {
+  /** Private contact details; never part of public campaign creative. */
+  contact?: SponsorContact;
+  /** Verified primary email pinned by the server when reserving checkout. */
+  checkoutEmail?: string;
   checkoutCurrency?: import("./pricing").SponsorCurrency;
   /** Server-only, immutable binding for renewal after a paid one-time month. */
   renewal?: {

@@ -29,11 +29,9 @@ export function CheckoutReview({ billingMode, disabled, busy, currency }: {
             <dd className={campaignType.label}>{sponsorPriceLabel(currency)}</dd>
           </div>
         </dl>
-        <p className={`${campaignType.caption} border-t border-[#e6e6e6] px-5 py-4 text-[#767676]`}>
-          Navbar · Feed · Sidebar
-        </p>
+
       </div>
-      <p className={`${campaignType.body} pt-3 text-[#767676]`}>Manage your campaign from your dashboard after checkout.</p>
+
       <button type="submit" name="action" value="checkout" disabled={disabled} aria-busy={busy} className={`${sponsorButton.primary} gap-2`}>
         {busy ? <SponsorSpinner className="size-4" /> : null}
         {busy ? "Opening checkout…" : "Checkout"}

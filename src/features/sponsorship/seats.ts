@@ -17,6 +17,7 @@ export async function reserveSponsorSeat(
   now = new Date(),
   billingMode: SponsorBillingMode = "subscription",
   currency?: SponsorCurrency,
+  checkoutEmail?: string,
 ): Promise<SponsorshipResult<ReservedCheckout>> {
   return withSponsorWrite(async (tx) => {
     await lockSponsorOwner(tx, owner);
@@ -106,7 +107,8 @@ export async function reserveSponsorSeat(
     const [pinned] = await tx
       .update(sponsorCheckouts)
       .set({ state: "reserved", priceId, billingMode,
-        snapshot: currency ? { ...p.snapshot, checkoutCurrency: currency } : p.snapshot })
+        snapshot: { ...p.snapshot, ...(currency ? { checkoutCurrency: currency } : {}),
+          ...(checkoutEmail ? { checkoutEmail } : {}) } })
       .where(eq(sponsorCheckouts.id, p.id))
       .returning();
     await queueSponsorJob(tx, "reconcile", p.id, `checkout:${p.id}`);

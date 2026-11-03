@@ -39,9 +39,7 @@ export function CampaignPreview({
     >
       <div>
         <h2 className={campaignType.heading}>Your three placements</h2>
-        <p className={`${campaignType.body} mt-1 text-[#767676]`}>
-          {paid ? "Preview your changes." : "Only visible to you."}
-        </p>
+        {paid ? <p className={`${campaignType.body} mt-1 text-[#767676]`}>Preview your changes.</p> : null}
       </div>
       <section className="rounded-md border border-[#e6e6e6] p-4">
         <h3 className={`${campaignType.caption} mb-3 text-[#767676]`}>Navbar · compact icon</h3>

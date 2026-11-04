@@ -34,6 +34,7 @@ export default async function AdminSponsorPage({ searchParams }: AdminSponsorPag
       ) : null}
 
       <SponsorEditor
+        key={sponsor?.id ?? "new-sponsor"}
         action={saveSponsorAction}
         sponsor={sponsor}
         deleteAction={deleteSponsorAction}

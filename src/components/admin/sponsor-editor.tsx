@@ -26,13 +26,13 @@ function displayAsset(id: string, url?: string, contentType = "image/webp", widt
 export function SponsorEditor({ action, sponsor, deleteAction }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   sponsor?: AdminSponsorRecord | null;
-  deleteAction?: () => Promise<void>;
+  deleteAction?: () => Promise<AdminActionState>;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
   const [values, setValues] = useState<AdminSponsorInput>(() => sponsor ?? blankSponsor());
   const [fetching, setFetching] = useState(false), [metadataMessage, setMetadataMessage] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<UploadRole, boolean>>>({});
-  const [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState("");
+  const [deleteState, deleteFormAction, deleting] = useActionState(deleteAction ?? (async () => initialAdminActionState), initialAdminActionState);
   const uploading = Object.values(uploads).some(Boolean), busy = isPending || deleting;
   function update<K extends keyof AdminSponsorInput>(field: K, value: AdminSponsorInput[K]) {
     setValues((previous) => ({ ...previous, [field]: value }));
@@ -125,13 +125,11 @@ export function SponsorEditor({ action, sponsor, deleteAction }: {
             <div className="flex flex-wrap items-center gap-4">
               <button type="submit" disabled={busy || fetching || uploading || !values.title.trim() || !values.url.trim()}
                 className="focus-ring min-h-11 rounded-full bg-black px-6 text-sm font-medium text-white hover:bg-[#262626] disabled:cursor-not-allowed disabled:opacity-40">{isPending ? "Saving…" : "Save sponsor"}</button>
-              {sponsor && deleteAction ? <button type="button" disabled={busy || uploading || fetching} className="focus-ring min-h-11 rounded-full px-4 text-sm text-[#b42318] hover:bg-red-50 disabled:opacity-40" onClick={async () => {
-                if (!confirm("Remove this manual sponsor from the website?")) return;
-                setDeleting(true); setDeleteError("");
-                try { await deleteAction(); } catch { setDeleteError("Could not remove the sponsor. Try again."); } finally { setDeleting(false); }
+              {sponsor && deleteAction ? <button type="submit" formAction={deleteFormAction} formNoValidate disabled={busy || uploading || fetching} className="focus-ring min-h-11 rounded-full px-4 text-sm text-[#b42318] hover:bg-red-50 disabled:opacity-40" onClick={(event) => {
+                if (!confirm("Remove this manual sponsor from the website?")) event.preventDefault();
               }}>{deleting ? "Removing…" : "Delete sponsor"}</button> : null}
             </div>
-            {deleteError ? <p role="alert" className="text-sm text-[#b42318]">{deleteError}</p> : null}
+            {deleteState.status === "error" && deleteState.message ? <p role="alert" className="text-sm text-[#b42318]">{deleteState.message}</p> : null}
           </div>
         </fieldset>
       </div>

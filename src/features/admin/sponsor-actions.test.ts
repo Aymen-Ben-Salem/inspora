@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), save: vi.fn(), remove: vi.fn(), toggle: vi.fn(), cleanup: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -19,6 +19,7 @@ vi.mock("./sponsor-repository", () => ({ saveAdminSponsor: mocks.save, deleteAdm
 import { saveSponsorAction, deleteSponsorAction, toggleSponsorActiveAction } from "./actions";
 
 beforeEach(() => vi.clearAllMocks());
+afterEach(() => vi.restoreAllMocks());
 function form() { const data = new FormData(); data.set("title", "Manual sponsor"); data.set("url", "https://example.com"); data.set("isActive", "false"); return data; }
 it.each([null, "regular-customer"])("blocks direct free-sponsor mutation requests from %s", async (userId) => {
   mocks.auth.mockResolvedValue({ userId });
@@ -34,4 +35,16 @@ it("lets an allowlisted admin save manual creative without client-owned billing 
   await expect(saveSponsorAction({status: "idle"}, data)).rejects.toThrow("redirect:/admin/sponsor?saved=true");
   expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({title: "Manual sponsor", isActive: false}), "admin");
   for (const field of ["ownerUserId", "accountId", "campaignState"]) expect(mocks.save.mock.calls[0][0]).not.toHaveProperty(field);
+});
+it("cleans up a deleted manual sponsor and propagates the success redirect", async () => {
+  mocks.auth.mockResolvedValue({userId: "admin"}); mocks.remove.mockResolvedValue([]);
+  await expect(deleteSponsorAction()).rejects.toThrow("redirect:/admin/sponsor?saved=deleted");
+  expect(mocks.remove).toHaveBeenCalledWith("admin");
+  expect(mocks.cleanup).toHaveBeenCalledWith([]);
+});
+it("returns a retryable error when deletion fails without attempting media cleanup", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.auth.mockResolvedValue({userId: "admin"}); mocks.remove.mockRejectedValueOnce(new Error("database unavailable"));
+  await expect(deleteSponsorAction()).resolves.toEqual({status: "error", message: "Could not remove the sponsor. Try again."});
+  expect(mocks.cleanup).not.toHaveBeenCalled();
 });

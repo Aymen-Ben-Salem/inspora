@@ -423,9 +423,15 @@ export async function toggleSponsorActiveAction(formData: FormData) {
   revalidateSponsorPaths();
 }
 
-export async function deleteSponsorAction() {
+export async function deleteSponsorAction(): Promise<AdminActionState> {
   const { userId } = await requireAdmin();
-  const removedManagedMedia = await deleteAdminSponsor(userId);
+  let removedManagedMedia: Awaited<ReturnType<typeof deleteAdminSponsor>>;
+  try {
+    removedManagedMedia = await deleteAdminSponsor(userId);
+  } catch (error) {
+    console.error("Admin sponsor delete failed", error);
+    return { status: "error", message: "Could not remove the sponsor. Try again." };
+  }
   await deleteManagedMediaAssetsSafely(removedManagedMedia);
   revalidateSponsorPaths();
   redirect("/admin/sponsor?saved=deleted" as Route);

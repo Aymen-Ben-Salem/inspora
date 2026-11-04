@@ -1,11 +1,11 @@
 import Image from "next/image";
 import type { Route } from "next";
-import Link from "next/link";
 import { Fragment, type ElementType, type ReactNode } from "react";
 
 import type { MediaStorageProvider } from "@/storage/types";
 
 import { CreatorAvatar, creatorProfileHref } from "./creator-avatar";
+import { CreatorProfileLink } from "./creator-profile-link";
 import { FeedSaveButton } from "./feed-save-overlay";
 import { NewsletterForm } from "./newsletter-form";
 import { RelativeAddedTime } from "./relative-added-time";
@@ -219,7 +219,7 @@ export function DetailIntro({
             {title}
           </Heading>
 
-          {creatorProfileHref(creator) ? <Link href={creatorProfileHref(creator)! as Route} className="detail-intro-creator focus-ring flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676] transition-colors hover:text-[#262626]">
+          {creatorProfileHref(creator) ? <CreatorProfileLink href={creatorProfileHref(creator)! as Route} className="detail-intro-creator focus-ring flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676] transition-colors hover:text-[#262626]">
             <CreatorAvatar
               creator={creator}
               role="dialog"
@@ -229,7 +229,7 @@ export function DetailIntro({
               className="detail-intro-avatar size-5 rounded-full object-cover"
             />
             <span>{creator.name}</span>
-          </Link> : <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]"><CreatorAvatar creator={creator} role="dialog" width={22} height={22} sizes="22px" className="detail-intro-avatar size-5 rounded-full object-cover" /><span>{creator.name}</span></div>}
+          </CreatorProfileLink> : <div className="detail-intro-creator flex h-6 items-center gap-2 text-[13px] tracking-[0.028px] text-[#767676]"><CreatorAvatar creator={creator} role="dialog" width={22} height={22} sizes="22px" className="detail-intro-avatar size-5 rounded-full object-cover" /><span>{creator.name}</span></div>}
         </div>
         <FeedSaveButton postId={postId} variant="detail" />
       </div>

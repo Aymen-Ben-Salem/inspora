@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { Route } from "next";
 
 import { isGifUrl, type PostCardData } from "@/domain/post";
@@ -9,6 +8,7 @@ import { IntentPrefetchLink } from "./intent-prefetch-link";
 import { ResponsiveR2Image } from "./responsive-r2-image";
 import { CreatorAvatar } from "./creator-avatar";
 import { creatorProfileHref } from "./creator-avatar";
+import { CreatorProfileLink } from "./creator-profile-link";
 import { FeedSaveButton } from "./feed-save-overlay";
 
 export function PostCard({
@@ -102,9 +102,9 @@ export function PostCard({
         <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
       </IntentPrefetchLink>
       {showCreator && creatorProfileHref(post.creator) ? (
-        <Link href={creatorProfileHref(post.creator)! as Route} aria-label={`View ${post.creator.name}'s profile`} className="focus-ring absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-20 rounded-full">
+        <CreatorProfileLink href={creatorProfileHref(post.creator)! as Route} aria-label={`View ${post.creator.name}'s profile`} className="focus-ring absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-20 rounded-full">
           <CreatorAvatar creator={post.creator} role="feed" width={35} height={35} sizes="35px" className="size-[var(--archive-card-overlay-size)] shrink-0 rounded-full border border-[#e6e6e6] object-cover" />
-        </Link>
+        </CreatorProfileLink>
       ) : null}
       <FeedSaveButton
         postId={post.id}

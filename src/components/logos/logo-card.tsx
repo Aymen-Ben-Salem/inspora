@@ -1,8 +1,8 @@
 import type { Logo } from "@/domain/logo";
 import type { Route } from "next";
-import Link from "next/link";
 
 import { CreatorAvatar, creatorProfileHref } from "../creator-avatar";
+import { CreatorProfileLink } from "../creator-profile-link";
 import { FeedSaveButton } from "../feed-save-overlay";
 import { ResponsiveR2Image } from "../responsive-r2-image";
 import { getLogoCardImageDimensions } from "./logo-card-image-dimensions";
@@ -81,9 +81,9 @@ export function LogoCard({
         <span className={`${isIcon && !isFramedIcon ? "app-icon-artwork " : ""}pointer-events-none absolute inset-0 border border-black/[0.06]`} />
       </button>
       {showCreator && logo.kind === "logo" && creatorProfileHref(logo.creator) ? (
-        <Link href={creatorProfileHref(logo.creator)! as Route} aria-label={`View ${logo.creator.name}'s profile`} className="focus-ring absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-20 rounded-full">
+        <CreatorProfileLink href={creatorProfileHref(logo.creator)! as Route} aria-label={`View ${logo.creator.name}'s profile`} className="focus-ring absolute bottom-[var(--archive-card-overlay-inset)] left-[var(--archive-card-overlay-inset)] z-20 rounded-full">
           <CreatorAvatar creator={logo.creator} role="feed" width={35} height={35} sizes="35px" className="size-[var(--archive-card-overlay-size)] shrink-0 rounded-full border border-[#e6e6e6] object-cover" />
-        </Link>
+        </CreatorProfileLink>
       ) : null}
       <FeedSaveButton postId={logo.id} initiallySaved={initiallySaved} onSavedChange={onSavedChange} />
       </div>

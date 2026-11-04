@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { Logo } from "@/domain/logo";
 import type { Website } from "@/domain/website";
+import type { PostCardData } from "@/domain/post";
 
 const links = vi.hoisted(() => [] as Array<{ href: string; prefetch?: boolean }>);
 vi.mock("next/link", () => ({ default: ({ href, prefetch, children, ...props }: { href: string; prefetch?: boolean; children: React.ReactNode }) => {
@@ -15,6 +16,10 @@ import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { LogoArchive } from "./logos/logo-archive";
 import { WebsiteArchive } from "./websites/website-archive";
 import { WebsiteCard } from "./websites/website-card";
+import { PostCard } from "./post-card";
+import { LogoCard } from "./logos/logo-card";
+import { DetailIntro } from "./detail-sidebar-primitives";
+import { PostTransitionProvider } from "./post-transition-provider";
 
 beforeEach(() => { links.length = 0; });
 
@@ -67,4 +72,18 @@ it("preloads only the first website posters without eagerly downloading every vi
 it("keeps existing website-card posters available before hydration for saved and creator feeds", () => {
   const html = renderToStaticMarkup(<WebsiteCard website={websites[0]} onSelect={() => {}} />);
   expect(html).toContain('poster="/poster-0.webp"');
+});
+
+it.each(["design", "logo", "detail"])("does not automatically preload creator profiles from %s links", (surface) => {
+  const creator = { id: "creator", name: "Alex", username: "alex", avatarUrl: "/avatar.svg" };
+  const post: PostCardData = {
+    id: "post", slug: "work", title: "Work", createdAt: "2026-11-04T00:00:00Z", creator, mediaCount: 1,
+    media: [{ id: "cover", type: "image", url: "/cover.webp", alt: "Work", width: 640, height: 400 }],
+  };
+  const html = renderToStaticMarkup(surface === "design" ? <PostTransitionProvider><PostCard post={post} /></PostTransitionProvider> :
+    surface === "logo" ? <LogoCard logo={{ ...logos[0], creator }} onSelect={() => {}} /> :
+      <DetailIntro postId="post" creator={creator} title="Work" description="Design" publishedAt={post.createdAt} />);
+  expect(links.filter((link) => link.href === "/creators/alex")).toEqual([{ href: "/creators/alex", prefetch: false }]);
+  expect(html).toContain('href="/creators/alex"');
+  expect(html).toContain(surface === "detail" ? "detail-intro-creator focus-ring" : "focus-ring absolute bottom-[var(--archive-card-overlay-inset)]");
 });

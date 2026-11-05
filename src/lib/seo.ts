@@ -10,6 +10,15 @@ export const SITE_DESCRIPTION =
   "Discover curated design, website, logo, and app icon inspiration on Inspora. Explore creative work, meet its creators, and save references for your next project.";
 export const SITE_EMAIL = "Neroodesigner@gmail.com";
 export const SITE_OG_IMAGE = "/brand/inspora-og.png";
+export const SITE_ICON = "/brand/inspora-icon.png";
+export const SITE_WORDMARK = "/brand/inspora-wordmark.png";
+export const SITE_ICONS: Metadata["icons"] = {
+  icon: [
+    { url: "/brand/inspora-icon-v1.svg", type: "image/svg+xml" },
+    { url: SITE_ICON, type: "image/png", media: "(prefers-color-scheme: light)" },
+  ],
+  apple: SITE_ICON,
+};
 
 export function absoluteUrl(path = "/") {
   if (/^https?:\/\//i.test(path)) return path;
@@ -57,7 +66,9 @@ export function buildWebsiteStructuredData() {
         description: SITE_DESCRIPTION,
         logo: {
           "@type": "ImageObject",
-          url: absoluteUrl("/brand/inspora-icon-v1.svg"),
+          url: absoluteUrl(SITE_WORDMARK),
+          width: 878,
+          height: 178,
         },
         contactPoint: {
           "@type": "ContactPoint",

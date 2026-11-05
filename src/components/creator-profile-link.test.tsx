@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import type { Route } from "next";
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -28,7 +29,7 @@ afterEach(() => {
 });
 
 function render(props: Partial<ComponentProps<typeof CreatorProfileLink>> = {}) {
-  act(() => root.render(<CreatorProfileLink href="/creators/alex" {...props}>Alex</CreatorProfileLink>));
+  act(() => root.render(<CreatorProfileLink href={"/creators/alex" as Route} {...props}>Alex</CreatorProfileLink>));
   return container.querySelector("a")!;
 }
 
@@ -64,7 +65,7 @@ it.each([
 it("prefetches the new destination when a reused card changes creators", () => {
   let link = render();
   act(() => link.dispatchEvent(new Event("focusin", { bubbles: true })));
-  link = render({ href: "/creators/sam" });
+  link = render({ href: "/creators/sam" as Route });
   expect(prefetch).toHaveBeenCalledTimes(1);
   act(() => link.dispatchEvent(new Event("focusin", { bubbles: true })));
   expect(prefetch.mock.calls).toEqual([["/creators/alex"], ["/creators/sam"]]);

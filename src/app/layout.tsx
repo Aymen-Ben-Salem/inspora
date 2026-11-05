@@ -17,6 +17,7 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
   SITE_OG_IMAGE,
+  SITE_ICONS,
   SITE_URL,
 } from "@/lib/seo";
 
@@ -35,9 +36,7 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
-  icons: {
-    icon: "/brand/inspora-icon-v1.svg",
-  },
+  icons: SITE_ICONS,
   robots: {
     index: true,
     follow: true,

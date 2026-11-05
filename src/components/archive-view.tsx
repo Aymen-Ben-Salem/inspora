@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { PostPage } from "@/data/post-pagination";
 import type { PostCategory, PostView } from "@/domain/post";
 import type { ActiveSponsor } from "@/domain/sponsor";
@@ -37,10 +38,16 @@ export function ArchiveView({
         />
         {/* Keep the heading server-rendered and outside the feed's loading state. */}
         <h1 className="mt-auto text-center text-[length:calc(var(--archive-heading-size)_-_2px)] font-normal leading-normal tracking-[-0.02em] text-[#767676]">
-          A <span className="text-[#262626]">curated</span> archive of recent{" "}
+          Inspora is a <span className="text-[#262626]">curated</span> archive of recent{" "}
           <span className="text-[#262626]">visual design</span> inspiration and{" "}
           <span className="text-[#262626]">creative work</span>.
         </h1>
+        <p className="mt-3 text-center text-sm leading-relaxed text-[#767676]">
+          Sign in to save inspiration and manage your creator profile.{" "}
+          <Link href="/privacy" prefetch={false} className="focus-ring underline underline-offset-4">
+            Privacy policy
+          </Link>
+        </p>
       </section>
     </main>
   );

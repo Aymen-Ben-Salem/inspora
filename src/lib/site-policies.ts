@@ -10,7 +10,7 @@ export type SitePolicy = {
 
 export const privacyPolicy: SitePolicy = {
   "title": "Privacy policy",
-  "description": "How Inspora handles account information, X connections, published work, payments and audience analytics.",
+  "description": "How Inspora handles account information, Google and X connections, published work, payments and audience analytics.",
   "path": "/privacy",
   "sections": [
     {
@@ -21,6 +21,21 @@ export const privacyPolicy: SitePolicy = {
         "If you choose to connect X, the permissions shown by X allow Clerk to obtain the account information needed for that connection, including your X account ID, username, profile information and email when available. Inspora uses X identity and public profile information for creator profiles and ownership claims. Inspora requests read access for these features; connecting X does not authorize Inspora to publish posts or send messages for you.",
         "Creator account ownership is separate from work attribution. Profile and ownership information may be reviewed to resolve claims, corrections, abuse or account requests. Information you choose to publish on a creator profile or approved work entry is visible to other visitors.",
         "You can review or revoke the X connection through X's connected-app settings. Account connection controls are also available where supported in your Inspora account. Removing a connection and correcting published work attribution are separate requests."
+      ]
+    },
+    {
+      "id": "google",
+      "title": "Google sign-in and Google account data",
+      "paragraphs": [
+        "If you choose Sign in with Google or connect Google to your account, Google shares basic account information with Clerk, our authentication provider: your Google account identifier, email address and verification status, and available profile information such as your name and profile picture. This connection requests basic identity, email and profile permissions; it does not request access to your Gmail messages, contacts, Drive files or Calendar.",
+        "Clerk and Inspora use this information to authenticate you, create or link your Inspora account, maintain your session, and provide account and creator-profile features. Your name and profile picture may be used to initialize your public creator profile, which you can edit. Your email address is not published as part of your creator profile. Google sign-in alone does not establish ownership of an X identity or an existing creator profile.",
+        "Google account information is processed by Clerk for authentication and by Inspora's hosting, database and media-storage providers as needed to operate these features. Public creator-profile information is visible to visitors. We do not sell Google account data or use it for targeted advertising, cross-site tracking or training generalized AI models. We do not send Google account identifiers or email addresses to PostHog, DataBull or sponsors as analytics data.",
+        "We use HTTPS for data in transit and restrict access to private account records through authentication and server-side authorization. Google authentication is handled by Google and Clerk; Inspora does not receive your Google password.",
+        "We retain account information while needed to provide your account and handle security, support and applicable recordkeeping requirements. You can disconnect Google in your Inspora profile where another sign-in method is available, or revoke access in your Google Account connections settings. Revoking a connection does not itself delete your Inspora account or public creator attribution. To request account deletion or correction, use your Inspora account settings or contact us at the address below. Records needed for security, billing or unresolved requests, and earlier recovery backups, may remain as explained in Account and information requests."
+      ],
+      "links": [
+        { "label": "Manage Google Account connections", "href": "https://myaccount.google.com/connections" },
+        { "label": "Google privacy policy", "href": "https://policies.google.com/privacy" }
       ]
     },
     {

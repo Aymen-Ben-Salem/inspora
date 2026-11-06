@@ -256,7 +256,7 @@ async function createAdminCreatorRecord(
   const initial = await newAdminCreatorValues(transaction, input);
   const xAccount = await adminXProfile(initial.xProfileUrl, undefined, input.avatarUrl === DEFAULT_CREATOR_AVATAR);
   const xProfileAccountId = xAccount?.id ?? null;
-  if (xProfileAccountId) await assertXAccountAvailable(transaction, xProfileAccountId);
+  if (xProfileAccountId) await assertXAccountAvailable(transaction, xProfileAccountId, initial.xProfileUrl!);
   const values = { ...initial, ...await adminAvatar(input, undefined, xAccount?.profileImageUrl) };
   await protectPublicationMedia(transaction, [{ url: values.avatarUrl, storageProvider: values.avatarStorageProvider ?? undefined, storageKey: values.avatarStorageKey ?? undefined }]);
   const { id: creatorId, username } = values;
@@ -309,7 +309,7 @@ async function adminCreatorUpdateValues(
         )
       : existing.username;
   const xAccount = await adminXProfile(nextXProfileUrl, existing, input.avatarUrl === DEFAULT_CREATOR_AVATAR);
-  if (xAccount?.id) await assertXAccountAvailable(database, xAccount.id, existing.id);
+  if (xAccount?.id) await assertXAccountAvailable(database, xAccount.id, nextXProfileUrl!, existing.id);
   const values = {
     ...creatorValues(input, username),
     xProfileAccountId: xAccount?.id ?? null,
@@ -318,12 +318,30 @@ async function adminCreatorUpdateValues(
   return { values, username };
 }
 
-async function assertXAccountAvailable(database: MutationDatabase, accountId: string, creatorId?: string) {
-  const [other] = await database.select({ id: creators.id }).from(creators).where(and(
+async function assertXAccountAvailable(database: MutationDatabase, accountId: string, xProfileUrl: string, creatorId?: string) {
+  // Serialize admin assignments of the same X account before checking and saving.
+  // Keep this local to admin saves: provisional creators still need the claim flow.
+  await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`admin-creator-x:${accountId}`}, 0))`);
+  const username = new URL(xProfileUrl).pathname.split("/")[1]!;
+  const legacyUrlPattern = `^https?://(www[.]|mobile[.])?(x[.]com|twitter[.]com)[.]?(:[0-9]+)?/${username}([/?#]|$)`;
+  const [other] = await database.select({ id: creators.id, name: creators.name, username: creators.username, trashedAt: creators.trashedAt }).from(creators).where(and(
     creatorId ? sql`${creators.id} <> ${creatorId}` : undefined,
-    or(eq(creators.xProviderId, accountId), eq(creators.xProfileAccountId, accountId)),
+    or(
+      eq(creators.xProviderId, accountId),
+      eq(creators.xProfileAccountId, accountId),
+      // Stable IDs take precedence over a handle that may have changed owners.
+      // Include the old Website slot only when no dedicated X URL is present.
+      and(
+        isNull(creators.xProviderId),
+        isNull(creators.xProfileAccountId),
+        sql`btrim(coalesce(nullif(${creators.xProfileUrl}, ''), ${creators.url})) ~* ${legacyUrlPattern}`,
+      ),
+    ),
   )).limit(1);
-  if (other) throw new AdminCreatorMutationError("conflict", "This X account is already associated with another creator. Correct that attribution before assigning it here.");
+  if (other) {
+    const label = other.username ? `${other.name} (@${other.username})` : other.name;
+    throw new AdminCreatorMutationError("conflict", `This X account is already associated with ${label}. ${other.trashedAt ? "Restore that creator from Trash instead of creating another profile." : "Select that existing creator instead of creating another profile."}`);
+  }
 }
 
 async function updateAdminCreatorRecord(

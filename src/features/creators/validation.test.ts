@@ -8,6 +8,7 @@ import {
   validateAdminCreatorInput,
   validateCreatorUsername,
 } from "./validation";
+import { profileEditSchema } from "../profiles/validation";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -22,6 +23,60 @@ function validCreatorForm() {
 }
 
 describe("creator validation", () => {
+  it.each([
+    "https://x.com/Studio_One",
+    "http://twitter.com/Studio_One/",
+    "https://WWW.X.COM/Studio_One?s=21",
+    "https://mobile.twitter.com/Studio_One/status/123",
+    "https://x.com./Studio_One",
+    "https://x.com",
+    "ftp://twitter.com/Studio_One",
+  ])("rejects X URLs only from the Website field: %s", (url) => {
+    const form = validCreatorForm();
+    form.set("creatorUrl", url);
+    expect(() => parseAdminCreatorForm(form)).toThrow("Put your X profile in the X field.");
+    expect(() => validateAdminCreatorInput({
+      name: "Example Studio", avatarUrl: "/brand/default-avatar.svg", url,
+    })).toThrow("Put your X profile in the X field.");
+    const result = profileEditSchema.safeParse({ websiteUrl: url });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]).toMatchObject({
+      path: ["websiteUrl"], message: "Put your X profile in the X field.",
+    });
+  });
+
+  it.each([
+    "https://portfolio.example/work",
+    "http://portfolio.example",
+    "https://github.com/studio",
+    "https://x.com.example.org/studio",
+    "https://twitter.com.example.org/studio",
+    "https://example.org/?next=https://x.com/studio",
+  ])("keeps other Website URLs accepted: %s", (url) => {
+    expect(validateAdminCreatorInput({
+      name: "Example Studio", avatarUrl: "/brand/default-avatar.svg", url,
+    }).url).toBe(url);
+    expect(profileEditSchema.safeParse({ websiteUrl: url }).success).toBe(true);
+  });
+
+  it.each([
+    "javascript:alert(1)", "data:text/html,example", "ftp://portfolio.example",
+    "https://user:pass@portfolio.example",
+  ])("preserves existing admin URL rules outside X: %s", (url) => {
+    expect(validateAdminCreatorInput({
+      name: "Example Studio", avatarUrl: "/brand/default-avatar.svg", url,
+    }).url).toBe(url);
+    expect(profileEditSchema.safeParse({ websiteUrl: url }).success).toBe(false);
+  });
+
+  it("still accepts X in its dedicated field and allows clearing Website", () => {
+    const form = validCreatorForm();
+    form.set("creatorXProfileUrl", "https://x.com/studio_one");
+    expect(parseAdminCreatorForm(form)).toMatchObject({ url: undefined, xProfileUrl: "https://x.com/studio_one" });
+    expect(profileEditSchema.parse({ websiteUrl: "" }).websiteUrl).toBeNull();
+    expect(profileEditSchema.parse({ websiteUrl: null }).websiteUrl).toBeNull();
+  });
+
   it("accepts a pasted external HTTPS creator avatar", () => {
     const form = validCreatorForm();
     form.set("creatorAvatarUrl", "https://avatars.example.net/studio.png");

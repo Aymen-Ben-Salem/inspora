@@ -46,7 +46,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {}) {
+function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {}, conflict?: { id: string; name: string; username: string | null; trashedAt: Date | null }) {
   const existing: typeof creators.$inferSelect = {
     id: "11111111-1111-4111-8111-111111111111",
     name: input.name,
@@ -73,9 +73,9 @@ function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {
   const audit = vi.fn().mockResolvedValue(undefined);
   const transaction = {
     execute: vi.fn().mockResolvedValue(undefined),
-    select: vi.fn(() => ({ from: () => ({ where: () => ({
+    select: vi.fn((selection?: Record<string, unknown>) => ({ from: () => ({ where: () => ({
       for: async () => [existing],
-      limit: async () => [],
+      limit: async () => selection?.trashedAt && conflict ? [conflict] : [],
     }) }) })),
     update: vi.fn(() => ({ set })),
     insert: vi.fn(() => ({ values: audit })),
@@ -86,6 +86,26 @@ function creatorTransaction(overrides: Partial<typeof creators.$inferSelect> = {
   );
   return { existing, set, audit, transaction: transaction as unknown as WriteTx };
 }
+
+it.each([false, true])("identifies an existing X creator in an admin conflict (trashed: %s)", async (trashed) => {
+  const { existing, set, audit } = creatorTransaction({}, {
+    id: "22222222-2222-4222-8222-222222222222", name: "Existing Studio",
+    username: "existing_studio", trashedAt: trashed ? new Date() : null,
+  });
+  await expect(updateAdminCreator(existing.id, { ...input, xProfileUrl: "https://x.com/studio_one" })).rejects.toMatchObject({
+    code: "conflict", message: expect.stringContaining("Existing Studio (@existing_studio)"),
+  });
+  expect(set).not.toHaveBeenCalled();
+  expect(audit).not.toHaveBeenCalled();
+});
+
+it("rejects an X Website before an admin write transaction starts", async () => {
+  external.requireAdmin.mockResolvedValue({ userId: "admin" });
+  await expect(createAdminCreator({ ...input, url: "https://x.com/studio_one" })).rejects.toMatchObject({
+    code: "invalid_input", message: "Put your X profile in the X field.",
+  });
+  expect(external.withWriteTransaction).not.toHaveBeenCalled();
+});
 
 it.each([
   { previous: null, next: "https://twitter.com/Studio_One", expected: "https://x.com/studio_one" },

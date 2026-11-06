@@ -103,6 +103,19 @@ export function normalizeXProfileUrl(value: string) {
   }
 }
 
+export const X_IN_WEBSITE_MESSAGE = "Put your X profile in the X field.";
+
+export function isXUrl(value: string) {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase().replace(/\.$/, "");
+    return ["x.com", "twitter.com"].some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
 const optionalUrl = z
   .union([z.literal(""), z.url()])
   .transform((value) => value || undefined);
@@ -113,7 +126,7 @@ const adminCreatorSchema = z
     name: z.string().trim().min(1).max(160),
     legacyHandle: z.string().trim().max(160).optional(),
     username: z.string().trim().optional(),
-    url: optionalUrl,
+    url: optionalUrl.refine((value) => !value || !isXUrl(value), X_IN_WEBSITE_MESSAGE),
     xProfileUrl: optionalUrl,
     avatarUrl: creatorAvatarUrlSchema,
     avatarStorageProvider: z.enum(MEDIA_STORAGE_PROVIDERS).optional(),

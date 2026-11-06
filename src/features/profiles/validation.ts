@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeCreatorUsername, validateCreatorUsername } from "@/features/creators/validation";
+import { isXUrl, normalizeCreatorUsername, validateCreatorUsername, X_IN_WEBSITE_MESSAGE } from "@/features/creators/validation";
 
 export const profileEditSchema = z.object({
   name: z.string().trim().min(1, "Enter your name.").max(80, "Keep your name under 80 characters.").optional(),
@@ -9,6 +9,10 @@ export const profileEditSchema = z.object({
   }).optional(),
   websiteUrl: z.string().trim().nullable().transform((value, ctx) => {
     if (!value) return null;
+    if (isXUrl(value)) {
+      ctx.addIssue({ code: "custom", message: X_IN_WEBSITE_MESSAGE });
+      return z.NEVER;
+    }
     try {
       const url = new URL(value);
       if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error();

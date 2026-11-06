@@ -104,6 +104,8 @@ it("normalizes explicit fields and ignores browser-supplied ownership", async ()
 
 it.each([
   [{ name: " " }, "name"], [{ username: "admin" }, "username"], [{ websiteUrl: "https://user:password@example.com" }, "websiteUrl"],
+  [{ websiteUrl: "https://x.com/studio_one" }, "websiteUrl"],
+  [{ websiteUrl: "https://mobile.twitter.com/studio_one" }, "websiteUrl"],
 ] as const)("rejects invalid transport input %j", async (input, field) => {
   expect(await updateOwnProfile(input)).toMatchObject({ ok: false, field });
   expect(mocks.update).not.toHaveBeenCalled();

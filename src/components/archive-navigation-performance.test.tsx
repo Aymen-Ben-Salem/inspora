@@ -23,6 +23,16 @@ import { PostTransitionProvider } from "./post-transition-provider";
 
 beforeEach(() => { links.length = 0; });
 
+it.each(["desktop", "mobile"])("shows the MCP page only when enabled in %s navigation", (mode) => {
+  const render = (showMcp: boolean) => renderToStaticMarkup(mode === "desktop"
+    ? <SiteNavbarClient page="mcp" desktopAuth={null} mobileAuth={null} showMcp={showMcp} />
+    : <MobileNavigationOverlay closing={false} onClose={() => {}} onClosed={() => {}} onContact={() => {}} onAction={() => {}} activeHref="/mcp" auth={null} showMcp={showMcp} />);
+  expect(render(false)).not.toContain('href="/mcp"');
+  const enabled = render(true);
+  expect(enabled).toContain('href="/mcp"');
+  expect(enabled).toMatch(/MCP[\s\S]{0,220}>New<\/span>/);
+});
+
 it.each(["desktop", "mobile"])("fully prefetches the public archive tabs in %s navigation", (mode) => {
   renderToStaticMarkup(mode === "desktop" ? <SiteNavbarClient page="design" desktopAuth={null} mobileAuth={null} /> :
     <MobileNavigationOverlay closing={false} onClose={() => {}} onClosed={() => {}} onContact={() => {}} onAction={() => {}} activeHref="/" auth={null} />);

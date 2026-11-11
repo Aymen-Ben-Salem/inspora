@@ -1,0 +1,22 @@
+[
+  {"id":"W01","type":"written","intent":"Tactile icons for a calm personal app","input":{"query":"soft dimensional app icons with warm cream surfaces","kinds":["icon"]}},
+  {"id":"W02","type":"written","intent":"Friendly character icon directions","input":{"query":"playful animal mascot app icons","kinds":["icon"]}},
+  {"id":"W03","type":"written","intent":"Simple geometric icon directions","input":{"query":"minimal geometric app icons","kinds":["icon"]}},
+  {"id":"W04","type":"written","intent":"Typographic identity directions","input":{"query":"geometric wordmark logos with custom lettering","kinds":["logo"]}},
+  {"id":"W05","type":"written","intent":"Nature-inspired identity marks","input":{"query":"organic flower symbol logos","kinds":["logo"]}},
+  {"id":"W06","type":"written","intent":"Compact letter-based identities","input":{"query":"minimal monogram logos with negative space","kinds":["logo"]}},
+  {"id":"W07","type":"written","intent":"Expressive studio portfolio references","input":{"query":"creative studio portfolio websites with oversized typography","kinds":["website"]}},
+  {"id":"W08","type":"written","intent":"Product landing pages using dimensional imagery","input":{"query":"product websites with 3D objects and playful layouts","kinds":["website"]}},
+  {"id":"W09","type":"written","intent":"Quiet editorial website references","input":{"query":"minimal editorial websites with refined typography","kinds":["website"]}},
+  {"id":"W10","type":"written","intent":"Understandable progress feedback","input":{"query":"compact task status controls and progress indicators","kinds":["design"]}},
+  {"id":"W11","type":"written","intent":"Physical-material interface references","input":{"query":"tactile interface controls with glass and soft shadows","kinds":["design"]}},
+  {"id":"W12","type":"written","intent":"Readable data presentation","input":{"query":"dashboard cards with charts and financial metrics","kinds":["design"]}},
+  {"id":"R01","type":"reference","intent":"Alternatives to the chat interaction reference","input":{"reference_url":"https://www.inspora.design/posts/chat-component-interaction"}},
+  {"id":"R02","type":"reference","intent":"Alternatives to morphing navigation","input":{"reference_url":"https://www.inspora.design/posts/morphing-nav"}},
+  {"id":"R03","type":"reference","intent":"Alternatives to Floema's product presentation","input":{"reference_url":"https://www.inspora.design/websites?website=floema"}},
+  {"id":"R04","type":"reference","intent":"Alternatives to Heron AI's technical visual language","input":{"reference_url":"https://www.inspora.design/websites?website=heron-ai"}},
+  {"id":"R05","type":"reference","intent":"Alternative identities related to Orri","input":{"reference_url":"https://www.inspora.design/logos?logo=orri"}},
+  {"id":"R06","type":"reference","intent":"Alternative identities related to Lens","input":{"reference_url":"https://www.inspora.design/logos?logo=lens"}},
+  {"id":"R07","type":"reference","intent":"Alternative mascot icons related to Fatty Cat","input":{"reference_url":"https://www.inspora.design/logos?logo=fatty-cat"}},
+  {"id":"R08","type":"reference","intent":"Alternative fitness icons related to Body Booster","input":{"reference_url":"https://www.inspora.design/logos?logo=body-booster"}}
+]

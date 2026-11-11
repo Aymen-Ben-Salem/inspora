@@ -16,7 +16,7 @@ import { MobileNavigationOverlay } from "./mobile-navigation-overlay";
 import { SponsorIcons } from "./sponsorship/sponsor-icons";
 import { NavbarMenu } from "./navbar-menu";
 
-export type NavbarPage = "design" | "info" | "logos" | "profile" | "saved" | "sponsor" | "websites";
+export type NavbarPage = "design" | "info" | "logos" | "mcp" | "profile" | "saved" | "sponsor" | "websites";
 
 const archiveInk = "#262626";
 const archiveMuted = "#767676";
@@ -43,10 +43,12 @@ export function SiteNavbarClient({
   page = "design",
   desktopAuth,
   mobileAuth,
+  showMcp = false,
 }: {
   page?: NavbarPage;
   desktopAuth: ReactNode;
   mobileAuth: ReactNode;
+  showMcp?: boolean;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
@@ -96,10 +98,11 @@ export function SiteNavbarClient({
                 ["Design", "/", "design"],
                 ["Websites", "/websites", "websites"],
                 ["Logos", "/logos", "logos"],
+                ...(showMcp ? [["MCP", "/mcp", "mcp"] as const] : []),
               ] as const).map(([label, href, itemPage]) => (
                 <Link
                   key={href}
-                  href={href}
+                  href={href as Route}
                   prefetch={true}
                   aria-current={page === itemPage ? "page" : undefined}
                   style={{
@@ -210,7 +213,9 @@ export function SiteNavbarClient({
           }}
           onContact={() => setContactOpen(true)}
           activeHref={
-            page === "logos"
+            page === "mcp"
+              ? "/mcp"
+              : page === "logos"
               ? "/logos"
               : page === "websites"
                 ? "/websites"
@@ -223,6 +228,7 @@ export function SiteNavbarClient({
                   : "/"
           }
           auth={mobileAuth}
+          showMcp={showMcp}
         />
       ) : null}
 

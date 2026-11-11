@@ -2,7 +2,11 @@
 
 ## Current work boundary
 
-Apply new work to the preview branch (`preview/archive-updates` at setup time). Leave `main` and production untouched unless the user changes this boundary.
+Work on `preview/archive-updates` by default. Keep new features, including the Inspora MCP and its page, on Preview for user/team review. Preserve existing local changes and environment files when preparing work.
+
+Merge or push to `main`, deploy/promote to production, or change live data/configuration only when the user explicitly authorizes that scope. The normal release gate is the user saying the migration is ready. Preview publishing is separate from production approval. Honor authorization already given in the current task without asking again.
+
+The November 11, 2026 exception authorizes description and classification corrections across all live works that need them, following the approved fifteen-example editorial approach. The user explicitly clarified that classification includes the main category plus Industry, Style and Color. Use the existing taxonomy and visible/source evidence; leave uncertain labels unset. This exception does not authorize publishing the MCP, its page, search-only prose, technologies, or unrelated fields to production. Keep exact before/after records and reject stale content updates. Refresh Preview from current live public content when requested, while preserving Preview-only work, environment configuration and unrelated account/payment data. MCP source may be pushed to the public repository's Preview branch; the user clarified that local/Preview development does not require private source hosting.
 
 Never stage or commit `.scratch/`, `/docs/`, or environment files; they are local-only planning notes. Commit application sources, tests, and tracked configuration only.
 
@@ -28,4 +32,6 @@ Use single-context domain documentation: root `CONTEXT.md` and `docs/adr/`. Befo
 
 ### Sponsorship billing
 
-Before changing sponsorship checkout, Stripe resources, tax settings, or launch/recovery configuration, read the [current preparation handoff](.scratch/sponsorship/production-preparation/handoff.md) and the [closed VAT collection decision](.scratch/sponsorship/production-preparation/vat-decision-20261021.md). These local notes contain the approved payment behavior, current account/resources, verification limits and future activation sequence. Preparation remains separate from explicit production-launch authorization.
+Sponsorship is implemented and live. Before changing checkout, Stripe resources, tax settings, or release/recovery configuration, establish the relevant current state from application code and targeted read-only checks of live data/provider configuration. Distinguish verified current state from dated notes; do not assume an old plan describes what is live now.
+
+Consult the [historical preparation handoff](.scratch/sponsorship/production-preparation/handoff.md) and [closed VAT collection decision](.scratch/sponsorship/production-preparation/vat-decision-20261021.md) for decision history, not current prices, resource IDs, environment values, metrics, or activation status. Do not replay old provisioning/launch steps or restore preparation defaults over the working site. Preserve closed business decisions unless the user changes them or new evidence requires review. Explain any proposed effect on live payments before applying it within the authorized scope.

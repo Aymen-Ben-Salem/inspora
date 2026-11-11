@@ -24,14 +24,16 @@ export function MobileNavigationOverlay({
   onAction,
   activeHref,
   auth,
+  showMcp = false,
 }: {
   closing: boolean;
   onClose: () => void;
   onClosed: () => void;
   onContact: () => void;
   onAction: (action: () => void) => void;
-  activeHref: "/" | "/websites" | "/logos" | "/saved" | "/info" | "/sponsor";
+  activeHref: "/" | "/websites" | "/logos" | "/saved" | "/info" | "/sponsor" | "/mcp";
   auth: ReactNode;
+  showMcp?: boolean;
 }) {
   return (
     <div
@@ -80,7 +82,7 @@ export function MobileNavigationOverlay({
           </h2>
 
           <div className="mt-2 flex flex-col items-start">
-            {browseItems.filter(item => item.href !== "/saved").map((item) => (
+            {[...browseItems.filter(item => item.href !== "/saved"), ...(showMcp ? [{ label: "MCP", href: "/mcp" as const }] : [])].map((item) => (
               <Link
                 key={item.label}
                 href={item.href as Route}
@@ -94,6 +96,7 @@ export function MobileNavigationOverlay({
                 }`}
               >
                 {item.label}
+                {item.href === "/mcp" ? <span className="ml-2 rounded-[3px] bg-[#767676] px-1 py-0.5 align-middle text-[10px] leading-none text-white">New</span> : null}
               </Link>
             ))}
           </div>

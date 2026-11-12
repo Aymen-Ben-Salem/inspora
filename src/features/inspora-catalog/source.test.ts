@@ -25,6 +25,8 @@ describe("shared catalog source", () => {
       transaction.mockResolvedValue([[permission], []]);
       expect((await capturePublicCatalog()).rows).toEqual([]);
       expect(transaction).toHaveBeenLastCalledWith(expect.any(Array), { isolationLevel: "RepeatableRead", readOnly: true });
+      transaction.mockResolvedValue([[permission], [{ published_at: new Date("2026-11-01T12:00:00Z"), updated_at: "2026-11-12 12:00:00.123456+00" }]]);
+      expect((await capturePublicCatalog()).rows).toEqual([{ published_at: "2026-11-01T12:00:00.000Z", updated_at: "2026-11-12 12:00:00.123456+00" }]);
       transaction.mockResolvedValue([[{ ...permission, read_only: "off" }], []]);
       await expect(capturePublicCatalog()).rejects.toThrow("read-only");
       transaction.mockResolvedValue([[{ ...permission, can_write_public: true }], []]);

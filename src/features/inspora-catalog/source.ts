@@ -39,7 +39,10 @@ export async function capturePublicCatalog() {
       stamp[0]?.can_write_public !== false || stamp[0]?.can_create_public !== false) {
     throw new Error("Catalog source must use its dedicated read-only role.");
   }
-  return { capturedAt: new Date(stamp[0].captured_at).toISOString(), rows };
+  // Match the JSON wire representation before schema/fingerprint validation.
+  // Neon returns published_at as Date; updated_at::text retains source precision.
+  const publicRows = JSON.parse(JSON.stringify(rows)) as Record<string, unknown>[];
+  return { capturedAt: new Date(stamp[0].captured_at).toISOString(), rows: publicRows };
 }
 
 export async function readCatalogEnrichment() {

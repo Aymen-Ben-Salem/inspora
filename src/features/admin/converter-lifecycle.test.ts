@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const mock = vi.hoisted(() => ({ load: vi.fn(), terminate: vi.fn(), exec: vi.fn(), ffprobe: vi.fn(), readFile: vi.fn(), deleteFile: vi.fn(), writeFile: vi.fn(), blob: vi.fn(), revoke: vi.fn() }));
+const mock = vi.hoisted(() => ({ load: vi.fn(), terminate: vi.fn(), exec: vi.fn(), ffprobe: vi.fn(), readFile: vi.fn(), deleteFile: vi.fn(), writeFile: vi.fn(), blob: vi.fn(), revoke: vi.fn(), on: vi.fn(), off: vi.fn() }));
 vi.mock("@ffmpeg/ffmpeg", () => ({ FFmpeg: class {
   load = mock.load; terminate = mock.terminate; exec = mock.exec;
   ffprobe = mock.ffprobe;
+  on = mock.on; off = mock.off;
   readFile = mock.readFile; deleteFile = mock.deleteFile; writeFile = mock.writeFile;
 } }));
 vi.mock("@ffmpeg/util", () => ({ toBlobURL: mock.blob, fetchFile: async () => new Uint8Array([1]) }));
@@ -14,6 +15,35 @@ beforeEach(() => {
   mock.readFile.mockResolvedValue(new Uint8Array([1, 2]));
   mock.blob.mockImplementation(async (url) => `blob:${url}`);
   vi.spyOn(URL, "revokeObjectURL").mockImplementation(mock.revoke);
+});
+
+it("copies compatible H.264 border crops with their audio and allows small remux overhead", async () => {
+  const { cropVideo } = await import("./gif-conversion");
+  const source = new File([new Uint8Array(1_000_000)], "source.mp4", { type: "video/mp4" });
+  mock.readFile.mockImplementation(async (_name, encoding) => encoding === "utf8"
+    ? JSON.stringify({ streams: [
+      { codec_type: "video", codec_name: "h264", width: 1720, height: 1080, pix_fmt: "yuvj420p", field_order: "progressive", r_frame_rate: "30/1" },
+      { codec_type: "audio", codec_name: "aac" },
+    ] })
+    : new Uint8Array(1_000_100));
+  mock.exec.mockImplementation(async (args) => {
+    if (args.includes("trace_headers")) {
+      const onLog = mock.on.mock.calls[0][1];
+      for (const [name, value] of Object.entries({ pic_width_in_mbs_minus1: 107, pic_height_in_map_units_minus1: 67,
+        frame_mbs_only_flag: 1, frame_cropping_flag: 1, frame_crop_left_offset: 0, frame_crop_right_offset: 4,
+        frame_crop_top_offset: 0, frame_crop_bottom_offset: 4 })) onLog({ message: `[trace_headers] 0 ${name} 1 = ${value}` });
+    }
+    return 0;
+  });
+  const result = await cropVideo({ ...input(), file: source, crop: { x: 2, y: 2, width: 1716, height: 1076 } });
+  expect(result.size).toBe(1_000_100);
+  expect(mock.exec).toHaveBeenCalledTimes(2);
+  expect(mock.exec.mock.calls[0][0].slice(0, 2)).toEqual(["-loglevel", "info"]);
+  expect(mock.exec.mock.calls[1][0]).toContain("h264_metadata=crop_left=2:crop_right=10:crop_top=2:crop_bottom=10");
+  expect(mock.exec.mock.calls[1][0]).toContain("0:a:0?");
+  expect(mock.exec.mock.calls.every(([args]) => !args.includes("libx264"))).toBe(true);
+  expect(mock.off).toHaveBeenCalledWith("log", mock.on.mock.calls[0][1]);
+  await vi.advanceTimersByTimeAsync(5000);
 });
 
 it("keeps the full cropped recording within the original byte size even if an encode overshoots", async () => {

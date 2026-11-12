@@ -61,9 +61,9 @@ describe("shared publication file preparation", () => {
     expect(operations.upload).not.toHaveBeenCalled();
   });
 
-  it("uses the cropped recording for the primary, feed preview, poster, and saved dimensions", async () => {
+  it("uses the lossless cropped recording with small container overhead for primary, preview, poster, and dimensions", async () => {
     const source = new File(["source-video"], "source.mp4", { type: "video/mp4" });
-    const cropped = new File(["cropped"], "source-cropped.mp4", { type: "video/mp4" });
+    const cropped = new File(["cropped-recording-with-remux-header"], "source-cropped.mp4", { type: "video/mp4" });
     const preview = new File(["preview"], "preview.mp4", { type: "video/mp4" });
     const crop = { x: 40, y: 20, width: 1000, height: 600 };
     vi.mocked(cropVideo).mockResolvedValue(cropped);
@@ -106,7 +106,7 @@ describe("shared publication file preparation", () => {
     expect(operations.upload.mock.calls[0][0].primary).toMatchObject({ file: cropped, width: 1000, height: 600 });
   });
 
-  it("does not upload a cropped recording larger than its source even when under the upload limit", async () => {
+  it("rejects crop size growth beyond container overhead even when under the upload limit", async () => {
     const source = new File([new Uint8Array(1_000_000)], "source.mp4", { type: "video/mp4" });
     vi.mocked(cropVideo).mockResolvedValue(new File([new Uint8Array(2_000_000)], "cropped.mp4", { type: "video/mp4" }));
     const operations = { upload: vi.fn(), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };

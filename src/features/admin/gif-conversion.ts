@@ -4,6 +4,13 @@ import {
 } from "./video-preview-validation";
 import type { VideoCrop } from "./video-crop";
 import { buildVideoCropFfmpegArgs, packetDuration, videoCropEncodingBudget } from "./video-crop-encoding";
+import { MAX_VIDEO_UPLOAD_BYTES } from "../media/upload-policy";
+import {
+  buildLosslessVideoCropArgs,
+  canLosslesslyCropVideo,
+  VIDEO_CROP_REMUX_OVERHEAD_BYTES,
+  type VideoCropStream,
+} from "./video-crop-lossless";
 
 export {
   VIDEO_PREVIEW_MAX_HEIGHT,
@@ -284,9 +291,43 @@ async function cropVideoUnlocked({ file, crop, configuration, signal, onStage }:
       const data = await ffmpeg.readFile(metadataName, "utf8", { signal });
       return JSON.parse(typeof data === "string" ? data : new TextDecoder().decode(data));
     };
-    const metadata = await probe("format=duration:stream=codec_type,duration");
-    const streams: Array<{ codec_type?: string; duration?: string }> = metadata.streams ?? [];
-    if (!streams.some((stream) => stream.codec_type === "video")) throw new Error("The recording has no video stream.");
+    const metadata = await probe("format=duration:stream=codec_type,codec_name,duration,width,height,pix_fmt,field_order,r_frame_rate,sample_aspect_ratio:stream_side_data=rotation");
+    const streams: VideoCropStream[] = metadata.streams ?? [];
+    const videoStream = streams.find((stream) => stream.codec_type === "video");
+    if (!videoStream) throw new Error("The recording has no video stream.");
+    const audioStream = streams.find((stream) => stream.codec_type === "audio");
+    if (canLosslesslyCropVideo(videoStream, crop) && (!audioStream || audioStream.codec_name === "aac")) {
+      const headers: string[] = [];
+      const onLog = ({ message }: { message: string }) => {
+        if (/\b(?:chroma_format_idc|separate_colour_plane_flag|bit_depth_|pic_width_in_|pic_height_in_|frame_mbs_only_flag|frame_cropping_flag|frame_crop_)/.test(message)) headers.push(message);
+      };
+      ffmpeg.on("log", onLog);
+      let traceCode: number;
+      try {
+        traceCode = await ffmpeg.exec([
+          "-loglevel", "info", "-i", inputName, "-map", "0:v:0", "-an", "-c:v", "copy",
+          "-bsf:v", "trace_headers", "-f", "null", "-",
+        ], CONVERSION_TIMEOUT_MS, { signal });
+      } finally {
+        ffmpeg.off("log", onLog);
+      }
+      signal.throwIfAborted();
+      const losslessArgs = traceCode === 0
+        ? buildLosslessVideoCropArgs(inputName, outputName, crop, videoStream, headers)
+        : null;
+      if (losslessArgs) {
+        onStage("cropping-video");
+        const code = await ffmpeg.exec(losslessArgs, CONVERSION_TIMEOUT_MS, { signal });
+        signal.throwIfAborted();
+        if (code === 0) {
+          const data = await ffmpeg.readFile(outputName, "binary", { signal });
+          if (data instanceof Uint8Array && data.byteLength > 0 && data.byteLength <= Math.min(MAX_VIDEO_UPLOAD_BYTES, file.size + VIDEO_CROP_REMUX_OVERHEAD_BYTES)) {
+            const bytes = Uint8Array.from(data);
+            return new File([bytes.buffer], `${file.name.replace(/\.[^.]+$/, "")}-cropped.mp4`, { type: "video/mp4" });
+          }
+        }
+      }
+    }
     let duration = Number(metadata.format?.duration);
     if (!Number.isFinite(duration) || duration <= 0) {
       duration = Math.max(0, ...streams.map((stream) => Number(stream.duration) || 0));

@@ -9,9 +9,10 @@ test('one running MCP client receives additions, edits, eligibility removals and
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'inspora-live-client-'));let rows=['design','website','logo','icon'].map((kind,i)=>work(i+1,kind)),entries=rows.map(row=>note(row));
   let feed={version:1,catalog:{capturedAt:new Date().toISOString(),rows},enrichment:{version:1,entries}},unavailable=false;
   const initial=await buildIndex(feed.catalog,{enrichment:feed.enrichment,embed});writeAtomic(path.join(directory,'index-enriched.json'),initial);
-  const source=http.createServer((_req,res)=>{res.writeHead(unavailable?503:200,{'Content-Type':'application/json'});res.end(JSON.stringify(feed));});
+  const token='fixture_sync_123456789012345678901234567890';
+  const source=http.createServer((req,res)=>{if(req.headers.authorization!=='Bearer '+token){res.writeHead(401);res.end();return;}res.writeHead(unavailable?503:200,{'Content-Type':'application/json'});res.end(JSON.stringify(feed));});
   await new Promise(resolve=>source.listen(0,'127.0.0.1',resolve));
-  const client=new Client({name:'inspora-sync-acceptance',version:'1'}),transport=new StdioClientTransport({command:process.execPath,args:[path.join(root,'server.mjs'),'--data',directory,'--ranking','lexical'],env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,INSPORA_CATALOG_URL:`http://127.0.0.1:${source.address().port}/catalog`,INSPORA_SYNC_POLL_MS:'1000'},stderr:'pipe'});
+  const client=new Client({name:'inspora-sync-acceptance',version:'1'}),transport=new StdioClientTransport({command:process.execPath,args:[path.join(root,'server.mjs'),'--data',directory,'--ranking','lexical'],env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,INSPORA_CATALOG_URL:`http://127.0.0.1:${source.address().port}/catalog`,INSPORA_CATALOG_TOKEN:token,INSPORA_SYNC_POLL_MS:'1000'},stderr:'pipe'});
   const call=async(name,args={})=>{const result=await client.callTool({name,arguments:args});return {error:result.isError===true,data:JSON.parse(result.content[0].text)};};
   const publish=()=>{feed={version:1,catalog:{capturedAt:new Date().toISOString(),rows},enrichment:{version:1,entries}};};
   const started=Date.now();

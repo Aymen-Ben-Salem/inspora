@@ -1,23 +1,23 @@
 import fs from 'node:fs';import path from 'node:path';
-import {z} from 'zod';
-import {enrichmentSchema,stable} from './enrichment.mjs';
+import {stable} from './enrichment.mjs';
+import {feedSchema} from './feed-schema.mjs';
+export {feedSchema} from './feed-schema.mjs';
 import {buildIndex,writeAtomic} from './index-builder.mjs';
 import {sha} from './catalog.mjs';
 
 export const POLL_MS=60000,STALE_MS=180000,MAX_FEED_BYTES=8*1024*1024;
-const date=z.string().refine(value=>Number.isFinite(Date.parse(value)));
-const labels=z.array(z.string().max(100)).max(50);
-const media=z.object({type:z.enum(['image','video','recording','favicon']),url:z.string().max(2000),poster:z.string().max(2000).nullable().optional(),alt:z.string().max(2000).nullable().optional(),width:z.number().nullable().optional(),height:z.number().nullable().optional(),preview:z.unknown().optional()}).strict();
-const row=z.object({id:z.string().uuid(),kind:z.enum(['design','website','logo','icon']),slug:z.string().min(1).max(200),title:z.string().max(500),description:z.string().max(10000).nullable(),tagline:z.string().max(2000).nullable().optional(),creator_name:z.string().max(500),creator_username:z.string().max(200).nullable().optional(),category:z.string().max(100),industries:labels,styles:labels,colors:labels,categories:labels,themes:labels,technologies:labels,industry:z.string().max(1000),shape:z.string().max(200),source_url:z.string().max(2000).nullable(),status:z.string().max(30),published_at:date.nullable(),updated_at:date,creator_updated_at:date,creator_visible:z.boolean(),media:z.array(media).max(50).nullable()}).strict();
-export const feedSchema=z.object({version:z.literal(1),catalog:z.object({capturedAt:date,rows:z.array(row).max(10000)}).strict(),enrichment:enrichmentSchema}).strict();
 
 export function sourceUrl(value) {
   const url=new URL(value);
   if(url.username||url.password||url.search||url.hash||!(url.protocol==='https:'||(url.protocol==='http:'&&['127.0.0.1','[::1]','localhost'].includes(url.hostname))))throw Error('Sync requires an exact HTTPS or loopback HTTP feed URL without credentials/query');
   return url.href;
 }
-export async function fetchFeed(url,fetcher=fetch) {
-  const response=await fetcher(sourceUrl(url),{redirect:'error',signal:AbortSignal.timeout(10000),headers:{Accept:'application/json'}});
+export function feedHeaders(token) {
+  if(token!==undefined&&(!/^[a-zA-Z0-9_-]{32,128}$/.test(token)))throw Error('Invalid catalog access token');
+  return {Accept:'application/json',...(token?{Authorization:'Bearer '+token}:{})};
+}
+export async function fetchFeed(url,fetcher=fetch,token) {
+  const response=await fetcher(sourceUrl(url),{redirect:'error',signal:AbortSignal.timeout(10000),headers:feedHeaders(token)});
   if(!response.ok)throw Error('Feed request failed');
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error('Feed is not JSON');
   if(Number(response.headers.get('content-length'))>MAX_FEED_BYTES)throw Error('Feed exceeds size limit');
@@ -27,8 +27,8 @@ export async function fetchFeed(url,fetcher=fetch) {
 }
 
 export class CatalogSync {
-  constructor({url,directory,embed,fetcher=fetch,now=()=>Date.now(),pollMs=POLL_MS}) {
-    this.url=sourceUrl(url);this.directory=directory;this.embed=embed;this.fetcher=fetcher;this.now=now;this.pending=null;
+  constructor({url,token,directory,embed,fetcher=fetch,now=()=>Date.now(),pollMs=POLL_MS}) {
+    feedHeaders(token);this.token=token;this.url=sourceUrl(url);this.directory=directory;this.embed=embed;this.fetcher=fetcher;this.now=now;this.pending=null;
     this.indexFile=path.join(directory,'index-enriched.json');this.statusFile=path.join(directory,'sync-status.json');
     this.lockFile=path.join(directory,'sync.lock');
     this.index=fs.existsSync(this.indexFile)?JSON.parse(fs.readFileSync(this.indexFile,'utf8')):null;
@@ -48,7 +48,7 @@ export class CatalogSync {
     this.index=fs.existsSync(this.indexFile)?JSON.parse(fs.readFileSync(this.indexFile,'utf8')):null;
     this.state.lastAttemptAt=new Date(this.now()).toISOString();
     try {
-      const feed=await fetchFeed(this.url,this.fetcher),captured=Date.parse(feed.catalog.capturedAt),current=Date.parse(this.index?.capturedAt);
+      const feed=await fetchFeed(this.url,this.fetcher,this.token),captured=Date.parse(feed.catalog.capturedAt),current=Date.parse(this.index?.capturedAt);
       if(captured>this.now()+60000||this.now()-captured>STALE_MS)throw Error('Feed snapshot is stale or future-dated');
       if(this.index&&captured<current)throw Error('Out-of-order snapshot rejected');
       const sourceRevision=sha(stable([...feed.catalog.rows].sort((a,b)=>a.id.localeCompare(b.id))));

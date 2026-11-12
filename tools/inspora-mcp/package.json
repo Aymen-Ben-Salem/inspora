@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test --test-isolation=none test/search.test.mjs test/preview.test.mjs test/enrichment.test.mjs test/sync.test.mjs",
+    "test": "node --test --test-isolation=none test/search.test.mjs test/preview.test.mjs test/enrichment.test.mjs test/sync.test.mjs test/hosted-feed.test.mjs",
+    "connect": "node connect.mjs",
     "build:index": "node build-index.mjs",
     "evaluate": "node evaluate.mjs",
     "test:protocol": "node --test --test-isolation=none test/protocol.test.mjs test/sync-protocol.test.mjs",

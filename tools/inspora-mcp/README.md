@@ -11,14 +11,18 @@ npm --prefix tools/inspora-mcp ci
 npm --prefix tools/inspora-mcp run prepare:model
 ```
 
-Ask the maintainer for a current public-catalog export and put it at `tools/inspora-mcp/data/catalog.json`. The export has `capturedAt` and `rows`; its SELECT is in `capture.sql`. Run it through an authorized database connection, outside the MCP. Never give testers a production database credential. Runtime data/model files are ignored by Git. The setup command downloads pinned free model weights once; normal retrieval and index building prohibit network requests. Existing November 9 local model assets are reused on the preparation machine. `INSPORA_MODEL_CACHE` can point to another prepared cache.
+For shared delivery, the maintainer supplies a `team-connection.json` containing only `url` and a catalog-only `token`. Keep it in the ignored `tools/inspora-mcp/data/` directory. The shared Preview feed requires activation of its dedicated read-only source login; until activation, use the existing offline bundle or local bridge below. Do not treat the feed as deployed merely because this code is on Preview.
 
 ```powershell
-npm --prefix tools/inspora-mcp run build:index
-node tools/inspora-mcp/server.mjs
+node tools/inspora-mcp/connect.mjs --connection tools/inspora-mcp/data/team-connection.json
+node tools/inspora-mcp/server.mjs --connection tools/inspora-mcp/data/team-connection.json
 ```
 
-The server defaults to `enriched`: current public captions/classifications plus separate visually reviewed search notes from `data/enrichment.json`. These notes never override public fields. Typography is selective for overall website/brand/editorial compositions and lettering subjects; isolated controls and motion studies normally receive none. Exact font names are not guessed. A changed source version, caption, classification, credit or media fingerprint omits the old notes while current public metadata remains searchable. `catalog_status` reports current/stale/missing enrichment counts.
+`connect` is a one-time catalog bootstrap after the model is prepared. Then use the same connection file at every launch. No database, storage or Vercel credentials belong in team configuration. The server checks once per minute while running; its target is under three minutes for ordinary catalog changes, excluding the one-time model/setup work or service outages. Software updates are separate from content updates. Runtime data/model files are ignored by Git. The setup downloads pinned free model weights once; normal retrieval and index building use them offline. `INSPORA_MODEL_CACHE` can point to another prepared cache.
+
+The server defaults to `enriched`: current public captions/classifications plus separate visually reviewed search notes. These notes never override public fields. Typography is selective for overall website/brand/editorial compositions and lettering subjects; isolated controls and motion studies normally receive none. Exact font names are not guessed. A changed source version, caption, classification, credit or media fingerprint omits the old notes while current public metadata remains searchable. `catalog_status` reports current/stale/missing enrichment counts. New or invalidated hidden prose still needs generation/review; automatic delivery does not invent it. Inline thumbnails remain optional local assets from the reviewed bundle; fresh or changed media use current public preview links until reviewed thumbnails are prepared.
+
+Offline alternative: place a maintainer-provided `{capturedAt,rows}` public export at `data/catalog.json`, reviewed notes at `data/enrichment.json`, and run `npm --prefix tools/inspora-mcp run build:index`. Never give testers the database credential.
 
 Use `--variant original` for the public-only baseline. The legacy `--variant draft` comparison remains available, but historical public-editorial proposals must not be applied over current content. Old timestamp/media mismatches fail that comparison build. Keep reviewed thumbnails separately in `data/preview-manifest.json` and `data/media/`. New thumbnail manifests use `version: 2` and `mediaFingerprint(row)` from `enrichment.mjs` for `sourceVersion.mediaMetadataSha256`; this ignores JSON key order while rejecting actual media changes. Legacy unversioned/version-1 manifests still use their original hash format.
 
@@ -29,7 +33,7 @@ Replace `C:/path/to/inspora` below with the checkout path. Keep other MCP server
 Claude Code can use a session-only JSON file:
 
 ```json
-{"mcpServers":{"inspora":{"command":"node","args":["C:/path/to/inspora/tools/inspora-mcp/server.mjs"]}}}
+{"mcpServers":{"inspora":{"command":"node","args":["C:/path/to/inspora/tools/inspora-mcp/server.mjs","--connection","C:/path/to/inspora/tools/inspora-mcp/data/team-connection.json"]}}}
 ```
 
 Start `claude --mcp-config path/to/inspora-mcp.json`. Use `--strict-mcp-config` only for an isolated pilot session that should load this server alone.
@@ -39,12 +43,12 @@ For Codex, add this new entry to the existing config (do not replace the file):
 ```toml
 [mcp_servers.inspora]
 command = "node"
-args = ["C:/path/to/inspora/tools/inspora-mcp/server.mjs"]
+args = ["C:/path/to/inspora/tools/inspora-mcp/server.mjs", "--connection", "C:/path/to/inspora/tools/inspora-mcp/data/team-connection.json"]
 startup_timeout_sec = 30
 tool_timeout_sec = 30
 ```
 
-Session-only Codex overrides are also supported with `-c 'mcp_servers.inspora.command="node"'` and `-c 'mcp_servers.inspora.args=["C:/path/to/inspora/tools/inspora-mcp/server.mjs"]'`.
+Session-only Codex overrides are also supported. Include the same absolute `--connection` file argument when using the shared feed.
 
 ## Tools and limits
 
@@ -57,6 +61,12 @@ Discovery is bounded to 12,000 JSON characters, details to 10,000. These are pro
 All source text and input URLs are untrusted data. The server cannot fetch arbitrary URLs, upload images, edit records, or access admin/payment tools. It does not load repository environment files. Results sent to the host remain subject to that host's normal provider usage.
 
 ## Automatic content synchronization
+
+Shared delivery uses a dedicated Preview alias, `inspora-catalog-preview.vercel.app`, restricted to `GET /api/inspora/catalog`. All other paths/methods on this alias return 404, including admin and static routes. The route authenticates a catalog-only bearer token before any database/storage reads, and never accepts a source URL or query. Preview's main hostname retains its existing protection. Only the dedicated alias may receive a deployment-protection exception, after the guard is deployed and verified; do not disable project protection or give clients an automation bypass secret.
+
+The server-only `INSPORA_CATALOG_SOURCE_DATABASE_URL` must use the dedicated `inspora_catalog_reader` role, with SELECT on `public.inspora_mcp_public_catalog` only. The role/view require separate production-configuration approval. The route refuses owner/writable logins and captures in a read-only repeatable-read transaction. This source connection does not replace Preview's application `DATABASE_URL`. Set it and `INSPORA_CATALOG_TOKEN` only for the `preview/archive-updates` branch. The source refuses production deployments and other branches.
+
+Reviewed enrichment is one private Preview R2 object, `mcp/phase1/enrichment-v1.json`, in the existing private submissions bucket. `npx tsx scripts/publish-inspora-enrichment.mjs` performs a dry run; `--apply` creates the initial object. Replacements require `--expected-sha256` and use conditional writes, an exact local backup and verified receipts. No account/submission objects are listed or modified. The authenticated feed filters both rows and notes by current public eligibility and fails closed on malformed/oversized/unavailable data. Clients retain their last complete index through failures and expose freshness/error status.
 
 For the local pilot, a maintainer bridge captures only eligible public metadata in a repeatable-read, read-only database transaction every 60 seconds. It serves one validated catalog/enrichment feed on **127.0.0.1 only**, without SQL, paths, credentials or write endpoints. Run from the repository root on the Preview branch, using the existing guarded maintainer environment:
 
@@ -76,7 +86,7 @@ With the bridge and MCP running, a separate worker checks the exact configured f
 
 The worker rejects oversized/malformed/stale/future/out-of-order/conflicting snapshots, retries on the next poll, and atomically publishes complete indexes. Shared-directory writers serialize updates. Failures preserve the last complete index, expose an error and mark the catalog stale after three minutes. Unchanged content preserves continuation cursors; actual content changes invalidate them. `catalog_status.synchronization` reports the last success, failures, worker health and staleness. Stop the bridge when the local session is finished.
 
-The configured feed may alternatively use HTTPS; redirects, credentials and query strings are rejected. Production database credentials belong only in the maintainer bridge, never in team client configuration. Deploying a team/public feed or public MCP requires its own agreed delivery/access setup. External reference uploads remain Phase 2.
+The configured feed may alternatively use HTTPS; redirects, URL credentials and query strings are rejected. Shared authentication uses `INSPORA_CATALOG_TOKEN` or the connection file, never a secret in the URL. A shared catalog feed is not a hosted MCP endpoint: Claude Code and Codex still run the stdio server locally. External reference uploads remain Phase 2.
 
 ## Offline rebuild and verification
 

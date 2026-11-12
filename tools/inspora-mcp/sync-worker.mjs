@@ -6,7 +6,7 @@ const fetcher=globalThis.fetch;
 globalThis.fetch=async()=>{throw Error('Model/runtime network is disabled');};
 const configured=Number(process.env.INSPORA_SYNC_POLL_MS??POLL_MS);
 if(!Number.isInteger(configured)||configured<1000||configured>POLL_MS)throw Error('Invalid synchronization interval');
-const sync=new CatalogSync({url,directory,embed,fetcher,pollMs:configured});
+const sync=new CatalogSync({url,token:process.env.INSPORA_CATALOG_TOKEN,directory,embed,fetcher,pollMs:configured});
 let closing=false,timer;
 async function cycle(){await sync.tick();if(!closing)timer=setTimeout(cycle,configured);}
 async function close(){closing=true;clearTimeout(timer);await sync.pending;await dispose();process.exit(0);}

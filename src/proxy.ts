@@ -10,6 +10,14 @@ const withClerk = clerkMiddleware(
 );
 
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
+  // This dedicated Preview alias serves only the authenticated catalog feed.
+  // Its deployment-protection exception must never open other website routes.
+  if (request.nextUrl.hostname === "inspora-catalog-preview.vercel.app") {
+    if (request.nextUrl.pathname !== "/api/inspora/catalog" || request.method !== "GET" || request.nextUrl.search) {
+      return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+    }
+    return NextResponse.next();
+  }
   if (!isClerkConfigured()) return NextResponse.next();
 
   return withClerk(request, event);
@@ -17,6 +25,7 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
 
 export const config = {
   matcher: [
+    { source: "/:path*", has: [{ type: "host", value: "inspora-catalog-preview.vercel.app" }] },
     // Server Actions post back to the page that opened them. Run Clerk only for
     // those action requests so submission actions work from cacheable public pages.
     {

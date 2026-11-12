@@ -3,7 +3,8 @@ import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';import {StdioS
 import {SearchEngine,searchSchema,detailSchema} from './search.mjs';import {embed,dispose} from './model.mjs';
 import {localPreview} from './preview.mjs';
 import {fork} from 'node:child_process';
-import {STALE_MS,sourceUrl} from './sync.mjs';
+import {STALE_MS} from './sync.mjs';
+import {connection} from './connection.mjs';
 const dir=path.dirname(fileURLToPath(import.meta.url));
 const option=(name,fallback)=>{const at=process.argv.indexOf(name);return at<0?fallback:process.argv[at+1];};
 const variant=option('--variant','enriched'),ranking=option('--ranking','hybrid');
@@ -12,8 +13,9 @@ const dataDir=path.resolve(option('--data',path.join(dir,'data')));
 const indexPath=path.join(dataDir,'index-'+variant+'.json');let mtime=0,engine;
 function refresh(){const stat=fs.statSync(indexPath,{bigint:true}),changed=String(stat.mtimeNs)+':'+stat.size;if(changed!==mtime){const index=JSON.parse(fs.readFileSync(indexPath,'utf8'));if(engine){if(index.snapshotId!==engine.index.snapshotId)engine.replaceIndex(index);else engine.index=index;}else engine=new SearchEngine(index,{embed,ranking});mtime=changed;}}
 refresh();globalThis.fetch=async()=>{throw Error('Network disabled in retrieval server');};
-const syncUrl=variant==='enriched'&&process.env.INSPORA_CATALOG_URL?sourceUrl(process.env.INSPORA_CATALOG_URL):null;
-const syncWorker=syncUrl?fork(path.join(dir,'sync-worker.mjs'),['--data',dataDir],{stdio:['ignore','ignore','inherit','ipc'],env:Object.fromEntries(Object.entries({PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,INSPORA_MODEL_CACHE:process.env.INSPORA_MODEL_CACHE,INSPORA_CATALOG_URL:syncUrl,INSPORA_SYNC_POLL_MS:process.env.INSPORA_SYNC_POLL_MS}).filter(([,value])=>value!==undefined))}):null;
+const syncConnection=variant==='enriched'?connection():null;
+const syncUrl=syncConnection?.url;
+const syncWorker=syncUrl?fork(path.join(dir,'sync-worker.mjs'),['--data',dataDir],{stdio:['ignore','ignore','inherit','ipc'],env:Object.fromEntries(Object.entries({PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,INSPORA_MODEL_CACHE:process.env.INSPORA_MODEL_CACHE,INSPORA_CATALOG_URL:syncUrl,INSPORA_CATALOG_TOKEN:syncConnection.token,INSPORA_SYNC_POLL_MS:process.env.INSPORA_SYNC_POLL_MS}).filter(([,value])=>value!==undefined))}):null;
 let syncWorkerFailed=false;syncWorker?.on('exit',()=>{syncWorkerFailed=true;});
 function syncStatus(){let state={enabled:Boolean(syncUrl)};const file=path.join(dataDir,'sync-status.json');if(syncUrl&&fs.existsSync(file))try{state={...state,...JSON.parse(fs.readFileSync(file,'utf8'))};}catch{}return {...state,workerFailed:syncWorkerFailed,stale:!syncUrl||syncWorkerFailed||!state.lastSuccessAt||Date.now()-Date.parse(state.lastSuccessAt)>STALE_MS||Date.now()-Date.parse(engine.index.capturedAt)>STALE_MS};}
 const annotations={readOnlyHint:true,destructiveHint:false,idempotentHint:false,openWorldHint:false};

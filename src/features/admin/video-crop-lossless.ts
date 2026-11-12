@@ -66,7 +66,8 @@ export function buildLosslessVideoCropArgs(
   const left = edge("left");
   const top = edge("top");
   if (codedWidth - left - edge("right") !== stream.width ||
-    codedHeight - top - edge("bottom") !== stream.height) return null;
+    codedHeight - top - edge("bottom") !== stream.height ||
+    crop.width * crop.height < codedWidth * codedHeight * 0.9) return null;
 
   const filter = `h264_metadata=crop_left=${left + crop.x}:crop_right=${codedWidth - left - crop.x - crop.width}:crop_top=${top + crop.y}:crop_bottom=${codedHeight - top - crop.y - crop.height}`;
   return [

@@ -20,7 +20,7 @@ node tools/inspora-mcp/server.mjs
 
 The server defaults to `enriched`: current public captions/classifications plus separate visually reviewed search notes from `data/enrichment.json`. These notes never override public fields. Typography is selective for overall website/brand/editorial compositions and lettering subjects; isolated controls and motion studies normally receive none. Exact font names are not guessed. A changed source version, caption, classification, credit or media fingerprint omits the old notes while current public metadata remains searchable. `catalog_status` reports current/stale/missing enrichment counts.
 
-Use `--variant original` for the public-only baseline. The legacy `--variant draft` comparison remains available, but historical public-editorial proposals must not be applied over current content. Old timestamp/media mismatches fail that comparison build. Keep reviewed thumbnails separately in `data/preview-manifest.json` and `data/media/`.
+Use `--variant original` for the public-only baseline. The legacy `--variant draft` comparison remains available, but historical public-editorial proposals must not be applied over current content. Old timestamp/media mismatches fail that comparison build. Keep reviewed thumbnails separately in `data/preview-manifest.json` and `data/media/`. New thumbnail manifests use `version: 2` and `mediaFingerprint(row)` from `enrichment.mjs` for `sourceVersion.mediaMetadataSha256`; this ignores JSON key order while rejecting actual media changes. Legacy unversioned/version-1 manifests still use their original hash format.
 
 ## Connect without changing existing client entries
 

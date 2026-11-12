@@ -1,4 +1,4 @@
-import { WEBP_QUALITY } from "./image-optimization";
+import { canvasToWebp } from "./image-optimization";
 
 export type VideoPoster = {
   file: File;
@@ -26,23 +26,6 @@ function waitForVideoFrame(video: HTMLVideoElement, signal?: AbortSignal) {
   });
 }
 
-function canvasToPoster(canvas: HTMLCanvasElement, fileName: string) {
-  return new Promise<File>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) =>
-        blob
-          ? resolve(
-              new File([blob], `${fileName.replace(/\.[^.]+$/, "")}-poster.webp`, {
-                type: "image/webp",
-              }),
-            )
-          : reject(new Error("The video poster could not be generated.")),
-      "image/webp",
-      WEBP_QUALITY,
-    );
-  });
-}
-
 export async function createVideoPoster(file: File, signal?: AbortSignal): Promise<VideoPoster> {
   signal?.throwIfAborted();
   const sourceUrl = URL.createObjectURL(file);
@@ -65,7 +48,7 @@ export async function createVideoPoster(file: File, signal?: AbortSignal): Promi
     context.drawImage(video, 0, 0, width, height);
 
     return {
-      file: await canvasToPoster(canvas, file.name),
+      file: new File([await canvasToWebp(canvas, context)], `${file.name.replace(/\.[^.]+$/, "")}-poster.webp`, { type: "image/webp" }),
       width,
       height,
       videoWidth: video.videoWidth,

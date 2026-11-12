@@ -61,6 +61,25 @@ describe("shared publication file preparation", () => {
     expect(operations.upload).not.toHaveBeenCalled();
   });
 
+  it("keeps website posters at source resolution while preserving the smaller feed dimensions", async () => {
+    const primary = new File(["primary"], "recording.mp4", { type: "video/mp4" });
+    const preview = new File(["preview"], "feed.mp4", { type: "video/mp4" });
+    vi.mocked(createVideoPreview).mockResolvedValue(preview);
+    vi.mocked(readMediaDimensions).mockImplementation(async (file) => file === preview ? { width: 1080, height: 676 } : { width: 1716, height: 1076 });
+    vi.mocked(createVideoPoster).mockImplementation(async (file) => ({
+      file: new File(["poster"], "poster.webp", { type: "image/webp" }),
+      ...(file === primary ? { width: 1716, height: 1076, videoWidth: 1716, videoHeight: 1076 } : { width: 1080, height: 676, videoWidth: 1080, videoHeight: 676 }),
+    }));
+    const operations = { upload: vi.fn(), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };
+    await prepareAndUploadMedia(primary, "website-recording", operations);
+    const bundle = operations.upload.mock.calls[0][0];
+    expect(bundle.derivatives).toEqual([
+      expect.objectContaining({ role: "video-preview", width: 1080, height: 676 }),
+      expect.objectContaining({ role: "poster", width: 1716, height: 1076 }),
+    ]);
+    expect(createVideoPoster).toHaveBeenCalledWith(primary, expect.any(AbortSignal));
+  });
+
   it("uses the lossless cropped recording with small container overhead for primary, preview, poster, and dimensions", async () => {
     const source = new File(["source-video"], "source.mp4", { type: "video/mp4" });
     const cropped = new File(["cropped-recording-with-remux-header"], "source-cropped.mp4", { type: "video/mp4" });
@@ -68,14 +87,17 @@ describe("shared publication file preparation", () => {
     const crop = { x: 40, y: 20, width: 1000, height: 600 };
     vi.mocked(cropVideo).mockResolvedValue(cropped);
     vi.mocked(createVideoPreview).mockResolvedValue(preview);
-    vi.mocked(readMediaDimensions).mockRejectedValue(new Error("Reading media dimensions timed out."));
+    vi.mocked(readMediaDimensions).mockImplementation(async (file) => {
+      if (file === preview) return { width: 1000, height: 600 };
+      throw new Error("Reading media dimensions timed out.");
+    });
     vi.mocked(createVideoPoster).mockResolvedValue({ file: new File(["poster"], "poster.webp", { type: "image/webp" }), width: 1000, height: 600, videoWidth: 1000, videoHeight: 600 });
     const operations = { upload: vi.fn().mockResolvedValue("uploaded"), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };
     await prepareAndUploadMedia(source, "website-recording", operations, undefined, undefined, { crop, sourceDimensions: { width: 1200, height: 800 } });
-    expect(readMediaDimensions).not.toHaveBeenCalled();
+    expect(readMediaDimensions).toHaveBeenCalledExactlyOnceWith(preview, expect.any(AbortSignal));
     expect(cropVideo).toHaveBeenCalledWith(expect.objectContaining({ file: source, crop }));
     expect(createVideoPreview).toHaveBeenCalledWith(expect.objectContaining({ file: cropped }));
-    expect(createVideoPoster).toHaveBeenCalledWith(preview, expect.any(AbortSignal));
+    expect(createVideoPoster).toHaveBeenCalledWith(cropped, expect.any(AbortSignal));
     const bundle = operations.upload.mock.calls[0][0];
     expect(bundle.primary).toMatchObject({ file: cropped, width: 1000, height: 600 });
     expect(bundle.derivatives).toEqual([
@@ -92,17 +114,20 @@ describe("shared publication file preparation", () => {
     expect(operations.upload).not.toHaveBeenCalled();
   });
 
-  it("finishes a crop when a fresh metadata decoder stalls after transcoding", async () => {
+  it("reuses crop dimensions without opening the primary in a second metadata decoder", async () => {
     const source = new File(["source-video"], "source.mp4", { type: "video/mp4" });
     const cropped = new File(["cropped"], "cropped.mp4", { type: "video/mp4" });
     const preview = new File(["preview"], "preview.mp4", { type: "video/mp4" });
-    vi.mocked(readMediaDimensions).mockRejectedValue(new Error("Reading media dimensions timed out."));
+    vi.mocked(readMediaDimensions).mockImplementation(async (file) => {
+      if (file === preview) return { width: 1000, height: 600 };
+      throw new Error("Reading media dimensions timed out.");
+    });
     vi.mocked(cropVideo).mockResolvedValue(cropped);
     vi.mocked(createVideoPreview).mockResolvedValue(preview);
     vi.mocked(createVideoPoster).mockResolvedValue({ file: new File(["poster"], "poster.webp", { type: "image/webp" }), width: 1000, height: 600, videoWidth: 1000, videoHeight: 600 });
     const operations = { upload: vi.fn().mockResolvedValue("uploaded"), converterConfiguration: vi.fn().mockResolvedValue({ coreUrl: "core", wasmUrl: "wasm" }) };
     await expect(prepareAndUploadMedia(source, "website-recording", operations, undefined, undefined, { crop: { x: 40, y: 20, width: 1000, height: 600 }, sourceDimensions: { width: 1200, height: 800 } })).resolves.toBe("uploaded");
-    expect(readMediaDimensions).not.toHaveBeenCalled();
+    expect(readMediaDimensions).toHaveBeenCalledExactlyOnceWith(preview, expect.any(AbortSignal));
     expect(operations.upload.mock.calls[0][0].primary).toMatchObject({ file: cropped, width: 1000, height: 600 });
   });
 

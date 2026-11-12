@@ -16,6 +16,7 @@ import {
 import { createVideoPoster } from "../admin/video-processing";
 import { assertVideoPreviewDimensions } from "../admin/video-preview-validation";
 import { constrainVideoCrop, type VideoCropSelection } from "../admin/video-crop";
+import { VIDEO_CROP_REMUX_OVERHEAD_BYTES } from "../admin/video-crop-lossless";
 import {
   createAdminMediaUploadOperations,
   createPreparedMediaUploadBundle,
@@ -110,7 +111,7 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
       const crop = constrainVideoCrop(videoCrop.crop, originalDimensions);
       primary = await cropVideo({ file, crop, configuration, signal: preparationSignal, onStage: setStatus });
       if (primary.size > getMediaUploadLimit("video/mp4")) throw new Error("The cropped recording exceeds 50 MB. Try a smaller recording.");
-      if (primary.size > file.size) throw new Error("The cropped recording exceeds the original file size. No upload was made.");
+      if (primary.size > file.size + VIDEO_CROP_REMUX_OVERHEAD_BYTES) throw new Error("The cropped recording exceeds the original file size. No upload was made.");
       originalDimensions = { width: crop.width, height: crop.height };
     }
     const preview = await createVideoPreview({

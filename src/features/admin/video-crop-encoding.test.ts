@@ -14,6 +14,9 @@ it.each([false, true])("budgets video, audio (%s), rate buffering and MP4 overhe
   expect(args).not.toContain("-fs");
   expect(args).not.toContain("-t");
   expect(args[args.indexOf("-b:v") + 1]).toBe(String(budget.videoBitrate));
+  expect(args[args.indexOf("-preset") + 1]).toBe("veryfast");
+  expect(args).not.toContain("-maxrate");
+  expect(args).not.toContain("-bufsize");
 });
 
 it("accounts for packet timestamps when a WebM recording omits duration metadata", () => {

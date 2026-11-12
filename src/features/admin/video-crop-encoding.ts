@@ -24,10 +24,8 @@ export function buildVideoCropFfmpegArgs(input: string, output: string, crop: Vi
     "-map", "0:v:0",
     ...(budget.audioBitrate ? ["-map", "0:a:0?", "-c:a", "aac", "-b:a", String(budget.audioBitrate)] : ["-an"]),
     "-vf", `${videoCropFilter(crop)},fps=30,setsar=1`,
-    "-c:v", "libx264", "-preset", "superfast",
+    "-c:v", "libx264", "-preset", "veryfast",
     "-b:v", String(budget.videoBitrate),
-    "-maxrate", String(budget.videoBitrate),
-    "-bufsize", String(Math.ceil(budget.videoBitrate / 2)),
     "-pix_fmt", "yuv420p", "-fpsmax", "30", "-movflags", "+faststart", output,
   ];
 }

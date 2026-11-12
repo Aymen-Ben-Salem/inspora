@@ -55,6 +55,14 @@ describe("lossless H.264 border cropping", () => {
     expect(buildLosslessVideoCropArgs("in", "out", { x: 0, y: 0, width: 800, height: 600 }, stream, headers)).toBeNull();
   });
 
+  it("counts earlier cropping and codec padding in the playback decode budget", () => {
+    const previousHeaders = headers.map(line => line
+      .replace("frame_crop_left_offset 1 = 0", "frame_crop_left_offset 00000101001 = 40")
+      .replace("frame_crop_right_offset 00101 = 4", "frame_crop_right_offset 00000101001 = 40"));
+    expect(buildLosslessVideoCropArgs("in", "out", { x: 0, y: 0, width: 1480, height: 1068 },
+      { ...stream, width: 1568 }, previousHeaders)).toBeNull();
+  });
+
   it("rejects missing, conflicting or interlaced sequence headers", () => {
     expect(buildLosslessVideoCropArgs("in", "out", crop, stream, [])).toBeNull();
     expect(buildLosslessVideoCropArgs("in", "out", crop, stream, [...headers, "72 pic_height_in_map_units_minus1 1 = 66"])).toBeNull();

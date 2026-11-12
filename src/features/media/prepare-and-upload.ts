@@ -120,10 +120,15 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
       signal: controller.signal,
       onStage: setStatus,
     });
-    const poster = await createVideoPoster(preview, preparationSignal);
+    // Website covers also fill the detail view. Preserve the primary's detail
+    // instead of taking another compressed frame from the smaller feed video.
+    const previewDimensions = kind === "website-recording"
+      ? await readMediaDimensions(preview, preparationSignal)
+      : undefined;
+    const poster = await createVideoPoster(kind === "website-recording" ? primary : preview, preparationSignal);
     uploadItems = [
       { file: primary, ...originalDimensions, uploadKind: kind, role: "primary" },
-      { file: preview, width: poster.videoWidth, height: poster.videoHeight, uploadKind: kind, role: "video-preview" },
+      { file: preview, ...(previewDimensions ?? { width: poster.videoWidth, height: poster.videoHeight }), uploadKind: kind, role: "video-preview" },
       {
         file: poster.file,
         width: poster.width,

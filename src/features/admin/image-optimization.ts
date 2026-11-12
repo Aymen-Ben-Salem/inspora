@@ -28,7 +28,7 @@ function outputFileName(fileName: string, width: number) {
   return `${baseName || "image"}-${width}w.webp`;
 }
 
-async function canvasToWebp(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
+export async function canvasToWebp(canvas: HTMLCanvasElement, context: CanvasRenderingContext2D) {
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, "image/webp", WEBP_QUALITY);
   });

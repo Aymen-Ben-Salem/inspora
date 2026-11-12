@@ -4,10 +4,17 @@ import { type RefObject, useEffect, useRef, useSyncExternalStore } from "react";
 
 // Bound still-image storage separately from the much smaller video source cache.
 const MAX_SAVED_FRAMES = 64;
-const MAX_FRAME_EDGE = 384;
-const savedFrames = new Map<HTMLCanvasElement, () => void>();
+const MAX_FRAME_EDGE = 960;
+const MAX_SAVED_PIXELS = 8 * 1024 * 1024;
+const savedFrames = new Map<HTMLCanvasElement, { pixels: number; release: () => void }>();
+let savedPixels = 0;
 const pendingPosters = new Map<HTMLImageElement, string>();
 let posterObserver: IntersectionObserver | undefined;
+
+function forgetSavedFrame(canvas: HTMLCanvasElement) {
+  savedPixels -= savedFrames.get(canvas)?.pixels ?? 0;
+  savedFrames.delete(canvas);
+}
 
 function preparePoster(image: HTMLImageElement, poster: string) {
   if (!("IntersectionObserver" in window)) {
@@ -99,7 +106,7 @@ export function FeedVideoSurface({
       canvas.style.zIndex = coverPausedFrame ? "1" : "auto";
     };
     const releaseSnapshot = () => {
-      savedFrames.delete(canvas);
+      forgetSavedFrame(canvas);
       canvas.width = 0;
       canvas.height = 0;
       hasSnapshot = false;
@@ -154,12 +161,18 @@ export function FeedVideoSurface({
       // An unplayed preview can keep its poster; copying its first frame only
       // adds GPU work while new rows pass through the viewport during scrolling.
       if (hasFrame && video.currentTime > 0 && video.readyState >= 2 && !video.seeking &&
-        video.videoWidth > 0 && video.videoHeight > 0 && snapshotTime !== video.currentTime) {
+        video.videoWidth > 0 && video.videoHeight > 0) {
         try {
-          const scale = Math.min(1, MAX_FRAME_EDGE / video.videoWidth, MAX_FRAME_EDGE / video.videoHeight);
+          const bounds = video.getBoundingClientRect();
+          const displayScale = bounds.width > 0 && bounds.height > 0
+            ? Math.max(bounds.width / video.videoWidth, bounds.height / video.videoHeight) * Math.max(1, window.devicePixelRatio || 1)
+            : 384 / Math.max(video.videoWidth, video.videoHeight);
+          const scale = Math.min(1, displayScale, MAX_FRAME_EDGE / video.videoWidth, MAX_FRAME_EDGE / video.videoHeight);
           const width = Math.max(1, Math.round(video.videoWidth * scale));
           const height = Math.max(1, Math.round(video.videoHeight * scale));
+          if (snapshotTime === video.currentTime && canvas.width === width && canvas.height === height) return;
           if (canvas.width !== width || canvas.height !== height) {
+            forgetSavedFrame(canvas);
             canvas.width = width;
             canvas.height = height;
             hasSnapshot = false;
@@ -170,9 +183,13 @@ export function FeedVideoSurface({
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             hasSnapshot = true;
             snapshotTime = video.currentTime;
-            savedFrames.delete(canvas);
-            savedFrames.set(canvas, releaseSnapshot);
-            if (savedFrames.size > MAX_SAVED_FRAMES) savedFrames.values().next().value?.();
+            forgetSavedFrame(canvas);
+            const pixels = canvas.width * canvas.height;
+            savedFrames.set(canvas, { pixels, release: releaseSnapshot });
+            savedPixels += pixels;
+            while (savedFrames.size > MAX_SAVED_FRAMES || savedPixels > MAX_SAVED_PIXELS) {
+              savedFrames.values().next().value?.release();
+            }
           } else if (!hasSnapshot) releaseSnapshot();
         } catch {
           if (!hasSnapshot) releaseSnapshot();

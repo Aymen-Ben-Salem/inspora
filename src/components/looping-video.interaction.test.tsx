@@ -300,6 +300,7 @@ function presentedFrames(video: HTMLVideoElement) {
   });
   let nextId = 0;
   const callbacks = new Map<number, VideoFrameRequestCallback>();
+  vi.spyOn(video, "getBoundingClientRect").mockReturnValue({ width: 440, height: 248 } as DOMRect);
   video.requestVideoFrameCallback = (callback) => { callbacks.set(++nextId, callback); return nextId; };
   video.cancelVideoFrameCallback = (id) => { callbacks.delete(id); };
   const drawImage = vi.fn();
@@ -361,7 +362,7 @@ it.each(["Safari", "Chromium"])("holds the last %s frame through source eviction
   frames.present();
   await scroll(video, false);
   expect(frames.drawImage).toHaveBeenCalledTimes(browser === "Safari" ? 1 : 0);
-  expect(Math.max(frame.width, frame.height)).toBeLessThanOrEqual(384);
+  if (browser === "Safari") expect(frame.width).toBeGreaterThanOrEqual(440);
   expect(frame.style.visibility).toBe(browser === "Safari" ? "visible" : "hidden");
   if (browser === "Safari") expect(poster.style.visibility).toBe("hidden");
   else expect(poster).toBeNull();
@@ -473,6 +474,7 @@ it("waits for paint in Safari environments without video-frame callbacks", async
 });
 
 it.each(["Safari", "Chromium"])("bounds %s still-frame storage in a long feed and frees it on unmount", async (browser) => {
+  vi.stubGlobal("devicePixelRatio", 3);
   if (browser === "Safari") mockSafari();
   else vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36");
   await act(async () => root.render(<>{Array.from({ length: 70 }, (_, i) => (
@@ -488,10 +490,33 @@ it.each(["Safari", "Chromium"])("bounds %s still-frame storage in a long feed an
   }
   const canvases = [...container.querySelectorAll("canvas")];
   expect(canvases.filter((canvas) => canvas.width > 0).length).toBeLessThanOrEqual(64);
-  expect(canvases.some((canvas) => canvas.width > 0)).toBe(true);
-  expect(canvases.reduce((pixels, canvas) => pixels + canvas.width * canvas.height, 0)).toBeLessThanOrEqual(64 * 384 * 384);
+  expect(canvases.some((canvas) => canvas.width === 960)).toBe(true);
+  expect(canvases[0].width).toBe(0);
+  expect(canvases.reduce((pixels, canvas) => pixels + canvas.width * canvas.height, 0)).toBeLessThanOrEqual(8 * 1024 * 1024);
   await act(async () => root.render(null));
   expect(canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
+});
+
+it("matches paused frame detail to the card's pixel density without exceeding the source or capture cap", async () => {
+  mockSafari();
+  vi.stubGlobal("devicePixelRatio", 2);
+  const video = await mount();
+  const frames = presentedFrames(video);
+  await scroll(video, true);
+  video.currentTime = 4.5;
+  frames.present();
+  await scroll(video, false);
+  const { frame } = safariSurface();
+  expect(frame.width).toBe(881);
+  expect(frame.height).toBe(496);
+  // A resized card must refresh the backing frame even at the same timestamp.
+  await scroll(video, true);
+  frames.present();
+  vi.mocked(video.getBoundingClientRect).mockReturnValue({ width: 800, height: 450 } as DOMRect);
+  await scroll(video, false);
+  expect(frame.width).toBe(960);
+  expect(frame.height).toBe(540);
+  expect(frames.drawImage).toHaveBeenCalledTimes(2);
 });
 
 it("keeps an unadvanced Safari frame visible without copying it", async () => {

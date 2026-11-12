@@ -27,6 +27,7 @@ pnpm-debug.log*
 # local planning and consultation notes
 /docs/
 /.scratch/
+/.taste-skill/
 
 # generated SEO assets
 /public/sitemap.xml

@@ -1,0 +1,221 @@
+[
+  {
+    "id": "W03",
+    "label": "App icons",
+    "prompt": "minimal geometric app icons",
+    "results": [
+      {
+        "title": "Cursor",
+        "creator": "Ben Barry",
+        "url": "/logos?logo=cursor",
+        "image": "/mcp/references/cursor.webp",
+        "alt": "Black geometric Cursor cube symbol on an off-white rounded-square background",
+        "match": "candidate",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/cursor-200.webp"
+      },
+      {
+        "title": "Cosmos",
+        "creator": "Cosmos",
+        "url": "/logos?logo=cosmos",
+        "image": "/mcp/references/cosmos.webp",
+        "alt": "Six black dots arranged in a circle on a white rounded-square background",
+        "match": "candidate",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/cosmos-200.webp"
+      },
+      {
+        "title": "Family",
+        "creator": "Family",
+        "url": "/logos?logo=family",
+        "image": "/mcp/references/family.webp",
+        "alt": "White rounded geometric Family symbol on a teal-blue background",
+        "match": "candidate",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/family-200.webp"
+      },
+      {
+        "title": "Wise",
+        "creator": "Ragged Edge",
+        "url": "/logos?logo=wise",
+        "image": "/mcp/references/wise.webp",
+        "alt": "Dark green Wise symbol on a bright green rounded-square background.",
+        "match": "candidate",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/wise-200.webp"
+      },
+      {
+        "title": "Typeless",
+        "creator": "Typeless",
+        "url": "/logos?logo=typeless",
+        "image": "/mcp/references/typeless.webp",
+        "alt": "Two curved black shapes forming an abstract flowing symbol on a white background with subtle gray shadows.",
+        "match": "candidate",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/typeless-200.webp"
+      },
+      {
+        "title": "Avec",
+        "creator": "Avec",
+        "url": "/logos?logo=avec",
+        "image": "/mcp/references/avec.webp",
+        "alt": "White curved ribbon symbol on a bright blue rounded-square background",
+        "match": "candidate",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/avec-200.webp"
+      }
+    ]
+  },
+  {
+    "id": "W04",
+    "label": "Wordmarks",
+    "prompt": "geometric wordmark logos with custom lettering",
+    "results": [
+      {
+        "title": "Hope",
+        "creator": "Mustapha Elkasimi",
+        "url": "/logos?logo=hope",
+        "image": "/mcp/references/hope.webp",
+        "alt": "Black custom HOPE streetwear wordmark with rounded geometric letters and small registered trademark on a light gray background.",
+        "match": "candidate",
+        "width": 480,
+        "height": 273,
+        "thumbnail": "/mcp/references/hope-200.webp"
+      },
+      {
+        "title": "Iqonic",
+        "creator": "Guilherme Vissotto",
+        "url": "/logos?logo=iqonic",
+        "image": "/mcp/references/iqonic.webp",
+        "alt": "Iqonic logo featuring a custom white geometric wordmark with classical-inspired IQ letterforms and sleek modern typography on a solid black background.",
+        "match": "candidate",
+        "width": 480,
+        "height": 270,
+        "thumbnail": "/mcp/references/iqonic-200.webp"
+      },
+      {
+        "title": "Bolt",
+        "creator": "Koto",
+        "url": "/logos?logo=bolt",
+        "image": "/mcp/references/bolt.webp",
+        "alt": "Bold black Bolt wordmark with a lightning-shaped cutout against a vibrant neon yellow background.",
+        "match": "candidate",
+        "width": 480,
+        "height": 288,
+        "thumbnail": "/mcp/references/bolt-200.webp"
+      },
+      {
+        "title": "Pitaco",
+        "creator": "Ana Luiza Mendes",
+        "url": "/logos?logo=pitaco",
+        "image": "/mcp/references/pitaco.webp",
+        "alt": "Pitaco logo featuring bold, cream-colored uppercase lettering over a close-up photograph of hands holding Mexican tacos.",
+        "match": "candidate",
+        "width": 467,
+        "height": 360,
+        "thumbnail": "/mcp/references/pitaco-200.webp"
+      },
+      {
+        "title": "Timbr",
+        "creator": "Rixel Studio",
+        "url": "/logos?logo=timbr",
+        "image": "/mcp/references/timbr.webp",
+        "alt": "Timbr furniture logo featuring bold white geometric lettering on red business cards, surrounded by cream stationery.",
+        "match": "candidate",
+        "width": 358,
+        "height": 360,
+        "thumbnail": "/mcp/references/timbr-200.webp"
+      },
+      {
+        "title": "Hunt",
+        "creator": "DesignMe",
+        "url": "/logos?logo=hunt",
+        "image": "/mcp/references/hunt.webp",
+        "alt": "designme 4anh6",
+        "match": "candidate",
+        "width": 480,
+        "height": 274,
+        "thumbnail": "/mcp/references/hunt-200.webp"
+      }
+    ]
+  },
+  {
+    "id": "W06",
+    "label": "Monograms",
+    "prompt": "minimal monogram logos with negative space",
+    "results": [
+      {
+        "title": "Post Minimal",
+        "creator": "Anenik Studio",
+        "url": "/logos?logo=post-minimal",
+        "image": "/mcp/references/post-minimal.webp",
+        "alt": "Post minimal",
+        "match": "candidate",
+        "width": 480,
+        "height": 290,
+        "thumbnail": "/mcp/references/post-minimal-200.webp"
+      },
+      {
+        "title": "Eleveight",
+        "creator": "Fabian Albert",
+        "url": "/logos?logo=eleveight",
+        "image": "/mcp/references/eleveight.webp",
+        "alt": "Eleveight Studio logo featuring a white abstract curved monogram inside a square, paired with a bold lowercase wordmark on a dark textured background.",
+        "match": "candidate",
+        "width": 480,
+        "height": 335,
+        "thumbnail": "/mcp/references/eleveight-200.webp"
+      },
+      {
+        "title": "Bolt",
+        "creator": "Koto",
+        "url": "/logos?logo=bolt",
+        "image": "/mcp/references/bolt.webp",
+        "alt": "Bold black Bolt wordmark with a lightning-shaped cutout against a vibrant neon yellow background.",
+        "match": "candidate",
+        "width": 480,
+        "height": 288,
+        "thumbnail": "/mcp/references/bolt-200.webp"
+      },
+      {
+        "title": "Blackbound",
+        "creator": "Rams ®",
+        "url": "/logos?logo=blackbound",
+        "image": "/mcp/references/blackbound.webp",
+        "alt": "Blackbound logo featuring a white geometric double-B monogram with angular negative space, paired with a clean sans-serif wordmark on a black background.",
+        "match": "alternative",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/blackbound-200.webp"
+      },
+      {
+        "title": "38",
+        "creator": "Guilherme Vissotto",
+        "url": "/logos?logo=38",
+        "image": "/mcp/references/38.webp",
+        "alt": "38 logo featuring a geometric numeral symbol constructed from stacked beige rectangular blocks with pixel-like spacing and negative space against a black background.",
+        "match": "alternative",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/38-200.webp"
+      },
+      {
+        "title": "Mi",
+        "creator": "Sipou Quillium",
+        "url": "/logos?logo=mi",
+        "image": "/mcp/references/mi.webp",
+        "alt": "mi",
+        "match": "alternative",
+        "width": 360,
+        "height": 360,
+        "thumbnail": "/mcp/references/mi-200.webp"
+      }
+    ]
+  }
+]

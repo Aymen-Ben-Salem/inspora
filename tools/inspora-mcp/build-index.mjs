@@ -1,10 +1,14 @@
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
-import {normalizeRows,sha} from './catalog.mjs';import {MODEL,embed,dispose} from './model.mjs';
+import {buildIndex,writeAtomic} from './index-builder.mjs';import {MODEL,embed,dispose} from './model.mjs';
 const dir=path.join(path.dirname(fileURLToPath(import.meta.url)),'data'),read=f=>JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));
-const snapshot=read('catalog.json'),manifest=fs.existsSync(path.join(dir,'draft-manifest.json'))?read('draft-manifest.json'):{drafts:[]},started=performance.now();
+const snapshot=read('catalog.json'),manifest=fs.existsSync(path.join(dir,'draft-manifest.json'))?read('draft-manifest.json'):{drafts:[]},enrichment=fs.existsSync(path.join(dir,'enrichment.json'))?read('enrichment.json'):{version:1,entries:[]},started=performance.now();
 // Network is forbidden for the entire indexing process, including model loading.
 let forbidden=0;globalThis.fetch=async()=>{forbidden++;throw Error('Network disabled in index build');};
-const cache=new Map();for(const variant of ['original','draft']){const f=path.join(dir,'index-'+variant+'.json');if(fs.existsSync(f)){const old=read('index-'+variant+'.json');if(JSON.stringify(old.model)===JSON.stringify(MODEL))for(const r of old.rows)cache.set(r.textHash,r.vector);}}
-for(const variant of ['original','draft']){const rows=normalizeRows(snapshot,manifest,variant);const missing=rows.filter(r=>!cache.has(r.textHash));for(let i=0;i<missing.length;i+=32){const batch=missing.slice(i,i+32),vectors=await embed(batch.map(r=>r.text));batch.forEach((r,j)=>cache.set(r.textHash,vectors[j]));console.error(variant+' '+Math.min(i+32,missing.length)+'/'+missing.length);}for(const r of rows)r.vector=cache.get(r.textHash);
-const index={version:1,variant,capturedAt:snapshot.capturedAt,builtAt:new Date().toISOString(),snapshotId:sha({capturedAt:snapshot.capturedAt,variant,rows}),model:MODEL,rows};const target=path.join(dir,'index-'+variant+'.json');fs.writeFileSync(target+'.tmp',JSON.stringify(index));fs.renameSync(target+'.tmp',target);console.error(variant+': '+rows.length+' eligible works');}
-await dispose();fs.writeFileSync(path.join(dir,'build-metrics.json'),JSON.stringify({at:new Date().toISOString(),node:process.version,model:MODEL,elapsedMs:performance.now()-started,networkAttempts:forbidden},null,2));
+const previous=['original','draft','enriched'].flatMap(variant=>fs.existsSync(path.join(dir,'index-'+variant+'.json'))?[read('index-'+variant+'.json')]:[]);
+try {
+  for(const variant of ['original','draft','enriched']){
+    const index=await buildIndex(snapshot,{manifest,enrichment,variant,previous,embed,onProgress:(done,total)=>console.error(variant+' '+done+'/'+total)});
+    writeAtomic(path.join(dir,'index-'+variant+'.json'),index);previous.push(index);console.error(variant+': '+index.rows.length+' eligible works');
+  }
+}finally{await dispose();}
+writeAtomic(path.join(dir,'build-metrics.json'),{at:new Date().toISOString(),node:process.version,model:MODEL,elapsedMs:performance.now()-started,networkAttempts:forbidden});

@@ -9,9 +9,9 @@ import {eligible} from '../catalog.mjs';
 import {localPreview} from '../preview.mjs';
 const dir=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 test('real stdio MCP discovers retrieval tools, searches, continues and fetches a bounded preview',async()=>{
- const index=JSON.parse(fs.readFileSync(path.join(dir,'data/index-original.json'),'utf8'));
+ const index=JSON.parse(fs.readFileSync(path.join(dir,'data/index-enriched.json'),'utf8'));
  const rows=index.rows.filter(r=>eligible(r));
- const manifestFile=path.join(dir,'data/draft-manifest.json');
+ const manifestFile=path.join(dir,'data/preview-manifest.json');
  const manifest=fs.existsSync(manifestFile)?JSON.parse(fs.readFileSync(manifestFile,'utf8')):{drafts:[]};
  const imageRow=rows.find(r=>localPreview(r,manifest,path.join(dir,'data/media')).bytes);
  const client=new Client({name:'inspora-focused-test',version:'1.0'});
@@ -23,6 +23,8 @@ test('real stdio MCP discovers retrieval tools, searches, continues and fetches 
   assert.ok(tools.every(t=>t.annotations.readOnlyHint&&!t.annotations.destructiveHint));
   const status=JSON.parse((await client.callTool({name:'catalog_status',arguments:{}})).content[0].text);
   assert.equal(status.live,false);
+  assert.equal(status.variant,'enriched');
+  assert.deepEqual(status.enrichment,index.enrichment);
   assert.equal(Object.values(status.counts).reduce((s,v)=>s+v,0),rows.length);
   const call=await client.callTool({name:'search_inspiration',arguments:{query:'minimal geometric app icons',count:6}});
   assert.ok(!call.isError,JSON.stringify(call));assert.ok(JSON.stringify(call).length<15000);

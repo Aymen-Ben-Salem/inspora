@@ -2,9 +2,11 @@
 
 ## Current work boundary
 
-Work on `preview/archive-updates` by default. Keep new features, including the Inspora MCP and its page, on Preview for user/team review. Preserve existing local changes and environment files when preparing work.
+Work on `preview/archive-updates` by default, except for the explicitly authorized MCP backend production work below. Keep the MCP page and its navigation entry on Preview for user/team review. Preserve existing local changes and environment files when preparing work.
 
 Merge or push to `main`, deploy/promote to production, or change live data/configuration only when the user explicitly authorizes that scope. The normal release gate is the user saying the migration is ready. Preview publishing is separate from production approval. Honor authorization already given in the current task without asking again.
+
+On November 13, 2026, the user authorized MCP backend work on `main`, the live site and its database, including the source access, search-only data and service configuration needed for automatic catalog delivery. Prepare backend-only releases from current main; preserve unrelated Preview work. The MCP page, its navigation entry and launch promotion remain Preview-only until separately approved. This authorization does not release unrelated Preview features or authorize unrelated account/payment changes. Authenticate MCP/catalog access independently of page visibility, use a dedicated read-only public-catalog source connection, and keep database credentials server-side. A local MCP client may consume a production catalog feed; this does not by itself establish a remotely hosted MCP endpoint.
 
 The November 11, 2026 exception authorizes description and classification corrections across all live works that need them, following the approved fifteen-example editorial approach. The user explicitly clarified that classification includes the main category plus Industry, Style and Color. Use the existing taxonomy and visible/source evidence; leave uncertain labels unset. This exception does not authorize publishing the MCP, its page, search-only prose, technologies, or unrelated fields to production. Keep exact before/after records and reject stale content updates. Refresh Preview from current live public content when requested, while preserving Preview-only work, environment configuration and unrelated account/payment data. MCP source may be pushed to the public repository's Preview branch; the user clarified that local/Preview development does not require private source hosting.
 

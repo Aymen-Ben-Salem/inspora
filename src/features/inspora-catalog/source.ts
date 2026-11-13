@@ -3,18 +3,15 @@ import "server-only";
 import { neon } from "@neondatabase/serverless";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { createR2Client } from "@/storage/r2-client";
-import {
-  APPROVED_ENVIRONMENT_FINGERPRINTS,
-  assertEnvironmentFingerprint,
-  runtimeDataEnvironmentFromValues,
-} from "../../../scripts/lib/environment-fingerprint";
+import { assertProductionMediaEnvironment } from "../../../scripts/lib/production-environment";
 import { ENRICHMENT_KEY } from "../../../tools/inspora-mcp/hosted-feed.mjs";
 
 export function assertCatalogSourceEnvironment(values: Record<string, string | undefined>) {
-  if (values.VERCEL_ENV !== "preview" || values.VERCEL_GIT_COMMIT_REF !== "preview/archive-updates") {
-    throw new Error("Catalog delivery is restricted to the approved Preview branch.");
+  if (values.VERCEL_ENV !== "production" || values.VERCEL_GIT_COMMIT_REF !== "main") {
+    throw new Error("Catalog delivery requires the production main deployment.");
   }
-  assertEnvironmentFingerprint(runtimeDataEnvironmentFromValues(values), APPROVED_ENVIRONMENT_FINGERPRINTS.preview);
+  assertProductionMediaEnvironment({ dataEnvironment: values.DATA_ENVIRONMENT ?? "", databaseUrl: values.DATABASE_URL ?? "", databaseUrlUnpooled: values.DATABASE_URL_UNPOOLED ?? values.DATABASE_URL ?? "", r2AccountId: values.R2_ACCOUNT_ID ?? "", r2AccessKeyId: values.R2_ACCESS_KEY_ID ?? "", r2SecretAccessKey: values.R2_SECRET_ACCESS_KEY ?? "", r2BucketName: values.R2_BUCKET_NAME ?? "", r2PublicBaseUrl: values.R2_PUBLIC_BASE_URL ?? "" });
+  if (values.R2_SUBMISSIONS_BUCKET_NAME !== "inspora-submissions-production") throw new Error("Catalog requires production private storage.");
   const url = new URL(values.INSPORA_CATALOG_SOURCE_DATABASE_URL ?? "");
   if (!["postgres:", "postgresql:"].includes(url.protocol) ||
       decodeURIComponent(url.username) !== "inspora_catalog_reader" ||
@@ -24,7 +21,7 @@ export function assertCatalogSourceEnvironment(values: Record<string, string | u
 
 export async function capturePublicCatalog() {
   assertCatalogSourceEnvironment(process.env);
-  // A separate server-only source connection. Never replace the app's Preview DATABASE_URL.
+  // A separate view-only source connection, independent of the application's login.
   const sql = neon(process.env.INSPORA_CATALOG_SOURCE_DATABASE_URL!, { fetchOptions: { signal: AbortSignal.timeout(10000) } });
   const [stamp, rows] = await sql.transaction([
     sql`SELECT now() AS captured_at, current_user AS catalog_role, current_setting('transaction_read_only') AS read_only,

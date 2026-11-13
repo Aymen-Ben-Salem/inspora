@@ -3,7 +3,7 @@ import {feedSchema} from './feed-schema.mjs';
 import {eligible} from './catalog.mjs';
 import {parseEnrichment} from './enrichment.mjs';
 
-export const CATALOG_HOST='inspora-catalog-preview.vercel.app';
+export const CATALOG_HOST='www.inspora.design';
 export const CATALOG_PATH='/api/inspora/catalog';
 export const ENRICHMENT_KEY='mcp/phase1/enrichment-v1.json';
 const headers={'Content-Type':'application/json','Cache-Control':'private, no-store, max-age=0','X-Robots-Tag':'noindex, nofollow, noarchive'};

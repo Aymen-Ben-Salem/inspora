@@ -2,7 +2,7 @@
 export const EDITORIAL_PREVIEW_CAP_MICROS = 5_000_000;
 export const EDITORIAL_PRODUCTION_CAP_MICROS = 65_000_000;
 export const EDITORIAL_RESERVATION_MICROS = 1_000_000;
-export const EDITORIAL_PREVIOUS_TEST_MICROS = 558_686;
+export const EDITORIAL_PREVIOUS_TEST_MICROS = 571_836;
 export const EDITORIAL_TEST_LIMIT_MICROS = 2_000_000;
 
 export function editorialCost(usage: { input_tokens: number; output_tokens: number }) {

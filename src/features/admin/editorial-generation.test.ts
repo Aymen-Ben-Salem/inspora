@@ -53,6 +53,7 @@ describe("editorial generation contract", () => {
     const request = editorialRequest(input);
     expect(request.model).toBe("gpt-6.1-sol");
     expect(request.reasoning).toEqual({ effort: "medium" });
+    expect(request.service_tier).toBe("default");
     expect(request.store).toBe(false);
     expect(request.max_output_tokens).toBe(2500);
     expect(request.text.format.strict).toBe(true);

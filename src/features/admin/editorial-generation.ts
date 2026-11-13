@@ -79,6 +79,7 @@ export function editorialRequest(input: EditorialGenerationInput, model: string 
   return {
     model,
     reasoning: { effort: EDITORIAL_REASONING_EFFORT },
+    service_tier: "default",
     store: false,
     instructions: editorialInstructions,
     max_output_tokens: 2500,

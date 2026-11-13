@@ -47,7 +47,12 @@ export async function prepareEditorialEvidence(snapshot: EditorialSnapshot) {
       } finally { video.pause(); video.removeAttribute("src"); video.load(); }
     } else {
       const image = new Image(); image.crossOrigin = "anonymous";
-      const loaded = eventOnce(image, "load"); image.src = item.url; await loaded;
+      // Use the existing allowlisted image optimizer: same-origin canvas access
+      // also works for live public images viewed from Preview. Its cached resize
+      // avoids downloading a large original just to prepare a 1024px sample.
+      const loaded = eventOnce(image, "load");
+      image.src = `/_next/image?url=${encodeURIComponent(item.url)}&w=1080&q=75`;
+      await loaded;
       images.push({ dataUrl: sample(image, image.naturalWidth, image.naturalHeight), frameSeconds: null });
     }
   }

@@ -6,6 +6,9 @@
 .admin-upload-flow :is(button, summary, a, label:has(> input[type="file"])) { min-height: 44px; }
 .admin-upload-flow button { border-radius: 6px; }
 .admin-upload-flow .upload-media-preview :is(img, video) { object-fit: contain; transform: none; }
+.admin-upload-flow :is([class~="text-[#777]"], [class~="text-[#888]"], [class~="text-[#767676]"]) { color: #60605b; }
+.admin-upload-flow :is(p[class~="text-[#666]"], p[class~="text-[#62625d]"]) { color: #51514c; }
+.admin-upload-flow .text-xs { font-size: 13px; }
 .admin-upload-flow :is(button, a):active { translate: 0 1px; }
 .admin-upload-flow input[type="checkbox"], .admin-upload-flow input[type="radio"] { accent-color: #262626; }
 .admin-upload-flow .upload-classifications { border: 0; border-top: 1px solid #e5e5df; border-radius: 0; padding: 24px 0 0; }

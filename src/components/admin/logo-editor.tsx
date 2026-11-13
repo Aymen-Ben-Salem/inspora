@@ -11,6 +11,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { LOGO_KINDS, type LogoKind } from "@/domain/logo";
+import { EditorialAssistant } from "./editorial-assistant";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -37,6 +38,7 @@ function blankMedia(): MediaDraft {
 
 export function LogoEditor({
   action,
+  editorialEnabled = false,
   creators,
   logo,
   lockExistingCreators = false,
@@ -51,6 +53,7 @@ export function LogoEditor({
     state: AdminActionState,
     formData: FormData,
   ) => Promise<AdminActionState>;
+  editorialEnabled?: boolean;
   creators: AdminCreatorAttribution[];
   logo?: AdminLogoRecord;
   lockExistingCreators?: boolean;
@@ -116,6 +119,7 @@ export function LogoEditor({
     >
       <input type="hidden" name="media" value={JSON.stringify(media)} />
       <div className="grid gap-6">
+        {editorialEnabled && <EditorialAssistant kind={kind} />}
         {state.status === "error" ? (
           <p
             role="alert"

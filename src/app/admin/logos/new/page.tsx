@@ -12,6 +12,7 @@ export default async function NewLogoPage() {
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New logo</h1>
       </div>
       <LogoEditor
+        editorialEnabled={process.env.EDITORIAL_GENERATION_ENABLED === "true"}
         action={createLogoAction}
         creators={creators}
         lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}

@@ -12,6 +12,7 @@ import {
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { CategoryPicker } from "./category-picker";
+import { EditorialAssistant } from "./editorial-assistant";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -45,6 +46,7 @@ function blankMedia(): MediaDraft {
 
 export function PostEditor({
   action,
+  editorialEnabled = false,
   creators,
   categories,
   post,
@@ -57,6 +59,7 @@ export function PostEditor({
   onEditCreator,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
+  editorialEnabled?: boolean;
   creators: AdminCreatorAttribution[];
   categories: string[];
   post?: AdminPostRecord;
@@ -69,6 +72,7 @@ export function PostEditor({
   onEditCreator?: () => void;
 }) {
   const [state, formAction, isPending] = useActionState(action, initialAdminActionState);
+  const [editorialCategory, setEditorialCategory] = useState(post?.category ?? "Branding");
   const [media, setMedia] = useState<MediaDraft[]>(
     post?.media.length ? post.media : [blankMedia()],
   );
@@ -115,6 +119,7 @@ export function PostEditor({
     <form ref={preserveFormDraft} action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <input type="hidden" name="media" value={JSON.stringify(media)} />
       <div className="grid gap-6">
+        {editorialEnabled && <EditorialAssistant kind={"design"} onCategory={setEditorialCategory} />}
         {state.status === "error" ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {state.message}
@@ -149,7 +154,7 @@ export function PostEditor({
                 defaultValue={post?.slug}
               />
             </label>
-            <CategoryPicker categories={categories} initialCategory={post?.category} />
+            <CategoryPicker categories={categories} value={editorialCategory} onChange={setEditorialCategory} />
             <label className={`${labelClass} sm:col-span-2`}>
               Description
               <textarea

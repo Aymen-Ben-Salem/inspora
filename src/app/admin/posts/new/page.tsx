@@ -13,6 +13,7 @@ export default async function NewPostPage() {
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New post</h1>
       </div>
       <PostEditor
+        editorialEnabled={process.env.EDITORIAL_GENERATION_ENABLED === "true"}
         action={createPostAction}
         creators={creators}
         categories={categories}

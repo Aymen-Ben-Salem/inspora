@@ -1,5 +1,6 @@
 "use server";
 
+import { EditorialReviewError } from "./editorial-review";
 import type { Route } from "next";
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
@@ -65,6 +66,7 @@ function uniqueViolation(error: unknown) {
 }
 
 function postErrorState(error: unknown): AdminActionState {
+  if (error instanceof EditorialReviewError) return { status: "error", message: error.message };
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
@@ -102,6 +104,7 @@ function revalidatePostPaths(slug: string, previousSlug?: string) {
 }
 
 function logoErrorState(error: unknown): AdminActionState {
+  if (error instanceof EditorialReviewError) return { status: "error", message: error.message };
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
@@ -131,6 +134,7 @@ function revalidateLogoPaths() {
 }
 
 function websiteErrorState(error: unknown): AdminActionState {
+  if (error instanceof EditorialReviewError) return { status: "error", message: error.message };
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
@@ -404,7 +408,8 @@ export async function saveSponsorAction(
     const input = parseAdminSponsorForm(formData);
     saved = await saveAdminSponsor(input, userId);
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    if (error instanceof EditorialReviewError) return { status: "error", message: error.message };
+  if (error instanceof z.ZodError) {
       return { status: "error", message: formatValidationError(error) };
     }
     console.error("Admin sponsor save failed", error);

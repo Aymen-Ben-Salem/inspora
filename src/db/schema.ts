@@ -26,6 +26,40 @@ const timestamps = {
     .notNull(),
 };
 
+// Editorial generation is on-demand and independent of public work queries.
+export const editorialBudgets = pgTable("editorial_budgets", {
+  period: text("period").primaryKey(),
+  spentMicros: integer("spent_micros").notNull().default(0),
+  reservedMicros: integer("reserved_micros").notNull().default(0),
+});
+
+export const editorialGenerations = pgTable("editorial_generations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cacheKey: text("cache_key").notNull().unique(),
+  actorId: text("actor_id").notNull(),
+  environment: text("environment").notNull(),
+  period: text("period").notNull(),
+  state: text("state").notNull(),
+  snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+  proposal: jsonb("proposal").$type<Record<string, unknown>>(),
+  evidence: jsonb("evidence").$type<string[]>().notNull(),
+  usage: jsonb("usage").$type<{ input_tokens: number; output_tokens: number }>(),
+  costMicros: integer("cost_micros"),
+  decision: jsonb("decision").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("editorial_generations_period_state").on(t.period, t.state)]);
+
+export const workEditorialNotes = pgTable("work_editorial_notes", {
+  workId: uuid("work_id").primaryKey(),
+  kind: text("kind").notNull(),
+  contentHash: text("content_hash").notNull(),
+  notes: jsonb("notes").$type<Record<string, unknown>>().notNull(),
+  evidence: jsonb("evidence").$type<string[]>().notNull(),
+  generationId: uuid("generation_id").notNull(),
+  reviewedBy: text("reviewed_by").notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const creators = pgTable(
   "creators",
   {

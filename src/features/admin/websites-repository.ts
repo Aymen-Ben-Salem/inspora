@@ -1,4 +1,5 @@
 import "server-only";
+import { prepareEditorialReview, saveEditorialReview } from "./editorial-review";
 import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
@@ -207,6 +208,7 @@ export async function createAdminWebsite(
   input: AdminWebsiteInput,
   adminPrincipal: AdminPrincipal,
 ) {
+  const editorial = await prepareEditorialReview("website", input, adminPrincipal.userId);
   return withWriteTransaction(async (tx) => {
     const creator = await saveAdminCreatorForAttribution(
       tx,
@@ -226,6 +228,7 @@ export async function createAdminWebsite(
     });
     await protectPublicationMedia(tx, input.media);
     await tx.insert(websiteMedia).values(mediaValues(id, input));
+    await saveEditorialReview(tx, id, "website", input, adminPrincipal.userId, editorial);
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "website.created",

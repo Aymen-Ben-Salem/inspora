@@ -11,6 +11,7 @@ export default async function NewWebsitePage() {
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New website</h1>
       </div>
       <WebsiteEditor
+        editorialEnabled={process.env.EDITORIAL_GENERATION_ENABLED === "true"}
         action={createWebsiteAction}
         creators={creators}
         lockExistingCreators={process.env.DATA_ENVIRONMENT === "preview"}

@@ -10,8 +10,10 @@ export default async function NewLogoPage() {
       <div>
         <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Logos</p>
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New logo</h1>
+        <p className="mt-2 text-sm leading-relaxed text-[#666]">Add the work, review its details, and credit the creator.</p>
       </div>
       <LogoEditor
+        guidedUpload
         editorialEnabled={process.env.EDITORIAL_GENERATION_ENABLED === "true"}
         action={createLogoAction}
         creators={creators}

@@ -1,6 +1,7 @@
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {feedSchema} from './feed-schema.mjs';
 import {eligible} from './catalog.mjs';
+import {reviewedEditorialEntries} from './editorial-notes.mjs';
 import {parseEnrichment} from './enrichment.mjs';
 
 export const CATALOG_HOST='www.inspora.design';
@@ -25,7 +26,8 @@ export function createHostedFeed({capture,readEnrichment,token,now=()=>Date.now(
       const rows=catalog.rows.filter(row=>eligible(row,at)),ids=new Set(rows.map(row=>row.id));
       if(ids.size!==rows.length)throw Error('Duplicate work IDs');
       // Exclude removed/unpublished works even from the raw notes manifest.
-      const enrichment={version:1,entries:parseEnrichment(rawNotes).entries.filter(entry=>ids.has(entry.id))};
+      const reviewed=reviewedEditorialEntries(rows,catalog.editorialNotes),overrides=new Set(reviewed.map(entry=>entry.id));
+      const enrichment={version:1,entries:[...parseEnrichment(rawNotes).entries.filter(entry=>ids.has(entry.id)&&!overrides.has(entry.id)),...reviewed]};
       const body=JSON.stringify(feedSchema.parse({version:1,catalog:{capturedAt:catalog.capturedAt,rows},enrichment}));
       if(Buffer.byteLength(body)>4*1024*1024)throw Error('Catalog exceeds hosted response budget');
       return new Response(body,{headers});

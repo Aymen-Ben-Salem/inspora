@@ -23,7 +23,7 @@ export async function capturePublicCatalog() {
   assertCatalogSourceEnvironment(process.env);
   // A separate view-only source connection, independent of the application's login.
   const sql = neon(process.env.INSPORA_CATALOG_SOURCE_DATABASE_URL!, { fetchOptions: { signal: AbortSignal.timeout(10000) } });
-  const [stamp, rows] = await sql.transaction([
+  const [stamp, rows, editorialNotes] = await sql.transaction([
     sql`SELECT now() AS captured_at, current_user AS catalog_role, current_setting('transaction_read_only') AS read_only,
       EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f') AND
@@ -31,6 +31,7 @@ export async function capturePublicCatalog() {
          has_any_column_privilege(current_user,c.oid,'INSERT,UPDATE'))) AS can_write_public,
       has_schema_privilege(current_user,'public','CREATE') AS can_create_public`,
     sql`SELECT * FROM public.inspora_mcp_public_catalog ORDER BY kind,id`,
+    sql`SELECT * FROM public.inspora_mcp_reviewed_notes`,
   ], { isolationLevel: "RepeatableRead", readOnly: true });
   if (stamp[0]?.read_only !== "on" || stamp[0]?.catalog_role !== "inspora_catalog_reader" ||
       stamp[0]?.can_write_public !== false || stamp[0]?.can_create_public !== false) {
@@ -39,7 +40,7 @@ export async function capturePublicCatalog() {
   // Match the JSON wire representation before schema/fingerprint validation.
   // Neon returns published_at as Date; updated_at::text retains source precision.
   const publicRows = JSON.parse(JSON.stringify(rows)) as Record<string, unknown>[];
-  return { capturedAt: new Date(stamp[0].captured_at).toISOString(), rows: publicRows };
+  return { capturedAt: new Date(stamp[0].captured_at).toISOString(), rows: publicRows, editorialNotes: JSON.parse(JSON.stringify(editorialNotes)) };
 }
 
 export async function readCatalogEnrichment() {

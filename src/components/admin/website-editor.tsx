@@ -12,6 +12,7 @@ import {
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { WebsiteVideoCrop } from "@/components/admin/website-video-crop";
 import { WebsiteFaviconCrop } from "@/components/admin/website-favicon-crop";
+import { EditorialAssistant } from "./editorial-assistant";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -51,6 +52,7 @@ function mediaFor(
 
 export function WebsiteEditor({
   action,
+  editorialEnabled = false,
   creators,
   website,
   lockExistingCreators = false,
@@ -61,6 +63,7 @@ export function WebsiteEditor({
   onEditCreator,
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
+  editorialEnabled?: boolean;
   creators: AdminCreatorAttribution[];
   website?: AdminWebsiteRecord;
   lockExistingCreators?: boolean;
@@ -134,6 +137,7 @@ export function WebsiteEditor({
       <input type="hidden" name="media" value={JSON.stringify(media)} />
 
       <div className="grid gap-6">
+        {editorialEnabled && <EditorialAssistant kind={"website"} />}
         {state.status === "error" ? (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
         ) : null}

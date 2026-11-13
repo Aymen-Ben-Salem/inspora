@@ -5,13 +5,17 @@ import { createCategoryAction } from "@/features/admin/category-actions";
 
 const inputClass = "focus-ring h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm";
 
-export function CategoryPicker({ categories, initialCategory = "Branding" }: {
+export function CategoryPicker({ categories, initialCategory = "Branding", value, onChange }: {
   categories: string[];
   initialCategory?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   const id = useId();
   const [added, setAdded] = useState<string[]>([]);
-  const [selected, setSelected] = useState(initialCategory);
+  const [localSelected, setLocalSelected] = useState(initialCategory);
+  const selected = value ?? localSelected;
+  function setSelected(next: string) { setLocalSelected(next); onChange?.(next); }
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");

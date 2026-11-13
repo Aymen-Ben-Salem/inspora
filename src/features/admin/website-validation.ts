@@ -109,7 +109,8 @@ function commaSeparated(value: FormDataEntryValue | null) {
 
 const websiteSchema = z
   .object({
-    slug: z.string().trim().min(1).max(120).regex(
+    editorialReview: z.string().max(2000).optional(),
+  slug: z.string().trim().min(1).max(120).regex(
       /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
       "Use lowercase letters, numbers, and hyphens.",
     ),
@@ -189,6 +190,7 @@ export function parseAdminWebsiteForm(formData: FormData): AdminWebsiteInput {
   } catch {}
 
   return websiteSchema.parse({
+    editorialReview: String(formData.get("editorialReview") ?? "") || undefined,
     slug: formData.get("slug"),
     title: formData.get("title"),
     tagline: formData.get("tagline"),

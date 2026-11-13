@@ -18,10 +18,10 @@ describe("shared catalog source", () => {
     vi.stubEnv("VERCEL_ENV", values.VERCEL_ENV);vi.stubEnv("VERCEL_GIT_COMMIT_REF", values.VERCEL_GIT_COMMIT_REF);vi.stubEnv("INSPORA_CATALOG_SOURCE_DATABASE_URL", values.INSPORA_CATALOG_SOURCE_DATABASE_URL);vi.stubEnv("R2_SUBMISSIONS_BUCKET_NAME", values.R2_SUBMISSIONS_BUCKET_NAME);
     try {
       const permission = { captured_at: "2026-11-12T12:00:00Z", read_only: "on", catalog_role: "inspora_catalog_reader", can_write_public: false, can_create_public: false };
-      transaction.mockResolvedValue([[permission], []]);
+      transaction.mockResolvedValue([[permission], [], []]);
       expect((await capturePublicCatalog()).rows).toEqual([]);
       expect(transaction).toHaveBeenLastCalledWith(expect.any(Array), { isolationLevel: "RepeatableRead", readOnly: true });
-      transaction.mockResolvedValue([[permission], [{ published_at: new Date("2026-11-01T12:00:00Z"), updated_at: "2026-11-12 12:00:00.123456+00" }]]);
+      transaction.mockResolvedValue([[permission], [{ published_at: new Date("2026-11-01T12:00:00Z"), updated_at: "2026-11-12 12:00:00.123456+00" }], []]);
       expect((await capturePublicCatalog()).rows).toEqual([{ published_at: "2026-11-01T12:00:00.000Z", updated_at: "2026-11-12 12:00:00.123456+00" }]);
       transaction.mockResolvedValue([[{ ...permission, read_only: "off" }], []]);
       await expect(capturePublicCatalog()).rejects.toThrow("read-only");

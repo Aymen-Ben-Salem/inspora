@@ -46,6 +46,7 @@ export type AdminMediaInput = {
 };
 
 export type AdminPostInput = {
+  editorialReview?: string;
   slug: string;
   title: string;
   creator: AdminCreatorInput;
@@ -84,6 +85,7 @@ export type AdminLogoMediaInput = {
 };
 
 export type AdminLogoInput = {
+  editorialReview?: string;
   slug: string;
   title: string;
   kind: LogoKind;
@@ -126,6 +128,7 @@ export type AdminWebsiteMediaInput = {
 };
 
 export type AdminWebsiteInput = {
+  editorialReview?: string;
   slug: string;
   title: string;
   tagline: string;

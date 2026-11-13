@@ -82,6 +82,7 @@ function commaSeparated(value: FormDataEntryValue | null) {
 }
 
 const logoSchema = z.object({
+  editorialReview: z.string().max(2000).optional(),
   slug: z
     .string()
     .trim()
@@ -114,6 +115,7 @@ export function parseAdminLogoForm(formData: FormData): AdminLogoInput {
   }
 
   return logoSchema.parse({
+    editorialReview: String(formData.get("editorialReview") ?? "") || undefined,
     slug: formData.get("slug"),
     title: formData.get("title"),
     kind: formData.get("kind"),

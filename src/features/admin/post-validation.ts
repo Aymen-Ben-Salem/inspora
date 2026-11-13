@@ -112,6 +112,7 @@ function commaSeparated(value: FormDataEntryValue | null) {
 }
 
 const postSchema = z.object({
+  editorialReview: z.string().max(2000).optional(),
   slug: z
     .string()
     .trim()
@@ -141,6 +142,7 @@ export function parseAdminPostForm(formData: FormData): AdminPostInput {
   }
 
   return postSchema.parse({
+    editorialReview: String(formData.get("editorialReview") ?? "") || undefined,
     slug: formData.get("slug"),
     title: formData.get("title"),
     creator: {

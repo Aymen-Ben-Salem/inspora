@@ -53,6 +53,7 @@ export const config = {
     "/sponsor/campaigns/:path*",
     "/api/admin/sponsorship/:path*",
     "/api/admin/media",
+    "/api/admin/editorial",
     "/api/sponsorship/:path*",
     "/api/analytics/:path*",
     "/api/account/capabilities",

@@ -11,8 +11,10 @@ export default async function NewPostPage() {
       <div>
         <p className="text-xs uppercase tracking-[0.16em] text-[#777]">Posts</p>
         <h1 className="mt-1 text-4xl font-medium tracking-[-0.05em]">New post</h1>
+        <p className="mt-2 text-sm leading-relaxed text-[#666]">Add the work, review its details, and credit the creator.</p>
       </div>
       <PostEditor
+        guidedUpload
         editorialEnabled={process.env.EDITORIAL_GENERATION_ENABLED === "true"}
         action={createPostAction}
         creators={creators}

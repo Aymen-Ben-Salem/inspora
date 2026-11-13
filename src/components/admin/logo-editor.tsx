@@ -12,6 +12,7 @@ import {
 } from "@/components/admin/admin-creator-editor";
 import { LOGO_KINDS, type LogoKind } from "@/domain/logo";
 import { EditorialAssistant } from "./editorial-assistant";
+import { UploadGuide, UploadSectionTitle, FileDetails } from "./upload-flow";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -39,6 +40,7 @@ function blankMedia(): MediaDraft {
 export function LogoEditor({
   action,
   editorialEnabled = false,
+  guidedUpload = false,
   creators,
   logo,
   lockExistingCreators = false,
@@ -54,6 +56,7 @@ export function LogoEditor({
     formData: FormData,
   ) => Promise<AdminActionState>;
   editorialEnabled?: boolean;
+  guidedUpload?: boolean;
   creators: AdminCreatorAttribution[];
   logo?: AdminLogoRecord;
   lockExistingCreators?: boolean;
@@ -111,15 +114,113 @@ export function LogoEditor({
     });
   }
 
+  const mediaSection = (
+        <section id={guidedUpload ? "upload-media" : undefined} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+          {guidedUpload ? <UploadSectionTitle step="01" title="Add your logo">Upload an image. Transparent backgrounds are supported.</UploadSectionTitle> : (<div>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
+              Asset
+            </p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
+              Logo image
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed text-[#777]">
+              Static AVIF, JPEG, PNG, or WebP only. Transparent backgrounds are
+              supported.
+            </p>
+          </div>)}
+          <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-[#f7f7f4] lg:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.4fr)]">
+            <div className="flex min-h-64 items-center justify-center bg-[#ececea] p-8">
+              {media.url ? (
+                // Admins can preview a newly entered origin before Next image config changes.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={media.url}
+                  alt={media.alt || "Logo preview"}
+                  className="max-h-72 max-w-full object-contain"
+                />
+              ) : (
+                <p className="text-sm text-[#777]">
+                  Upload or enter a URL to preview.
+                </p>
+              )}
+            </div>
+            <div className="grid gap-4 p-5">
+              {media.url === submittedMediaHref ? (
+                <p className="text-sm text-[#666]">Submitted file attached. It will be prepared automatically when you accept and publish.</p>
+              ) : null}
+              <MediaUploadButton
+                kind="logo-media"
+                label="Upload logo"
+                onUploaded={applyUploadedLogo}
+              />
+              <label className={labelClass}>
+                Image URL
+                <input
+                  className={inputClass}
+                  type="text"
+                  required
+                  value={media.url}
+                  onChange={(event) => updateMedia("url", event.target.value)}
+                />
+              </label>
+              <label className={labelClass}>
+                Alternative text
+                <input
+                  className={inputClass}
+                  required
+                  maxLength={500}
+                  value={media.alt}
+                  onChange={(event) => updateMedia("alt", event.target.value)}
+                />
+              </label>
+              <FileDetails enabled={guidedUpload}>
+                <label className={labelClass}>
+                  Width
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={1}
+                    max={12000}
+                    required
+                    value={media.url === submittedMediaHref ? "" : media.width}
+                    disabled={media.url === submittedMediaHref}
+                    placeholder="Automatic"
+                    onChange={(event) =>
+                      updateMedia("width", event.target.value)
+                    }
+                  />
+                </label>
+                <label className={labelClass}>
+                  Height
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={1}
+                    max={12000}
+                    required
+                    value={media.url === submittedMediaHref ? "" : media.height}
+                    disabled={media.url === submittedMediaHref}
+                    placeholder="Automatic"
+                    onChange={(event) =>
+                      updateMedia("height", event.target.value)
+                    }
+                  />
+                </label>
+              </FileDetails>
+            </div>
+          </div>
+        </section>
+  );
+
   return (
     <form
       ref={preserveFormDraft}
       action={formAction}
-      className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]"
+      className={guidedUpload ? "admin-upload-flow grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]" : "grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]"}
     >
       <input type="hidden" name="media" value={JSON.stringify(media)} />
+      {guidedUpload && <UploadGuide />}
       <div className="grid gap-6">
-        {editorialEnabled && <EditorialAssistant kind={kind} />}
         {state.status === "error" ? (
           <p
             role="alert"
@@ -136,15 +237,17 @@ export function LogoEditor({
           </p>
         ) : null}
 
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-          <div>
+        {guidedUpload && mediaSection}
+
+        <section id={guidedUpload ? "upload-details" : undefined} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+          {guidedUpload ? <UploadSectionTitle step="02" title="Describe the work">Add a title and source, then use AI or write the details yourself.</UploadSectionTitle> : (<div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
               Content
             </p>
             <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
               Logo details
             </h2>
-          </div>
+          </div>)}
           <div className="grid gap-5 sm:grid-cols-2">
             <label className={`${labelClass} sm:col-span-2`}>
               Title
@@ -157,7 +260,7 @@ export function LogoEditor({
               />
             </label>
             <label className={labelClass}>
-              Slug
+              {guidedUpload ? "URL name" : "Slug"}
               <input
                 className={inputClass}
                 name="slug"
@@ -183,6 +286,18 @@ export function LogoEditor({
                 ))}
               </select>
             </label>
+            <label className={`${labelClass} sm:col-span-2`}>
+              Original source URL{kind === "icon" ? " (optional)" : ""}
+              <input
+                className={inputClass}
+                name="sourceUrl"
+                type="url"
+                required={kind !== "icon"}
+                placeholder="https://"
+                defaultValue={logo?.sourceUrl}
+              />
+            </label>
+            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant key={kind} kind={kind} hasMedia={!!media.url} /></div>}
             <label className={`${labelClass} sm:col-span-2`}>
               Description
               <textarea
@@ -235,21 +350,13 @@ export function LogoEditor({
                 defaultValue={logo?.styles.join(", ")}
               />
             </label>
-            <label className={`${labelClass} sm:col-span-2`}>
-              Original source URL{kind === "icon" ? " (optional)" : ""}
-              <input
-                className={inputClass}
-                name="sourceUrl"
-                type="url"
-                required={kind !== "icon"}
-                placeholder="https://"
-                defaultValue={logo?.sourceUrl}
-              />
-            </label>
+
           </div>
         </section>
 
+        <div id={guidedUpload ? "upload-creator" : undefined}>
         <AdminCreatorEditor
+          uploadStep={guidedUpload ? "03" : undefined}
           creator={creator}
           creators={creators}
           onChange={setCreator}
@@ -258,102 +365,9 @@ export function LogoEditor({
           showCreatorPicker={!fixedCreator}
           onEdit={onEditCreator}
         />
+        </div>
 
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
-              Asset
-            </p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
-              Logo image
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-[#777]">
-              Static AVIF, JPEG, PNG, or WebP only. Transparent backgrounds are
-              supported.
-            </p>
-          </div>
-          <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-[#f7f7f4] lg:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.4fr)]">
-            <div className="flex min-h-64 items-center justify-center bg-[#ececea] p-8">
-              {media.url ? (
-                // Admins can preview a newly entered origin before Next image config changes.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={media.url}
-                  alt={media.alt || "Logo preview"}
-                  className="max-h-72 max-w-full object-contain"
-                />
-              ) : (
-                <p className="text-sm text-[#777]">
-                  Upload or enter a URL to preview.
-                </p>
-              )}
-            </div>
-            <div className="grid gap-4 p-5">
-              {media.url === submittedMediaHref ? (
-                <p className="text-sm text-[#666]">Submitted file attached. It will be prepared automatically when you accept and publish.</p>
-              ) : null}
-              <MediaUploadButton
-                kind="logo-media"
-                label="Upload logo"
-                onUploaded={applyUploadedLogo}
-              />
-              <label className={labelClass}>
-                Image URL
-                <input
-                  className={inputClass}
-                  type="text"
-                  required
-                  value={media.url}
-                  onChange={(event) => updateMedia("url", event.target.value)}
-                />
-              </label>
-              <label className={labelClass}>
-                Alternative text
-                <input
-                  className={inputClass}
-                  required
-                  maxLength={500}
-                  value={media.alt}
-                  onChange={(event) => updateMedia("alt", event.target.value)}
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className={labelClass}>
-                  Width
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min={1}
-                    max={12000}
-                    required
-                    value={media.url === submittedMediaHref ? "" : media.width}
-                    disabled={media.url === submittedMediaHref}
-                    placeholder="Automatic"
-                    onChange={(event) =>
-                      updateMedia("width", event.target.value)
-                    }
-                  />
-                </label>
-                <label className={labelClass}>
-                  Height
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min={1}
-                    max={12000}
-                    required
-                    value={media.url === submittedMediaHref ? "" : media.height}
-                    disabled={media.url === submittedMediaHref}
-                    placeholder="Automatic"
-                    onChange={(event) =>
-                      updateMedia("height", event.target.value)
-                    }
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        </section>
+        {!guidedUpload && mediaSection}
       </div>
 
       <aside className="grid content-start gap-5 xl:sticky xl:top-24 xl:self-start">
@@ -363,7 +377,7 @@ export function LogoEditor({
               Publishing
             </p>
             <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
-              Status
+              {guidedUpload ? "Publish" : "Status"}
             </h2>
           </div>
           {publicationOnly ? (
@@ -384,6 +398,7 @@ export function LogoEditor({
               </label>
             ))}
           </div>}
+          {guidedUpload && <p className="text-sm leading-relaxed text-[#666]">Check the details and creator credit before publishing. A draft lets you finish later.</p>}
           <button
             type="submit"
             disabled={isPending}

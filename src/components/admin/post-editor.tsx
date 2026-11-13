@@ -13,6 +13,7 @@ import {
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { CategoryPicker } from "./category-picker";
 import { EditorialAssistant } from "./editorial-assistant";
+import { UploadGuide, UploadSectionTitle, FileDetails } from "./upload-flow";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -47,6 +48,7 @@ function blankMedia(): MediaDraft {
 export function PostEditor({
   action,
   editorialEnabled = false,
+  guidedUpload = false,
   creators,
   categories,
   post,
@@ -60,6 +62,7 @@ export function PostEditor({
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   editorialEnabled?: boolean;
+  guidedUpload?: boolean;
   creators: AdminCreatorAttribution[];
   categories: string[];
   post?: AdminPostRecord;
@@ -115,81 +118,36 @@ export function PostEditor({
     );
   }
 
-  return (
-    <form ref={preserveFormDraft} action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <input type="hidden" name="media" value={JSON.stringify(media)} />
-      <div className="grid gap-6">
-        {editorialEnabled && <EditorialAssistant kind={"design"} onCategory={setEditorialCategory} />}
-        {state.status === "error" ? (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {state.message}
-          </p>
-        ) : null}
-
-        {post?.status === "archived" ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            This post is archived. Saving it as a draft or publishing it will restore it.
-          </p>
-        ) : null}
-
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+  const classifications = (
+        <section className={`grid gap-5 rounded-2xl border border-black/10 bg-white p-5 ${guidedUpload ? "upload-classifications" : ""}`}>
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Content</p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Post details</h2>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Classification</p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Appearance & industry</h2>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <label className={`${labelClass} sm:col-span-2`}>
-              Title
-              <input className={inputClass} name="title" required maxLength={200} defaultValue={post?.title} />
-            </label>
-            <label className={labelClass}>
-              Slug
-              <input
-                className={inputClass}
-                name="slug"
-                required
-                maxLength={120}
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                placeholder="project-name"
-                defaultValue={post?.slug}
-              />
-            </label>
-            <CategoryPicker categories={categories} value={editorialCategory} onChange={setEditorialCategory} />
-            <label className={`${labelClass} sm:col-span-2`}>
-              Description
-              <textarea
-                className="focus-ring min-h-32 w-full resize-y rounded-xl border border-black/10 bg-white p-3 text-sm outline-none transition-colors focus:border-black/30"
-                name="description"
-                required
-                maxLength={4000}
-                defaultValue={post?.description}
-              />
-            </label>
-            <label className={`${labelClass} sm:col-span-2`}>
-              Original project URL
-              <input className={inputClass} name="sourceUrl" type="url" required defaultValue={post?.sourceUrl} />
-            </label>
-          </div>
+          <label className={labelClass}>
+            Industries
+            <input className={inputClass} name="industries" placeholder="Design, Culture" defaultValue={post?.industries.join(", ")} />
+          </label>
+          <label className={labelClass}>
+            Colors
+            <input className={inputClass} name="colors" placeholder="Black, Cyan" defaultValue={post?.colors.join(", ")} />
+          </label>
+          <label className={labelClass}>
+            Styles
+            <input className={inputClass} name="styles" placeholder="Bold, Editorial" defaultValue={post?.styles.join(", ")} />
+          </label>
         </section>
+  );
 
-        <AdminCreatorEditor
-          creator={creator}
-          creators={creators}
-          onChange={setCreator}
-          lockExistingCreators={lockExistingCreators}
-          readOnly={Boolean(fixedCreator)}
-          showCreatorPicker={!fixedCreator}
-          onEdit={onEditCreator}
-        />
-
-        <section className="grid gap-6 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+  const mediaSection = (
+        <section id={guidedUpload ? "upload-media" : undefined} className="grid gap-6 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
           <div className="flex items-end justify-between gap-4">
-            <div>
+            {guidedUpload ? <UploadSectionTitle step="01" title="Add your media">The first image or video is the cover.</UploadSectionTitle> : (<div>
               <h2 className="text-xl font-medium tracking-[-0.03em]">Media gallery</h2>
               <p className="mt-1 text-sm leading-relaxed text-[#777]">
                 The first item becomes the cover shown in the archive.
               </p>
-            </div>
+            </div>)}
             <button
               type="button"
               onClick={() => setMedia((current) => [...current, blankMedia()])}
@@ -215,7 +173,7 @@ export function PostEditor({
                       : undefined
                   }
                   controls={item.type === "video"}
-                  className="aspect-[4/3] min-h-56 lg:aspect-auto lg:h-full"
+                  className={`aspect-[4/3] min-h-56 lg:aspect-auto lg:h-full ${guidedUpload ? "upload-media-preview" : ""}`}
                 />
                 <div className="grid gap-4 p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -297,7 +255,7 @@ export function PostEditor({
                         onChange={(event) => updateMedia(index, "alt", event.target.value)}
                       />
                     </label>
-                    <label className={labelClass}>
+                    <FileDetails enabled={guidedUpload}>                    <label className={labelClass}>
                       Width
                       <input
                         className={inputClass}
@@ -322,17 +280,96 @@ export function PostEditor({
                     placeholder="Automatic"
                         onChange={(event) => updateMedia(index, "height", event.target.value)}
                       />
-                    </label>
+                    </label></FileDetails>
                   </div>
                 </div>
               </article>
             ))}
           </div>
         </section>
+  );
+
+  return (
+    <form ref={preserveFormDraft} action={formAction} className={guidedUpload ? "admin-upload-flow grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]" : "grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]"}>
+      <input type="hidden" name="media" value={JSON.stringify(media)} />
+      {guidedUpload && <UploadGuide />}
+      <div className="grid gap-6">
+        {state.status === "error" ? (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {state.message}
+          </p>
+        ) : null}
+
+        {post?.status === "archived" ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            This post is archived. Saving it as a draft or publishing it will restore it.
+          </p>
+        ) : null}
+
+        {guidedUpload && mediaSection}
+
+        <section id={guidedUpload ? "upload-details" : undefined} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+          {guidedUpload ? <UploadSectionTitle step="02" title="Describe the work">Add a title and source, then use AI or write the details yourself.</UploadSectionTitle> : (<div>
+            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Content</p>
+            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Post details</h2>
+          </div>)}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className={`${labelClass} sm:col-span-2`}>
+              Title
+              <input className={inputClass} name="title" required maxLength={200} defaultValue={post?.title} />
+            </label>
+            <label className={labelClass}>
+              {guidedUpload ? "URL name" : "Slug"}
+              <input
+                className={inputClass}
+                name="slug"
+                required
+                maxLength={120}
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                placeholder="project-name"
+                defaultValue={post?.slug}
+              />
+            </label>
+
+            <label className={`${labelClass} sm:col-span-2`}>
+              Original project URL
+              <input className={inputClass} name="sourceUrl" type="url" required defaultValue={post?.sourceUrl} />
+            </label>
+            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant kind="design" hasMedia={media.some(item => !!item.url)} onCategory={setEditorialCategory} /></div>}
+            <label className={`${labelClass} sm:col-span-2`}>
+              Description
+              <textarea
+                className="focus-ring min-h-32 w-full resize-y rounded-xl border border-black/10 bg-white p-3 text-sm outline-none transition-colors focus:border-black/30"
+                name="description"
+                required
+                maxLength={4000}
+                defaultValue={post?.description}
+              />
+            </label>
+
+            <CategoryPicker categories={categories} value={editorialCategory} onChange={setEditorialCategory} />
+          </div>
+          {guidedUpload && classifications}
+        </section>
+
+        <div id={guidedUpload ? "upload-creator" : undefined}>
+        <AdminCreatorEditor
+          uploadStep={guidedUpload ? "03" : undefined}
+          creator={creator}
+          creators={creators}
+          onChange={setCreator}
+          lockExistingCreators={lockExistingCreators}
+          readOnly={Boolean(fixedCreator)}
+          showCreatorPicker={!fixedCreator}
+          onEdit={onEditCreator}
+        />
+        </div>
+
+        {!guidedUpload && mediaSection}
       </div>
 
       <aside className="grid content-start gap-5 xl:sticky xl:top-24 xl:self-start">
-        <section className="grid gap-4 rounded-2xl border border-black/10 bg-white p-5">
+        {!guidedUpload && (<section className="grid gap-4 rounded-2xl border border-black/10 bg-white p-5">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Curation</p>
             <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Placement</h2>
@@ -351,28 +388,26 @@ export function PostEditor({
               </span>
             </span>
           </label>
-        </section>
+        </section>)}
 
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5">
-          <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Classification</p>
-            <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Tags</h2>
-          </div>
-          <label className={labelClass}>
-            Industries
-            <input className={inputClass} name="industries" placeholder="Design, Culture" defaultValue={post?.industries.join(", ")} />
-          </label>
-          <label className={labelClass}>
-            Colors
-            <input className={inputClass} name="colors" placeholder="Black, Cyan" defaultValue={post?.colors.join(", ")} />
-          </label>
-          <label className={labelClass}>
-            Styles
-            <input className={inputClass} name="styles" placeholder="Bold, Editorial" defaultValue={post?.styles.join(", ")} />
-          </label>
-        </section>
+        {!guidedUpload && classifications}
 
         <section className="grid gap-3 rounded-2xl border border-black/10 bg-white p-5">
+          {guidedUpload && <><h2 className="text-lg font-medium">Publish</h2><label className="flex cursor-pointer items-start gap-3 rounded-xl bg-[#f4f4f1] p-4">
+            <input
+              type="checkbox"
+              name="isFeatured"
+              defaultChecked={post?.isFeatured}
+              className="mt-0.5 size-4 accent-black"
+            />
+            <span className="grid gap-1">
+              <span className="text-sm font-medium text-[#333]">Featured</span>
+              <span className="text-xs leading-5 text-[#777]">
+                Show this post in the Featured view once it is published.
+              </span>
+            </span>
+          </label></>}
+          {guidedUpload && <p className="text-sm leading-relaxed text-[#666]">Check the details and creator credit before publishing. A draft lets you finish later.</p>}
           <button
             type="submit"
             name="status"

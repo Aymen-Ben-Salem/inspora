@@ -60,15 +60,15 @@ const editors: Array<{
 }> = [
   {
     name: "design", fields: { ...commonFields, industries: "Culture, Design", colors: "Black, Cyan", styles: "Bold, Editorial" },
-    render: (action, mode) => <PostEditor action={action} creators={[]} categories={["Branding", "Web"]} post={mode === "create" ? undefined : post} publicationOnly={mode === "review"} />,
+    render: (action, mode) => <PostEditor guidedUpload={mode === "create"} action={action} creators={[]} categories={["Branding", "Web"]} post={mode === "create" ? undefined : post} publicationOnly={mode === "review"} />,
   },
   {
     name: "logo", fields: { ...commonFields, industry: "SaaS", shape: "Combination mark", colors: "Black, White", styles: "Minimal" },
-    render: (action, mode) => <LogoEditor action={action} creators={[]} logo={mode === "create" ? undefined : logo} publicationOnly={mode === "review"} />,
+    render: (action, mode) => <LogoEditor guidedUpload={mode === "create"} action={action} creators={[]} logo={mode === "create" ? undefined : logo} publicationOnly={mode === "review"} />,
   },
   {
     name: "website", fields: { ...commonFields, tagline: "Keep this tagline", categories: "SaaS, Portfolio", themes: "Light, Editorial", colors: "White, Blue", technologies: "React, Next.js" },
-    render: (action, mode) => <WebsiteEditor action={action} creators={[]} website={mode === "create" ? undefined : website} publicationOnly={mode === "review"} />,
+    render: (action, mode) => <WebsiteEditor guidedUpload={mode === "create"} action={action} creators={[]} website={mode === "create" ? undefined : website} publicationOnly={mode === "review"} />,
   },
 ];
 
@@ -106,7 +106,7 @@ it("keeps recording and favicon controls without section fields", async () => {
   const root = createRoot(container);
   const action = vi.fn<SaveAction>().mockResolvedValue({ status: "idle" });
   try {
-    await act(async () => root.render(<WebsiteEditor action={action} creators={[]} website={{
+    await act(async () => root.render(<WebsiteEditor guidedUpload action={action} creators={[]} website={{
       ...website,
       media: [...website.media, { role: "recording", url: "/original.mp4", posterUrl: "/poster.webp", width: 1200, height: 800, alt: "Recording" }],
     }} />));
@@ -243,7 +243,7 @@ it("submits a pasted Dribbble logo through the real parser and retains it after 
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(async () => root.render(<LogoEditor action={action} creators={[]} logo={{ ...logo, creator: { ...creator, id: "00000000-0000-4000-8000-000000000010" } }} />));
+    await act(async () => root.render(<LogoEditor guidedUpload action={action} creators={[]} logo={{ ...logo, creator: { ...creator, id: "00000000-0000-4000-8000-000000000010" } }} />));
     const form = container.querySelector("form")!;
     const imageUrl = Array.from(form.querySelectorAll("label"))
       .find((label) => label.textContent === "Image URL")!.querySelector("input")!;

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { CreatorPicker } from "./creator-picker";
+import { FileDetails, UploadSectionTitle } from "./upload-flow";
 
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
@@ -59,6 +60,7 @@ export function AdminCreatorEditor({
   showCreatorPicker = true,
   readOnly = false,
   onEdit,
+  uploadStep,
 }: {
   creator: AdminCreatorInput;
   creators: AdminCreatorAttribution[];
@@ -67,6 +69,7 @@ export function AdminCreatorEditor({
   showCreatorPicker?: boolean;
   readOnly?: boolean;
   onEdit?: () => void;
+  uploadStep?: string;
 }) {
   const isExistingLocked =
     lockExistingCreators &&
@@ -128,14 +131,14 @@ export function AdminCreatorEditor({
 
       <section className="grid min-w-0 gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          {uploadStep ? <UploadSectionTitle step={uploadStep} title="Credit the creator">Choose an existing creator or add their profile.</UploadSectionTitle> : <div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#888]">
               Attribution
             </p>
             <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">
               Creator profile
             </h2>
-          </div>
+          </div>}
           <div className="grid justify-items-start gap-3 sm:justify-items-end">
             <p className="max-w-sm text-xs leading-relaxed text-[#777] sm:text-right">
               {readOnly
@@ -192,17 +195,7 @@ export function AdminCreatorEditor({
                 onChange={(event) => updateCreator("name", event.target.value)}
               />
             </label>
-            <label className={labelClass}>
-              Legacy handle
-              <input
-                className={inputClass}
-                name="creatorHandle"
-                placeholder="@studio"
-                readOnly={isReadOnly}
-                value={creator.legacyHandle ?? ""}
-                onChange={(event) => updateCreator("legacyHandle", event.target.value)}
-              />
-            </label>
+
             <label className={labelClass}>
               Profile username
               <input
@@ -215,17 +208,7 @@ export function AdminCreatorEditor({
                 onChange={(event) => updateCreator("username", event.target.value)}
               />
             </label>
-            <label className={`${labelClass} sm:col-span-2`}>
-              Website
-              <input
-                className={inputClass}
-                name="creatorUrl"
-                type="url"
-                readOnly={isReadOnly}
-                value={creator.url ?? ""}
-                onChange={(event) => updateCreator("url", event.target.value)}
-              />
-            </label>
+
             <label className={`${labelClass} sm:col-span-2`}>
               X profile URL
               <input
@@ -243,6 +226,29 @@ export function AdminCreatorEditor({
                 This link belongs to a verified X identity. To change it, the creator must update their connected X account.
               </p>
             ) : null}
+            <FileDetails enabled={!!uploadStep} title="Profile links and image settings">
+            <label className={labelClass}>
+              Legacy handle
+              <input
+                className={inputClass}
+                name="creatorHandle"
+                placeholder="@studio"
+                readOnly={isReadOnly}
+                value={creator.legacyHandle ?? ""}
+                onChange={(event) => updateCreator("legacyHandle", event.target.value)}
+              />
+            </label>
+            <label className={`${labelClass} sm:col-span-2`}>
+              Website
+              <input
+                className={inputClass}
+                name="creatorUrl"
+                type="url"
+                readOnly={isReadOnly}
+                value={creator.url ?? ""}
+                onChange={(event) => updateCreator("url", event.target.value)}
+              />
+            </label>
             <label className={`${labelClass} sm:col-span-2`}>
               Avatar URL or local path
               <input
@@ -255,6 +261,7 @@ export function AdminCreatorEditor({
                 onChange={(event) => updateCreator("avatarUrl", event.target.value)}
               />
             </label>
+            </FileDetails>
             {isExistingLocked && !readOnly ? (
               <p className="text-xs leading-relaxed text-[#777] sm:col-span-2">
                 Choose &quot;Create a new creator&quot; to enter a different profile or upload a new avatar.

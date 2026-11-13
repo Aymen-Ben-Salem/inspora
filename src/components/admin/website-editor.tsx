@@ -13,6 +13,7 @@ import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { WebsiteVideoCrop } from "@/components/admin/website-video-crop";
 import { WebsiteFaviconCrop } from "@/components/admin/website-favicon-crop";
 import { EditorialAssistant } from "./editorial-assistant";
+import { UploadGuide, UploadSectionTitle, FileDetails } from "./upload-flow";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
 import {
@@ -53,6 +54,7 @@ function mediaFor(
 export function WebsiteEditor({
   action,
   editorialEnabled = false,
+  guidedUpload = false,
   creators,
   website,
   lockExistingCreators = false,
@@ -64,6 +66,7 @@ export function WebsiteEditor({
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   editorialEnabled?: boolean;
+  guidedUpload?: boolean;
   creators: AdminCreatorAttribution[];
   website?: AdminWebsiteRecord;
   lockExistingCreators?: boolean;
@@ -132,50 +135,13 @@ export function WebsiteEditor({
     else setFavicon(next);
   }
 
-  return (
-    <form ref={preserveFormDraft} action={formAction} className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <input type="hidden" name="media" value={JSON.stringify(media)} />
-
-      <div className="grid gap-6">
-        {editorialEnabled && <EditorialAssistant kind={"website"} />}
-        {state.status === "error" ? (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
-        ) : null}
-        {website?.status === "archived" ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">This website is archived. Saving it will restore it.</p>
-        ) : null}
-
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-          <div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Content</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Website details</h2></div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <label className={`${labelClass} sm:col-span-2`}>Title<input className={inputClass} name="title" required maxLength={200} defaultValue={website?.title} /></label>
-            <label className={labelClass}>Slug<input className={inputClass} name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="paper-website" defaultValue={website?.slug} /></label>
-            <label className={labelClass}>Short feed description<input className={inputClass} name="tagline" required maxLength={300} defaultValue={website?.tagline} /></label>
-            <label className={`${labelClass} sm:col-span-2`}>Full description<textarea className="focus-ring min-h-32 w-full resize-y rounded-xl border border-black/10 bg-white px-3 py-3 text-sm leading-relaxed outline-none focus:border-black/30" name="description" required maxLength={4000} defaultValue={website?.description} /></label>
-            <label className={labelClass}>Categories<input className={inputClass} name="categories" required placeholder="SaaS, Portfolio" defaultValue={website?.categories.join(", ")} /></label>
-            <label className={labelClass}>Themes<input className={inputClass} name="themes" required placeholder="Light, Editorial" defaultValue={website?.themes.join(", ")} /></label>
-            <label className={labelClass}>Colours<input className={inputClass} name="colors" required placeholder="White, Blue" defaultValue={website?.colors.join(", ")} /></label>
-            <label className={labelClass}>Technologies<input className={inputClass} name="technologies" placeholder="React, Next.js" defaultValue={website?.technologies.join(", ")} /></label>
-            <label className={labelClass}>Live website URL<input className={inputClass} name="sourceUrl" type="url" required placeholder="https://" defaultValue={website?.sourceUrl} /></label>
-          </div>
-        </section>
-
-        <AdminCreatorEditor
-          creator={creator}
-          creators={creators}
-          onChange={setCreator}
-          lockExistingCreators={lockExistingCreators}
-          readOnly={Boolean(fixedCreator)}
-          showCreatorPicker={!fixedCreator}
-          onEdit={onEditCreator}
-        />
-
-        <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
-          <div>
+  const mediaSection = (
+        <section id={guidedUpload ? "upload-media" : undefined} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+          {guidedUpload ? <UploadSectionTitle step="01" title="Add your recording">Add the website recording and favicon. The cover is prepared for you.</UploadSectionTitle> : (<div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#888]">Assets</p>
             <h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Recording and favicon</h2>
             <p className="mt-1 text-sm leading-relaxed text-[#777]">Upload the full MP4 or WebM recording. A silent feed preview and WebP poster are generated automatically.</p>
-          </div>
+          </div>)}
           {([
             ["recording", recording, "Website recording"],
             ["favicon", favicon, "Website favicon"],
@@ -199,21 +165,71 @@ export function WebsiteEditor({
                 {role === "favicon" && item.url ? <WebsiteFaviconCrop key={item.url} url={item.url} onBusyChange={setIsCroppingFavicon} onUploaded={(uploaded) => applyUpload("favicon", { ...uploaded, alt: favicon.alt || uploaded.alt })} /> : null}
                 <label className={labelClass}>{role === "recording" ? "Original video URL" : "Image URL"}<input className={inputClass} required value={item.url} onChange={(event) => updateMedia(role, "url", event.target.value)} /></label>
                 <label className={labelClass}>Alternative text<input className={inputClass} required maxLength={500} value={item.alt} onChange={(event) => updateMedia(role, "alt", event.target.value)} /></label>
-                <div className="grid grid-cols-2 gap-3">
+                <FileDetails enabled={guidedUpload}>
                   <label className={labelClass}>Width<input className={inputClass} type="number" min={1} max={12000} required value={item.width} onChange={(event) => updateMedia(role, "width", event.target.value)} /></label>
                   <label className={labelClass}>Height<input className={inputClass} type="number" min={1} max={12000} required value={item.height} onChange={(event) => updateMedia(role, "height", event.target.value)} /></label>
-                </div>
+                </FileDetails>
               </div>
             </div>
           ))}
         </section>
+  );
+
+  return (
+    <form ref={preserveFormDraft} action={formAction} className={guidedUpload ? "admin-upload-flow grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]" : "grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]"}>
+      <input type="hidden" name="media" value={JSON.stringify(media)} />
+      {guidedUpload && <UploadGuide />}
+
+      <div className="grid gap-6">
+        {state.status === "error" ? (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
+        ) : null}
+        {website?.status === "archived" ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">This website is archived. Saving it will restore it.</p>
+        ) : null}
+
+        {guidedUpload && mediaSection}
+
+        <section id={guidedUpload ? "upload-details" : undefined} className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5 sm:p-6">
+          {guidedUpload ? <UploadSectionTitle step="02" title="Describe the work">Add a title and source, then use AI or write the details yourself.</UploadSectionTitle> : (<div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Content</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Website details</h2></div>)}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className={`${labelClass} sm:col-span-2`}>Title<input className={inputClass} name="title" required maxLength={200} defaultValue={website?.title} /></label>
+            <label className={labelClass}>{guidedUpload ? "URL name" : "Slug"}<input className={inputClass} name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="paper-website" defaultValue={website?.slug} /></label>
+
+            <label className={labelClass}>Live website URL<input className={inputClass} name="sourceUrl" type="url" required placeholder="https://" defaultValue={website?.sourceUrl} /></label>
+            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant kind="website" hasMedia={!!recording.url} /></div>}
+            <label className={labelClass}>Short feed description<input className={inputClass} name="tagline" required maxLength={300} defaultValue={website?.tagline} /></label>
+            <label className={`${labelClass} sm:col-span-2`}>Full description<textarea className="focus-ring min-h-32 w-full resize-y rounded-xl border border-black/10 bg-white px-3 py-3 text-sm leading-relaxed outline-none focus:border-black/30" name="description" required maxLength={4000} defaultValue={website?.description} /></label>
+            <label className={labelClass}>Categories<input className={inputClass} name="categories" required placeholder="SaaS, Portfolio" defaultValue={website?.categories.join(", ")} /></label>
+            <label className={labelClass}>Themes<input className={inputClass} name="themes" required placeholder="Light, Editorial" defaultValue={website?.themes.join(", ")} /></label>
+            <label className={labelClass}>Colours<input className={inputClass} name="colors" required placeholder="White, Blue" defaultValue={website?.colors.join(", ")} /></label>
+            <label className={labelClass}>Technologies<input className={inputClass} name="technologies" placeholder="React, Next.js" defaultValue={website?.technologies.join(", ")} /></label>
+
+          </div>
+        </section>
+
+        <div id={guidedUpload ? "upload-creator" : undefined}>
+        <AdminCreatorEditor
+          uploadStep={guidedUpload ? "03" : undefined}
+          creator={creator}
+          creators={creators}
+          onChange={setCreator}
+          lockExistingCreators={lockExistingCreators}
+          readOnly={Boolean(fixedCreator)}
+          showCreatorPicker={!fixedCreator}
+          onEdit={onEditCreator}
+        />
+        </div>
+
+        {!guidedUpload && mediaSection}
       </div>
 
       <aside className="grid content-start gap-5 xl:sticky xl:top-24 xl:self-start">
         <section className="grid gap-5 rounded-2xl border border-black/10 bg-white p-5">
-          <div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Publishing</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">Status</h2></div>
+          <div><p className="text-xs uppercase tracking-[0.14em] text-[#888]">Publishing</p><h2 className="mt-1 text-xl font-medium tracking-[-0.03em]">{guidedUpload ? "Publish" : "Status"}</h2></div>
           {publicationOnly ? <input type="hidden" name="status" value="published" /> : <div className="grid grid-cols-2 gap-2">{(["draft", "published"] as const).map((status) => <label key={status} className="flex cursor-pointer items-center gap-2 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="radio" name="status" value={status} defaultChecked={(website?.status ?? "draft") === status} />{status === "draft" ? "Draft" : "Published"}</label>)}</div>}
           <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 px-3 py-3 text-sm"><input type="checkbox" name="isFeatured" defaultChecked={website?.isFeatured} />Feature this website</label>
+          {guidedUpload && <p className="text-sm leading-relaxed text-[#666]">Check the details and creator credit before publishing. A draft lets you finish later.</p>}
           <button type="submit" disabled={isPending || isCropping || isCroppingFavicon} className="focus-ring h-11 rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-[#252525] disabled:opacity-55">{isPending ? "Saving..." : (actionLabel ?? (website ? "Save changes" : "Create website"))}</button>
           <Link prefetch={false} href={cancelHref} className="focus-ring text-center text-sm text-[#777] underline-offset-4 hover:text-black hover:underline">Cancel</Link>
         </section>

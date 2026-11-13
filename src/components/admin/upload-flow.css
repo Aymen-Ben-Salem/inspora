@@ -1,0 +1,23 @@
+.admin-upload-flow { align-items: start; }
+.admin-upload-flow .upload-guide { display: flex; align-items: center; gap: 8px; border-block: 1px solid #deded8; padding: 8px 0; }
+.admin-upload-flow :is(#upload-media, #upload-details, #upload-creator) { scroll-margin-top: 100px; }
+.admin-upload-flow section { border-radius: 10px; }
+.admin-upload-flow :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select) { border-radius: 6px; }
+.admin-upload-flow :is(button, summary, a, label:has(> input[type="file"])) { min-height: 44px; }
+.admin-upload-flow button { border-radius: 6px; }
+.admin-upload-flow .upload-media-preview :is(img, video) { object-fit: contain; transform: none; }
+.admin-upload-flow :is(button, a):active { translate: 0 1px; }
+.admin-upload-flow input[type="checkbox"], .admin-upload-flow input[type="radio"] { accent-color: #262626; }
+.admin-upload-flow .upload-classifications { border: 0; border-top: 1px solid #e5e5df; border-radius: 0; padding: 24px 0 0; }
+@media (min-width: 640px) {
+  .admin-upload-flow .upload-classifications { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-upload-flow .upload-classifications > div { grid-column: 1 / -1; }
+}
+@media (max-width: 639px) {
+  .admin-upload-flow { gap: 24px; }
+  .admin-upload-flow :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) { font-size: 16px; }
+  .admin-upload-flow .upload-guide { justify-content: space-between; gap: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-upload-flow :is(button, a):active { translate: none; }
+}

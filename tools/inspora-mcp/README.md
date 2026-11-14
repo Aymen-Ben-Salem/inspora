@@ -1,18 +1,34 @@
 ﻿# Try Inspora in Claude Code or Codex
 
-Find design inspiration through your AI assistant. This early team version runs on your computer and receives catalog updates automatically.
+Find design inspiration through your AI assistant. The hosted team trial runs on Cloudflare and receives content updates automatically. Current Inspora team/admin accounts can connect; customer access waits for the Inspora Pro plans and credits work.
 
-## 1. Get access
+## 1. Connect your client
 
-Ask the maintainer for the project folder and `team-connection.json` access file through a private channel.
+If your client has an MCP server URL field, add **Inspora** with:
 
-## 2. Let your coding assistant set it up
+```text
+https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp
+```
 
-Open the project folder in Claude Code or Codex. Paste this message:
+Or use your client's terminal command:
 
-> Set up Inspora for this client using tools/inspora-mcp/MAINTAINER.md. Preserve my other connections and keep credentials private. Tell me if anything is missing or I need to reopen the client.
+**Codex**
 
-Your assistant or maintainer handles Node 24 and a one-time free model download. A simpler hosted connection is planned; today's setup still needs this help.
+```sh
+codex mcp add inspora --url https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp
+codex mcp login inspora
+```
+
+**Claude Code**
+
+```sh
+claude mcp add --transport http --scope user inspora https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp
+claude mcp login inspora
+```
+
+## 2. Sign in
+
+Sign in to Inspora in the browser and choose **Allow connection**. Reopen your AI session if Inspora does not appear yet. No project folder, Node installation, model download or access file is needed for this hosted connection.
 
 ## 3. Try a search
 
@@ -22,6 +38,6 @@ After setup, ask:
 
 Ask for more detail about any result, or share an Inspora link to find similar work. Uploaded reference images are planned for Phase 2.
 
-**After setup:** use your AI client normally. Content updates arrive while Inspora is running; you do not need to reinstall it for new posts.
+**After setup:** use your AI client normally. New works and corrections arrive automatically; you do not need to reinstall or refresh Inspora. Your AI client's normal model usage still applies. This team trial does not charge customer credits.
 
-**Stuck?** Share the error with the maintainer, removing any credentials. [Technical instructions](MAINTAINER.md) are for whoever helps with setup.
+**Stuck?** Share the error with the team, removing credentials and callback URLs. First-use validation on two machines is still pending. [Hosted technical notes](cloudflare/README.md) and the [earlier local baseline](MAINTAINER.md) are for maintainers.

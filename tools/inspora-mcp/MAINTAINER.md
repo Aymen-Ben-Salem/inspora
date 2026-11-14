@@ -2,6 +2,8 @@
 
 Team testers should start with the [short setup guide](README.md). This reference is for the maintainer or coding assistant performing setup.
 
+**Historical local baseline:** the current team-trial path is the hosted URL in the short guide. The installation and polling instructions below describe the retained local prototype, not hosted onboarding. See [Cloudflare technical notes](cloudflare/README.md) for hosted synchronization and authentication.
+
 ## Assisted setup checklist
 
 1. Confirm the intended client and project path. Inspect existing Inspora/client configuration before editing; preserve other MCP connections and back up any file being changed.

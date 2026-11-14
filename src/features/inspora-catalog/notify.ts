@@ -7,7 +7,7 @@ export function syncNotificationConfig(values: Record<string, string | undefined
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(token ?? "")) return null;
   let url: URL;
   try { url = new URL(values.INSPORA_MCP_SYNC_URL ?? ""); } catch { return null; }
-  if (url.protocol !== "https:" || !["inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev", "mcp.inspora.design"].includes(url.hostname) || url.port || url.username || url.password || url.pathname !== "/internal/catalog" || url.search || url.hash) return null;
+  if (url.protocol !== "https:" || !["mcp.inspora.design"].includes(url.hostname) || url.port || url.username || url.password || url.pathname !== "/internal/catalog" || url.search || url.hash) return null;
   return { url: url.href, token: token! };
 }
 

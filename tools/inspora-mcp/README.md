@@ -7,7 +7,7 @@ Find design inspiration through your AI assistant. The hosted team trial runs on
 If your client has an MCP server URL field, add **Inspora** with:
 
 ```text
-https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp
+https://mcp.inspora.design/mcp
 ```
 
 Or use your client's terminal command:
@@ -15,14 +15,14 @@ Or use your client's terminal command:
 **Codex**
 
 ```sh
-codex mcp add inspora --url https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp
+codex mcp add inspora --url https://mcp.inspora.design/mcp
 codex mcp login inspora
 ```
 
 **Claude Code**
 
 ```sh
-claude mcp add --transport http --scope user inspora https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp
+claude mcp add --transport http --scope user inspora https://mcp.inspora.design/mcp
 claude mcp login inspora
 ```
 

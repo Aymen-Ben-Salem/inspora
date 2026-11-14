@@ -7,7 +7,7 @@ import styles from "@/app/mcp/mcp.module.css";
 export function McpClientSetup() {
   const [client, setClient] = useState<"claude" | "codex">("claude");
   const [status, setStatus] = useState("");
-  const endpoint = "https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp";
+  const endpoint = "https://mcp.inspora.design/mcp";
   const commands = client === "claude" ? `claude mcp add --transport http --scope user inspora ${endpoint}\nclaude mcp login inspora` : `codex mcp add inspora --url ${endpoint}\ncodex mcp login inspora`;
   async function copy(value: string, label: string) {
     try { await navigator.clipboard.writeText(value); setStatus(label + " copied."); }

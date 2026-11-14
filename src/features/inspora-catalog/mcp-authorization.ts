@@ -4,7 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { getConfiguredAdminUserIds } from "@/auth/config";
 
 const site = "https://www.inspora.design";
-const common = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" };
+// Keep cross-site referrers private while preserving Origin on same-site forms.
+const common = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" };
 const escape = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, char => "&#" + char.charCodeAt(0) + ";");
 const validTicket = (value: string) => /^[A-Za-z0-9_-]{43}$/.test(value);
 
@@ -30,7 +31,12 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
     if (!config || url.origin !== site || !["GET", "POST"].includes(request.method)) return reject(404, "Not found");
     if (request.method === "POST" && (request.headers.get("origin") !== site || Number(request.headers.get("content-length")) > 2048)) return reject(403, "Connection could not be verified.");
     const session = await identity();
-    if (!session.userId) return session.redirectToSignIn({ returnBackUrl: request.url });
+    if (!session.userId) {
+      // The existing public sign-in flow accepts only relative return paths.
+      const signIn = new URL("/sign-in", site);
+      signIn.searchParams.set("redirect_url", url.pathname + url.search);
+      return new Response(null, { status: 303, headers: { ...common, Location: signIn.href } });
+    }
     // Team-only until the separate launch decision. No new account/admin scope is granted.
     if (!administrators().has(session.userId)) return reject(403, "This MCP trial is currently available to the Inspora team.");
     let ticket: string, csrf = "", decision = "";

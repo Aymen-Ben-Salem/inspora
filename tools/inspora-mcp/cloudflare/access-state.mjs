@@ -1,6 +1,5 @@
-import {searchSchema,CURSOR_TTL_MS} from '../search.mjs';
+import {searchSchema,CURSOR_TTL_MS,queryFields,SEARCH_REVISION} from '../search.mjs';
 import {stable} from '../enrichment.mjs';
-const queryFields=['query','reference_url','kinds','filters','required_terms','exclude_terms','exclude_ids'];
 const fail=(status,error)=>Response.json({error},{status});
 
 // One object per authenticated principal. There is no global search serialization.
@@ -32,7 +31,7 @@ export class AccessState {
       const args=searchSchema.parse(input.args);
       return this.state.storage.transaction(async storage=>{
         const key='cursor:'+args.cursor,value=await storage.get(key);
-        if(!value||value.expires<=now||value.snapshotId!==input.snapshotId){await storage.delete(key);return fail(409,'CURSOR_EXPIRED');}
+        if(!value||value.searchRevision!==SEARCH_REVISION||value.expires<=now||value.snapshotId!==input.snapshotId){await storage.delete(key);return fail(409,'CURSOR_EXPIRED');}
         for(const field of queryFields)if(args[field]!==undefined&&stable(args[field])!==stable(value.query[field]))return fail(409,'CURSOR_QUERY_MISMATCH');
         await storage.delete(key);return Response.json(value);
       });

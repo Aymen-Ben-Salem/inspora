@@ -1,0 +1,14 @@
+.page{max-width:520px;margin:8vh auto;padding:32px;color:#171717}
+.brand{font-size:26px;font-weight:700;letter-spacing:-1px;margin-bottom:40px}
+.card{background:#fff;padding:28px;border:1px solid #dededb;border-radius:12px}
+.card h1{font-size:25px;line-height:1.2;margin:0 0 18px;letter-spacing:-.5px}
+.card p{color:#555;line-height:1.6;margin:16px 0}
+.card strong{color:#171717}
+.card small{display:block;color:#666;margin-top:18px;overflow-wrap:anywhere}
+.card form{display:flex;gap:12px;margin-top:28px}
+.card button{font:inherit;cursor:pointer;border:1px solid #d5d5d1;border-radius:8px;padding:11px 18px;background:#fff}
+.card button[value=approve]{background:#171717;color:#fff;border-color:#171717;flex:1}
+.card button:disabled{opacity:.55;cursor:wait}
+.card button:focus-visible{outline:3px solid #dd55a5;outline-offset:3px}
+.card [role=alert]{color:#9b2436}
+@media(max-width:520px){.page{margin:4vh auto;padding:24px}.card{padding:24px}}

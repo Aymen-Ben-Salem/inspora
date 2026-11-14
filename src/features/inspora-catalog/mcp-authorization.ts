@@ -6,7 +6,6 @@ import { getConfiguredAdminUserIds } from "@/auth/config";
 const site = "https://www.inspora.design";
 // Keep cross-site referrers private while preserving Origin on same-site forms.
 const common = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" };
-const escape = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, char => "&#" + char.charCodeAt(0) + ";");
 const validTicket = (value: string) => /^[A-Za-z0-9_-]{43}$/.test(value);
 
 export function authorizationConfig(values: Record<string, string | undefined>) {
@@ -18,10 +17,6 @@ export function authorizationConfig(values: Record<string, string | undefined>) 
   try { url = new URL(values.INSPORA_MCP_AUTH_URL ?? ""); } catch { return null; }
   if (url.protocol !== "https:" || !["inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev", "mcp.inspora.design"].includes(url.hostname) || url.port || url.username || url.password || url.pathname !== "/internal/authorization" || url.search || url.hash) return null;
   return { url: url.href, origin: url.origin, token: values.INSPORA_MCP_AUTH_TOKEN! };
-}
-
-export function consentHtml(details: { clientName?: string; clientDomain?: string; redirectHost?: string; redirectIsLoopback?: boolean; scope?: string[] }, ticket: string, csrf: string) {
-  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect to Inspora</title><style>*{box-sizing:border-box}body{margin:0;background:#f7f7f6;color:#171717;font:16px/1.55 system-ui,sans-serif}main{max-width:480px;margin:10vh auto;padding:32px}header{font-size:25px;font-weight:700;letter-spacing:-1px;margin-bottom:48px}section{background:white;padding:28px;border:1px solid #dededb;border-radius:12px}h1{font-size:25px;line-height:1.2;margin:0 0 18px}p{color:#555}strong{color:#171717}small{display:block;color:#666;margin-top:18px}form{display:flex;gap:12px;margin-top:28px}button{font:inherit;cursor:pointer;border:1px solid #d5d5d1;border-radius:8px;padding:11px 18px;background:white}button[value=approve]{background:#171717;color:white;border-color:#171717;flex:1}button:focus-visible{outline:3px solid #dd55a5;outline-offset:3px}</style><main><header>Inspora</header><section><h1>Connect ${escape(details.clientName || "your app")}</h1><p>This app will be able to search published inspiration and retrieve descriptions, classifications and selected previews.</p><p>It cannot edit content or access your saved collections, account details or payments.</p>${details.scope?.includes("offline_access") ? "<p>This connection can stay signed in for up to 30 days, or until revoked.</p>" : ""}<p>Access returns to <strong>${escape(details.redirectHost)}</strong>.</p>${details.clientDomain ? `<small>Client domain: ${escape(details.clientDomain)}</small>` : "<small>The app supplied its own name; Inspora has not verified it.</small>"}${details.redirectIsLoopback ? "<p><strong>This connects an app on your computer.</strong> Continue only if you started connecting from that app.</p>" : ""}<form method="post" action="/api/inspora/mcp/authorize"><input type="hidden" name="ticket" value="${escape(ticket)}"><input type="hidden" name="csrf" value="${escape(csrf)}"><button name="decision" value="deny">Cancel</button><button name="decision" value="approve">Allow connection</button></form></section></main></html>`;
 }
 
 export function createAuthorizationRoute({ identity = auth, administrators = getConfiguredAdminUserIds, fetchBridge = fetch } = {}) {
@@ -40,12 +35,18 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
     // Team-only until the separate launch decision. No new account/admin scope is granted.
     if (!administrators().has(session.userId)) return reject(403, "This MCP trial is currently available to the Inspora team.");
     let ticket: string, csrf = "", decision = "";
+    let formFacts: Record<string, boolean | number | string> | undefined;
     if (request.method === "GET") ticket = url.searchParams.get("ticket") ?? "";
     else {
       const body = await request.text(); if (new TextEncoder().encode(body).length > 2048) return reject(413, "Request too large");
       const form = new URLSearchParams(body); ticket = form.get("ticket") ?? ""; csrf = form.get("csrf") ?? ""; decision = form.get("decision") ?? "";
+      const contentType = request.headers.get("content-type")?.split(";")[0] ?? "missing";
+      formFacts = { bodyBytes: new TextEncoder().encode(body).length, hasTicket: form.has("ticket"), hasCsrf: form.has("csrf"), hasDecision: form.has("decision"), ticketLength: ticket.length, csrfLength: csrf.length, contentType: ["application/x-www-form-urlencoded", "multipart/form-data", "missing"].includes(contentType) ? contentType : "other" };
     }
-    if (!validTicket(ticket)) return reject(400, "Start connecting again from your MCP client.");
+    if (!validTicket(ticket)) {
+      console.warn("MCP consent request invalid", { method: request.method, queryTicketPresent: url.searchParams.has("ticket"), ...formFacts });
+      return reject(400, "Start connecting again from your MCP client.");
+    }
     // A signed synchronizer token avoids rotating a second browser cookie on GET.
     // The OAuth provider separately binds completion to its initiating browser.
     const signature = (nonce: string, expires: string) => createHmac("sha256", config.token).update(["inspora-consent-v1", session.userId, ticket, nonce, expires].join("\n")).digest("hex");
@@ -63,14 +64,17 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
       };
       if (request.method === "GET") {
         const { description } = await bridge("inspect"), nonce = randomBytes(24).toString("base64url"), expires = String(Date.now() + 600000);
-        return new Response(consentHtml(description, ticket, nonce + "." + expires + "." + signature(nonce, expires)), { headers: { ...common, "Content-Type": "text/html; charset=utf-8" } });
+        const token = nonce + "." + expires + "." + signature(nonce, expires);
+        const details = { clientName: String(description.clientName ?? "your app").slice(0, 120), clientDomain: typeof description.clientDomain === "string" ? description.clientDomain.slice(0, 200) : undefined, redirectHost: String(description.redirectHost ?? "").slice(0, 200), redirectIsLoopback: description.redirectIsLoopback === true, scope: Array.isArray(description.scope) ? description.scope.filter((value: string) => ["inspiration:read", "offline_access"].includes(value)) : [] };
+        return Response.json({ details, ticket, csrf: token }, { headers: common });
       }
       const parts = csrf.match(/^([A-Za-z0-9_-]{32})\.(\d{13})\.([a-f0-9]{64})$/), now = Date.now();
       if (!parts || Number(parts[2]) <= now || Number(parts[2]) > now + 630000 || !timingSafeEqual(Buffer.from(parts[3]), Buffer.from(signature(parts[1], parts[2]))) || !["approve", "deny"].includes(decision)) {
-        console.warn("MCP consent rejected", { reason: parts && Number(parts[2]) <= now ? "FORM_EXPIRED" : "FORM_INVALID" });
+        console.warn("MCP consent rejected", { reason: parts && Number(parts[2]) <= now ? "FORM_EXPIRED" : "FORM_INVALID", signedTokenShape: Boolean(parts), decisionValid: ["approve", "deny"].includes(decision), ...formFacts });
         return reject(403, "Connection could not be verified. Start again from your MCP client.");
       }
       await bridge("approve", { userId: session.userId, decision });
+      console.info("MCP consent handed off", { decision });
       const target = new URL("/authorize/complete", config.origin); target.searchParams.set("ticket", ticket);
       return new Response(null, { status: 303, headers: { ...common, Location: target.href } });
     } catch {

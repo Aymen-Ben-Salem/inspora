@@ -17,7 +17,7 @@ try{
   const verifier=randomBytes(32).toString('base64url'),challenge=createHash('sha256').update(verifier).digest('base64url');
   const query=new URLSearchParams({client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',response_type:'code',scope:'inspiration:read offline_access',code_challenge:challenge,code_challenge_method:'S256',state:'bound-client-state',resource:origin+'/mcp'});
   const begin=await send('/authorize?'+query);assert.equal(begin.status,302);
-  const target=new URL(begin.headers.get('location'));assert.equal(target.origin,'https://www.inspora.design');const ticket=target.searchParams.get('ticket');assert.ok(ticket);
+  const target=new URL(begin.headers.get('location'));assert.equal(target.origin,'https://www.inspora.design');assert.equal(target.pathname,'/connect/mcp');const ticket=target.searchParams.get('ticket');assert.ok(ticket);
   const cookie=begin.headers.get('set-cookie').split(';')[0];
   assert.equal((await send('/internal/authorization',post({action:'inspect',ticket}))).status,401);
   const bridgeHeaders={Authorization:'Bearer '+bridgeToken};
@@ -25,6 +25,8 @@ try{
   assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test1',decision:'approve'},bridgeHeaders))).status,200);
   assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test1',decision:'approve'},bridgeHeaders))).status,200);
   assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test2',decision:'approve'},bridgeHeaders))).status,400);
+  const finishPage=await send('/authorize/complete?ticket='+ticket,{headers:{Cookie:cookie}});
+  assert.equal(finishPage.status,200);assert.match(finishPage.headers.get('content-security-policy'),/form-action 'self' http:\/\/127\.0\.0\.1:7889;/);
   const complete=await send('/authorize/complete',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket}).toString()});
   assert.equal(complete.status,302);const redirect=new URL(complete.headers.get('location'));assert.equal(redirect.searchParams.get('state'),'bound-client-state');assert.equal(redirect.searchParams.get('iss'),origin);
   const tokenResponse=await send('/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:redirect.searchParams.get('code'),client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',code_verifier:verifier,resource:origin+'/mcp'}).toString()});

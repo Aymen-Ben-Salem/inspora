@@ -1,4 +1,5 @@
 import "server-only";
+import { notifyCatalogChanged } from "@/features/inspora-catalog/notify";
 
 import { randomUUID } from "node:crypto";
 import { clerkClient } from "@clerk/nextjs/server";
@@ -125,6 +126,7 @@ export async function ensureCreatorForOwner(principal: CreatorOwnerPrincipal): P
       revalidateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG, { expire: 0 });
       try {
         if (await initializeCreatorAvatar(result.profile.id, ownerUserId, user)) {
+          notifyCatalogChanged();
           for (const tag of [PUBLIC_CREATOR_PROFILES_CACHE_TAG, "published-posts", "published-logos", "published-websites"]) revalidateTag(tag, { expire: 0 });
         }
       } catch { console.error("Initial creator photo could not be saved; the default photo remains available."); }

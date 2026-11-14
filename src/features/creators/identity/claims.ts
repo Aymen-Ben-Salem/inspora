@@ -1,4 +1,5 @@
 import "server-only";
+import { notifyCatalogChanged } from "@/features/inspora-catalog/notify";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/auth/require-admin";
@@ -16,6 +17,7 @@ import { CreatorClaimError, requestCreatorClaim } from "./claim-requests";
 
 export function refreshCommittedClaim(identityChanged = false) {
   if (identityChanged) {
+    notifyCatalogChanged();
     for (const tag of [PUBLIC_CREATOR_PROFILES_CACHE_TAG, PUBLISHED_POSTS_CACHE_TAG, PUBLISHED_LOGOS_CACHE_TAG, PUBLISHED_WEBSITES_CACHE_TAG]) revalidateTag(tag, { expire: 0 });
     for (const path of ["/", "/admin/posts", "/admin/logos", "/admin/websites", "/admin/submissions"]) revalidatePath(path);
     revalidatePath("/creators/[username]", "page");

@@ -1,0 +1,14 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "inspora-mcp-pilot",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {"ACCESS_MODE": "disabled", "MCP_ORIGIN": "http://localhost:8787"},
+  "durable_objects": {"bindings": [{"name": "ACCESS_STATE", "class_name": "AccessState"}, {"name": "CATALOG_SYNC", "class_name": "CatalogSync"}, {"name":"AUTH_TICKETS", "class_name":"AuthorizationTickets"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["AccessState", "CatalogSync"]}, {"tag":"v2-auth", "new_sqlite_classes":["AuthorizationTickets"]}],
+  "observability": {"enabled": false},
+  "dev": {"port": 8787}
+}

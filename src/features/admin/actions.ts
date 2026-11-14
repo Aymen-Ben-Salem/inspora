@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireAdmin } from "@/auth/require-admin";
+import { notifyCatalogChanged } from "@/features/inspora-catalog/notify";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
@@ -94,6 +95,7 @@ function postErrorState(error: unknown): AdminActionState {
 }
 
 function revalidatePostPaths(slug: string, previousSlug?: string) {
+  notifyCatalogChanged();
   updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidatePath("/");
   revalidatePath("/admin/posts");
@@ -128,6 +130,7 @@ function logoErrorState(error: unknown): AdminActionState {
 }
 
 function revalidateLogoPaths() {
+  notifyCatalogChanged();
   updateTag(PUBLISHED_LOGOS_CACHE_TAG);
   revalidatePath("/logos");
   revalidatePath("/admin/logos");
@@ -156,6 +159,7 @@ function websiteErrorState(error: unknown): AdminActionState {
 }
 
 function revalidateWebsitePaths() {
+  notifyCatalogChanged();
   updateTag(PUBLISHED_WEBSITES_CACHE_TAG);
   revalidatePath("/websites");
   revalidatePath("/admin/websites");

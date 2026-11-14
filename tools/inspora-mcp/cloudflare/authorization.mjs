@@ -80,6 +80,10 @@ export async function authorizationHandler(request,env){
     return fail(404,'Not found');
   }catch(error){
     if(error instanceof AuthorizationError&&error.redirectTo)return Response.redirect(error.redirectTo,302);
+    if(url.pathname==='/internal/authorization'){
+      const code=/^AUTH_[A-Z_]+$/.test(error.message??'')?error.message:'AUTH_BRIDGE_UNAVAILABLE';
+      return fail(code==='AUTH_TICKET_EXPIRED'?410:400,code);
+    }
     return fail(400,'Connection expired or could not be verified. Start again from your MCP client.');
   }
 }

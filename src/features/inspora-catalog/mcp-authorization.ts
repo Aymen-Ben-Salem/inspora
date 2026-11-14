@@ -48,10 +48,17 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
     if (!validTicket(ticket)) return reject(400, "Start connecting again from your MCP client.");
     const cookieName = "__Host-inspora-mcp-" + createHmac("sha256", config.token).update(ticket).digest("hex").slice(0, 16);
     const signature = (nonce: string) => createHmac("sha256", config.token).update(session.userId + "\n" + ticket + "\n" + nonce).digest("hex");
+    let bridgeAction = "none", bridgeStatus: number | undefined, bridgeCode = "BRIDGE_UNAVAILABLE";
     try {
       const bridge = async (action: string, extra: Record<string, string> = {}) => {
+        bridgeAction = action;
         const response = await fetchBridge(config.url, { method: "POST", headers: { Authorization: "Bearer " + config.token, "Content-Type": "application/json" }, body: JSON.stringify({ action, ticket, ...extra }), redirect: "error", signal: AbortSignal.timeout(10000) });
-        if (!response.ok) throw Error("Connection unavailable"); return response.json();
+        bridgeStatus = response.status;
+        if (!response.ok) {
+          try { const body = await response.json(); if (/^AUTH_[A-Z_]+$/.test(body.error ?? "")) bridgeCode = body.error; } catch { /* Never log raw provider responses. */ }
+          throw Error("Connection unavailable");
+        }
+        return response.json();
       };
       if (request.method === "GET") {
         const { description } = await bridge("inspect"), nonce = randomBytes(24).toString("base64url");
@@ -62,6 +69,10 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
       await bridge("approve", { userId: session.userId, decision });
       const target = new URL("/authorize/complete", config.origin); target.searchParams.set("ticket", ticket);
       return new Response(null, { status: 303, headers: { ...common, Location: target.href, "Set-Cookie": `${cookieName}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0` } });
-    } catch { return reject(503, "The connection expired or is temporarily unavailable. Start again from your MCP client."); }
+    } catch {
+      // Operational codes only: no identity, ticket, cookie, request URL or secret.
+      console.warn("MCP consent bridge unavailable", { action: bridgeAction, status: bridgeStatus, code: bridgeCode });
+      return reject(503, "The connection expired or is temporarily unavailable. Start again from your MCP client.");
+    }
   };
 }

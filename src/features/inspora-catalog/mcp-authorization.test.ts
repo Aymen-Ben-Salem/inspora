@@ -48,3 +48,14 @@ it("returns signed-out users to the ticket through the site's relative-only sign
   expect(signIn.searchParams.get("redirect_url")).toBe("/api/inspora/mcp/authorize?ticket=" + ticket);
   expect(publicAuthRedirect(signIn.searchParams.get("redirect_url")!)).toBe("/api/inspora/mcp/authorize?ticket=" + ticket);
 });
+it("records only operational codes when the private bridge rejects a connection", async () => {
+  configured(); const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const bridge = vi.fn(async () => Response.json({ error: "AUTH_TICKET_EXPIRED", privateDetail: values.INSPORA_MCP_AUTH_TOKEN }, { status: 410 }));
+    const response = await createAuthorizationRoute({ fetchBridge: bridge })(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket));
+    expect(response.status).toBe(503);
+    expect(warning).toHaveBeenCalledWith("MCP consent bridge unavailable", { action: "inspect", status: 410, code: "AUTH_TICKET_EXPIRED" });
+    expect(JSON.stringify(warning.mock.calls)).not.toContain(values.INSPORA_MCP_AUTH_TOKEN);
+    expect(JSON.stringify(warning.mock.calls)).not.toContain(ticket);
+  } finally { warning.mockRestore(); }
+});

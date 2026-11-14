@@ -1,24 +1,24 @@
 ---
 name: inspora-design-direction
-description: Compare selected Inspora references and turn their useful qualities into an original, project-specific design direction. Use when the user asks to choose, combine or build from Inspora inspiration.
+description: Compare selected Inspora references and develop an original design direction. Use when choosing, combining or building from those references.
 ---
 
 # Develop a design direction
 
-Work from the user's project and selected references. A comparison, a design brief and implementation are separate possible outcomes. Follow the outcome the user requests.
+Deliver the requested comparison, design brief or implementation using the user's project and selected references.
 
 ## Understand the references
 
-Fetch selected works with `get_work`. Request `preview=image` when visual comparison would change the recommendation. If the image is unavailable or cannot be inspected, identify that limit and use the available descriptions and notes.
+Fetch selected works with `get_work`. Request `preview=image` when visual inspection would change the recommendation. Identify evidence limits when using descriptions or unavailable previews.
 
-Choose comparison criteria that matter to the task. These may include information hierarchy, composition, typography style, density, color, imagery, interaction or motion. Explain which reference handles each relevant concern well and the tradeoffs for this project. Cite each work's Inspora link and creator. Keep observed details and proposed adaptations distinguishable. Claim an exact font or implementation technology only when the source verifies it.
+Compare the qualities that matter to this project, such as hierarchy, composition, typography, density or interaction. Explain the practical tradeoffs and credit each reference with its creator and Inspora link. Distinguish observations from proposed adaptations. Verify exact font and technology claims from the source.
 
-When the user has a clear preference, develop it. When they are choosing between genuinely different directions, explain those choices in their terms. Ask about a missing priority only if it would materially change the comparison. Give a recommendation when requested and explain its basis.
+Develop the user's stated preferences. Ask about an unresolved priority only when it would change the comparison. Explain the basis of a requested recommendation and leave other directions open.
 
 ## Make the direction usable
 
-For a requested brief, translate the selected qualities into an original composition appropriate to the user's content and constraints. Cover the decisions needed for the next step, such as hierarchy, spacing, typography characteristics, color roles and relevant interaction states. Tie proposals to the user's goals and cite the references that informed them.
+For a brief, translate useful reference qualities into an original composition for the user's content and constraints. Resolve the decisions needed for the next step, including relevant layout, typography, color roles and interaction states. Connect proposals to the user's goals and their supporting references.
 
-For requested implementation, apply the direction through the project's existing workflow and design conventions. Preserve creator attribution when discussing references. Search again only when an identified gap needs more evidence or the user requests a different direction.
+For implementation, follow the project's existing workflow and conventions. Search again when a concrete evidence gap or a requested change of direction warrants it.
 
-Close with a question only when it unlocks a meaningful next decision or step. Leave the user free to choose another approach. If the requested comparison, brief or implementation is complete, finish with the result.
+Ask a closing question only when it unlocks a meaningful next decision or step. A completed deliverable can stand on its own.

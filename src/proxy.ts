@@ -46,6 +46,7 @@ export const config = {
     "/api/admin/media",
     "/api/admin/editorial",
     "/api/inspora/mcp/:path*",
+    "/connect/mcp/:path*",
     "/api/sponsorship/:path*",
     "/api/analytics/:path*",
     "/api/account/capabilities",

@@ -3,19 +3,17 @@ vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ identity: vi.fn(), admins: vi.fn() }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.identity }));
 vi.mock("@/auth/config", () => ({ getConfiguredAdminUserIds: mocks.admins }));
-import { authorizationConfig, consentHtml, createAuthorizationRoute } from "./mcp-authorization";
+import { authorizationConfig, createAuthorizationRoute } from "./mcp-authorization";
 import { publicAuthRedirect } from "@/auth/public-auth-redirect";
 const origin = "https://www.inspora.design", ticket = "t".repeat(43);
 const values = { VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", DATA_ENVIRONMENT: "production", INSPORA_MCP_AUTH_URL: "https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/internal/authorization", INSPORA_MCP_AUTH_TOKEN: "s".repeat(43) };
 function configured() { for (const [key, value] of Object.entries(values)) vi.stubEnv(key, value); mocks.identity.mockResolvedValue({ userId: "user_test1" }); mocks.admins.mockReturnValue(new Set(["user_test1"])); }
 beforeEach(() => { vi.spyOn(console, "warn").mockImplementation(() => {}); });
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });
-it("rejects Preview and unrelated origins and escapes unverified client data", () => {
+it("rejects Preview, unsupported access policies and unrelated origins", () => {
   expect(authorizationConfig(values)).not.toBeNull(); expect(authorizationConfig({ ...values, VERCEL_ENV: "preview" })).toBeNull();
   for (const policy of ["authenticated", "public", "pro"]) expect(authorizationConfig({ ...values, INSPORA_MCP_ACCESS_POLICY: policy })).toBeNull();
   expect(authorizationConfig({ ...values, INSPORA_MCP_AUTH_URL: "https://evil.test/internal/authorization" })).toBeNull();
-  const html = consentHtml({ clientName: '<script>alert("x")</script>', redirectHost: 'x"><img src=x>' }, ticket, "a");
-  expect(html).not.toContain("<script>"); expect(html).not.toContain("<img"); expect(html).toContain("&#60;script&#62;");
 });
 it("binds signed expiring consent to the user and ticket without an extra browser cookie", async () => {
   configured(); const bridge = vi.fn(async () => Response.json({ description: { clientName: "Codex", redirectHost: "localhost", redirectIsLoopback: true } }));
@@ -23,11 +21,11 @@ it("binds signed expiring consent to the user and ticket without an extra browse
   const get = await handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket)); expect(get.status).toBe(200);
   // HTML navigation-mode POSTs need a policy that preserves same-origin Origin.
   expect(["same-origin", "strict-origin", "strict-origin-when-cross-origin"]).toContain(get.headers.get("referrer-policy"));
-  const html = await get.text(), csrf = html.match(/name="csrf" value="([^"]+)"/)![1];
+  const { csrf } = await get.json();
   expect(get.headers.get("set-cookie")).toBeNull();
   expect(bridge).toHaveBeenCalledTimes(1);
   const refreshed = await handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket));
-  expect(await refreshed.text()).not.toContain('value="' + csrf + '"');
+  expect((await refreshed.json()).csrf).not.toBe(csrf);
   const post = (extra: Record<string, string> = {}) => new Request(origin + "/api/inspora/mcp/authorize", { method: "POST", headers: { Origin: origin }, body: new URLSearchParams({ ticket, csrf, decision: "approve", ...extra }) });
   expect((await handler(post({ csrf: "a".repeat(64) }))).status).toBe(403);
   expect((await handler(post({ csrf: "" }))).status).toBe(403);
@@ -65,4 +63,13 @@ it("records only operational codes when the private bridge rejects a connection"
     expect(JSON.stringify(warning.mock.calls)).not.toContain(values.INSPORA_MCP_AUTH_TOKEN);
     expect(JSON.stringify(warning.mock.calls)).not.toContain(ticket);
   } finally { warning.mockRestore(); }
+});
+it("prepares private signed data for the normal authenticated consent page", async () => {
+  configured();
+  const bridge = vi.fn(async () => Response.json({ description: { clientName: "Codex", redirectHost: "127.0.0.1", scope: ["inspiration:read"] } }));
+  const response = await createAuthorizationRoute({ fetchBridge: bridge })(new Request(origin + "/connect/mcp?ticket=" + ticket, { headers: { Accept: "application/json" } }));
+  const data = await response.json(); expect(response.status).toBe(200); expect(data.ticket).toBe(ticket);
+  expect(data.csrf).toMatch(/^[A-Za-z0-9_-]{32}\.\d{13}\.[a-f0-9]{64}$/);
+  expect(data.details.clientName).toBe("Codex"); expect(response.headers.get("cache-control")).toContain("no-store");
+  expect(JSON.stringify(data)).not.toContain(values.INSPORA_MCP_AUTH_TOKEN);
 });

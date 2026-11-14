@@ -30,6 +30,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/connect/mcp/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Referrer-Policy", value: "same-origin" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev https://mcp.inspora.design" },
+        ],
+      },
+      {
         source: "/sponsor/dashboard/:path*",
         headers: [
           { key: "Cache-Control", value: "private, no-store, max-age=0" },

@@ -59,14 +59,16 @@ export async function authorizationHandler(request,env){
       const description=await oauth.describeConsent(authRequest),consent=await oauth.beginConsent(authRequest);
       const ticket=randomBytes(32).toString('base64url');
       await ticketStore(env,ticket)('create',{value:{handle:consent.handle,description,expiresAt:Date.now()+10*60000}});
-      const target=new URL('https://www.inspora.design/api/inspora/mcp/authorize');target.searchParams.set('ticket',ticket);
+      const target=new URL('https://www.inspora.design/connect/mcp');target.searchParams.set('ticket',ticket);
       consent.headers.set('Location',target.href);for(const [name,value] of Object.entries(headers))consent.headers.set(name,value);
       return new Response(null,{status:302,headers:consent.headers});
     }
     if(url.pathname==='/authorize/complete'&&request.method==='GET'){
       const ticket=url.searchParams.get('ticket');if(!validTicket(ticket))return fail(400,'Invalid connection');
+      const {description}=await ticketStore(env,ticket)('inspect'),callback=new URL(description.redirectUri);
+      const formTargets="'self'"+(['http:','https:'].includes(callback.protocol)?' '+callback.origin:'');
       const nonce=randomBytes(24).toString('base64url');
-      return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Connecting to Inspora</title><p>Finishing your connection…</p><form method="post" action="/authorize/complete"><input type="hidden" name="ticket" value="${escape(ticket)}"><button>Continue</button></form><script nonce="${nonce}">document.querySelector('form').submit()</script></html>`,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':`default-src 'none'; script-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`}});
+      return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Connecting to Inspora</title><p>Finishing your connection…</p><form method="post" action="/authorize/complete"><input type="hidden" name="ticket" value="${escape(ticket)}"><button>Continue</button></form><script nonce="${nonce}">document.querySelector('form').submit()</script></html>`,{headers:{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':`default-src 'none'; script-src 'nonce-${nonce}'; form-action ${formTargets}; frame-ancestors 'none'; base-uri 'none'`}});
     }
     if(url.pathname==='/authorize/complete'&&request.method==='POST'){
       if(request.headers.get('origin')!==env.MCP_ORIGIN)return fail(403,'Origin rejected');

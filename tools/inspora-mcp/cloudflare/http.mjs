@@ -72,7 +72,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         try{return await fn(args);}catch(error){return {isError:true,...data({error:error instanceof z.ZodError?'INVALID_INPUT':knownError.test(error.message)?error.message.slice(0,300):'SERVICE_UNAVAILABLE: retry later'})};}
       };
       const handle=fn=>handleResponse(async args=>data(await fn(args)));
-      server.registerTool('search_inspiration',{title:'Find Inspora inspiration',description:'Search a written idea OR an existing Inspora work link. Default six compact results; count 1–20. Hard filters are never relaxed. Continuation is query-bound, single-use and expires after 15 minutes. Alternatives are labeled. External reference uploads are Phase 2.',inputSchema:searchSchema,annotations},handle(async args=>{
+      server.registerTool('search_inspiration',{title:'Find Inspora inspiration',description:'Search a written idea OR an existing Inspora work link. Use subjects for concrete targets, subject_scope for main subject or contained feature, and context for industry preferences. Read interpreted_query and partial-match reasons. Default six compact results; count 1–20. Hard filters are never relaxed. Continuation is query-bound, single-use and expires after 15 minutes. External reference uploads are Phase 2.',inputSchema:searchSchema,annotations},handle(async args=>{
         const parsed=searchSchema.parse(args),engine=await getEngine();
         if(parsed.cursor){const saved=await state('take',{args:parsed,snapshotId:engine.index.snapshotId});engine.cursors.set(parsed.cursor,saved);}
         const result=await engine.search(parsed);

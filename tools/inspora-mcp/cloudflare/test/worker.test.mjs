@@ -37,6 +37,10 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   const first=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass'}}));
   assert.equal(first.results.length,6);assert.equal(first.snapshot.live,true);assert.ok(first.next_cursor);
   const wrong=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,query:'red'}});assert.match(decoded(wrong).error,/MISMATCH/);
+  for(const changed of [{subjects:['poster']},{subject_scope:'contains'},{context:'fitness'}]){
+    const mismatch=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,...changed}});
+    assert.match(decoded(mismatch).error,/MISMATCH/);
+  }
   const forbidden=await bob.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});assert.match(decoded(forbidden).error,/EXPIRED/);
   const replies=await Promise.all([alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}}),alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}})]);
   assert.equal(replies.filter(reply=>reply.isError).length,1);
@@ -64,6 +68,20 @@ test('catalog replacements invalidate continuation and remove old details; stale
   const details=decoded(await client.callTool({name:'get_work',arguments:{id:first.results[0].id}}));assert.match(details.error,/NOT_ELIGIBLE/);
   for(const [key,value] of fixture.bucket.values)if(key.endsWith('/current.json'))fixture.bucket.values.set(key,JSON.stringify({...JSON.parse(value),sourceCheckedAt:new Date(Date.now()-MAX_SOURCE_AGE_MS-1000).toISOString()}));
   const status=decoded(await client.callTool({name:'catalog_status',arguments:{}}));assert.match(status.error,/STALE/);await client.close();
+});
+
+test('HTTP accepts arbitrary subjects and rejects continuation from a previous ranking release',async()=>{
+  const fixture=await fixtureSetup(),client=await clientFor(fixture);
+  const first=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',subjects:['panel'],kinds:['design']}}));
+  assert.equal(first.results.length,6);
+  assert.deepEqual(first.interpreted_query.subjects,['panel']);
+  const storage=fixture.env.ACCESS_STATE.objects.get('alice').state.storage;
+  const key='cursor:'+first.next_cursor,value=await storage.get(key);
+  delete value.searchRevision;
+  await storage.put(key,value);
+  const reply=decoded(await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}}));
+  assert.match(reply.error,/CURSOR_EXPIRED/);
+  await client.close();
 });
 
 test('access, configured origin, body bounds, revocation and errors protect backing services',async()=>{

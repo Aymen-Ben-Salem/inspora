@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({ identity: vi.fn(), admins: vi.fn() }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.identity }));
@@ -8,7 +8,8 @@ import { publicAuthRedirect } from "@/auth/public-auth-redirect";
 const origin = "https://www.inspora.design", ticket = "t".repeat(43);
 const values = { VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", DATA_ENVIRONMENT: "production", INSPORA_MCP_AUTH_URL: "https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/internal/authorization", INSPORA_MCP_AUTH_TOKEN: "s".repeat(43) };
 function configured() { for (const [key, value] of Object.entries(values)) vi.stubEnv(key, value); mocks.identity.mockResolvedValue({ userId: "user_test1" }); mocks.admins.mockReturnValue(new Set(["user_test1"])); }
-afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
+beforeEach(() => { vi.spyOn(console, "warn").mockImplementation(() => {}); });
+afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });
 it("rejects Preview and unrelated origins and escapes unverified client data", () => {
   expect(authorizationConfig(values)).not.toBeNull(); expect(authorizationConfig({ ...values, VERCEL_ENV: "preview" })).toBeNull();
   for (const policy of ["authenticated", "public", "pro"]) expect(authorizationConfig({ ...values, INSPORA_MCP_ACCESS_POLICY: policy })).toBeNull();
@@ -16,17 +17,23 @@ it("rejects Preview and unrelated origins and escapes unverified client data", (
   const html = consentHtml({ clientName: '<script>alert("x")</script>', redirectHost: 'x"><img src=x>' }, ticket, "a");
   expect(html).not.toContain("<script>"); expect(html).not.toContain("<img"); expect(html).toContain("&#60;script&#62;");
 });
-it("binds explicit consent to the signed-in user, ticket and browser before approving", async () => {
+it("binds signed expiring consent to the user and ticket without an extra browser cookie", async () => {
   configured(); const bridge = vi.fn(async () => Response.json({ description: { clientName: "Codex", redirectHost: "localhost", redirectIsLoopback: true } }));
   const handler = createAuthorizationRoute({ fetchBridge: bridge });
   const get = await handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket)); expect(get.status).toBe(200);
   // HTML navigation-mode POSTs need a policy that preserves same-origin Origin.
   expect(["same-origin", "strict-origin", "strict-origin-when-cross-origin"]).toContain(get.headers.get("referrer-policy"));
-  const html = await get.text(), csrf = html.match(/name="csrf" value="([a-f0-9]+)"/)![1], cookie = get.headers.get("set-cookie")!.split(";")[0];
+  const html = await get.text(), csrf = html.match(/name="csrf" value="([^"]+)"/)![1];
+  expect(get.headers.get("set-cookie")).toBeNull();
   expect(bridge).toHaveBeenCalledTimes(1);
-  const post = (extra: Record<string, string> = {}, cookieValue = cookie) => new Request(origin + "/api/inspora/mcp/authorize", { method: "POST", headers: { Origin: origin, Cookie: cookieValue }, body: new URLSearchParams({ ticket, csrf, decision: "approve", ...extra }) });
+  const refreshed = await handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket));
+  expect(await refreshed.text()).not.toContain('value="' + csrf + '"');
+  const post = (extra: Record<string, string> = {}) => new Request(origin + "/api/inspora/mcp/authorize", { method: "POST", headers: { Origin: origin }, body: new URLSearchParams({ ticket, csrf, decision: "approve", ...extra }) });
   expect((await handler(post({ csrf: "a".repeat(64) }))).status).toBe(403);
-  expect((await handler(post({}, ""))).status).toBe(403);
+  expect((await handler(post({ csrf: "" }))).status).toBe(403);
+  expect((await handler(post({ ticket: "x".repeat(43) }))).status).toBe(403);
+  const clock = vi.spyOn(Date, "now").mockReturnValue(Number(csrf.split(".")[1]) + 1);
+  expect((await handler(post())).status).toBe(403); clock.mockRestore();
   const nullOrigin = post(); nullOrigin.headers.set("origin", "null"); expect((await handler(nullOrigin)).status).toBe(403);
   mocks.identity.mockResolvedValue({ userId: "user_test2" }); mocks.admins.mockReturnValue(new Set(["user_test2"])); expect((await handler(post())).status).toBe(403);
   mocks.identity.mockResolvedValue({ userId: "user_test1" }); mocks.admins.mockReturnValue(new Set(["user_test1"]));

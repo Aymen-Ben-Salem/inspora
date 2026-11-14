@@ -23,6 +23,8 @@ try{
   const bridgeHeaders={Authorization:'Bearer '+bridgeToken};
   const inspect=await(await send('/internal/authorization',post({action:'inspect',ticket},bridgeHeaders))).json();assert.equal(inspect.description.clientName,'Test <untrusted> app');
   assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test1',decision:'approve'},bridgeHeaders))).status,200);
+  assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test1',decision:'approve'},bridgeHeaders))).status,200);
+  assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test2',decision:'approve'},bridgeHeaders))).status,400);
   const complete=await send('/authorize/complete',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket}).toString()});
   assert.equal(complete.status,302);const redirect=new URL(complete.headers.get('location'));assert.equal(redirect.searchParams.get('state'),'bound-client-state');assert.equal(redirect.searchParams.get('iss'),origin);
   const tokenResponse=await send('/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:redirect.searchParams.get('code'),client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',code_verifier:verifier,resource:origin+'/mcp'}).toString()});

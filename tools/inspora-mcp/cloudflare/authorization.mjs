@@ -20,7 +20,8 @@ export class AuthorizationTickets {
       if(!ticket||ticket.expiresAt<=Date.now())return fail(410,'AUTH_TICKET_EXPIRED');
       if(action==='inspect')return Response.json({description:ticket.description});
       if(action==='approve'){
-        if(!/^user_[A-Za-z0-9]{1,100}$/.test(userId??'')||!['approve','deny'].includes(decision)||ticket.userId)return fail(409,'AUTH_TICKET_INVALID');
+        if(!/^user_[A-Za-z0-9]{1,100}$/.test(userId??'')||!['approve','deny'].includes(decision))return fail(409,'AUTH_TICKET_INVALID');
+        if(ticket.userId)return ticket.userId===userId&&ticket.decision===decision?Response.json({ok:true}):fail(409,'AUTH_TICKET_INVALID');
         await transaction.put('ticket',{...ticket,userId,decision});return Response.json({ok:true});
       }
       if(action==='take'){

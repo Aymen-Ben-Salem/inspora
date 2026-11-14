@@ -46,8 +46,9 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
       const form = new URLSearchParams(body); ticket = form.get("ticket") ?? ""; csrf = form.get("csrf") ?? ""; decision = form.get("decision") ?? "";
     }
     if (!validTicket(ticket)) return reject(400, "Start connecting again from your MCP client.");
-    const cookieName = "__Host-inspora-mcp-" + createHmac("sha256", config.token).update(ticket).digest("hex").slice(0, 16);
-    const signature = (nonce: string) => createHmac("sha256", config.token).update(session.userId + "\n" + ticket + "\n" + nonce).digest("hex");
+    // A signed synchronizer token avoids rotating a second browser cookie on GET.
+    // The OAuth provider separately binds completion to its initiating browser.
+    const signature = (nonce: string, expires: string) => createHmac("sha256", config.token).update(["inspora-consent-v1", session.userId, ticket, nonce, expires].join("\n")).digest("hex");
     let bridgeAction = "none", bridgeStatus: number | undefined, bridgeCode = "BRIDGE_UNAVAILABLE";
     try {
       const bridge = async (action: string, extra: Record<string, string> = {}) => {
@@ -61,14 +62,17 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
         return response.json();
       };
       if (request.method === "GET") {
-        const { description } = await bridge("inspect"), nonce = randomBytes(24).toString("base64url");
-        return new Response(consentHtml(description, ticket, signature(nonce)), { headers: { ...common, "Content-Type": "text/html; charset=utf-8", "Set-Cookie": `${cookieName}=${nonce}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600` } });
+        const { description } = await bridge("inspect"), nonce = randomBytes(24).toString("base64url"), expires = String(Date.now() + 600000);
+        return new Response(consentHtml(description, ticket, nonce + "." + expires + "." + signature(nonce, expires)), { headers: { ...common, "Content-Type": "text/html; charset=utf-8" } });
       }
-      const nonce = request.headers.get("cookie")?.split(";").map(value => value.trim()).find(value => value.startsWith(cookieName + "="))?.slice(cookieName.length + 1) ?? "";
-      if (!/^[A-Za-z0-9_-]{32}$/.test(nonce) || !/^[a-f0-9]{64}$/.test(csrf) || !timingSafeEqual(Buffer.from(csrf), Buffer.from(signature(nonce))) || !["approve", "deny"].includes(decision)) return reject(403, "Connection could not be verified. Start again from your MCP client.");
+      const parts = csrf.match(/^([A-Za-z0-9_-]{32})\.(\d{13})\.([a-f0-9]{64})$/), now = Date.now();
+      if (!parts || Number(parts[2]) <= now || Number(parts[2]) > now + 630000 || !timingSafeEqual(Buffer.from(parts[3]), Buffer.from(signature(parts[1], parts[2]))) || !["approve", "deny"].includes(decision)) {
+        console.warn("MCP consent rejected", { reason: parts && Number(parts[2]) <= now ? "FORM_EXPIRED" : "FORM_INVALID" });
+        return reject(403, "Connection could not be verified. Start again from your MCP client.");
+      }
       await bridge("approve", { userId: session.userId, decision });
       const target = new URL("/authorize/complete", config.origin); target.searchParams.set("ticket", ticket);
-      return new Response(null, { status: 303, headers: { ...common, Location: target.href, "Set-Cookie": `${cookieName}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0` } });
+      return new Response(null, { status: 303, headers: { ...common, Location: target.href } });
     } catch {
       // Operational codes only: no identity, ticket, cookie, request URL or secret.
       console.warn("MCP consent bridge unavailable", { action: bridgeAction, status: bridgeStatus, code: bridgeCode });

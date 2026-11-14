@@ -6,7 +6,7 @@ vi.mock("@/auth/config", () => ({ getConfiguredAdminUserIds: mocks.admins }));
 import { authorizationConfig, createAuthorizationRoute } from "./mcp-authorization";
 import { publicAuthRedirect } from "@/auth/public-auth-redirect";
 const origin = "https://www.inspora.design", ticket = "t".repeat(43);
-const values = { VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", DATA_ENVIRONMENT: "production", INSPORA_MCP_AUTH_URL: "https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/internal/authorization", INSPORA_MCP_AUTH_TOKEN: "s".repeat(43) };
+const values = { VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", DATA_ENVIRONMENT: "production", INSPORA_MCP_AUTH_URL: "https://mcp.inspora.design/internal/authorization", INSPORA_MCP_AUTH_TOKEN: "s".repeat(43) };
 function configured() { for (const [key, value] of Object.entries(values)) vi.stubEnv(key, value); mocks.identity.mockResolvedValue({ userId: "user_test1" }); mocks.admins.mockReturnValue(new Set(["user_test1"])); }
 beforeEach(() => { vi.spyOn(console, "warn").mockImplementation(() => {}); });
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });

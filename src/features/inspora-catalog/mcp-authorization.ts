@@ -15,7 +15,7 @@ export function authorizationConfig(values: Record<string, string | undefined>) 
   if (values.VERCEL_ENV !== "production" || values.VERCEL_GIT_COMMIT_REF !== "main" || values.DATA_ENVIRONMENT !== "production" || !/^[A-Za-z0-9_-]{43,128}$/.test(values.INSPORA_MCP_AUTH_TOKEN ?? "")) return null;
   let url: URL;
   try { url = new URL(values.INSPORA_MCP_AUTH_URL ?? ""); } catch { return null; }
-  if (url.protocol !== "https:" || !["inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev", "mcp.inspora.design"].includes(url.hostname) || url.port || url.username || url.password || url.pathname !== "/internal/authorization" || url.search || url.hash) return null;
+  if (url.protocol !== "https:" || !["mcp.inspora.design"].includes(url.hostname) || url.port || url.username || url.password || url.pathname !== "/internal/authorization" || url.search || url.hash) return null;
   return { url: url.href, origin: url.origin, token: values.INSPORA_MCP_AUTH_TOKEN! };
 }
 

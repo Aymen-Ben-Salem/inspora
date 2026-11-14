@@ -8,11 +8,11 @@ import {buildCatalog,publishCatalog} from './catalog.mjs';
 import {work,note,embed} from '../test/fixtures.mjs';
 import {sha} from '../catalog.mjs';
 import {previewKey} from './previews.mjs';
-import {fileURLToPath} from 'node:url';
+import {runtimeModules} from './runtime-bundle.mjs';
 import fs from 'node:fs';
 
 const token='local_runtime_fixture_'.padEnd(43,'x'),origin='https://mcp.test';
-const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'inspora-mcp',modules:true,scriptPath:fileURLToPath(new URL('./.wrangler/dry-run/worker.js',import.meta.url)),compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'pilot',MCP_PILOT_TOKENS:JSON.stringify([{id:'runtime-test',sha256:sha(token),expiresAt:'2099-01-01'}])}},{name:'source-probe',compatibilityDate:'2026-11-13',modules:[{type:'ESModule',path:'probe.mjs',contents:`import {requestCatalog} from './source-request.mjs';export default {fetch(){return requestCatalog('x'.repeat(43),async(url,init)=>{const request=new Request(url,init);return Response.json({redirect:request.redirect,authorizationPresent:request.headers.has('authorization')});});}}`},{type:'ESModule',path:'source-request.mjs',contents:fs.readFileSync(new URL('./source-request.mjs',import.meta.url),'utf8')}]}]}));
+const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'inspora-mcp',modules:runtimeModules,compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'pilot',MCP_PILOT_TOKENS:JSON.stringify([{id:'runtime-test',sha256:sha(token),expiresAt:'2099-01-01'}])}},{name:'source-probe',compatibilityDate:'2026-11-13',modules:[{type:'ESModule',path:'probe.mjs',contents:`import {requestCatalog} from './source-request.mjs';export default {fetch(){return requestCatalog('x'.repeat(43),async(url,init)=>{const request=new Request(url,init);return Response.json({redirect:request.redirect,authorizationPresent:request.headers.has('authorization')});});}}`},{type:'ESModule',path:'source-request.mjs',contents:fs.readFileSync(new URL('./source-request.mjs',import.meta.url),'utf8')}]}]}));
 let client;
 try{
   const probe=await mf.getWorker('source-probe'),probeResult=await(await probe.fetch('https://probe.test/')).json();

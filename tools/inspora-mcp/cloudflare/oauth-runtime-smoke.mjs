@@ -1,14 +1,19 @@
 import assert from 'node:assert/strict';
 import {randomBytes,createHash} from 'node:crypto';
-import {fileURLToPath} from 'node:url';
+import {runtimeModules} from './runtime-bundle.mjs';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 import {buildCatalog,publishCatalog} from './catalog.mjs';
 import {work,note,embed} from '../test/fixtures.mjs';
 const origin='https://mcp.test',bridgeToken='bridge_fixture_'.padEnd(43,'x');
-const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'oauth-test',modules:true,scriptPath:fileURLToPath(new URL('./.wrangler/dry-run/worker.js',import.meta.url)),compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],kvNamespaces:['OAUTH_KV'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true},AUTH_TICKETS:{className:'AuthorizationTickets',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'oauth',MCP_AUTH_BRIDGE_TOKEN:bridgeToken}}]}));
+const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'oauth-test',modules:runtimeModules,compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],kvNamespaces:['OAUTH_KV'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true},AUTH_TICKETS:{className:'AuthorizationTickets',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'oauth',MCP_AUTH_BRIDGE_TOKEN:bridgeToken}}]}));
 const send=(path,options={})=>mf.dispatchFetch(origin+path,{redirect:'manual',...options});
 const post=(body,headers={})=>({method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
 try{
+  const publicSkills=await send('/.well-known/agent-skills/index.json');assert.equal(publicSkills.status,200);
+  const skillIndex=await publicSkills.json();assert.equal(skillIndex.skills.length,2);
+  for(const skill of skillIndex.skills){const doc=await send('/.well-known/agent-skills/'+skill.name+'/SKILL.md');assert.equal(doc.status,200);assert.ok((await doc.text()).includes('name: '+skill.name));}
+  assert.equal((await send('/setup')).status,200);
+
   const row=work(1),bucket=await mf.getR2Bucket('CATALOG');await publishCatalog(bucket,await buildCatalog({version:1,catalog:{capturedAt:new Date().toISOString(),rows:[row]},enrichment:{version:1,entries:[note(row)]}},{embed}));
   const denied=await send('/mcp',post({}));assert.equal(denied.status,401);assert.match(denied.headers.get('www-authenticate'),/resource_metadata/);
   const discovery=await(await send('/.well-known/oauth-authorization-server')).json();assert.ok(discovery.token_endpoint);assert.ok(discovery.revocation_endpoint);

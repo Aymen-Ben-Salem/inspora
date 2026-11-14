@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Connect to Inspora</title>
+  <meta name="robots" content="noindex,nofollow">
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; line-height: 1.6; }
+    body { margin: 0; background: light-dark(#fafaf9, #151515); color: light-dark(#202020, #eeeeec); }
+    main { max-width: 46rem; margin: auto; padding: 3rem 1.5rem 5rem; }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.04em; line-height: 1.1; }
+    h2 { margin-top: 2.5rem; font-size: 1.3rem; }
+    a { color: inherit; text-underline-offset: .2em; }
+    pre { padding: 1.1rem; border: 1px solid light-dark(#deded9, #41413d); border-radius: .65rem; background: light-dark(#fff, #202020); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; }
+    code { font-family: ui-monospace, monospace; }
+    details { margin: 1rem 0; }
+    summary { cursor: pointer; font-weight: 600; }
+    footer { margin-top: 3rem; font-size: .9rem; color: light-dark(#62625e, #b8b8b1); }
+  </style>
+</head>
+<body>
+<main>
+  <a href="https://www.inspora.design">Inspora</a>
+  <h1>Connect to Inspora</h1>
+  <p>Find design references in your AI agent. MCP access is currently available to approved Inspora team accounts.</p>
+  <h2>Ask your agent to set it up</h2>
+  <p>Copy this prompt into your agent.</p>
+  <pre><code>Set up Inspora for me.
+
+1. Add https://mcp.inspora.design/mcp as a Streamable HTTP MCP server and sign me in through OAuth if needed.
+2. Install the skills from https://mcp.inspora.design for my current agent using npx skills add.
+3. Check catalog_status, then find six examples for a design idea I give you.</code></pre>
+  <p>Complete the browser sign-in and choose <strong>Allow connection</strong>.</p>
+  <h2>Install the skills yourself</h2>
+  <pre><code>npx skills add https://mcp.inspora.design -g</code></pre>
+  <p>Select the Inspora skills and the agent or agents you use. The installer uses Node.js. The skills help you refine searches, compare references and develop a design direction. Start a fresh agent session after installation.</p>
+  <details>
+    <summary>Install for every supported agent</summary>
+    <pre><code>npx skills add https://mcp.inspora.design -g --all</code></pre>
+    <p>This creates an installation for every agent the installer supports, including agents you may not have installed.</p>
+  </details>
+  <details>
+    <summary>Connect the MCP manually</summary>
+    <p>Use your agent’s MCP settings to add this server URL and sign in.</p>
+    <pre><code>https://mcp.inspora.design/mcp</code></pre>
+    <p>For Codex, run the following command. If sign-in is still needed, run <code>codex mcp login inspora</code>.</p>
+    <pre><code>codex mcp add inspora --url https://mcp.inspora.design/mcp</code></pre>
+    <p>For Claude Code, run these commands.</p>
+    <pre><code>claude mcp add --transport http --scope user inspora https://mcp.inspora.design/mcp
+claude mcp login inspora</code></pre>
+  </details>
+  <h2>Try it</h2>
+  <p>Ask “Use Inspora to find playful navigation designs.” Ask for more, refine the direction or compare selected references.</p>
+  <footer>Catalog updates arrive automatically. Uploaded reference-image search is planned for Phase 2. Your AI agent’s normal model usage applies.</footer>
+</main>
+</body>
+</html>

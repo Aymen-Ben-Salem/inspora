@@ -81,7 +81,7 @@ export default function McpPage() {
                   <li><div className={styles.stepTitle}><span>02</span><h3>Sign in</h3></div><p>Use your approved Inspora team account and choose Allow connection.</p></li>
                   <li><div className={styles.stepTitle}><span>03</span><h3>Start searching</h3></div><p>Describe an idea or share an Inspora work link. Content updates arrive automatically.</p></li>
                 </ol>
-                <a className={`link ${styles.guideLink}`} href="https://github.com/Aymen-Ben-Salem/inspora/blob/preview/archive-updates/tools/inspora-mcp/README.md" target="_blank" rel="noreferrer">Read the setup guide <ArrowUpRight size={17} aria-hidden="true" /></a>
+                <a className={`link ${styles.guideLink}`} href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">Read the setup guide <ArrowUpRight size={17} aria-hidden="true" /></a>
                 <p className={styles.setupNote}>Read-only catalog access. Your AI client’s normal provider usage still applies.</p>
               </div>
               <McpClientSetup />

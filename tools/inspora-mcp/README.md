@@ -10,7 +10,7 @@ Copy this prompt into Codex or Claude Code.
 Set up Inspora for me.
 
 1. Add https://mcp.inspora.design/mcp as a Streamable HTTP MCP server and sign me in through OAuth if needed.
-2. Install inspora-discovery and inspora-design-direction from Aymen-Ben-Salem/inspora for my current agent using npx skills add.
+2. Install the skills from https://mcp.inspora.design for my current agent using npx skills add.
 3. Check catalog_status, then find six examples for a design idea I give you.
 ```
 
@@ -47,11 +47,15 @@ Sign in to Inspora in the browser and choose **Allow connection**. Reopen your A
 
 ## Add the companion skills
 
-For Codex, run this once. For Claude Code, replace `codex` with `claude-code`.
+Run this command and select the skills and agents you use.
 
 ```sh
-npx skills add Aymen-Ben-Salem/inspora --skill inspora-discovery inspora-design-direction -g -a codex -y
+npx skills add https://mcp.inspora.design -g
 ```
+
+To install both skills for every supported agent, including agents you may not have installed, use `npx skills add https://mcp.inspora.design -g --all`.
+
+The files are delivered directly from Inspora. The browser setup guide is available at [mcp.inspora.design/setup](https://mcp.inspora.design/setup).
 
 Start a fresh agent session after installation. Existing users can run `npx skills update inspora-discovery inspora-design-direction` when they want the latest skill guidance. [Skills installer reference](https://github.com/vercel-labs/skills/blob/main/docs/commands.md)
 

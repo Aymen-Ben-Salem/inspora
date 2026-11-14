@@ -97,7 +97,7 @@
 .configToolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 16px; min-height: 48px; border-bottom: 1px solid #333; font: 12px/1.4 var(--font-mono); color: #bdbdbd; }
 .configToolbar button { display: inline-flex; gap: 8px; align-items: center; justify-content: center; min-height: 44px; padding: 4px 0 4px 8px; color: #fff; background: none; border: 0; font: 13px/1.4 var(--font-text); }
 .configToolbar button:disabled { opacity: .45; cursor: not-allowed; }
-.configBox pre { margin: 0; padding: 20px; min-height: 200px; color: #dadada; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 var(--font-mono); }
+.configBox pre { margin: 0; padding: 20px; min-height: 0; color: #dadada; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 var(--font-mono); }
 .page .configHelp { font-size: 13px; line-height: 1.6; color: #bdbdbd; margin-top: 16px; }
 .configHelp code { font-family: var(--font-mono); color: #fff; font-size: 12px; }
 .closing { height: 100svh; min-height: 800px; padding: 120px 0 72px; }
@@ -198,7 +198,7 @@
   .guideLink { margin-top:20px; }
   .clientChoices button { flex:1; padding-inline:8px; font-size:14px; }
   .pathInput { font-size:16px; }
-  .configBox pre { padding:16px; font-size:11px; min-height:210px; }
+  .configBox pre { padding:16px; font-size:11px; min-height:0; }
   .closing { height:auto; min-height:100svh; padding:64px 0 48px; }
   .closing > .wrap { gap:40px; }
   .future { grid-template-columns:1fr; gap:32px; }

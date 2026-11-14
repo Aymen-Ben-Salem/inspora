@@ -13,6 +13,8 @@ Fetch selected works with `get_work`. Request `preview=image` when visual inspec
 
 Compare the qualities that matter to this project, such as hierarchy, composition, typography, density or interaction. Explain the practical tradeoffs and credit each reference with its creator and Inspora link. Distinguish observations from proposed adaptations. Verify exact font and technology claims from the source.
 
+When offering alternative visual directions, illustrate each with two relevant linked Inspora examples and explain the qualities to borrow from each. Reuse selected or previously shown works where they fit. Describe a real shortage when fewer examples support a direction; fetch more only when the missing evidence would help the user choose.
+
 Develop the user's stated preferences. Ask about an unresolved priority only when it would change the comparison. Explain the basis of a requested recommendation and leave other directions open.
 
 ## Make the direction usable

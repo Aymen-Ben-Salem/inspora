@@ -40,7 +40,7 @@ export function McpClientSetup() {
         <div className={styles.configToolbar}><label htmlFor="mcp-server-url">1. Connect Inspora</label><button type="button" onClick={() => copy(endpoint, "URL")}>{status === "URL copied." ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}{status === "URL copied." ? "Copied URL" : "Copy URL"}</button></div>
         <input id="mcp-server-url" className={styles.pathInput} value={endpoint} readOnly spellCheck={false} aria-describedby="mcp-config-help" />
       </div>
-      <p id="mcp-config-help" className={styles.configHelp}>Add this URL in your client?s MCP settings, then sign in to Inspora and allow the connection. If it is already connected, continue.</p>
+      <p id="mcp-config-help" className={styles.configHelp}>Add this URL in your client’s MCP settings, then sign in to Inspora and allow the connection. If it is already connected, continue.</p>
       <details className={styles.configBox}><summary className={styles.configToolbar}>Connect through the terminal</summary>
         <div className={styles.configToolbar}><span>{client === "claude" ? "Claude Code" : "Codex"}</span><button type="button" onClick={() => copy(connectCommand, "Connection command")}><Copy size={15} aria-hidden="true" />Copy command</button></div>
         <pre tabIndex={0} aria-label="Connection command"><code>{connectCommand}</code></pre>
@@ -58,7 +58,7 @@ export function McpClientSetup() {
         <p className={styles.configHelp}>Start a fresh conversation if skills or tools are missing. Restart the agent or extension if needed.</p>
       </details>
       <p className={styles.configHelp}><a href="https://mcp.inspora.design/setup">Other agents, updates and setup help</a></p>
-      <p className={styles.configHelp}>Team trial. Customer access will be part of Inspora Pro. Your client?s normal model usage applies.</p>
+      <p className={styles.configHelp}>Team trial. Customer access will be part of Inspora Pro. Your client’s normal model usage applies.</p>
       <p role="status" className={styles.copyStatus}>{status}</p>
     </div>
   );

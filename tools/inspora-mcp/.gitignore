@@ -3,3 +3,6 @@
 /models/
 /.npm-cache/
 /evaluation-results/
+/.wrangler/
+/cloudflare/.wrangler/
+/cloudflare/.dev.vars*

@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import {randomBytes,createHash} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
+import {buildCatalog,publishCatalog} from './catalog.mjs';
+import {work,note,embed} from '../test/fixtures.mjs';
+const origin='https://mcp.test',bridgeToken='bridge_fixture_'.padEnd(43,'x');
+const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'oauth-test',modules:true,scriptPath:fileURLToPath(new URL('./.wrangler/dry-run/worker.js',import.meta.url)),compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],kvNamespaces:['OAUTH_KV'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true},AUTH_TICKETS:{className:'AuthorizationTickets',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'oauth',MCP_AUTH_BRIDGE_TOKEN:bridgeToken}}]}));
+const send=(path,options={})=>mf.dispatchFetch(origin+path,{redirect:'manual',...options});
+const post=(body,headers={})=>({method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
+try{
+  const row=work(1),bucket=await mf.getR2Bucket('CATALOG');await publishCatalog(bucket,await buildCatalog({version:1,catalog:{capturedAt:new Date().toISOString(),rows:[row]},enrichment:{version:1,entries:[note(row)]}},{embed}));
+  const denied=await send('/mcp',post({}));assert.equal(denied.status,401);assert.match(denied.headers.get('www-authenticate'),/resource_metadata/);
+  const discovery=await(await send('/.well-known/oauth-authorization-server')).json();assert.ok(discovery.token_endpoint);assert.ok(discovery.revocation_endpoint);
+  const registration=await send('/oauth/register',post({client_name:'Test <untrusted> app',redirect_uris:['http://127.0.0.1:7889/callback'],grant_types:['authorization_code','refresh_token'],response_types:['code'],token_endpoint_auth_method:'none'}));
+  assert.equal(registration.status,201);const client=await registration.json();
+  const verifier=randomBytes(32).toString('base64url'),challenge=createHash('sha256').update(verifier).digest('base64url');
+  const query=new URLSearchParams({client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',response_type:'code',scope:'inspiration:read offline_access',code_challenge:challenge,code_challenge_method:'S256',state:'bound-client-state',resource:origin+'/mcp'});
+  const begin=await send('/authorize?'+query);assert.equal(begin.status,302);
+  const target=new URL(begin.headers.get('location'));assert.equal(target.origin,'https://www.inspora.design');const ticket=target.searchParams.get('ticket');assert.ok(ticket);
+  const cookie=begin.headers.get('set-cookie').split(';')[0];
+  assert.equal((await send('/internal/authorization',post({action:'inspect',ticket}))).status,401);
+  const bridgeHeaders={Authorization:'Bearer '+bridgeToken};
+  const inspect=await(await send('/internal/authorization',post({action:'inspect',ticket},bridgeHeaders))).json();assert.equal(inspect.description.clientName,'Test <untrusted> app');
+  assert.equal((await send('/internal/authorization',post({action:'approve',ticket,userId:'user_test1',decision:'approve'},bridgeHeaders))).status,200);
+  const complete=await send('/authorize/complete',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket}).toString()});
+  assert.equal(complete.status,302);const redirect=new URL(complete.headers.get('location'));assert.equal(redirect.searchParams.get('state'),'bound-client-state');assert.equal(redirect.searchParams.get('iss'),origin);
+  const tokenResponse=await send('/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:redirect.searchParams.get('code'),client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',code_verifier:verifier,resource:origin+'/mcp'}).toString()});
+  assert.equal(tokenResponse.status,200);const token=await tokenResponse.json();assert.ok(token.access_token);assert.ok(token.refresh_token);
+  const request={jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'catalog_status',arguments:{}}};
+  const authorized=await send('/mcp',post(request,{Authorization:'Bearer '+token.access_token,Accept:'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'}));assert.equal(authorized.status,200);
+  const result=await authorized.json();assert.equal(result.result.isError,undefined);assert.equal(JSON.parse(result.result.content[0].text).counts.design,1);
+  const replay=await send('/authorize/complete',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket}).toString()});assert.equal(replay.status,400);
+  const revoked=await send(new URL(discovery.revocation_endpoint).pathname,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:token.refresh_token,token_type_hint:'refresh_token',client_id:client.client_id}).toString()});assert.equal(revoked.status,200);
+  assert.equal((await send('/mcp',post(request,{Authorization:'Bearer '+token.access_token,Accept:'application/json, text/event-stream'}))).status,401);
+  console.log('PASS: OAuth discovery, registration, PKCE, consent binding, server identity bridge, scoped MCP access, replay rejection and revocation in workerd');
+}finally{await mf.dispose();}

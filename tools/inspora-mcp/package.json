@@ -10,11 +10,21 @@
     "build:index": "node build-index.mjs",
     "evaluate": "node evaluate.mjs",
     "test:protocol": "node --test --test-isolation=none test/protocol.test.mjs test/sync-protocol.test.mjs",
-    "prepare:model": "node prepare-model.mjs"
+    "prepare:model": "node prepare-model.mjs",
+    "test:cloudflare": "node --test --test-isolation=none cloudflare/test/*.test.mjs",
+    "cloudflare:check": "wrangler deploy --dry-run --config cloudflare/wrangler.jsonc --outdir .wrangler/dry-run",
+    "cloudflare:dev": "wrangler dev --config cloudflare/wrangler.jsonc",
+    "cloudflare:test-runtime": "node cloudflare/runtime-smoke.mjs",
+    "cloudflare:test-oauth": "node cloudflare/oauth-runtime-smoke.mjs"
   },
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
+    "@huggingface/transformers": "3.8.1",
     "@modelcontextprotocol/sdk": "1.29.0",
-    "zod": "4.4.3",
-    "@huggingface/transformers": "3.8.1"
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "miniflare": "5.20261113.0-beta",
+    "wrangler": "4.162.0"
   }
 }

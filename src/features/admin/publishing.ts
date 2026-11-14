@@ -1,4 +1,5 @@
 import "server-only";
+import { notifyCatalogChanged } from "../inspora-catalog/notify";
 
 import type { Route } from "next";
 import { revalidatePath, updateTag } from "next/cache";
@@ -97,6 +98,7 @@ export function revalidateReviewTransition(
   revalidatePath("/profile");
 
   if (!publishedRef) return;
+  notifyCatalogChanged();
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   revalidatePath("/creators/[username]", "page");
   if (publishedRef.kind === "design") {

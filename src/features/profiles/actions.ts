@@ -3,6 +3,7 @@
 import { auth, reverificationError } from "@clerk/nextjs/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
+import { notifyCatalogChanged } from "@/features/inspora-catalog/notify";
 
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
@@ -45,6 +46,7 @@ const avatarCompletionSchema = avatarRequestSchema.extend({
 });
 
 function refreshProfileCaches() {
+  notifyCatalogChanged();
   revalidateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLISHED_POSTS_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLISHED_LOGOS_CACHE_TAG, { expire: 0 });

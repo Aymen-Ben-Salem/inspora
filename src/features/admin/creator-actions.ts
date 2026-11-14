@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth, reverificationError } from "@clerk/nextjs/server";
 
 import { AdminAuthConfigurationError, requireAdmin } from "@/auth/require-admin";
+import { notifyCatalogChanged } from "@/features/inspora-catalog/notify";
 import { PUBLISHED_LOGOS_CACHE_TAG } from "@/data/logos-repository";
 import { PUBLISHED_POSTS_CACHE_TAG } from "@/data/posts-repository";
 import { PUBLISHED_WEBSITES_CACHE_TAG } from "@/data/websites-repository";
@@ -34,6 +35,7 @@ import type { AdminActionState, AdminCreatorAttribution } from "./types";
 const idSchema = z.uuid();
 
 function revalidateCreatorPaths() {
+  notifyCatalogChanged();
   updateTag(PUBLISHED_POSTS_CACHE_TAG);
   updateTag(PUBLISHED_LOGOS_CACHE_TAG);
   updateTag(PUBLISHED_WEBSITES_CACHE_TAG);

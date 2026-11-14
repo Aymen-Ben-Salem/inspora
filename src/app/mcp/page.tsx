@@ -15,7 +15,7 @@ const mono = localFont({ src: "../../assets/fonts/mcp/jetbrains-mono.woff2", var
 
 export const metadata: Metadata = {
   title: "Inspora MCP — Preview",
-  description: "Find design references from Claude Code and Codex with Inspora's local MCP pilot.",
+  description: "Find design references from Claude Code and Codex with Inspora's hosted MCP team trial.",
   robots: { index: false, follow: false },
   other: { "page-type": "software", "site-kind": "software" },
 };
@@ -37,7 +37,7 @@ export default function McpPage() {
           <div className={`wrap ${styles.wrap}`}>
             <div className={`hero-text ${styles.heroText}`}>
               <div className={`hero__c ${styles.heroCopy}`}>
-                <p className={styles.eyebrow}><span className={styles.statusDot} aria-hidden="true" />Inspora MCP · Local pilot</p>
+                <p className={styles.eyebrow}><span className={styles.statusDot} aria-hidden="true" />Inspora MCP · Team trial</p>
                 <h1 id="mcp-title" data-enter-whole>Design references<br />for your agent.</h1>
                 <p className={`hero__lead ${styles.heroLead}`}>Search Inspora from Claude Code or Codex. Start with an idea or a work link; get six references with creator credits.</p>
                 <div className={`btn-row ${styles.actions}`}>
@@ -71,15 +71,15 @@ export default function McpPage() {
         <section id="setup" className={`${styles.section} ${styles.setup}`} aria-labelledby="setup-title">
           <div className={`wrap ${styles.wrap}`}>
             <div className={styles.sectionHead}>
-              <h2 id="setup-title">Local MCP<br /> setup.</h2>
-              <p>The pilot runs on your computer with a dated catalog. Prepare the local index, then add Inspora to your client.</p>
+              <h2 id="setup-title">Connect to<br /> Inspora.</h2>
+              <p>Add the hosted connection to Claude Code or Codex, then sign in to Inspora. This trial is for approved team accounts.</p>
             </div>
             <div className={styles.setupGrid}>
               <div className={styles.preparation}>
                 <ol>
-                  <li><div className={styles.stepTitle}><span>01</span><h3>Inspora source code</h3></div><p>Use Node 24 and the Preview checkout with the current pilot catalog from the team.</p></li>
-                  <li><div className={styles.stepTitle}><span>02</span><h3>Prepare the local index</h3></div><p>Install dependencies, download the model and build the index with the setup guide.</p></li>
-                  <li><div className={styles.stepTitle}><span>03</span><h3>Claude Code or Codex</h3></div><p>Enter your checkout path and copy the configuration for your client.</p></li>
+                  <li><div className={styles.stepTitle}><span>01</span><h3>Add Inspora</h3></div><p>Copy the server URL into your client’s MCP settings, or use its terminal commands.</p></li>
+                  <li><div className={styles.stepTitle}><span>02</span><h3>Sign in</h3></div><p>Use your approved Inspora team account and choose Allow connection.</p></li>
+                  <li><div className={styles.stepTitle}><span>03</span><h3>Start searching</h3></div><p>Describe an idea or share an Inspora work link. Content updates arrive automatically.</p></li>
                 </ol>
                 <a className={`link ${styles.guideLink}`} href="https://github.com/Aymen-Ben-Salem/inspora/blob/preview/archive-updates/tools/inspora-mcp/README.md" target="_blank" rel="noreferrer">Read the setup guide <ArrowUpRight size={17} aria-hidden="true" /></a>
                 <p className={styles.setupNote}>Read-only catalog access. Your AI client’s normal provider usage still applies.</p>

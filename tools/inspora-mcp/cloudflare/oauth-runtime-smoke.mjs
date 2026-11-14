@@ -30,7 +30,9 @@ try{
   const complete=await send('/authorize/complete',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket}).toString()});
   assert.equal(complete.status,302);const redirect=new URL(complete.headers.get('location'));assert.equal(redirect.searchParams.get('state'),'bound-client-state');assert.equal(redirect.searchParams.get('iss'),origin);
   const tokenResponse=await send('/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:redirect.searchParams.get('code'),client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',code_verifier:verifier,resource:origin+'/mcp'}).toString()});
-  assert.equal(tokenResponse.status,200);const token=await tokenResponse.json();assert.ok(token.access_token);assert.ok(token.refresh_token);
+  assert.equal(tokenResponse.status,200);let token=await tokenResponse.json();assert.ok(token.access_token);assert.ok(token.refresh_token);
+  const renewed=await send('/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:token.refresh_token,client_id:client.client_id,resource:origin+'/mcp'}).toString()});
+  assert.equal(renewed.status,200);token=await renewed.json();assert.ok(token.access_token);assert.ok(token.refresh_token);
   const request={jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'catalog_status',arguments:{}}};
   const authorized=await send('/mcp',post(request,{Authorization:'Bearer '+token.access_token,Accept:'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'}));assert.equal(authorized.status,200);
   const result=await authorized.json();assert.equal(result.result.isError,undefined);assert.equal(JSON.parse(result.result.content[0].text).counts.design,1);

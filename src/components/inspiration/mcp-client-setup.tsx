@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { buildMcpClientConfig } from "@/features/inspiration/client-config";
 import styles from "@/app/mcp/mcp.module.css";
 
 export function McpClientSetup() {
   const [client, setClient] = useState<"claude" | "codex">("claude");
-  const [checkoutPath, setCheckoutPath] = useState("C:/path/to/inspora");
   const [status, setStatus] = useState("");
-  const config = buildMcpClientConfig(client, checkoutPath);
+  const endpoint = "https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev/mcp";
+  const commands = client === "claude" ? `claude mcp add --transport http --scope user inspora ${endpoint}\nclaude mcp login inspora` : `codex mcp add inspora --url ${endpoint}\ncodex mcp login inspora`;
+  async function copy(value: string, label: string) {
+    try { await navigator.clipboard.writeText(value); setStatus(label + " copied."); }
+    catch { setStatus("Copy is unavailable. Select the text to copy it."); }
+  }
   return (
     <div className={`ui app-frame ${styles.clientSetup}`}>
       <fieldset className={styles.clientChoices}><legend className="sr-only">Choose your AI client</legend>
@@ -21,18 +24,13 @@ export function McpClientSetup() {
           </button>
         ))}
       </fieldset>
-      <label className={styles.pathLabel} htmlFor="mcp-checkout">Your checkout path</label>
-      <input id="mcp-checkout" className={styles.pathInput} value={checkoutPath} onChange={event => {setCheckoutPath(event.target.value); setStatus("");}} spellCheck={false} autoComplete="off" aria-invalid={!config} aria-describedby={!config ? "mcp-path-error" : "mcp-config-help"} />
-      {!config && <p id="mcp-path-error" className={styles.configHelp}>Enter an absolute checkout path, such as C:/work/inspora or /home/me/inspora.</p>}
       <div className={styles.configBox}>
-        <div className={styles.configToolbar}><span>{client === "claude" ? "inspora-mcp.json" : "config.toml"}</span><button type="button" disabled={!config} onClick={async () => {
-          if (!config) return;
-          try { await navigator.clipboard.writeText(config); setStatus("Configuration copied."); }
-          catch { setStatus("Copy is unavailable. Select the configuration text to copy it."); }
-        }}>{status === "Configuration copied." ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}{status === "Configuration copied." ? "Copied config" : "Copy config"}</button></div>
-        <pre tabIndex={0} aria-label={client === "claude" ? "Claude Code configuration" : "Codex configuration"}><code>{config ?? "Enter your checkout path to generate the configuration."}</code></pre>
+        <div className={styles.configToolbar}><label htmlFor="mcp-server-url">Server URL</label><button type="button" onClick={() => copy(endpoint, "URL")}>{status === "URL copied." ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}{status === "URL copied." ? "Copied URL" : "Copy URL"}</button></div>
+        <input id="mcp-server-url" className={styles.pathInput} value={endpoint} readOnly spellCheck={false} aria-describedby="mcp-config-help" />
       </div>
-      <p id="mcp-config-help" className={styles.configHelp}>{client === "claude" ? <>Save this JSON file and start Claude Code with <code>--mcp-config</code> followed by its path. Team validation in Claude Code is still pending.</> : <>Add this entry to your existing <code>config.toml</code>, keeping your other servers and settings.</>}</p>
+      <p id="mcp-config-help" className={styles.configHelp}>Add this URL in your client’s MCP settings, then sign in to Inspora and allow the connection.</p>
+      <details className={styles.configBox}><summary className={styles.configToolbar}>Use terminal commands</summary><div className={styles.configToolbar}><span>{client === "claude" ? "Claude Code" : "Codex"}</span><button type="button" onClick={() => copy(commands, "Commands")}><Copy size={15} aria-hidden="true" />Copy commands</button></div><pre tabIndex={0} aria-label="Connection commands"><code>{commands}</code></pre></details>
+      <p className={styles.configHelp}>Team trial. Customer access will be part of Inspora Pro. Your client’s normal model usage applies.</p>
       <p role="status" className={styles.copyStatus}>{status}</p>
     </div>
   );

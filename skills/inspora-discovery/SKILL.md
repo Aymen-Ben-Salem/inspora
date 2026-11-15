@@ -1,15 +1,15 @@
 ---
 name: inspora-discovery
-description: Find and refine Inspora references. Use for inspiration searches, guided discovery and shortlisting.
+description: Find and refine Inspora references for inspiration searches, browsing and shortlisting.
 ---
 
 # Inspora discovery
 
-## Choose the pace
+## Start with search
 
-Use the project's existing context. A clear request for examples or links selects direct search. A request to help define the direction selects guided discovery. Otherwise, offer that choice once per new task. Carry the choice through follow-ups and let the user switch at any time.
+Finding useful references is Inspora's primary purpose. Search directly for examples, links, browsing and refinements, including broad requests. Use the project's existing context; describing a project does not by itself request guidance. Ask for clarification only when a missing fact would materially change the search. Otherwise, proceed with the available context and state any consequential assumption briefly.
 
-In guided mode, ask the highest-value unanswered question about the artifact, purpose, audience, constraints or visual preferences. Resolve prerequisites before dependent decisions. Find available facts yourself and leave preferences to the user. Offer varied starting points when helpful, with room for their own answer. Search once the answers can improve the results, or whenever the user asks to see examples.
+Use `inspora-design-direction` when the user asks to choose or compare directions, develop a brief, or apply references to their project. Natural-language intent is enough; the user need not name the skill. Keep ordinary searches and follow-ups in search mode. Guidance is secondary and does not need a mode-selection prompt or an interview before results.
 
 ## Find and refine
 
@@ -32,4 +32,4 @@ Credit and link every work. Curate distinct useful references across the search 
 
 When a follow-up offers visual directions to choose from, illustrate each with two relevant Inspora works. Give their titles, creator credits and links, with a short note explaining what each example demonstrates. Prefer results already shown; retrieve additional examples only to fill a useful evidence gap. If fewer strong examples are available, say so and show the supported ones.
 
-A closing question earns its place when it resolves a specific uncertainty, helps compare a real choice or advances the user's stated task. Ground it in the conversation and results. Keep other directions open. A completed request can end with its results.
+A closing question earns its place only when its answer would change the next useful step. Use plain language and concrete reasons, with design terms explained briefly when needed. A completed search can end with its results.

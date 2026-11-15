@@ -80,7 +80,7 @@ Now ask:
 
 > Use Inspora to find ten dark website hero sections with bold typography. Include links.
 
-You should receive relevant references with creator credits and Inspora links, or an explanation if fewer strong matches are available. Skills can be selected automatically; mentioning their names is optional.
+You should receive relevant references with creator credits and Inspora links, or an explanation if fewer strong matches are available. Search is the default. Ask for help choosing a visual direction, comparing references or developing a brief when you want guidance. Skills can be selected from that request automatically; mentioning their names is optional.
 
 ## If something needs attention
 

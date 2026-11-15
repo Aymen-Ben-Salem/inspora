@@ -1,11 +1,21 @@
 ---
 name: inspora-design-direction
-description: Compare selected Inspora references and develop an original design direction. Use when choosing, combining or building from those references.
+description: Help choose, compare or develop a visual direction from Inspora references when the user requests that guidance, a brief or an implementation. Ordinary reference searches use inspora-discovery.
 ---
 
 # Develop a design direction
 
-Deliver the requested comparison, design brief or implementation using the user's project and selected references.
+Use this skill for requested guidance, including natural requests such as "help me figure out a visual direction." Deliver the requested comparison, brief or implementation using the project's context and references. A search request, project description or selected reference alone is not a request to begin a consultation.
+
+## Make progress before asking
+
+Start from what the conversation already establishes. Ask only when plausible answers would change the next search, recommendation or implementation. Skip settled or reasonably clear details. Audience is optional, not an opening step; explore it only when a real distinction would change the design decision.
+
+When a question is useful, ask one focused question in everyday language. Offer choices only when they represent meaningful alternatives supported by the brief or references, and leave room for the user's own answer. Avoid inventing audience segments to populate a menu. Use the answer to make progress rather than automatically asking the next question.
+
+Guidance can begin with useful references and a comparison. When preferences are still open, help the user react to concrete examples rather than requiring an abstract interview. State a modest working assumption when that is enough to proceed; ask when the unresolved choice truly matters.
+
+Explain concrete observations, practical tradeoffs and the reason for a recommendation. Keep enough detail for an informed choice. Use design terminology when it adds precision, with a short plain-language explanation when needed. Match depth to the request; avoid repeated recaps and scripted acknowledgments between questions.
 
 ## Understand the references
 

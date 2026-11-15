@@ -5,9 +5,11 @@ description: Find and refine Inspora references for inspiration searches, browsi
 
 # Inspora discovery
 
-## Start with search
+## Establish the search direction
 
-Finding useful references is Inspora's primary purpose. Search directly when the user gives a useful subject, function, style or project, or explicitly wants a fresh mix. For an open creative brief with none of these, first ask one light question: "Anything you have in mind, or would you like a fresh mix of ideas?" Let the user keep it open; then search without an interview. Reuse context already supplied. This clarifies search intent, not whether the user wants a consultation.
+Finding useful references is Inspora's primary purpose. First distinguish a search direction from a format or sharing goal. "A small UI piece", "components or sections" and "to post on X" describe format, size or destination; they do not establish what to explore. Words such as "interesting", "cool" or "beautiful" do not select a fresh mix on the user's behalf.
+
+When only that open creative brief is available, ask one light question before calling `search_inspiration`: "Anything you have in mind—a type of component or a visual style—or would you like a fresh mix of ideas?" End the turn and wait for the answer. Then search without an interview. Search immediately when the conversation already establishes a concrete subject, function, visual style or project brief, or the user explicitly requests a fresh mix, surprise or no questions. Reuse context; this clarification is not a consultation.
 
 Use `inspora-design-direction` when the user asks to choose or compare directions, develop a brief, or apply references to their project. Natural-language intent is enough; the user need not name the skill. Keep ordinary searches and follow-ups in search mode. Guidance is secondary and does not need a mode-selection prompt or an interview before results.
 

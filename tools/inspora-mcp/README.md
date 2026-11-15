@@ -78,7 +78,7 @@ For Claude Code, use `--agent claude-code`. A successful file listing confirms i
 
 Now ask:
 
-> Use Inspora to find six dark website hero sections with bold typography. Include links.
+> Use Inspora to find ten dark website hero sections with bold typography. Include links.
 
 You should receive relevant references with creator credits and Inspora links, or an explanation if fewer strong matches are available. Skills can be selected automatically; mentioning their names is optional.
 

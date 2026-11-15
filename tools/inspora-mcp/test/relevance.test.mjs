@@ -31,7 +31,7 @@ test('subject evidence is required across component, web, print and brand reques
 });
 
 test('main subjects outrank background mentions and every continuation retains admission rules', async () => {
-  const dashboards = Array.from({length: 9}, (_, index) => ({
+  const dashboards = Array.from({length: 13}, (_, index) => ({
     ...work(index + 1), title: 'Analytics dashboard ' + index,
     description: 'A clean dashboard organizes analytics and progress.',
   }));
@@ -39,7 +39,7 @@ test('main subjects outrank background mentions and every continuation retains a
   const logo = {...work(21, 'logo'), title: 'Fitness identity', description: 'A clean fitness logo.', industry: 'Fitness'};
   const e = engine([...dashboards, background, logo]);
   const first = await e.search({query: 'clean fitness dashboard'});
-  assert.equal(first.results.length, 6);
+  assert.equal(first.results.length, 10);
   const second = await e.search({cursor: first.next_cursor});
   assert.equal(second.results.length, 3);
   assert.deepEqual(new Set([...first.results, ...second.results].map(row => row.id)), new Set(dashboards.map(row => row.id)));
@@ -79,13 +79,13 @@ test('explicit kinds, mixed requests and containing a feature are supported', as
 });
 
 test('open-ended explicit subjects work beyond the inferred vocabulary and bind to cursors', async () => {
-  const boards = Array.from({length: 8}, (_, index) => ({
+  const boards = Array.from({length: 12}, (_, index) => ({
     ...work(index + 1), title: 'Kanban board ' + index,
     description: 'A clean kanban board organizes customer tasks.',
   }));
   const e = engine([...boards, {...work(20), title: 'Clean poster', description: 'A clean poster for a software company.'}]);
   const first = await e.search({query: 'clean customer workflow', subjects: ['kanban board'], kinds: ['design']});
-  assert.equal(first.results.length, 6);
+  assert.equal(first.results.length, 10);
   await assert.rejects(e.search({cursor: first.next_cursor, subjects: ['poster']}), /MISMATCH/);
   await assert.rejects(e.search({cursor: first.next_cursor, subject_scope: 'contains'}), /MISMATCH/);
   await assert.rejects(e.search({cursor: first.next_cursor, context: 'finance'}), /MISMATCH/);
@@ -119,7 +119,7 @@ test('hidden-note scenery cannot override an identified subject and raw referenc
 });
 
 test('old ranked continuations expire after the search algorithm changes', async () => {
-  const e = engine(Array.from({length: 8}, (_, index) => ({...work(index + 1), title: 'Clean card', description: 'A clean profile card.'})));
+  const e = engine(Array.from({length: 12}, (_, index) => ({...work(index + 1), title: 'Clean card', description: 'A clean profile card.'})));
   const first = await e.search({query: 'clean cards'});
   delete e.cursors.get(first.next_cursor).searchRevision;
   await assert.rejects(e.search({cursor: first.next_cursor}), /CURSOR_EXPIRED/);
@@ -158,4 +158,42 @@ test('layout contradictions use prose evidence across subjects, including hidden
     const broad = await e.search({query: subject, subjects: [subject]});
     assert.equal(broad.results.length, 3, 'ordinary subject searches retain dense layouts');
   }
+});
+
+test('direction discovery can retrieve direct references across kinds and nearby functional work anywhere in the catalog',async()=>{
+  const noise=Array.from({length:40},(_,i)=>({...work(i+1,'website'),title:'Technology studio '+i,description:'A software studio website uses cream panels and orange type.'}));
+  const coffee=[
+    {...work(50,'logo'),title:'Coffee wordmark',description:'Rounded coffee lettering over pouring espresso.'},
+    {...work(51,'icon'),title:'Coffee dripper',description:'A metallic coffee dripper with an amber stream.'},
+    {...work(52),title:'Coffee receipt',description:'A coffee receipt card shows an itemized order.'},
+  ];
+  const foodSite={...work(53,'website'),title:'Food store',description:'A food website organizes product packs and illustrated ingredients into distinct sections.'};
+  const foodDesign={...work(54),title:'Delivery progress',description:'A food delivery card shows preparation, packing and delivered states.'};
+  const e=engine([...noise,...coffee,foodSite,foodDesign]);
+  const direct=await e.search({query:'coffee',required_terms:['coffee']});
+  assert.deepEqual(new Set(direct.results.map(row=>row.id)),new Set(coffee.map(row=>row.id)));
+  assert.deepEqual(direct.search_coverage.matching_by_kind,{logo:1,icon:1,design:1});
+  const adjacent=await e.search({query:'food',kinds:['website','design'],required_terms:['food']});
+  assert.deepEqual(new Set(adjacent.results.map(row=>row.id)),new Set([foodSite.id,foodDesign.id]));
+  assert.equal(adjacent.search_coverage.catalog_works,45);
+  assert.equal(adjacent.search_coverage.filtered_works,2);
+  assert.equal(adjacent.insufficient_matches,true);
+  const exact=await e.search({query:'coffee websites',required_terms:['coffee']});
+  assert.equal(exact.results.length,0,'an exact website request must not be padded with coffee identity or unrelated websites');
+});
+
+test('editorial field labels alone cannot qualify a result while real typography evidence remains searchable',async()=>{
+  const capturedAt=new Date().toISOString();
+  const rows=normalizeRows({capturedAt,rows:[
+    {...work(1,'website'),title:'Generic service',description:'A service site presents account information.'},
+    {...work(2,'website'),title:'Expressive typography',description:'An expressive typography study with oversized lettering.'},
+    {...work(3,'website'),title:'Typographic study',description:'Typography: a playful exploration of type.'},
+  ]}).map(row=>({...row,vector:vector()}));
+  rows[0].searchOnly='Typography: Standard sans-serif body text and small labels.';
+  rows[0].text+=' '+rows[0].searchOnly;
+  const e=new SearchEngine({snapshotId:'field-labels',capturedAt,rows},{embed});
+  const result=await e.search({query:'expressive typography websites'});
+  assert.ok(!result.results.some(row=>row.id===rows[0].id),'a structural heading is not visual subject evidence');
+  assert.ok(result.results.some(row=>row.id===rows[1].id));
+  assert.ok(result.results.some(row=>row.id===rows[2].id),'public prose remains searchable, including headings');
 });

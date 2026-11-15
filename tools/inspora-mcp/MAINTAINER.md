@@ -69,7 +69,7 @@ Session-only Codex overrides are also supported. Include the same absolute `--co
 
 ## Tools and limits
 
-- `search_inspiration`: written idea or existing Inspora link; six results by default, 1–20 allowed; explicit kinds and AND filters; compact or links-only output. Hard filters are never relaxed. Similarity is based on metadata, not a verified visual match.
+- `search_inspiration`: written idea or existing Inspora link; ten candidates by default, 1–20 allowed; explicit kinds and AND filters; compact or links-only output. `search_coverage` reports eligible catalog size, candidates after hard filters and qualifying matches by kind for the full query, including across continuation. It does not measure every possible search angle or human usefulness. Hard filters are never relaxed. Similarity is based on metadata, not a verified visual match. Presentation defaults to up to ten direct references and, when direct coverage is sparse, up to five useful adaptation references in a separate table.
 - `get_work`: selected ID only, bounded details and optional preview. A URL alone does not guarantee image rendering. Inline images are available only for locally prepared thumbnails, capped at 256 KB.
 - `catalog_status`: date, counts, enrichment, ranking and synchronization health. Without a configured source it remains a dated offline snapshot.
 

@@ -98,9 +98,13 @@ export function prepareDocument(row) {
   // identifies it, supporting scenery in notes cannot replace that subject.
   const primaryText = subjectsIn(introduction).length ? introduction : introduction + '. ' + subjectLead(visualNotes);
   const visibleText = [row.title, row.description, row.tagline, visualNotes].join('. ');
+  // The enrichment heading is structural, not evidence of a typography subject.
+  // Retain actual public prose, including a public title/heading with that word.
+  const lexicalText = String(row.text ?? '').replace(/\bTypography\s*:/gi, '');
+  const publicTerms = tokens([row.title, row.description, row.tagline].join(' '));
   const prepared = {
     sourceText: row.text,
-    terms: new Set(tokens(row.text)),
+    terms: new Set([...tokens(lexicalText), ...publicTerms]),
     titleTerms: new Set(tokens(row.title)),
     primaryTerms: new Set(tokens(primaryText)),
     denseLayout: hasDenseLayout(visibleText),

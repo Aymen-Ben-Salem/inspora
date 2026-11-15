@@ -18,7 +18,7 @@ try{
   const probe=await mf.getWorker('source-probe'),probeResult=await(await probe.fetch('https://probe.test/')).json();
   assert.deepEqual(probeResult,{redirect:'manual',authorizationPresent:true});
   const bucket=await mf.getR2Bucket('CATALOG');
-  const rows=Array.from({length:16},(_,i)=>({...work(i+1),title:'Blue glass card '+i,description:'Blue glass geometric interface grid'}));
+  const rows=Array.from({length:26},(_,i)=>({...work(i+1),title:'Blue glass card '+i,description:'Blue glass geometric interface grid'}));
   const feed={version:1,catalog:{capturedAt:new Date().toISOString(),rows},enrichment:{version:1,entries:rows.map(row=>note(row))}};
   const index=await buildCatalog(feed,{embed});await publishCatalog(bucket,index);
   const thumbnail=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=','base64');
@@ -28,11 +28,12 @@ try{
   await client.connect(transport);
   const tools=await client.listTools();assert.equal(tools.tools.length,3);
   const first=JSON.parse((await client.callTool({name:'search_inspiration',arguments:{reference_url:'https://www.inspora.design/posts/sample-1'}})).content[0].text);
-  assert.equal(first.results.length,6);assert.ok(first.next_cursor);
+  assert.equal(first.results.length,10);assert.ok(first.next_cursor);
+  assert.equal(first.search_coverage.catalog_works,26);assert.equal(first.search_coverage.matching_works,25);
   const detail=await client.callTool({name:'get_work',arguments:{id:index.rows[0].id,preview:'image'}});
   assert.equal(detail.content[1].type,'image');assert.equal(detail.content[1].data,thumbnail.toString('base64'));
   const next=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
-  assert.equal(next.isError,undefined);assert.equal(JSON.parse(next.content[0].text).results.length,6);
+  assert.equal(next.isError,undefined);assert.equal(JSON.parse(next.content[0].text).results.length,10);
   const replay=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
   assert.equal(replay.isError,true);assert.match(JSON.parse(replay.content[0].text).error,/CURSOR_EXPIRED/);
   console.log('PASS: bundled Worker + local R2 + SQLite continuation + HTTP MCP client');

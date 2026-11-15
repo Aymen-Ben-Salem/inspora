@@ -5,7 +5,7 @@ const base={kind:'design',slug:'example',title:'Blue glass card',creator:'Actual
 const rows=Array.from({length:30},(_,i)=>({...base,id:'00000000-0000-4000-8000-'+String(i).padStart(12,'0'),slug:'example-'+i,url:base.url+'-'+i}));
 const index={snapshotId:'snapshot-one',capturedAt:'2026-11-11T00:00:00Z',variant:'original',rows};
 const engine=(options={})=>new SearchEngine(index,{ranking:'hybrid',embed:async()=>[[1,0]],...options});
-test('defaults to six, honors 1–20, rejects malformed and excess fields',async()=>{for(const count of [undefined,1,20]){const r=await engine().search({query:'blue glass',...(count?{count}:{})});assert.equal(r.results.length,count??6);}for(const count of [0,21,-1,1.2,'6'])assert.equal(searchSchema.safeParse({query:'blue',count}).success,false);for(const x of [{query:''},{query:'x'.repeat(601)},{query:'x',upload:'file.png'},{query:'x',filters:{admin:['yes']}}])assert.equal(searchSchema.safeParse(x).success,false);await assert.rejects(engine().search({query:'blue',reference_url:base.url}),/exactly one/);});
+test('defaults to ten, honors 1–20, rejects malformed and excess fields',async()=>{for(const count of [undefined,1,6,20]){const r=await engine().search({query:'blue glass',...(count?{count}:{})});assert.equal(r.results.length,count??10);}for(const count of [0,21,-1,1.2,'6'])assert.equal(searchSchema.safeParse({query:'blue',count}).success,false);for(const x of [{query:''},{query:'x'.repeat(601)},{query:'x',upload:'file.png'},{query:'x',filters:{admin:['yes']}}])assert.equal(searchSchema.safeParse(x).success,false);await assert.rejects(engine().search({query:'blue',reference_url:base.url}),/exactly one/);});
 test('continuation never repeats, rejects replay, exhausts and binds query',async()=>{const e=engine(),seen=new Set();let r=await e.search({query:'blue glass',count:7});const first=r.next_cursor;await assert.rejects(e.search({query:'red',cursor:first}),/MISMATCH/);for(;;){for(const x of r.results){assert.ok(!seen.has(x.id));seen.add(x.id);}if(r.exhausted)break;const old=r.next_cursor;r=await e.search({cursor:old,count:7});await assert.rejects(e.search({cursor:old}),/EXPIRED/);}assert.equal(seen.size,30);assert.equal(r.next_cursor,null);assert.equal(r.insufficient_matches,true);});
 test('continuation expires and refresh invalidates existing cursors',async()=>{let now=Date.parse('2026-11-11T12:00:00Z');const e=engine({now:()=>now});let r=await e.search({query:'blue'});now+=CURSOR_TTL_MS+1;await assert.rejects(e.search({cursor:r.next_cursor}),/EXPIRED/);r=await e.search({query:'blue'});e.replaceIndex({...index,snapshotId:'new',rows:rows.slice(1)});await assert.rejects(e.search({cursor:r.next_cursor}),/EXPIRED/);assert.throws(()=>e.details({id:rows[0].id}),/NOT_ELIGIBLE/);});
 test('hard filters and exclusions never relax or pad absent subjects',async()=>{const e=engine();assert.equal((await e.search({query:'purple submarines'})).results.length,0);assert.equal((await e.search({query:'blue',filters:{colors:['Red']}})).results.length,0);assert.equal((await e.search({query:'blue',exclude_terms:['glass']})).results.length,0);assert.equal((await e.search({query:'blue without glass'})).results.length,0);assert.equal((await e.search({query:'blue',required_terms:['submarine']})).results.length,0);assert.equal((await e.search({query:'blue websites'})).results.length,0);await assert.rejects(e.search({query:'logos',kinds:['design']}),/CONFLICT/);const r=await e.search({query:'blue',exclude_ids:[rows[0].id]});assert.ok(!r.results.some(x=>x.id===rows[0].id));});
@@ -25,4 +25,16 @@ test('compact search carries bounded catalog evidence while links stay small',as
  assert.ok(compact.results[0].evidence.visual_notes.length<=360);
  const links=await e.search({query:'blue glass',format:'links'});
  assert.deepEqual(Object.keys(links.results[0]).sort(),['creator','id','title','url']);
+});
+
+test('coverage reports the full eligible catalog and keeps counts across continuation',async()=>{
+ const e=engine();
+ const first=await e.search({query:'blue glass'});
+ assert.deepEqual(first.search_coverage,{catalog_works:30,filtered_works:30,matching_works:30,matching_by_kind:{design:30}});
+ assert.equal(first.results.length,10);
+ const second=await e.search({cursor:first.next_cursor});
+ assert.deepEqual(second.search_coverage,first.search_coverage);
+ assert.equal(second.results.length,10);
+ const none=await e.search({query:'blue glass',filters:{colors:['Red']}});
+ assert.deepEqual(none.search_coverage,{catalog_works:30,filtered_works:0,matching_works:0,matching_by_kind:{}});
 });

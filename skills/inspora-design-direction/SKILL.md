@@ -7,13 +7,13 @@ description: Help choose, compare or develop a visual direction from Inspora ref
 
 Use this skill for requested guidance, including natural requests such as "help me figure out a visual direction." Deliver the requested comparison, brief or implementation using the project's context and references. A search request, project description or selected reference alone is not a request to begin a consultation.
 
-## Make progress before asking
+## Resolve meaningful choices together
 
 Start from what the conversation already establishes. Ask only when plausible answers would change the next search, recommendation or implementation. Skip settled or reasonably clear details. Audience is optional, not an opening step; explore it only when a real distinction would change the design decision.
 
-When a question is useful, ask one focused question in everyday language. Offer choices only when they represent meaningful alternatives supported by the brief or references, and leave room for the user's own answer. Avoid inventing audience segments to populate a menu. Use the answer to make progress rather than automatically asking the next question.
+When a question is useful, ask one focused question at a time in everyday language. Offer choices only when they represent meaningful alternatives supported by the brief or references, and leave room for the user's own answer. Avoid inventing audience segments to populate a menu. Apply each answer, then check whether another unresolved choice would materially shape the next deliverable. Follow up on that choice before committing to it; one answer does not settle unrelated decisions. Let the remaining decisions determine the number of questions, and stop once there is enough direction for the requested next step.
 
-Guidance can begin with useful references and a comparison. When preferences are still open, help the user react to concrete examples rather than requiring an abstract interview. State a modest working assumption when that is enough to proceed; ask when the unresolved choice truly matters.
+Guidance can begin with useful references and a comparison. When preferences are still open, help the user react to concrete examples rather than requiring an abstract interview. Handle minor details with reasonable defaults. For consequential choices still open, recommend an option with a brief reason and invite the user's choice. If the user asks you to decide, make the recommendation and state its assumptions without adding approval steps.
 
 Explain concrete observations, practical tradeoffs and the reason for a recommendation. Keep enough detail for an informed choice. Use design terminology when it adds precision, with a short plain-language explanation when needed. Match depth to the request; avoid repeated recaps and scripted acknowledgments between questions.
 

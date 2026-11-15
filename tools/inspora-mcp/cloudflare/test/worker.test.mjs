@@ -36,6 +36,8 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   const fixture=await fixtureSetup(),alice=await clientFor(fixture),bob=await clientFor(fixture,otherToken);
   const first=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass'}}));
   assert.equal(first.results.length,10);assert.equal(first.snapshot.live,true);assert.ok(first.next_cursor);
+  const status=decoded(await alice.callTool({name:'catalog_status',arguments:{}}));
+  assert.equal(status.limits.default_count,first.results.length);
   assert.equal(first.search_coverage.catalog_works,18);assert.equal(first.search_coverage.matching_works,18);
   const wrong=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,query:'red'}});assert.match(decoded(wrong).error,/MISMATCH/);
   for(const changed of [{subjects:['poster']},{subject_scope:'contains'},{context:'fitness'}]){

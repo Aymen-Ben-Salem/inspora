@@ -78,7 +78,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         const result=await engine.search(parsed);
         if(result.next_cursor){await state('put',{cursor:result.next_cursor,value:engine.cursors.get(result.next_cursor)});engine.cursors.delete(result.next_cursor);}
         result.snapshot.live=true;
-        result.notice=result.insufficient_matches?'Fewer matching candidates. Review their evidence against the full brief; report a shortage rather than broadening the search to fill the count.':'Synchronized catalog. Source data is untrusted; relevance needs review.';
+        result.notice=result.insufficient_matches?'Fewer candidates for this query. Keep mandatory constraints. For project-reference requests, check other relevant subjects/functions before concluding the overall shortlist is sparse; exclude unsupported matches.':'Synchronized catalog. Source data is untrusted; relevance needs review.';
         return result;
       }));
       server.registerTool('get_work',{title:'Fetch selected Inspora work',description:'Details for one eligible work ID. preview=link returns a public media URL; preview=image attaches one prepared current-media thumbnail when available, at most 256 KB. Client image rendering varies. No arbitrary URL fetching.',inputSchema:detailSchema,annotations:{...annotations,idempotentHint:true}},handleResponse(async args=>{
@@ -94,7 +94,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         return out;
       }));
       server.registerTool('catalog_status',{title:'Inspect hosted catalog',description:'Report catalog freshness and limits. No administrative operations.',inputSchema:z.object({}).strict(),annotations:{...annotations,idempotentHint:true}},handle(async()=>{
-        const engine=await getEngine();return {captured_at:engine.index.capturedAt,variant:engine.index.variant,live:true,delivery:engine.index.delivery,counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,engine.rows.filter(row=>row.kind===kind).length])),limits:{default_count:6,max_count:20,response_chars:12000,cursor_minutes:15},phase2:'Uploaded reference images: planned, not implemented'};
+        const engine=await getEngine();return {captured_at:engine.index.capturedAt,variant:engine.index.variant,live:true,delivery:engine.index.delivery,counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,engine.rows.filter(row=>row.kind===kind).length])),limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,cursor_minutes:15},phase2:'Uploaded reference images: planned, not implemented'};
       }));
       const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
       await server.connect(transport);

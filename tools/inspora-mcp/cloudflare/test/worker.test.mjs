@@ -35,7 +35,8 @@ const fixtureSetup=fixture;
 test('HTTP search, filters, details and restart-safe single-use principal-bound continuation',async()=>{
   const fixture=await fixtureSetup(),alice=await clientFor(fixture),bob=await clientFor(fixture,otherToken);
   const first=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass'}}));
-  assert.equal(first.results.length,6);assert.equal(first.snapshot.live,true);assert.ok(first.next_cursor);
+  assert.equal(first.results.length,10);assert.equal(first.snapshot.live,true);assert.ok(first.next_cursor);
+  assert.equal(first.search_coverage.catalog_works,18);assert.equal(first.search_coverage.matching_works,18);
   const wrong=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,query:'red'}});assert.match(decoded(wrong).error,/MISMATCH/);
   for(const changed of [{subjects:['poster']},{subject_scope:'contains'},{context:'fitness'}]){
     const mismatch=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,...changed}});
@@ -45,6 +46,7 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   const replies=await Promise.all([alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}}),alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}})]);
   assert.equal(replies.filter(reply=>reply.isError).length,1);
   const next=decoded(replies.find(reply=>!reply.isError));assert.ok(next.results.every(row=>!first.results.some(before=>before.id===row.id)));
+  assert.deepEqual(next.search_coverage,first.search_coverage);
   const empty=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass',filters:{colors:['Red']}}}));assert.equal(empty.results.length,0);assert.equal(empty.insufficient_matches,true);
   const id=first.results[0].id,row=fixture.index.rows.find(row=>row.id===id),key=previewKey(row);
   const details=decoded(await alice.callTool({name:'get_work',arguments:{id,preview:'image'}}));assert.equal(details.creator,'Actual Creator');assert.match(details.preview.inline_status,/No prepared/);
@@ -73,7 +75,7 @@ test('catalog replacements invalidate continuation and remove old details; stale
 test('HTTP accepts arbitrary subjects and rejects continuation from a previous ranking release',async()=>{
   const fixture=await fixtureSetup(),client=await clientFor(fixture);
   const first=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',subjects:['panel'],kinds:['design']}}));
-  assert.equal(first.results.length,6);
+  assert.equal(first.results.length,10);
   assert.deepEqual(first.interpreted_query.subjects,['panel']);
   const storage=fixture.env.ACCESS_STATE.objects.get('alice').state.storage;
   const key='cursor:'+first.next_cursor,value=await storage.get(key);

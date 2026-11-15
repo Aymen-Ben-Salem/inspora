@@ -15,6 +15,8 @@ Compare the qualities that matter to this project, such as hierarchy, compositio
 
 When offering alternative visual directions, illustrate each with two relevant linked Inspora examples and explain the supported qualities to borrow from each. Reuse selected or previously shown works where they fit. Exclude work that conflicts with the project's requirements; a caveat cannot turn an unsuitable reference into a recommendation. Show fewer examples or leave a direction unsupported when evidence is scarce; fetch more only when the missing evidence would help the user choose.
 
+When sourcing a direction, consider useful design entries alongside websites and identity work. Separate up to 10 direct subject/use-case references from up to 5 adaptation references when direct coverage is sparse. Honor the user's counts and exact-only constraints. For adaptations, prefer nearby domains or shared functions and show what to borrow, how it serves this project and its scope limit. Inspect uncertain visual compatibility; a shared color or generic headline treatment alone is insufficient. Keep each group's shortage visible rather than filling it with weak references.
+
 Develop the user's stated preferences. Ask about an unresolved priority only when it would change the comparison. Explain the basis of a requested recommendation and leave other directions open.
 
 ## Make the direction usable

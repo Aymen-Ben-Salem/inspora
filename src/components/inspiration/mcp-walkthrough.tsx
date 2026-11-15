@@ -9,7 +9,7 @@ export function McpWalkthrough() {
   const [selected, setSelected] = useState(0);
   const [status, setStatus] = useState("");
   const example = examples[selected];
-  const request = `Find six ${example.prompt} on Inspora. Include creator credits and links.`;
+  const request = `Find ten ${example.prompt} on Inspora. Include creator credits and links.`;
   return (
     <div className={`ui app-frame ${styles.walkthrough}`}>
       <div className={styles.walkthroughSidebar}>
@@ -32,7 +32,7 @@ export function McpWalkthrough() {
         <p className={styles.walkthroughNote}>Recorded from the local pilot. Search results depend on your catalog; image previews depend on your client.</p>
       </div>
       <div className={styles.walkthroughContent}>
-        <div className={styles.resultToolbar}><span><Terminal size={16} aria-hidden="true" /> Inspora</span><span>6 references <span aria-hidden="true">↗</span></span></div>
+        <div className={styles.resultToolbar}><span><Terminal size={16} aria-hidden="true" /> Inspora</span><span>{example.results.length} recorded references <span aria-hidden="true">↗</span></span></div>
         <div className={styles.referenceGrid} aria-live="polite" aria-atomic="true">
           {example.results.map(work => <a className={`card ${styles.reference}`} href={work.url} key={work.url}>
             <div className={styles.referenceHeading}><div><h3>{work.title}</h3><p>{work.creator}</p></div><ArrowUpRight size={16} aria-hidden="true" /></div>

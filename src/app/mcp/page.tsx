@@ -39,7 +39,7 @@ export default function McpPage() {
               <div className={`hero__c ${styles.heroCopy}`}>
                 <p className={styles.eyebrow}><span className={styles.statusDot} aria-hidden="true" />Inspora MCP · Team trial</p>
                 <h1 id="mcp-title" data-enter-whole>Design references<br />for your agent.</h1>
-                <p className={`hero__lead ${styles.heroLead}`}>Search Inspora from Claude Code or Codex. Start with an idea or a work link; get six references with creator credits.</p>
+                <p className={`hero__lead ${styles.heroLead}`}>Search Inspora from Claude Code or Codex. Start with an idea or a work link; get up to ten direct references with creator credits.</p>
                 <div className={`btn-row ${styles.actions}`}>
                   <a href="#setup" className={`btn btn--primary ${styles.primary}`}>Set up Inspora <ArrowUpRight className="m-arrow" size={18} aria-hidden="true" /></a>
                   <a href="#workflow" className={`btn btn--secondary ${styles.secondary}`}>See the workflow <ArrowDown size={17} aria-hidden="true" /></a>

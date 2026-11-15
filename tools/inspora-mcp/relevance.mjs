@@ -78,6 +78,17 @@ function subjectLead(text) {
   return String(text ?? '').split(/[.!?;\n]/, 1)[0].split(/\b(?:with|within|behind|against|beneath|above|beside|across|over|at|is|are|overlays?|overlaps?|surrounds?|features?|featuring|includes?|including|contains?|containing|shows?|showing|displays?|displaying|presents?|presenting|places?|pairs?|combines?|organizes?|arranges?|uses?|sits?|floats?|expands?|switches?|opens?|collects?|summarizes?|on (?:a|an|the)|in (?:a|an|the))\b/i, 1)[0];
 }
 
+// A Minimal style tag can coexist with a dense interface. Only explicit layout
+// prose establishes this contradiction; texture density and negated claims do not.
+function hasDenseLayout(text) {
+  const layout = /\b(?:dense|cluttered|crowded|busy)\s+(?:(?!and\b|but\b|or\b)[\p{L}-]+\s+){0,2}(?:layout|interface|dashboard|workspace|screen|canvas|table|grid|panel)s?\b/giu;
+  return [...String(text).matchAll(layout)].some(match => {
+    const before = text.slice(0, match.index).split(/[.!?;\n,]/).at(-1);
+    return !/\b(?:not|no|without|rather than|instead of|less|avoid\w*)\s+(?:\w+\s+){0,2}$/i.test(before)
+      && !/\b(?:background|backdrop|behind|against|overlays?)\b/i.test(before);
+  });
+}
+
 const documents = new WeakMap();
 export function prepareDocument(row) {
   if (documents.get(row)?.sourceText === row.text) return documents.get(row);
@@ -92,6 +103,7 @@ export function prepareDocument(row) {
     terms: new Set(tokens(row.text)),
     titleTerms: new Set(tokens(row.title)),
     primaryTerms: new Set(tokens(primaryText)),
+    denseLayout: hasDenseLayout(visibleText),
     primarySubjects: new Set([...subjectsIn(primaryText), ...subjectsIn([row.category, ...(row.categories ?? [])].join(' '))]),
     mentionedSubjects: new Set([...subjectsIn(visibleText), ...subjectsIn([row.category, ...(row.categories ?? [])].join(' '))]),
   };
@@ -122,7 +134,8 @@ export function queryIntent(args, positive, contextVocabulary) {
   const context = args.context ? tokens(args.context) : queryTerms.filter(term => contextVocabulary.has(term) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
-  return {subjects, subject_scope: scope, context, kinds};
+  const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive);
+  return {subjects, subject_scope: scope, context, kinds, lowDensity};
 }
 
 export function subjectEvidence(document, intent) {

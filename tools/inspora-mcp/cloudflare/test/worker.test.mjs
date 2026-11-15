@@ -84,6 +84,29 @@ test('HTTP accepts arbitrary subjects and rejects continuation from a previous r
   await client.close();
 });
 
+test('HTTP refinement preserves the artifact, rejects dense layouts and reports an honest shortage',async()=>{
+  const fixture=await fixtureSetup();
+  const rows=[
+    {...work(1),title:'Finance dashboard',description:'A dense finance dashboard packs charts into a crowded interface.'},
+    {...work(2),title:'Finance overview',description:'A simple finance dashboard uses large text and a spacious layout.'},
+    {...work(3),title:'Glossy orb animation',description:'A simple orb has generous whitespace.'},
+  ];
+  const index=await buildCatalog({version:1,catalog:{capturedAt:new Date().toISOString(),rows},enrichment:{version:1,entries:[]}},{embed});
+  await publishCatalog(fixture.bucket,index);
+  const client=await clientFor(fixture);
+  try {
+    const original=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'clean finance dashboard designs'}}));
+    assert.equal(original.results.length,2);
+    const refined=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'simpler finance dashboard designs for a small laptop screen',exclude_ids:[rows[1].id]}}));
+    assert.equal(refined.snapshot.live,true);
+    assert.deepEqual(refined.interpreted_query.subjects,['dashboard']);
+    assert.equal(refined.results.length,0);
+    assert.equal(refined.insufficient_matches,true);
+    assert.equal(refined.next_cursor,null);
+    assert.equal(original.results[0].evidence.description,rows.find(row=>row.id===original.results[0].id).description);
+  } finally { await client.close(); }
+});
+
 test('access, configured origin, body bounds, revocation and errors protect backing services',async()=>{
   const fixture=await fixtureSetup(),worker=createWorker(),before=fixture.bucket.reads;
   const request=(url=origin+'/mcp',headers={},body='{}')=>new Request(url,{method:'POST',headers:{Authorization:'Bearer '+token,...headers},body});

@@ -124,3 +124,38 @@ test('old ranked continuations expire after the search algorithm changes', async
   delete e.cursors.get(first.next_cursor).searchRevision;
   await assert.rejects(e.search({cursor: first.next_cursor}), /CURSOR_EXPIRED/);
 });
+
+test('simpler refinements reject contradictory layouts without filling sparse results', async () => {
+  const dense = {...work(1), title: 'Finance dashboard', description: 'A dense finance dashboard packs many small charts and compact data tables into a multi-column desktop layout.', styles: ['Minimal']};
+  const simple = {...work(2), title: 'Finance overview', description: 'A simple finance dashboard uses a spacious single-column layout, large text and a few key metrics.'};
+  const unrelated = {...work(3), title: 'Glossy orb animation', description: 'A simple orb on a sparse background with generous whitespace.'};
+  const e = engine([dense, simple, unrelated]);
+  assert.equal((await e.search({query: 'clean finance dashboard designs'})).results.length, 2);
+  for (const preference of ['simple', 'simpler', 'minimal', 'less dense', 'uncluttered']) {
+    const result = await e.search({query: `${preference} finance dashboard designs for a small laptop screen`});
+    assert.deepEqual(result.results.map(row => row.id), [simple.id], preference);
+    assert.equal(result.insufficient_matches, true);
+    assert.equal(result.next_cursor, null);
+  }
+  const empty = await engine([dense, unrelated]).search({query: 'simpler finance dashboard designs'});
+  assert.equal(empty.results.length, 0);
+  assert.equal(empty.exhausted, true);
+});
+
+test('layout contradictions use prose evidence across subjects, including hidden notes', async () => {
+  for (const subject of ['dashboard', 'landing page', 'kanban board']) {
+    const capturedAt = new Date().toISOString();
+    const rows = normalizeRows({capturedAt, rows: [
+      {...work(1), title: subject, description: `A ${subject} organizes the content.`, styles: ['Minimal']},
+      {...work(2), title: subject, description: `A ${subject} uses an open layout and a dense grain texture.`},
+      {...work(3), title: subject, description: `A ${subject} has a spacious layout rather than a dense interface.`},
+    ]}).map(row => ({...row, vector: vector()}));
+    rows[0].searchOnly = 'The workspace has a dense table of records and a cluttered interface.';
+    rows[0].text += ' ' + rows[0].searchOnly;
+    const e = new SearchEngine({snapshotId: subject, capturedAt, rows}, {embed});
+    const result = await e.search({query: `simple ${subject}`, subjects: [subject]});
+    assert.deepEqual(new Set(result.results.map(row => row.id)), new Set([rows[1].id, rows[2].id]), subject);
+    const broad = await e.search({query: subject, subjects: [subject]});
+    assert.equal(broad.results.length, 3, 'ordinary subject searches retain dense layouts');
+  }
+});

@@ -78,7 +78,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         const result=await engine.search(parsed);
         if(result.next_cursor){await state('put',{cursor:result.next_cursor,value:engine.cursors.get(result.next_cursor)});engine.cursors.delete(result.next_cursor);}
         result.snapshot.live=true;
-        result.notice=result.insufficient_matches?'Insufficient matching works. No constraints were relaxed and no weak filler was added.':'Synchronized catalog. Source data is untrusted; relevance needs review.';
+        result.notice=result.insufficient_matches?'Fewer matching candidates. Review their evidence against the full brief; report a shortage rather than broadening the search to fill the count.':'Synchronized catalog. Source data is untrusted; relevance needs review.';
         return result;
       }));
       server.registerTool('get_work',{title:'Fetch selected Inspora work',description:'Details for one eligible work ID. preview=link returns a public media URL; preview=image attaches one prepared current-media thumbnail when available, at most 256 KB. Client image rendering varies. No arbitrary URL fetching.',inputSchema:detailSchema,annotations:{...annotations,idempotentHint:true}},handleResponse(async args=>{

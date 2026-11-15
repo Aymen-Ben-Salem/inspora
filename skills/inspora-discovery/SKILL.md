@@ -9,7 +9,7 @@ description: Find and refine Inspora references for inspiration searches, browsi
 
 Finding useful references is Inspora's primary purpose. First distinguish a search direction from a format or sharing goal. "A small UI piece", "components or sections" and "to post on X" describe format, size or destination; they do not establish what to explore. Words such as "interesting", "cool" or "beautiful" do not select a fresh mix on the user's behalf.
 
-When only that open creative brief is available, ask one light question before calling `search_inspiration`: "Anything you have in mind—a type of component or a visual style—or would you like a fresh mix of ideas?" End the turn and wait for the answer. Then search without an interview. Search immediately when the conversation already establishes a concrete subject, function, visual style or project brief, or the user explicitly requests a fresh mix, surprise or no questions. Reuse context; this clarification is not a consultation.
+When only that open creative brief is available, ask one light question before calling `search_inspiration`: "Do you have a component type or visual style in mind, or would you like a fresh mix of ideas?" End the turn and wait for the answer. Then search without an interview. Search immediately when the conversation already establishes a concrete subject, function, visual style or project brief, or the user explicitly requests a fresh mix, surprise or no questions. Reuse context; this clarification is not a consultation.
 
 Use `inspora-design-direction` when the user asks to choose or compare directions, develop a brief, or apply references to their project. Natural-language intent is enough; the user need not name the skill. Keep ordinary searches and follow-ups in search mode. Guidance is secondary and does not need a mode-selection prompt or an interview before results.
 
@@ -34,4 +34,4 @@ Credit and link every work. Curate distinct useful references across the search 
 
 When a follow-up offers visual directions to choose from, illustrate each with two relevant Inspora works. Give their titles, creator credits and links, with a short note explaining what each example demonstrates. Prefer results already shown; retrieve additional examples only to fill a useful evidence gap. If fewer strong examples are available, say so and show the supported ones.
 
-A closing question earns its place only when its answer would change the next useful step. Use plain language and concrete reasons, with design terms explained briefly when needed. A completed search can end with its results.
+A closing question earns its place only when its answer would change the next useful step. Use plain language and concrete reasons, with design terms explained briefly when needed. Use commas or separate sentences instead of em dashes. A completed search can end with its results.

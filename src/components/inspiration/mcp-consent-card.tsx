@@ -6,11 +6,18 @@ export type McpClientDetails = { clientName?: string; clientDomain?: string; red
 
 export function McpConsentCard({ details, children }: { details: McpClientDetails; children: ReactNode }) {
   const name = (details.clientName || "Your app").slice(0, 120);
+  const clientName = name.trim().toLowerCase();
+  const clientLogo = /^(?:openai[ -])?codex(?:[ -](?:cli|mcp client))?$/.test(clientName)
+    ? "/mcp/icons/codex.svg"
+    : /^(?:claude|claude[ -]code)$/.test(clientName) ? "/mcp/icons/claude-code.svg" : undefined;
   return <section className={styles.card} aria-labelledby="connection-title">
     <div className={styles.connection} aria-hidden="true">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/brand/inspora-auth-mark.svg" alt="" width={56} height={56} />
-      <ArrowRight size={20} strokeWidth={1.5} /><span className={styles.clientMark}>{name.slice(0, 1).toUpperCase()}</span>
+      <ArrowRight size={20} strokeWidth={1.5} /><span className={styles.clientMark}>
+        {clientLogo ? /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={clientLogo} alt="" width={36} height={36} /> : name.slice(0, 1).toUpperCase()}
+      </span>
     </div>
     <h1 id="connection-title">Connect to {name}</h1>
     <p className={styles.subtitle}>Find Inspora references from your AI app.</p>

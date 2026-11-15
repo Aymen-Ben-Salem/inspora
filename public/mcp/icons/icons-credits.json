@@ -22,5 +22,13 @@
     "url": "https://github.com/gilbarbara/logos",
     "trademark": true,
     "markUrl": "https://openai.com/"
+  },
+  {
+    "file": "codex.svg",
+    "name": "Codex",
+    "source": "https://devicons.io/devicons/icons/codex-icon.svg",
+    "url": "https://devicons.io/icons/codex/",
+    "trademark": true,
+    "markUrl": "https://openai.com/codex/"
   }
 ]

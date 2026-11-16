@@ -50,7 +50,7 @@ const concepts = [
 ];
 
 const stop = new Set('i me my a an the for of in on to with and or is are that this find show give want need looking inspiration some please from similar alternatives like can could would should it its using use design designs designing website websites logo logos icon icons app apps work works example examples result results only no not without ui interface'.split(' '));
-const wordAliases = new Map([['minimalist', 'minimal'], ['minimalism', 'minimal'], ['geometrical', 'geometric']]);
+const wordAliases = new Map([['saas', 'saas'], ['paas', 'paas'], ['iaas', 'iaas'], ['minimalist', 'minimal'], ['minimalism', 'minimal'], ['geometrical', 'geometric']]);
 
 function words(text) {
   return (String(text ?? '').toLowerCase().normalize('NFKC').match(/[\p{L}\p{N}]+/gu) ?? []).map(word => {
@@ -63,7 +63,8 @@ function words(text) {
 }
 
 export const tokens = text => [...new Set(words(text).filter(word => word.length > 1 && !stop.has(word)))];
-const normalized = text => words(text).join(' ');
+export const normalizedPhrase = text => words(text).join(' ');
+const normalized = normalizedPhrase;
 const aliases = new Map(concepts.flatMap(([subject, , alternatives]) => [subject, ...alternatives].map(alias => [normalized(alias), subject])));
 const families = new Map(concepts.map(([subject, family]) => [subject, family]));
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
@@ -114,9 +115,12 @@ export function prepareDocument(row) {
   for (const subject of prepared.mentionedSubjects) {
     for (const term of tokens(subject)) prepared.terms.add(term);
   }
+  prepared.explicitLandingPage = prepared.primarySubjects.has('landing page');
   // A record's archive kind is reliable evidence for these broad subjects.
   if (['logo', 'icon', 'website'].includes(row.kind)) {
     prepared.primarySubjects.add(row.kind);
+    // Website entries are general page references even when their prose omits homepage/landing page.
+    if (row.kind === 'website') { prepared.primarySubjects.add('landing page'); prepared.mentionedSubjects.add('landing page'); }
     prepared.mentionedSubjects.add(row.kind);
   }
   documents.set(row, prepared);
@@ -124,7 +128,7 @@ export function prepareDocument(row) {
 }
 
 export function queryIntent(args, positive, contextVocabulary) {
-  let subjects = args.subjects?.map(subject => aliases.get(normalized(subject)) ?? normalized(subject));
+  let subjects = args.subjects ? [...new Set(args.subjects.map(subject => aliases.get(normalized(subject)) ?? normalized(subject)))] : undefined;
   if (!subjects) {
     const head = positive.split(/\b(?:with|featuring|containing|for)\b/i, 1)[0];
     const all = subjectsIn(positive);

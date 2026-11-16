@@ -1,6 +1,6 @@
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';import {z} from 'zod';
-import {SearchEngine,searchSchema,detailSchema} from './search.mjs';import {embed,dispose} from './model.mjs';
+import {SearchEngine,searchSchema,detailSchema,CURSOR_TTL_MS,SEARCH_REVISION} from './search.mjs';import {embed,dispose} from './model.mjs';
 import {localPreview} from './preview.mjs';
 import {fork} from 'node:child_process';
 import {STALE_MS} from './sync.mjs';
@@ -36,5 +36,5 @@ server.registerTool('get_work',{title:'Fetch selected Inspora work',description:
   }
   return out;
 }));
-server.registerTool('catalog_status',{title:'Inspect pilot snapshot',description:'Report snapshot date, work counts, enrichment and automatic synchronization health. No admin/write tools.',inputSchema:z.object({}).strict(),annotations:{...annotations,idempotentHint:true}},handled(async()=>textResult({name:'Inspora private pilot',captured_at:engine.index.capturedAt,variant,ranking,counts:Object.fromEntries(['design','website','logo','icon'].map(k=>[k,engine.rows.filter(r=>r.kind===k).length])),enrichment:engine.index.enrichment??null,synchronization:syncStatus(),live:false,review:'pending',limits:{default_count:6,max_count:20,response_chars:12000,detail_chars:10000,inline_preview_bytes:256000,cursor_minutes:15},phase2:'Uploaded reference images: required future capability, not implemented'})));
+server.registerTool('catalog_status',{title:'Inspect pilot snapshot',description:'Report snapshot date, work counts, enrichment and automatic synchronization health. No admin/write tools.',inputSchema:z.object({}).strict(),annotations:{...annotations,idempotentHint:true}},handled(async()=>textResult({name:'Inspora private pilot',search_revision:SEARCH_REVISION,captured_at:engine.index.capturedAt,variant,ranking,counts:Object.fromEntries(['design','website','logo','icon'].map(k=>[k,engine.rows.filter(r=>r.kind===k).length])),enrichment:engine.index.enrichment??null,synchronization:syncStatus(),live:false,review:'pending',limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,detail_chars:10000,inline_preview_bytes:256000,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:true},phase2:'Uploaded reference images: required future capability, not implemented'})));
 const transport=new StdioServerTransport();await server.connect(transport);transport.onclose=()=>{if(syncWorker?.connected)syncWorker.disconnect();dispose().finally(()=>process.exit(0));};

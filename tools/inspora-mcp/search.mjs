@@ -7,7 +7,7 @@ export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60
 export const SEARCH_REVISION=5;
 const list=z.array(z.string().trim().min(1).max(100)).max(20);
 export const searchSchema=z.object({
- query:z.string().trim().min(1).max(600).optional().describe('Self-contained search brief. On refinement, carry forward the artifact, project and unchanged requirements; include the new preferences. This tool does not receive conversation history.'),
+ query:z.string().trim().min(1).max(600).optional().describe('Concise, self-contained English visual brief. Translate non-English instructions and correct obvious typos while preserving names, quoted text and all design constraints. Omit conversational filler. On refinement retain artifact, project and unchanged requirements. No conversation history is received.'),
  reference_url:z.string().max(500).optional(),
  kinds:z.array(z.enum(KINDS)).min(1).max(4).optional(),
  subjects:z.array(z.string().trim().min(1).max(100)).min(1).max(6).optional().describe('Concrete visual subjects, any of which may qualify, such as pricing table or packaging. Accepts arbitrary phrases. Omit for broad style-only discovery. Inferred from common design vocabulary when omitted.'),

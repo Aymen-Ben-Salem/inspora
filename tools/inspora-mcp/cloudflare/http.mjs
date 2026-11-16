@@ -2,7 +2,7 @@ import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {z} from 'zod';
 import {sha} from '../catalog.mjs';
-import {SearchEngine,searchSchema,detailSchema} from '../search.mjs';
+import {SearchEngine,searchSchema,detailSchema,CURSOR_TTL_MS,SEARCH_REVISION} from '../search.mjs';
 import {createEmbed} from './embeddings.mjs';
 import {createCatalogReader} from './catalog.mjs';
 import {accessStore} from './access-state.mjs';
@@ -94,7 +94,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         return out;
       }));
       server.registerTool('catalog_status',{title:'Inspect hosted catalog',description:'Report catalog freshness and limits. No administrative operations.',inputSchema:z.object({}).strict(),annotations:{...annotations,idempotentHint:true}},handle(async()=>{
-        const engine=await getEngine();return {captured_at:engine.index.capturedAt,variant:engine.index.variant,live:true,delivery:engine.index.delivery,counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,engine.rows.filter(row=>row.kind===kind).length])),limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,cursor_minutes:15},phase2:'Uploaded reference images: planned, not implemented'};
+        const engine=await getEngine();return {search_revision:SEARCH_REVISION,captured_at:engine.index.capturedAt,variant:engine.index.variant,live:true,delivery:engine.index.delivery,counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,engine.rows.filter(row=>row.kind===kind).length])),limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:true},phase2:'Uploaded reference images: planned, not implemented'};
       }));
       const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
       await server.connect(transport);

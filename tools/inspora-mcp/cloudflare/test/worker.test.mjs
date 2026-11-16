@@ -38,6 +38,7 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   assert.equal(first.results.length,10);assert.equal(first.snapshot.live,true);assert.ok(first.next_cursor);
   const status=decoded(await alice.callTool({name:'catalog_status',arguments:{}}));
   assert.equal(status.limits.default_count,first.results.length);
+  assert.equal(status.limits.cursor_minutes,15);assert.equal(status.limits.cursor_single_use,true);
   assert.equal(first.search_coverage.catalog_works,18);assert.equal(first.search_coverage.matching_works,18);
   const wrong=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,query:'red'}});assert.match(decoded(wrong).error,/MISMATCH/);
   for(const changed of [{subjects:['poster']},{subject_scope:'contains'},{context:'fitness'}]){
@@ -127,4 +128,13 @@ test('per-principal limits refuse excessive requests independently of other user
   for(let i=0;i<30;i++)assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
   assert.equal((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
   assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+otherToken},body:'{}'})).status,429);
+});
+
+test('HTTP category aliases and plural exclusions preserve hard filters',async()=>{
+  const fixture=await fixtureSetup(),client=await clientFor(fixture);
+  const one=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',filters:{category:['Product']}}}));
+  const many=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',filters:{categories:['Product']}}}));
+  assert.deepEqual(one.results.map(r=>r.id),many.results.map(r=>r.id));assert.ok(one.results.length);
+  const excluded=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',exclude_terms:['panel']}}));
+  assert.equal(excluded.results.length,0);assert.equal(excluded.insufficient_matches,true);await client.close();
 });

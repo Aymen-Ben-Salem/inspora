@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Inspora MCP · Team update</title>
+  <meta name="robots" content="noindex,nofollow">
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; line-height: 1.6; }
+    body { margin: 0; background: light-dark(#fafaf9, #151515); color: light-dark(#202020, #eeeeec); }
+    main { max-width: 46rem; margin: auto; padding: 3rem 1.5rem 5rem; }
+    h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.04em; line-height: 1.1; }
+    h2 { margin-top: 2.5rem; font-size: 1.3rem; }
+    a { color: inherit; text-underline-offset: .2em; }
+    ul { padding-left: 1.3rem; }
+    li { margin: 1rem 0; }
+    pre { padding: 1.1rem; border: 1px solid light-dark(#deded9, #41413d); border-radius: .65rem; background: light-dark(#fff, #202020); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; }
+    code { font-family: ui-monospace, monospace; }
+    .label { font-size: .85rem; color: light-dark(#62625e, #b8b8b1); }
+  </style>
+</head>
+<body>
+<main>
+  <a href="https://www.inspora.design">Inspora</a>
+  <p class="label">Team update · November 15, 2026</p>
+  <h1>The Inspora MCP is ready for team testing.</h1>
+  <p>Hey guys, quick update on Inspora 👋</p>
+  <p>I’ve finished the MCP build and would like you to test it before I move on to credits and payments.</p>
+  <h2>What I’ve done</h2>
+  <ul>
+    <li><strong>Reviewed and enriched the data for over 550 posts:</strong> corrected or added descriptions, categories, Industry, Style and Color wherever needed.</li>
+    <li><strong>Added hidden descriptions for search:</strong> these describe the work in more detail so searches can find relevant designs beyond their titles and categories. They also cover typography styles where useful.</li>
+    <li><strong>Added a Generate button in the admin for uploading posts:</strong> it suggests descriptions, classifications and hidden search details when uploading a post. You can review and edit everything before saving. I also improved the upload page to make that process easier.</li>
+    <li><strong>Improved search relevance:</strong> worked on filtering out unrelated results, finding similar designs and letting users explore more without repeating the same references. New posts and edits sync automatically.</li>
+    <li><strong>Built two companion skills:</strong> one helps find and refine references; the other helps compare them and develop a visual direction. You don’t need to mention the skills by name, just ask naturally.</li>
+  </ul>
+  <h2>Install it in Claude Code</h2>
+  <p>Paste this into Claude Code:</p>
+  <pre><code>Set up Inspora for me.
+
+1. Connect https://mcp.inspora.design/mcp using Streamable HTTP and OAuth. Reuse an existing connection and help me sign in if needed.
+2. Install the Inspora skills:
+   npx skills add https://mcp.inspora.design -g --agent claude-code -y
+3. Verify both skills are available and call catalog_status to confirm Inspora is ready.</code></pre>
+  <h2>What’s next</h2>
+  <p>Next, I’ll work on the Inspora Pro credits and payments. Searching with uploaded reference images is planned for later.</p>
+</main>
+</body>
+</html>

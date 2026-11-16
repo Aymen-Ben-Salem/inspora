@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import { getConfiguredAdminUserIds } from "@/auth/config";
+import { getConfiguredMcpTrialUserIds } from "./mcp-trial-access";
 
 const site = "https://www.inspora.design";
 // Keep cross-site referrers private while preserving Origin on same-site forms.
@@ -19,7 +20,7 @@ export function authorizationConfig(values: Record<string, string | undefined>) 
   return { url: url.href, origin: url.origin, token: values.INSPORA_MCP_AUTH_TOKEN! };
 }
 
-export function createAuthorizationRoute({ identity = auth, administrators = getConfiguredAdminUserIds, fetchBridge = fetch } = {}) {
+export function createAuthorizationRoute({ identity = auth, administrators = getConfiguredAdminUserIds, trialUsers = getConfiguredMcpTrialUserIds, fetchBridge = fetch } = {}) {
   return async (request: Request) => {
     const config = authorizationConfig(process.env), url = new URL(request.url);
     const reject = (status: number, message: string) => new Response(message, { status, headers: common });
@@ -32,8 +33,8 @@ export function createAuthorizationRoute({ identity = auth, administrators = get
       signIn.searchParams.set("redirect_url", url.pathname + url.search);
       return new Response(null, { status: 303, headers: { ...common, Location: signIn.href } });
     }
-    // Team-only until the separate launch decision. No new account/admin scope is granted.
-    if (!administrators().has(session.userId)) return reject(403, "This MCP trial is currently available to the Inspora team.");
+    // Team-only trial access includes MCP-only testers without granting site admin.
+    if (!administrators().has(session.userId) && !trialUsers().has(session.userId)) return reject(403, "This MCP trial is currently available to the Inspora team.");
     let ticket: string, csrf = "", decision = "";
     let formFacts: Record<string, boolean | number | string> | undefined;
     if (request.method === "GET") ticket = url.searchParams.get("ticket") ?? "";

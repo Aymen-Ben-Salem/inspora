@@ -8,7 +8,7 @@ import { publicAuthRedirect } from "@/auth/public-auth-redirect";
 const origin = "https://www.inspora.design", ticket = "t".repeat(43);
 const values = { VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", DATA_ENVIRONMENT: "production", INSPORA_MCP_AUTH_URL: "https://mcp.inspora.design/internal/authorization", INSPORA_MCP_AUTH_TOKEN: "s".repeat(43) };
 function configured() { for (const [key, value] of Object.entries(values)) vi.stubEnv(key, value); mocks.identity.mockResolvedValue({ userId: "user_test1" }); mocks.admins.mockReturnValue(new Set(["user_test1"])); }
-beforeEach(() => { vi.spyOn(console, "warn").mockImplementation(() => {}); });
+beforeEach(() => { vi.stubEnv("INSPORA_MCP_TRIAL_USER_IDS", ""); vi.spyOn(console, "warn").mockImplementation(() => {}); });
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });
 it("rejects Preview, unsupported access policies and unrelated origins", () => {
   expect(authorizationConfig(values)).not.toBeNull(); expect(authorizationConfig({ ...values, VERCEL_ENV: "preview" })).toBeNull();
@@ -42,6 +42,22 @@ it("restricts trial access to the team and rejects cross-origin consent", async 
   configured(); mocks.admins.mockReturnValue(new Set());
   const handler = createAuthorizationRoute(); expect((await handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket))).status).toBe(403);
   const forged = new Request(origin + "/api/inspora/mcp/authorize", { method: "POST", headers: { Origin: "https://evil.test" }, body: "ticket=" + ticket }); expect((await handler(forged)).status).toBe(403);
+});
+it("allows a named MCP-only tester to view and approve consent, then rejects removed access", async () => {
+  configured(); mocks.admins.mockReturnValue(new Set());
+  vi.stubEnv("INSPORA_MCP_TRIAL_USER_IDS", " user_test1, user_other ");
+  const bridge = vi.fn(async () => Response.json({ description: { clientName: "Claude Code", redirectHost: "localhost" } }));
+  const handler = createAuthorizationRoute({ fetchBridge: bridge });
+  const get = await handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket));
+  expect(get.status).toBe(200);
+  const { csrf } = await get.json();
+  const post = () => handler(new Request(origin + "/api/inspora/mcp/authorize", { method: "POST", headers: { Origin: origin }, body: new URLSearchParams({ ticket, csrf, decision: "approve" }) }));
+  expect((await post()).status).toBe(303);
+  expect(JSON.parse((bridge.mock.calls.at(-1) as unknown as [string, RequestInit])[1].body as string)).toMatchObject({ action: "approve", userId: "user_test1" });
+  vi.stubEnv("INSPORA_MCP_TRIAL_USER_IDS", "user_other");
+  const calls = bridge.mock.calls.length;
+  expect((await post()).status).toBe(403);
+  expect(bridge).toHaveBeenCalledTimes(calls);
 });
 it("returns signed-out users to the ticket through the site's relative-only sign-in redirect", async () => {
   configured(); mocks.identity.mockResolvedValue({ userId: null, redirectToSignIn: ({ returnBackUrl }: { returnBackUrl: string }) => new Response(null, { status: 303, headers: { Location: origin + "/sign-in?redirect_url=" + encodeURIComponent(returnBackUrl) } }) });

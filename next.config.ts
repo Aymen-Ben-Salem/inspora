@@ -17,7 +17,8 @@ const remoteImageHostnames = [
 ].filter((hostname): hostname is string => Boolean(hostname));
 
 const nextConfig: NextConfig = {
-  ...(process.env.RELEASE_REHEARSAL_TARGET === "pro-fixture" ? { distDir: ".scratch/inspora-pro-verification-20261117/next" } : {}),
+  // Keep local fixture artifacts separate; hosted Preview uses Vercel's standard output.
+  ...(process.env.RELEASE_REHEARSAL_TARGET === "pro-fixture" && process.env.VERCEL !== "1" ? { distDir: ".scratch/inspora-pro-verification-20261117/next" } : {}),
   cacheComponents: true,
   // Sharp 0.35 loads native addons and libvips from separate optional packages.
   // Keep both in server bundles even when the tracer misses their runtime paths.

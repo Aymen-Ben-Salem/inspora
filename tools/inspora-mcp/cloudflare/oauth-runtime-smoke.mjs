@@ -4,8 +4,10 @@ import {runtimeModules} from './runtime-bundle.mjs';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 import {buildCatalog,publishCatalog} from './catalog.mjs';
 import {work,note,embed} from '../test/fixtures.mjs';
-const origin='https://mcp.test',bridgeToken='bridge_fixture_'.padEnd(43,'x');
-const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'oauth-test',modules:runtimeModules,compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],kvNamespaces:['OAUTH_KV'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true},AUTH_TICKETS:{className:'AuthorizationTickets',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'oauth',MCP_AUTH_BRIDGE_TOKEN:bridgeToken}}]}));
+import proRehearsal from '../../../config/inspora-pro-rehearsal.json' with {type:'json'};
+const rehearsal=process.argv.includes('--pro-rehearsal');
+const origin=rehearsal?proRehearsal.mcpOrigin:'https://mcp.test',consentSite=rehearsal?proRehearsal.siteOrigin:'https://www.inspora.design',bridgeToken='bridge_fixture_'.padEnd(43,'x');
+const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'oauth-test',modules:runtimeModules,compatibilityDate:'2026-11-13',compatibilityFlags:['nodejs_compat','global_fetch_strictly_public'],kvNamespaces:['OAUTH_KV'],durableObjects:{ACCESS_STATE:{className:'AccessState',useSQLite:true},AUTH_TICKETS:{className:'AuthorizationTickets',useSQLite:true}},r2Buckets:['CATALOG'],bindings:{MCP_ORIGIN:origin,ACCESS_MODE:'oauth',MCP_AUTH_BRIDGE_TOKEN:bridgeToken,...(rehearsal?{MCP_DEPLOYMENT_ENV:'pro-fixture',MCP_SITE_ORIGIN:consentSite}:{})}}]}));
 const send=(path,options={})=>mf.dispatchFetch(origin+path,{redirect:'manual',...options});
 const post=(body,headers={})=>({method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
 try{
@@ -22,7 +24,7 @@ try{
   const verifier=randomBytes(32).toString('base64url'),challenge=createHash('sha256').update(verifier).digest('base64url');
   const query=new URLSearchParams({client_id:client.client_id,redirect_uri:'http://127.0.0.1:7889/callback',response_type:'code',scope:'inspiration:read offline_access',code_challenge:challenge,code_challenge_method:'S256',state:'bound-client-state',resource:origin+'/mcp'});
   const begin=await send('/authorize?'+query);assert.equal(begin.status,302);
-  const target=new URL(begin.headers.get('location'));assert.equal(target.origin,'https://www.inspora.design');assert.equal(target.pathname,'/connect/mcp');const ticket=target.searchParams.get('ticket');assert.ok(ticket);
+  const target=new URL(begin.headers.get('location'));assert.equal(target.origin,consentSite);assert.equal(target.pathname,'/connect/mcp');const ticket=target.searchParams.get('ticket');assert.ok(ticket);
   const cookie=begin.headers.get('set-cookie').split(';')[0];
   assert.equal((await send('/internal/authorization',post({action:'inspect',ticket}))).status,401);
   const bridgeHeaders={Authorization:'Bearer '+bridgeToken};
@@ -44,5 +46,5 @@ try{
   const replay=await send('/authorize/complete',{method:'POST',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({ticket}).toString()});assert.equal(replay.status,400);
   const revoked=await send(new URL(discovery.revocation_endpoint).pathname,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token:token.refresh_token,token_type_hint:'refresh_token',client_id:client.client_id}).toString()});assert.equal(revoked.status,200);
   assert.equal((await send('/mcp',post(request,{Authorization:'Bearer '+token.access_token,Accept:'application/json, text/event-stream'}))).status,401);
-  console.log('PASS: OAuth discovery, registration, PKCE, consent binding, server identity bridge, scoped MCP access, replay rejection and revocation in workerd');
+  console.log('PASS: OAuth discovery, registration, PKCE, consent binding, server identity bridge, scoped MCP access, replay rejection and revocation in workerd ('+(rehearsal?'isolated Preview origins':'canonical site')+')');
 }finally{await mf.dispose();}

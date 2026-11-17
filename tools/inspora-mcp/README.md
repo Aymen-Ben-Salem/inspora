@@ -96,7 +96,7 @@ You should receive relevant references with creator credits and Inspora links, o
 
 New works and server-side search improvements arrive automatically. To refresh the locally installed skills, rerun your agent's skill-install command above. This also switches an earlier repository-based installation to the Inspora domain.
 
-Ask for more results, compare selected references, or use an existing Inspora work link to find similar designs. Uploaded reference-image search remains planned for Phase 2. Your AI client's normal model usage applies; this team trial does not charge customer credits.
+Ask for more results, compare selected references, or use an existing Inspora work link to find similar designs. Uploaded reference-image search is deferred to the future backlog. Your AI client's normal model usage applies; this team trial does not charge customer credits.
 
 The `inspora-discovery` skill helps find and refine references. `inspora-design-direction` helps compare selected work and develop an original design direction.
 

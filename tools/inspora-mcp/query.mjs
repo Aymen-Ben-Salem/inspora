@@ -23,7 +23,12 @@ const normalizedWord=word=>normalizedPhrase(word);
 export function prepareSearchQuery(args,df) {
   if(!args.query)return {query:'',corrections:[]};
   const original=args.query,unquoted=original.replace(quoted,part=>' '.repeat(part.length));
-  const raw=unquoted.match(letters)??[],known=word=>designVocabulary.has(normalizedWord(word))||df.has(normalizedWord(word));
+  const raw=unquoted.match(letters)??[],inVocabulary=word=>designVocabulary.has(normalizedWord(word))||df.has(normalizedWord(word));
+  const known=word=>{
+    if(inVocabulary(word))return true;
+    const stem=word.toLowerCase().replace(/(?:al|ly|ed|ing)$/,'');
+    return stem.length>=4&&stem!==word.toLowerCase()&&[stem,stem+'e',stem.replace(/(.)\1$/,'$1')].some(inVocabulary);
+  };
   const vocabulary=new Set([...designVocabulary,...[...df].filter(([,count])=>count>=3).map(([term])=>term)]);
   const corrections=[];
   for(const word of new Set(raw)){

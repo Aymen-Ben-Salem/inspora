@@ -95,6 +95,7 @@ test('unambiguous ordinary typos preserve the intended artifact and expose corre
  }
  const named=await e.search({query:'"Minmal" geometric app icons'});assert.ok(!named.interpreted_query.corrections?.some(c=>/minmal/i.test(c.from)));
  const brand=await e.search({query:'Blake geometric app icons'});assert.ok(!brand.interpreted_query.corrections?.some(c=>c.from==='Blake'));
+ const ordinary=await e.search({query:'conversational interface',subjects:['icon'],kinds:['icon']});assert.ok(!ordinary.interpreted_query.corrections?.some(c=>c.from==='conversational'));
 });
 
 test('uninterpretable untranslated input requests a rewrite rather than declaring catalog exhaustion',async()=>{

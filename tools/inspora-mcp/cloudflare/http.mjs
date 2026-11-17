@@ -17,7 +17,7 @@ const annotations={readOnlyHint:true,destructiveHint:false,idempotentHint:false,
 const data=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
 const responseHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow, noarchive'};
 const fail=(status,error)=>Response.json({error},{status,headers:responseHeaders});
-const knownError=/^(?:CURSOR_[A-Z_]+|CATALOG_[A-Z_]+|EMBEDDING_INVALID|RATE_LIMITED|INPUT|CONSTRAINT_CONFLICT|INVALID_REFERENCE|REFERENCE_NOT_ELIGIBLE|WORK_NOT_ELIGIBLE|RESPONSE_BUDGET|DETAIL_BUDGET)(?::[^\r\n]*)?$/;
+const knownError=/^(?:CURSOR_[A-Z_]+|CATALOG_[A-Z_]+|EMBEDDING_INVALID|RATE_LIMITED|INPUT|QUERY_REWRITE_REQUIRED|CONSTRAINT_CONFLICT|INVALID_REFERENCE|REFERENCE_NOT_ELIGIBLE|WORK_NOT_ELIGIBLE|RESPONSE_BUDGET|DETAIL_BUDGET)(?::[^\r\n]*)?$/;
 
 export async function boundedBody(request) {
   if(Number(request.headers.get('content-length'))>16384)throw Error('BODY_TOO_LARGE');

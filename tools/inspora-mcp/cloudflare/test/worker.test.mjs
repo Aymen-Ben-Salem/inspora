@@ -138,3 +138,23 @@ test('HTTP category aliases and plural exclusions preserve hard filters',async()
   const excluded=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',exclude_terms:['panel']}}));
   assert.equal(excluded.results.length,0);assert.equal(excluded.insufficient_matches,true);await client.close();
 });
+
+test('HTTP preserves query-repair errors and accepts the translated retry and ordinary typos',async()=>{
+  const fixture=await fixtureSetup();let embeddingCalls=0;
+  fixture.env.AI.run=async(_model,args)=>{embeddingCalls++;return {data:await embed(args.text)};};
+  const client=await clientFor(fixture);
+  try {
+    const untranslated=await client.callTool({name:'search_inspiration',arguments:{query:'boutons en verre bleu'}});
+    assert.equal(untranslated.isError,true);assert.match(decoded(untranslated).error,/^QUERY_REWRITE_REQUIRED:/);
+    assert.equal(embeddingCalls,0);
+    const translated=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass',count:2}}));
+    assert.equal(translated.results.length,2);
+    const typo=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glsas',count:2}}));
+    assert.deepEqual(new Set(typo.results.map(r=>r.id)),new Set(translated.results.map(r=>r.id)));
+    assert.ok(typo.interpreted_query.corrections.some(c=>c.from==='glsas'&&c.to==='glass'));
+    for(const args of [{query:'Find landing page designs',kinds:['website']},{query:'landing page',kinds:['website'],subjects:['website landing page']}]){
+      const result=decoded(await client.callTool({name:'search_inspiration',arguments:args}));
+      assert.ok(result.results.length);assert.ok(result.results.every(r=>r.kind==='website'));
+    }
+  } finally { await client.close(); }
+});

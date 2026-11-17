@@ -2,9 +2,10 @@ import crypto from 'node:crypto';
 import {z} from 'zod';
 import {KINDS,eligible,resolveReference,clean,tagFields} from './catalog.mjs';
 import {tokens,prepareDocument,queryIntent,subjectEvidence,normalizedPhrase} from './relevance.mjs';
+import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=5;
+export const SEARCH_REVISION=6;
 const list=z.array(z.string().trim().min(1).max(100)).max(20);
 export const searchSchema=z.object({
  query:z.string().trim().min(1).max(600).optional().describe('Concise, self-contained English visual brief. Translate non-English instructions and correct obvious typos while preserving names, quoted text and all design constraints. Omit conversational filler. On refinement retain artifact, project and unchanged requirements. No conversation history is received.'),
@@ -26,8 +27,6 @@ const fieldValues=(row,field)=>['category','categories'].includes(field)
 const dot=(a,b)=>a.reduce((v,x,i)=>v+x*(b?.[i]??0),0);
 export const queryFields=['query','reference_url','kinds','subjects','subject_scope','context','filters','required_terms','exclude_terms','exclude_ids'];
 const stable=x=>JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
-function inferKinds(q){const v=[];for(const [kind,re] of [['icon',/\b(?:app[ -]?)?icons?\b/i],['logo',/\blogos?\b/i],['website',/\bwebsites?\b/i],['design',/\bdesigns?\b/i]])if(re.test(q))v.push(kind);return v;}
-function constraints(args){const text=args.query||'',negative=[...text.matchAll(/\b(?:no|not|without)\s+([\p{L}\p{N}-]+)/giu)].map(m=>m[1]);const positive=text.replace(/\b(?:no|not|without)\s+[\p{L}\p{N}-]+/giu,'');const colors=['red','orange','yellow','green','blue','purple','pink','black','white','gray','grey','brown'];return {positive,negative,colors:colors.filter(c=>has(positive,c))};}
 export class SearchEngine {
  constructor(index,{embed,ranking='hybrid',now=()=>Date.now(),responseChars=MAX_RESPONSE_CHARS}={}){this.embed=embed;this.ranking=ranking;this.now=now;this.responseChars=responseChars;this.cursors=new Map();this.replaceIndex(index);}
  replaceIndex(index) {
@@ -38,22 +37,26 @@ export class SearchEngine {
   this.df=new Map();
   this.documents=new Map();
   this.contextVocabulary=new Set();
+  this.contextPhrases=new Set();
   for (const row of this.rows) {
    const document=prepareDocument(row);
    this.documents.set(row.id,document);
    for (const term of document.terms) this.df.set(term,(this.df.get(term)||0)+1);
    for (const term of tokens([...(row.industries||[]),row.industry||''].join(' '))) this.contextVocabulary.add(term);
+   for (const label of [...(row.industries||[]),row.industry||''].flatMap(value=>String(value).split(','))){const terms=tokens(label);if(terms.length>1)this.contextPhrases.add(terms.join(' '));}
   }
  }
  prune(){for(const [key,v] of this.cursors)if(v.expires<=this.now())this.cursors.delete(key);while(this.cursors.size>=128)this.cursors.delete(this.cursors.keys().next().value);}
  async rank(args) {
   if (Boolean(args.query)===Boolean(args.reference_url)) throw Error('INPUT: provide exactly one query or reference_url');
   const ref=args.reference_url?resolveReference(args.reference_url,this.rows):null;
-  const cons=constraints(args);
-  const intent=queryIntent(args,cons.positive,this.contextVocabulary);
+  const prepared=prepareSearchQuery(args,this.df);
+  const cons=constraints(prepared.query);
+  const intent=queryIntent(args,cons.positive,this.contextVocabulary,[...this.contextPhrases]);
   const inferred=inferKinds(cons.positive);
   const kinds=args.kinds??(inferred.length?inferred:ref?[ref.kind]:intent.kinds.length?intent.kinds:KINDS);
-  if (args.kinds&&inferred.length&&inferred.every(kind=>!args.kinds.includes(kind))) throw Error('CONSTRAINT_CONFLICT: query kind conflicts with kinds filter');
+  const specificKinds=inferred.filter(kind=>kind!=='design');
+  if (args.kinds&&specificKinds.length&&specificKinds.every(kind=>!args.kinds.includes(kind))) throw Error('CONSTRAINT_CONFLICT: query kind conflicts with kinds filter');
   const words=tokens(intent.subjects.includes('landing page')?cons.positive.replace(/\b(?:landing[ -]?pages?|home[ -]?pages?)\b/gi,' '):cons.positive);
   const negative=[...(args.exclude_terms||[]),...cons.negative];
   if (!ref&&!words.length&&!intent.subjects.length&&kinds.length===KINDS.length) throw Error('INPUT: add a visual idea or an explicit work kind');
@@ -69,6 +72,7 @@ export class SearchEngine {
   const scored=[];
   for (const row of candidates) {
    const document=this.documents.get(row.id);
+   if(intent.topics.length&&!intent.topics.some(topic=>tokens(topic).every(term=>document.terms.has(term))))continue;
    const subjects=subjectEvidence(document,intent);
    if (intent.subjects.length&&!subjects.length) continue;
    if (intent.lowDensity&&intent.subject_scope==='primary'&&document.denseLayout) continue;
@@ -77,7 +81,7 @@ export class SearchEngine {
    const lexical=matched.reduce((score,term)=>score+Math.log(1+(this.rows.length+1)/((this.df.get(term)||0)+1))*(document.titleTerms.has(term)?2:1),0);
    const semantic=queryVec?dot(queryVec,row.vector):0;
    const broad=!ref&&!words.length;
-   const concreteSubject=subjects.some(subject=>!KINDS.includes(subject)&&(subject!=='landing page'||document.explicitLandingPage));
+   const concreteSubject=intent.topics.length>0||subjects.some(subject=>!KINDS.includes(subject)&&(subject!=='landing page'||document.explicitLandingPage));
    const minimumCoverage=this.ranking==='lexical'?.34:.25;
    const relevant=broad||(ref
     ? (this.ranking==='lexical'?matched.length>=3:semantic>=.38)
@@ -107,7 +111,7 @@ export class SearchEngine {
   });
   const coverage={catalog_works:this.rows.length,filtered_works:candidates.length,matching_works:ranked.length,matching_by_kind:{}};
   for(const item of scored)coverage.matching_by_kind[item.row.kind]=(coverage.matching_by_kind[item.row.kind]??0)+1;
-  return {ranked,coverage,interpreted:{kinds,subjects:intent.subjects,subject_scope:intent.subject_scope,context:intent.context,...(intent.lowDensity?{layout_density:'low'}:{})}};
+  return {ranked,coverage,interpreted:{kinds,subjects:intent.subjects,subject_scope:intent.subject_scope,context:intent.context,...(intent.topics.length?{topic_constraints:intent.topics}:{}),...(prepared.corrections.length?{normalized_query:prepared.query,corrections:prepared.corrections}:{}),...(intent.lowDensity?{layout_density:'low'}:{})}};
  }
  async search(input){const args=searchSchema.parse(input);let state,oldCursor=args.cursor;
  if(oldCursor){state=this.cursors.get(oldCursor);if(!state||state.searchRevision!==SEARCH_REVISION||state.expires<=this.now())throw Error('CURSOR_EXPIRED: unknown, consumed, refreshed or expired continuation; explicitly start a new search');for(const f of queryFields)if(args[f]!==undefined&&stable(args[f])!==stable(state.query[f]))throw Error('CURSOR_QUERY_MISMATCH: start a new search for changed constraints');}

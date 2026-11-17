@@ -12,8 +12,9 @@ const concepts = [
   ['form', 'design', []],
   ['login', 'design', ['sign in', 'signin', 'log in', 'sign up', 'signup', 'login form', 'sign in form']],
   ['checkout', 'design', ['checkout flow', 'checkout form']],
+  ['payment', 'design', ['payment interface', 'payment flow', 'payment form', 'payment screen', 'payment link', 'payment status', 'money transfer', 'send money', 'receipt']],
   ['onboarding', 'design', ['welcome flow']],
-  ['pricing', 'design', ['pricing plan', 'plan selector', 'plan picker']],
+  ['pricing', 'design', ['pricing plan', 'payment plan', 'plan selector', 'plan picker']],
   ['pricing table', 'design', ['plan comparison table']],
   ['table', 'design', ['data table', 'data grid']],
   ['chart', 'design', ['graph', 'data visualization']],
@@ -68,9 +69,20 @@ const normalized = normalizedPhrase;
 const aliases = new Map(concepts.flatMap(([subject, , alternatives]) => [subject, ...alternatives].map(alias => [normalized(alias), subject])));
 const families = new Map(concepts.map(([subject, family]) => [subject, family]));
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
+export const designVocabulary = new Set([...stop, ...aliases.keys(), ...wordAliases.values(), 'red orange yellow green blue purple pink black white gray grey brown glass clean simple spacious uncluttered dark light modern'.split(' ')].flatMap(value => words(value)));
 
 function subjectsIn(text) {
   return [...new Set([...normalized(text).matchAll(pattern)].map(match => aliases.get(match[1])))];
+}
+
+function canonicalSubject(text) {
+  const value=normalized(text),exact=aliases.get(value);
+  if(exact)return exact;
+  const found=subjectsIn(value);
+  const remainder=value.replace(pattern,' ').split(/\s+/).filter(word=>word&&!['ui','interface','component','section','design'].includes(word));
+  if(remainder.length)return value;
+  const specific=found.filter(subject=>!['website','logo','icon'].includes(subject));
+  return specific.length===1?specific[0]:found.length===1?found[0]:value;
 }
 
 // Editorial descriptions normally introduce the work before describing its
@@ -127,23 +139,27 @@ export function prepareDocument(row) {
   return prepared;
 }
 
-export function queryIntent(args, positive, contextVocabulary) {
-  let subjects = args.subjects ? [...new Set(args.subjects.map(subject => aliases.get(normalized(subject)) ?? normalized(subject)))] : undefined;
+export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]) {
+  let subjects = args.subjects ? [...new Set(args.subjects.map(canonicalSubject))] : undefined;
   if (!subjects) {
     const head = positive.split(/\b(?:with|featuring|containing|for)\b/i, 1)[0];
     const all = subjectsIn(positive);
     const specific = all.filter(subject => !['website', 'logo', 'icon'].includes(subject));
     subjects = specific.length ? specific : all;
     const headSubjects = subjectsIn(head).filter(subject => subjects.includes(subject));
-    if (headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
+    if (headSubjects.length===1 || headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
   }
   const scope = args.subject_scope ?? (/\bwebsites?\b.*\b(?:with|featuring|containing)\b/i.test(positive) ? 'contains' : 'primary');
   const queryTerms = tokens(positive);
+  const termSequence=' '+queryTerms.join(' ')+' ';
+  // Multiword taxonomy topics are more specific than a shared broad industry.
+  // Explicit context remains a soft preference; only topics named in the query bind.
+  const topics=[...new Set(contextPhrases.filter(phrase=>termSequence.includes(' '+phrase+' ')))];
   const context = args.context ? tokens(args.context) : queryTerms.filter(term => contextVocabulary.has(term) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
   const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive);
-  return {subjects, subject_scope: scope, context, kinds, lowDensity};
+  return {subjects, subject_scope: scope, context, topics, kinds, lowDensity};
 }
 
 export function subjectEvidence(document, intent) {

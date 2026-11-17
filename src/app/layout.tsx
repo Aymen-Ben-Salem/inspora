@@ -77,7 +77,7 @@ export default function RootLayout({
   modal,
 }: {
   children: ReactNode;
-  modal?: ReactNode;
+  modal: ReactNode;
 }) {
   const dataBull = getDataBullConfig();
   return (

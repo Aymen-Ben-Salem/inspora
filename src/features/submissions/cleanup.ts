@@ -27,6 +27,7 @@ import {
   submissionUploads,
 } from "../../db/schema";
 import { withWriteTransaction, type WriteTx } from "../../db/write-client";
+import { requireProClosureBeforeIdentityDeletion } from "../pro/deletion";
 import {
   createR2PresignedUpload,
   deleteR2StorageKeys,
@@ -477,12 +478,21 @@ function clerkMissing(error: unknown) {
 }
 
 export function createAccountDeletionFinalizer(dependencies: {
+  prepareIdentityDeletion?(userId: string): Promise<void>;
   deleteClerk(userId: string): Promise<void>;
   recordFailure(userId: string, message: string): Promise<void>;
   finalize(userId: string): Promise<void>;
   isMissing(error: unknown): boolean;
 }) {
   return async (userId: string) => {
+    try {
+      await dependencies.prepareIdentityDeletion?.(userId);
+    } catch (error) {
+      // A Stripe 404 is not proof that the Clerk identity is already gone.
+      // Keep billing preflight separate from the Clerk-only missing-user rule.
+      await dependencies.recordFailure(userId, errorMessage());
+      throw error;
+    }
     try {
       await dependencies.deleteClerk(userId);
     } catch (error) {
@@ -587,6 +597,7 @@ async function processAccountDeletion(userId: string) {
   });
 
   await createAccountDeletionFinalizer({
+    prepareIdentityDeletion: requireProClosureBeforeIdentityDeletion,
     async deleteClerk(targetUserId) {
       const client = await clerkClient();
       await client.users.deleteUser(targetUserId);

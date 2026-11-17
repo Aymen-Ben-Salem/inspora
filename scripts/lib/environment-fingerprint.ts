@@ -80,6 +80,14 @@ export const APPROVED_SPONSORSHIP_REHEARSAL_FINGERPRINT: EnvironmentFingerprint 
   databaseNameSha256: sha256('/sponsorship_ticket01_cd37dc92154a4946a50035dfd68bfef4'),
 };
 
+/** Isolated Phase 2 Pro verification branch; production and Preview stay unchanged. */
+export const APPROVED_PRO_REHEARSAL_FINGERPRINT: EnvironmentFingerprint = {
+  ...APPROVED_ENVIRONMENT_FINGERPRINTS.preview,
+  dataEnvironment: 'rehearsal',
+  neonEndpointSha256: '1965a20f561403b4841f496654490a352273dc49783dcaa8ae1d4a32808822fd',
+  databaseNameSha256: sha256('/neondb'),
+};
+
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -194,7 +202,9 @@ export function assertDataOperationEnvironment(
     const expected = environment.releaseRehearsalTarget === 'release'
       ? APPROVED_REHEARSAL_FINGERPRINT
       : environment.releaseRehearsalTarget === 'sponsorship-fixture'
-        ? APPROVED_SPONSORSHIP_REHEARSAL_FINGERPRINT : null;
+        ? APPROVED_SPONSORSHIP_REHEARSAL_FINGERPRINT
+        : environment.releaseRehearsalTarget === 'pro-fixture'
+          ? APPROVED_PRO_REHEARSAL_FINGERPRINT : null;
     if (!expected) throw new Error('Release rehearsal target is not approved.');
     assertEnvironmentFingerprint(environment, expected);
     return;

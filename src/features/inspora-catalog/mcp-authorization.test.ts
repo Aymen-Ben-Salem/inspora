@@ -12,7 +12,9 @@ beforeEach(() => { vi.stubEnv("INSPORA_MCP_TRIAL_USER_IDS", ""); vi.spyOn(consol
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); vi.restoreAllMocks(); });
 it("rejects Preview, unsupported access policies and unrelated origins", () => {
   expect(authorizationConfig(values)).not.toBeNull(); expect(authorizationConfig({ ...values, VERCEL_ENV: "preview" })).toBeNull();
-  for (const policy of ["authenticated", "public", "pro"]) expect(authorizationConfig({ ...values, INSPORA_MCP_ACCESS_POLICY: policy })).toBeNull();
+  for (const policy of ["authenticated", "public", "Pro", ""]) expect(authorizationConfig({ ...values, INSPORA_MCP_ACCESS_POLICY: policy })).toBeNull();
+  expect(authorizationConfig(values)?.policy).toBe("team");
+  expect(authorizationConfig({ ...values, INSPORA_MCP_ACCESS_POLICY: "pro" })?.policy).toBe("pro");
   expect(authorizationConfig({ ...values, INSPORA_MCP_AUTH_URL: "https://evil.test/internal/authorization" })).toBeNull();
 });
 it("binds signed expiring consent to the user and ticket without an extra browser cookie", async () => {
@@ -88,4 +90,18 @@ it("prepares private signed data for the normal authenticated consent page", asy
   expect(data.csrf).toMatch(/^[A-Za-z0-9_-]{32}\.\d{13}\.[a-f0-9]{64}$/);
   expect(data.details.clientName).toBe("Codex"); expect(response.headers.get("cache-control")).toContain("no-store");
   expect(JSON.stringify(data)).not.toContain(values.INSPORA_MCP_AUTH_TOKEN);
+});
+it("under the pro policy admits only current verified Pro accounts besides the team trial", async () => {
+  configured(); mocks.admins.mockReturnValue(new Set());
+  const bridge = vi.fn(async () => Response.json({ description: { clientName: "Codex", redirectHost: "localhost" } }));
+  const proAccess = vi.fn(async () => false);
+  const handler = createAuthorizationRoute({ fetchBridge: bridge, proAccess });
+  const get = () => handler(new Request(origin + "/api/inspora/mcp/authorize?ticket=" + ticket));
+  // Default team policy never consults Pro and keeps refusing non-team users.
+  expect((await get()).status).toBe(403); expect(proAccess).not.toHaveBeenCalled();
+  vi.stubEnv("INSPORA_MCP_ACCESS_POLICY", "pro");
+  const refused = await get(); expect(refused.status).toBe(403); expect(await refused.text()).toContain("Inspora Pro");
+  expect(proAccess).toHaveBeenCalledWith("user_test1"); expect(bridge).not.toHaveBeenCalled();
+  proAccess.mockResolvedValue(true); expect((await get()).status).toBe(200);
+  proAccess.mockRejectedValue(new Error("db down")); expect((await get()).status).toBe(503);
 });

@@ -51,6 +51,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.14",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "26.1.2",
     "@types/react": "19.2.18",

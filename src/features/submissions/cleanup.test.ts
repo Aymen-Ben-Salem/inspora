@@ -123,4 +123,33 @@ describe("profile cleanup", () => {
     await missing("user-1");
     expect(finalize).toHaveBeenCalledWith("user-1");
   });
+
+  it("finishes billing preparation before Clerk removal and local finalization", async () => {
+    const calls: string[] = [];
+    const remove = createAccountDeletionFinalizer({
+      prepareIdentityDeletion: async () => { calls.push("billing"); },
+      deleteClerk: async () => { calls.push("clerk"); },
+      recordFailure: vi.fn(),
+      finalize: async () => { calls.push("finalize"); },
+      isMissing: () => false,
+    });
+    await remove("user-1");
+    expect(calls).toEqual(["billing", "clerk", "finalize"]);
+  });
+
+  it("keeps Clerk and local identity when billing preparation fails, including provider 404s", async () => {
+    const failure = Object.assign(new Error("Billing cancellation remains pending"), { status: 404 });
+    const deleteClerk = vi.fn(), finalize = vi.fn(), recordFailure = vi.fn();
+    const remove = createAccountDeletionFinalizer({
+      prepareIdentityDeletion: vi.fn().mockRejectedValue(failure),
+      deleteClerk,
+      finalize,
+      recordFailure,
+      isMissing: (error) => (error as { status?: number }).status === 404,
+    });
+    await expect(remove("user-1")).rejects.toThrow("Billing cancellation remains pending");
+    expect(recordFailure).toHaveBeenCalledWith("user-1", "Cleanup could not finish. An admin can retry it from Cleanup.");
+    expect(deleteClerk).not.toHaveBeenCalled();
+    expect(finalize).not.toHaveBeenCalled();
+  });
 });

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import proRehearsal from "./config/inspora-pro-rehearsal.json";
 
 function hostnameFromUrl(value?: string) {
   if (!value) return undefined;
@@ -16,6 +17,7 @@ const remoteImageHostnames = [
 ].filter((hostname): hostname is string => Boolean(hostname));
 
 const nextConfig: NextConfig = {
+  ...(process.env.RELEASE_REHEARSAL_TARGET === "pro-fixture" ? { distDir: ".scratch/inspora-pro-verification-20261117/next" } : {}),
   cacheComponents: true,
   // Sharp 0.35 loads native addons and libvips from separate optional packages.
   // Keep both in server bundles even when the tracer misses their runtime paths.
@@ -35,7 +37,7 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
           { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
           { key: "Referrer-Policy", value: "same-origin" },
-          { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev https://mcp.inspora.design" },
+          { key: "Content-Security-Policy", value: `frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://inspora-mcp-pilot.aymenbensalem-3lsi.workers.dev https://mcp.inspora.design${process.env.RELEASE_REHEARSAL_TARGET === "pro-fixture" && process.env.VERCEL_ENV === "preview" ? ` ${proRehearsal.mcpOrigin}` : ""}` },
         ],
       },
       {

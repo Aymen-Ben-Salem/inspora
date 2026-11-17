@@ -2,7 +2,7 @@ import type { Metadata, Route } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { createAuthorizationRoute } from "@/features/inspora-catalog/mcp-authorization";
+import { authorizationConfig, createAuthorizationRoute } from "@/features/inspora-catalog/mcp-authorization";
 import { McpConsentForm, type McpConsentProps } from "@/components/inspiration/mcp-consent-form";
 import styles from "./page.module.css";
 
@@ -10,9 +10,10 @@ export const metadata: Metadata = { title: "Connect to Inspora", robots: { index
 const prepare = createAuthorizationRoute();
 
 async function Consent({ searchParams }: { searchParams: Promise<{ ticket?: string | string[] }> }) {
-  if ((await headers()).get("host") !== "www.inspora.design") notFound();
+  const config = authorizationConfig(process.env);
+  if (!config || (await headers()).get("host") !== new URL(config.site).host) notFound();
   const params = await searchParams, ticket = typeof params.ticket === "string" ? params.ticket : "";
-  const url = new URL("https://www.inspora.design/connect/mcp"); url.searchParams.set("ticket", ticket);
+  const url = new URL("/connect/mcp", config.site); url.searchParams.set("ticket", ticket);
   const response = await prepare(new Request(url, { headers: { Accept: "application/json" } }));
   if (response.status === 303) redirect(response.headers.get("location")! as Route);
   if (response.status === 404) notFound();

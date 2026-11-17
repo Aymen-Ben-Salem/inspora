@@ -13,6 +13,7 @@ import { withWriteTransaction, type WriteTx } from "../../db/write-client";
 import type { SubmissionResult } from "../submissions/types";
 import { attemptCleanupJob, attemptCleanupKey } from "../submissions/cleanup";
 import { invalidateDeletedSponsor, queueSponsorIdentityDeletion } from "../sponsorship/deletion";
+import { closeProAccountForDeletion, completeProClosureAfterDeletion } from "../pro/deletion";
 
 type DeletionRequest = { jobId: string; state: "pending" };
 
@@ -47,13 +48,17 @@ function accountCleanupKey(userId: string) {
 
 const productionAccountDeletionStore: AccountDeletionStore = {
   async request(userId) {
-    return withWriteTransaction(tx => queueAccountDeletion(tx, userId));
+    return withWriteTransaction(tx => queueAccountDeletion(tx, userId, { personalAccount: true }));
   },
 };
 
 // Shared by owner deletion and an authenticated admin's permanent creator removal.
 // The caller's transaction decides which creator/work records are retained.
-export async function queueAccountDeletion(tx: WriteTx, userId: string): Promise<DeletionRequest | null> {
+export async function queueAccountDeletion(tx: WriteTx, userId: string, options: { personalAccount?: boolean } = {}): Promise<DeletionRequest | null> {
+      // An authenticated owner can delete their personal identity without ever
+      // creating a creator profile. This record only tracks recoverable cleanup.
+      // Admin creator removal retains its existing missing-account safeguard.
+      if (options.personalAccount) await tx.insert(profileAccounts).values({ userId }).onConflictDoNothing({ target: profileAccounts.userId });
       const [account] = await tx
         .select({ status: profileAccounts.status })
         .from(profileAccounts)
@@ -62,6 +67,8 @@ export async function queueAccountDeletion(tx: WriteTx, userId: string): Promise
       if (!account) return null;
 
       await queueSponsorIdentityDeletion(tx, userId);
+      // Confirmed permanent deletion forfeits Pro credits; ordinary cancellation never does.
+      await closeProAccountForDeletion(tx as never, userId);
 
       const now = new Date();
       if (account.status === "active") {
@@ -113,13 +120,15 @@ const productionWebhookDeletionStore: WebhookDeletionStore = {
       if (!receipt) return "duplicate";
 
       const sponsor = await queueSponsorIdentityDeletion(tx, userId);
+      // Identity deletion also closes Pro for accounts without a creator profile.
+      const pro = await closeProAccountForDeletion(tx as never, userId);
 
       const [account] = await tx
         .select({ userId: profileAccounts.userId })
         .from(profileAccounts)
         .where(eq(profileAccounts.userId, userId))
         .for("update");
-      if (!account) return sponsor ? "queued" : "missing";
+      if (!account) return sponsor || pro ? "queued" : "missing";
 
       const now = new Date();
       await tx
@@ -150,6 +159,8 @@ export async function requestAccountDeletion(userId: string) {
   const result = await requestAccountDeletionWithStore(productionAccountDeletionStore, userId);
   if (!result.ok) return result;
   invalidateDeletedSponsor();
+  // The durable cleanup job cancels/reconciles Pro and checks its pending flag
+  // before removing Clerk. Provider outages leave the job/identity retryable.
   const state = await attemptCleanupJob(result.value.jobId);
   return { ok: true as const, value: { ...result.value, state } };
 }
@@ -158,5 +169,6 @@ export async function requestWebhookAccountDeletion(input: { eventId: string; us
   const result = await requestWebhookAccountDeletionWithStore(productionWebhookDeletionStore, input);
   if (result.state !== "missing") await attemptCleanupKey(accountCleanupKey(input.userId));
   if (result.state !== "missing") invalidateDeletedSponsor();
+  if (result.state !== "missing") await completeProClosureAfterDeletion(input.userId);
   return result;
 }

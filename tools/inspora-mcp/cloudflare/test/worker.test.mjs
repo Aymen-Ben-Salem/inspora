@@ -7,6 +7,7 @@ import {buildCatalog,publishCatalog,MAX_SOURCE_AGE_MS} from '../catalog.mjs';
 import {work,note,embed} from '../../test/fixtures.mjs';
 import {sha} from '../../catalog.mjs';
 import {Bucket,Namespace} from './helpers.mjs';
+import {HTTP_LIMITS} from '../access-state.mjs';
 import {previewKey} from '../previews.mjs';
 const origin='https://mcp.test';
 const token='test_token_'.padEnd(43,'a'),otherToken='other_token_'.padEnd(43,'b');
@@ -125,7 +126,7 @@ test('access, configured origin, body bounds, revocation and errors protect back
 
 test('per-principal limits refuse excessive requests independently of other users',async()=>{
   const fixture=await fixtureSetup();
-  for(let i=0;i<30;i++)assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
+  for(let i=0;i<HTTP_LIMITS.minute;i++)assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
   assert.equal((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
   assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+otherToken},body:'{}'})).status,429);
 });

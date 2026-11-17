@@ -8,6 +8,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import {
   getOwnAccountDeletionStatus,
+  getOwnProDeletionWarning,
   requestOwnAccountDeletion,
 } from "@/features/profiles/actions";
 
@@ -22,6 +23,7 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [requestingDeletion, startDeletion] = useTransition();
   const requestDeletion = useReverification(requestOwnAccountDeletion);
+  const [proWarning, setProWarning] = useState<{ credits: number; purchasedCredits: number; subscribed: boolean } | null>(null);
   const rowClass = "flex items-center justify-between gap-4 rounded-[3px] border border-[#e6e6e6] px-4 py-3";
   const buttonClass = "focus-ring shrink-0 cursor-pointer border border-[#e6e6e6] bg-[#fafafa] px-[11px] py-[10px] text-sm leading-[normal] tracking-[0.2px] disabled:cursor-not-allowed";
 
@@ -79,6 +81,12 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
           </div>
         ) : confirmingDeletion ? (
           <div className="grid w-full gap-3">
+            {proWarning ? (
+              <p role="alert" className="border border-[#febbbb] bg-[#fff7f7] p-3 text-xs text-[#a11]">
+                {proWarning.subscribed ? "Your Inspora Pro subscription will be canceled immediately. " : ""}
+                You have {proWarning.credits.toLocaleString("en")} Inspora credits{proWarning.purchasedCredits ? `, including ${proWarning.purchasedCredits.toLocaleString("en")} purchased credits` : ""}. Permanent deletion removes them all without a refund, except where the law requires one. Purchased credits only carry forward while your account stays open. To keep them, cancel your Pro renewal instead.
+              </p>
+            ) : null}
             <label className="grid gap-2 text-xs text-[#767676]">
               Type DELETE to confirm
               <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" className="focus-ring min-h-11 border border-[#e6e6e6] bg-white px-3 text-sm text-[#262626]" />
@@ -89,7 +97,7 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
                 setDeletionError(null);
                 startDeletion(async () => {
                   try {
-                    const result = await requestDeletion();
+                    const result = await requestDeletion({ acknowledgeProCreditLoss: proWarning !== null });
                     if (!result.ok) {
                       setDeletionError(result.message);
                       return;
@@ -117,7 +125,7 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
             {deletionError ? <p role="alert" className="text-xs text-red-700">{deletionError}</p> : null}
           </div>
         ) : (
-          <button type="button" onClick={() => setConfirmingDeletion(true)} className={`${buttonClass} border-[#febbbb] text-[#ff0404]`}>
+          <button type="button" onClick={() => { setConfirmingDeletion(true); void getOwnProDeletionWarning().then(setProWarning).catch(() => setProWarning(null)); }} className={`${buttonClass} border-[#febbbb] text-[#ff0404]`}>
             Delete account
           </button>
         )}

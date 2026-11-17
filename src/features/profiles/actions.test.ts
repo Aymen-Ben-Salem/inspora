@@ -33,6 +33,9 @@ vi.mock("./account-lifecycle", () => ({ requestAccountDeletion: mocks.deletion }
 const security = vi.hoisted(() => ({ capabilities: vi.fn(), state: vi.fn() }));
 vi.mock("@/features/sponsorship/authorization", () => ({ readAccountCapabilities: security.capabilities }));
 vi.mock("@/features/sponsorship/security", () => ({ readSponsorSecurity: security.state }));
+const pro = vi.hoisted(() => ({ warning: vi.fn() }));
+vi.mock("@/features/pro/deletion", () => ({ readProDeletionWarning: pro.warning }));
+vi.mock("@/db/write-client", () => ({ withWriteTransaction: (work: (tx: unknown) => unknown) => work({}) }));
 
 import { requestOwnAccountDeletion, updateOwnProfile, completeOwnAvatarUpload, discardOwnAvatarUpload, createOwnAvatarUploadSignature } from "./actions";
 import { ProfileMutationError } from "@/features/creators/identity";
@@ -44,6 +47,7 @@ beforeEach(() => {
   security.state.mockResolvedValue({ state: "ready" });
   mocks.verify.mockResolvedValue({ storageKey: "creators/new.webp", url: "https://media.example/creators/new.webp" });
   mocks.deleteKeys.mockResolvedValue(undefined);
+  pro.warning.mockResolvedValue(null);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
@@ -53,6 +57,15 @@ it("does not let sponsor deletion downgrade to email-only authentication after M
   security.state.mockResolvedValue({ state: "setup_required" });
   expect(await requestOwnAccountDeletion()).toMatchObject({ ok: false, code: "forbidden" });
   expect(mocks.deletion).not.toHaveBeenCalled();
+});
+it("requires the owner to acknowledge Inspora Pro credit loss before permanent deletion", async () => {
+  mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => true });
+  pro.warning.mockResolvedValue({ credits: 640, purchasedCredits: 500, subscribed: true });
+  mocks.deletion.mockResolvedValue({ ok: true });
+  expect(await requestOwnAccountDeletion()).toMatchObject({ ok: false, code: "forbidden" });
+  expect(mocks.deletion).not.toHaveBeenCalled();
+  expect(await requestOwnAccountDeletion({ acknowledgeProCreditLoss: true })).toEqual({ ok: true });
+  expect(mocks.deletion).toHaveBeenCalledWith("trusted-owner");
 });
 it("retains normal deletion for a sponsor with verified MFA", async () => {
   mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => true });

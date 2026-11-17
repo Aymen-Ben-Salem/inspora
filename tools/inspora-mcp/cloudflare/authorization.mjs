@@ -1,6 +1,7 @@
 import {OAuthProvider,AuthorizationError} from '@cloudflare/workers-oauth-provider';
 import {randomBytes} from 'node:crypto';
 import {sha} from '../catalog.mjs';
+import proRehearsal from '../../../config/inspora-pro-rehearsal.json' with {type:'json'};
 
 const validTicket=value=>/^[A-Za-z0-9_-]{43}$/.test(value??'');
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow','X-Content-Type-Options':'nosniff'};
@@ -59,7 +60,14 @@ export async function authorizationHandler(request,env){
       const description=await oauth.describeConsent(authRequest),consent=await oauth.beginConsent(authRequest);
       const ticket=randomBytes(32).toString('base64url');
       await ticketStore(env,ticket)('create',{value:{handle:consent.handle,description,expiresAt:Date.now()+10*60000}});
-      const target=new URL('https://www.inspora.design/connect/mcp');target.searchParams.set('ticket',ticket);
+      let siteOrigin='https://www.inspora.design';
+      if(env.MCP_SITE_ORIGIN&&env.MCP_SITE_ORIGIN!==siteOrigin){
+        const site=new URL(env.MCP_SITE_ORIGIN),loopback=url=>url.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(url.hostname);
+        const hosted=site.origin===proRehearsal.siteOrigin&&url.origin===proRehearsal.mcpOrigin;
+        if(env.MCP_DEPLOYMENT_ENV!=='pro-fixture'||!(hosted||(loopback(site)&&loopback(url)))||site.username||site.password||site.pathname!=='/'||site.search||site.hash)throw Error('AUTH_ORIGIN_INVALID');
+        siteOrigin=site.origin;
+      }
+      const target=new URL('/connect/mcp',siteOrigin);target.searchParams.set('ticket',ticket);
       consent.headers.set('Location',target.href);for(const [name,value] of Object.entries(headers))consent.headers.set(name,value);
       return new Response(null,{status:302,headers:consent.headers});
     }

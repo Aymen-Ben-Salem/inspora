@@ -3,6 +3,8 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import { getConfiguredAdminUserIds } from "@/auth/config";
 import { getConfiguredMcpTrialUserIds } from "./mcp-trial-access";
+import { assertDataOperationEnvironment, runtimeDataEnvironmentFromValues } from "../../../scripts/lib/environment-fingerprint";
+import proRehearsal from "../../../config/inspora-pro-rehearsal.json";
 
 const site = "https://www.inspora.design";
 // Keep cross-site referrers private while preserving Origin on same-site forms.
@@ -10,31 +12,54 @@ const common = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex,
 const validTicket = (value: string) => /^[A-Za-z0-9_-]{43}$/.test(value);
 
 export function authorizationConfig(values: Record<string, string | undefined>) {
-  // Customer access must use the future shared Pro entitlement/credit service.
-  // A configuration flag must not accidentally open a free authenticated service.
-  if ((values.INSPORA_MCP_ACCESS_POLICY ?? "team") !== "team") return null;
+  // Customer access uses the shared Pro entitlement/credit service: `pro` admits
+  // the team trial plus accounts with current verified Pro. The hosted Worker must
+  // enforce per-call entitlement and credits too; consent alone never grants use.
+  // Any other value fails closed so a flag cannot open a free authenticated service.
+  const policy = values.INSPORA_MCP_ACCESS_POLICY ?? "team";
+  if (policy !== "team" && policy !== "pro") return null;
+  if (values.RELEASE_REHEARSAL_TARGET === "pro-fixture") {
+    // The isolated fixture can use loopback or this exact protected Preview pair.
+    // Ordinary Preview and production consent rules remain independent.
+    try {
+      assertDataOperationEnvironment(runtimeDataEnvironmentFromValues(values));
+      const localSite = new URL(values.SITE_URL ?? ""), bridge = new URL(values.INSPORA_MCP_AUTH_URL ?? "");
+      const loopback = (url: URL) => url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) && !url.username && !url.password && !url.search && !url.hash;
+      const hosted = values.VERCEL_GIT_COMMIT_REF === proRehearsal.branch && localSite.origin === proRehearsal.siteOrigin && bridge.origin === proRehearsal.mcpOrigin;
+      if (policy !== "pro" || !(hosted || (loopback(localSite) && loopback(bridge))) || [localSite, bridge].some(url => url.username || url.password || url.search || url.hash) || localSite.pathname !== "/" || bridge.pathname !== "/internal/authorization" || !/^[A-Za-z0-9_-]{43,128}$/.test(values.INSPORA_MCP_AUTH_TOKEN ?? "")) return null;
+      return { url: bridge.href, origin: bridge.origin, site: localSite.origin, token: values.INSPORA_MCP_AUTH_TOKEN!, policy };
+    } catch { return null; }
+  }
   if (values.VERCEL_ENV !== "production" || values.VERCEL_GIT_COMMIT_REF !== "main" || values.DATA_ENVIRONMENT !== "production" || !/^[A-Za-z0-9_-]{43,128}$/.test(values.INSPORA_MCP_AUTH_TOKEN ?? "")) return null;
   let url: URL;
   try { url = new URL(values.INSPORA_MCP_AUTH_URL ?? ""); } catch { return null; }
   if (url.protocol !== "https:" || !["mcp.inspora.design"].includes(url.hostname) || url.port || url.username || url.password || url.pathname !== "/internal/authorization" || url.search || url.hash) return null;
-  return { url: url.href, origin: url.origin, token: values.INSPORA_MCP_AUTH_TOKEN! };
+  return { url: url.href, origin: url.origin, site, token: values.INSPORA_MCP_AUTH_TOKEN!, policy };
 }
 
-export function createAuthorizationRoute({ identity = auth, administrators = getConfiguredAdminUserIds, trialUsers = getConfiguredMcpTrialUserIds, fetchBridge = fetch } = {}) {
+const currentProAccess = async (userId: string) => (await import("@/features/pro/server")).hasActivePro(userId);
+
+export function createAuthorizationRoute({ identity = auth, administrators = getConfiguredAdminUserIds, trialUsers = getConfiguredMcpTrialUserIds, fetchBridge = fetch, proAccess = currentProAccess } = {}) {
   return async (request: Request) => {
     const config = authorizationConfig(process.env), url = new URL(request.url);
+    const consentSite = config?.site ?? site;
     const reject = (status: number, message: string) => new Response(message, { status, headers: common });
-    if (!config || url.origin !== site || !["GET", "POST"].includes(request.method)) return reject(404, "Not found");
-    if (request.method === "POST" && (request.headers.get("origin") !== site || Number(request.headers.get("content-length")) > 2048)) return reject(403, "Connection could not be verified.");
+    if (!config || url.origin !== consentSite || !["GET", "POST"].includes(request.method)) return reject(404, "Not found");
+    if (request.method === "POST" && (request.headers.get("origin") !== consentSite || Number(request.headers.get("content-length")) > 2048)) return reject(403, "Connection could not be verified.");
     const session = await identity();
     if (!session.userId) {
       // The existing public sign-in flow accepts only relative return paths.
-      const signIn = new URL("/sign-in", site);
+      const signIn = new URL("/sign-in", consentSite);
       signIn.searchParams.set("redirect_url", url.pathname + url.search);
       return new Response(null, { status: 303, headers: { ...common, Location: signIn.href } });
     }
     // Team-only trial access includes MCP-only testers without granting site admin.
-    if (!administrators().has(session.userId) && !trialUsers().has(session.userId)) return reject(403, "This MCP trial is currently available to the Inspora team.");
+    if (!administrators().has(session.userId) && !trialUsers().has(session.userId)) {
+      if (config.policy !== "pro") return reject(403, "This MCP trial is currently available to the Inspora team.");
+      let active = false;
+      try { active = await proAccess(session.userId); } catch { return reject(503, "Account access is temporarily unavailable. Try again."); }
+      if (!active) return reject(403, `Connecting the Inspora MCP requires an active Inspora Pro subscription. Manage it at ${consentSite}/account/pro.`);
+    }
     let ticket: string, csrf = "", decision = "";
     let formFacts: Record<string, boolean | number | string> | undefined;
     if (request.method === "GET") ticket = url.searchParams.get("ticket") ?? "";

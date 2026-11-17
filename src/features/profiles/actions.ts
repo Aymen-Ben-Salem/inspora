@@ -32,6 +32,8 @@ import { requireDatabase } from "@/db/client";
 import { eq } from "drizzle-orm";
 import { readAccountCapabilities } from "@/features/sponsorship/authorization";
 import { readSponsorSecurity } from "@/features/sponsorship/security";
+import { readProDeletionWarning } from "@/features/pro/deletion";
+import { withWriteTransaction } from "@/db/write-client";
 import { CreatorAvatarError } from "@/features/creators/avatar-policy";
 
 const avatarRequestSchema = z.object({
@@ -145,7 +147,18 @@ export async function discardOwnAvatarUpload(storageKey: string) {
   await discardOwnedAvatarUpload(userId, storageKey);
 }
 
-export async function requestOwnAccountDeletion() {
+async function proDeletionWarning(userId: string) {
+  return withWriteTransaction((tx) => readProDeletionWarning(tx as never, userId));
+}
+
+/** Remaining Inspora Pro credits/subscription to warn about before permanent deletion. */
+export async function getOwnProDeletionWarning() {
+  const { userId } = await auth();
+  if (!userId) return null;
+  try { return await proDeletionWarning(userId); } catch { return null; }
+}
+
+export async function requestOwnAccountDeletion(options: { acknowledgeProCreditLoss?: boolean } = {}) {
   const authentication = await auth();
   if (!authentication.userId) {
     return { ok: false as const, code: "unauthenticated" as const, message: "Sign in to delete your account." };
@@ -156,6 +169,9 @@ export async function requestOwnAccountDeletion() {
   try {
     if ((await readAccountCapabilities(authentication.userId)).sponsor && (await readSponsorSecurity()).state !== "ready")
       return { ok: false as const, code: "forbidden" as const, message: "Verify your account in Account security before deleting your sponsor account." };
+    // Permanent deletion forfeits Pro credits: the owner must have seen and accepted that warning.
+    if (!options.acknowledgeProCreditLoss && (await proDeletionWarning(authentication.userId)))
+      return { ok: false as const, code: "forbidden" as const, message: "Review the Inspora Pro credit warning, then confirm deletion again." };
     return await requestAccountDeletion(authentication.userId);
   } catch (error) {
     console.error("Account deletion request failed", error);

@@ -65,7 +65,7 @@ export async function acceptAndPublishAction(
       : publication.kind === "website" ? "website" : publication.kind === "app-icon" ? "icon" : "logo";
     // The browser swaps the private submission file for a managed upload on acceptance.
     const editorial = await prepareEditorialReview(editorialKind, publication.content, userId,
-      { submittedMediaHref: submission.mediaHref ?? undefined });
+      { submittedMediaHref: submission.mediaHref ?? undefined, submittedMediaType: submission.mediaType ?? undefined });
     const result = await acceptAndPublishSubmission(id, { ...publication, editorial }, userId);
     if (!result.ok) return { status: "error", message: result.message };
     revalidateReviewTransition(id, result.value);

@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto';
 import { stable, mediaFingerprint, sourceFingerprint, enrichmentEntrySchema } from './enrichment.mjs';
 
 // Deliberately excludes publication timestamps: a reviewed draft may publish later.
-// Any descriptive, taxonomy, source or media edit invalidates the note.
+// Any descriptive, taxonomy, source or media edit invalidates the note. Shape and
+// technologies are left out on purpose: they label the work without changing what
+// the visual notes describe. An empty poster counts as no poster, as at save time.
 export function editorialContentHash(row) {
   const fields=['kind','title','description','tagline','category','industries','styles','colors','categories','themes','industry','source_url'];
   const arrays=new Set(['industries','styles','colors','categories','themes']);
   const input=Object.fromEntries(fields.map(key=>[key,row[key]??(arrays.has(key)?[]:'')]));
-  input.media=(row.media??[]).map(m=>({type:m.type??'image',url:m.url,poster:m.poster??null,alt:m.alt??'',width:Number(m.width),height:Number(m.height)}));
+  input.media=(row.media??[]).map(m=>({type:m.type??'image',url:m.url,poster:m.poster||null,alt:m.alt??'',width:Number(m.width),height:Number(m.height)}));
   if(row.kind==='website') input.media.sort((a,b)=>a.type.localeCompare(b.type));
   return createHash('sha256').update(stable(input)).digest('hex');
 }

@@ -35,7 +35,7 @@ export async function recordEditorialDecision(raw: unknown, actorId: string) {
  * file the browser replaces with a managed upload on acceptance: only that item may
  * change its URL, poster and measured size between generation and save.
  */
-export async function prepareEditorialReview(kind: EditorialKind, input: Record<string, unknown>, actorId: string, options: { submittedMediaHref?: string } = {}) {
+export async function prepareEditorialReview(kind: EditorialKind, input: Record<string, unknown>, actorId: string, options: { submittedMediaHref?: string; submittedMediaType?: string } = {}) {
   if (!input.editorialReview) return null;
   try {
     const review = reviewSchema.parse(JSON.parse(String(input.editorialReview)));
@@ -57,12 +57,16 @@ export async function prepareEditorialReview(kind: EditorialKind, input: Record<
       expected.media[media].alt = alt.value;
     }
     const actual = editorialSnapshot(kind, input);
+    // Generations made before shape suggestions existed carry no shape; keep the saved one.
+    if ((kind === "logo" || kind === "icon") && !("shape" in expected.current)) expected.current.shape = actual.current.shape;
     const href = options.submittedMediaHref;
     if (href) {
       expected.media.forEach((item, index) => {
         const saved = actual.media[index];
         if (item.url !== href || !saved || saved.url === href || saved.url.startsWith("/api/") || !isAllowedManagedAssetUrl(saved.url)) return;
-        Object.assign(item, { url: saved.url, posterUrl: saved.posterUrl, width: saved.width, height: saved.height });
+        // A submitted GIF is converted to video on acceptance; allow only that type change.
+        const gifToVideo = options.submittedMediaType === "image/gif" && item.type === "image" && saved.type === "video";
+        Object.assign(item, { url: saved.url, posterUrl: saved.posterUrl, width: saved.width, height: saved.height, ...(gifToVideo ? { type: saved.type } : {}) });
       });
     }
     if (stableSnapshot(expected) !== stableSnapshot(actual)) throw new Error("Changed work");

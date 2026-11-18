@@ -56,13 +56,14 @@ export function validateEditorialProposal(
   sampledMedia: readonly number[] = [],
 ): EditorialProposal {
   const proposal = editorialProposalSchema.parse(input);
+  // Alt text may only describe sampled media, once each. A stray entry is dropped
+  // rather than discarding the whole (already paid) proposal.
   const altFor = new Set<number>();
-  for (const alt of proposal.mediaAlt) {
-    if (!sampledMedia.includes(alt.media) || altFor.has(alt.media)) {
-      throw new Error("Alt text may only describe sampled media, once each.");
-    }
+  proposal.mediaAlt = proposal.mediaAlt.filter((alt) => {
+    if (!sampledMedia.includes(alt.media) || altFor.has(alt.media)) return false;
     altFor.add(alt.media);
-  }
+    return true;
+  });
   const supported: readonly string[] = editorialFields[kind];
   const seen = new Set<string>();
   for (const change of proposal.fields) {

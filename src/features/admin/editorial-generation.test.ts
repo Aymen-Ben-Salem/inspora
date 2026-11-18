@@ -24,8 +24,9 @@ describe("editorial generation contract", () => {
     expect(() => validateEditorialProposal(shape, "design", { shape: ["Wordmark"] })).toThrow(/unsupported/);
     const alt = { ...proposal, mediaAlt: [{ media: 0, value: "Dark storage panel with colored usage blocks", reason: "Visible" }] };
     expect(validateEditorialProposal(alt, "design", {}, [0]).mediaAlt).toHaveLength(1);
-    expect(() => validateEditorialProposal(alt, "design", {}, [1])).toThrow(/sampled media/);
-    expect(() => validateEditorialProposal({ ...alt, mediaAlt: [...alt.mediaAlt, ...alt.mediaAlt] }, "design", {}, [0])).toThrow(/once each/);
+    // A stray alt entry is dropped; the rest of the paid proposal survives.
+    expect(validateEditorialProposal(alt, "design", {}, [1]).mediaAlt).toEqual([]);
+    expect(validateEditorialProposal({ ...alt, mediaAlt: [...alt.mediaAlt, ...alt.mediaAlt] }, "design", {}, [0]).mediaAlt).toHaveLength(1);
     expect(storedEditorialProposal({ ...proposal, mediaAlt: undefined }).mediaAlt).toEqual([]);
     const validated = validateEditorialProposal(alt, "design", {}, [0]);
     expect(selectedAltPatch({ proposal: validated, selected: [0], before: [{ alt: "" }], current: [{ alt: "" }] })).toEqual([{ media: 0, value: alt.mediaAlt[0].value }]);

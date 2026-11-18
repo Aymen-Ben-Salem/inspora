@@ -33,7 +33,7 @@ test('setup guide installs the plugin in Claude Code and Codex and keeps a manua
  const response=get('/setup');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/html/);
  const html=await response.text();
  assert.match(html,/claude plugin marketplace add Aymen-Ben-Salem\/inspora#preview\/archive-updates/);assert.match(html,/claude plugin install inspora@inspora-team/);
- assert.match(html,/codex plugin marketplace add Aymen-Ben-Salem\/inspora --ref preview\/archive-updates/);assert.match(html,/codex plugin add inspora@inspora-team/);
+ assert.match(html,/codex plugin marketplace add Aymen-Ben-Salem\/inspora --ref preview\/archive-updates --sparse \.agents\/plugins --sparse plugins\/inspora/);assert.match(html,/codex plugin add inspora@inspora-team/);
  // Team trial: the repository appears only as the plugin marketplace source. Move it to a company-owned repository before any public launch.
  assert.equal(html.match(/Aymen-Ben-Salem/g).length,2);assert.doesNotMatch(html,/github\.com\/Aymen/i);
  for(const client of ['claude-code','codex'])assert.match(html,new RegExp('npx skills remove inspora-discovery inspora-design-direction -g -a '+client+' -y'));

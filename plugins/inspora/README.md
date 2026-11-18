@@ -31,7 +31,7 @@ Update with `claude plugin marketplace update inspora-team` and `claude plugin u
 Install:
 
 ```bash
-codex plugin marketplace add Aymen-Ben-Salem/inspora --ref preview/archive-updates
+codex plugin marketplace add Aymen-Ben-Salem/inspora --ref preview/archive-updates --sparse .agents/plugins --sparse plugins/inspora
 codex plugin add inspora@inspora-team
 ```
 

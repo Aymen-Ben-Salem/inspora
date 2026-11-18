@@ -9,11 +9,11 @@ Other agents keep the manual setup: add the MCP URL and run `npx skills add http
 Install, in your shell (inside a session, use `/plugin marketplace add …` and `/plugin install …`):
 
 ```bash
-claude plugin marketplace add Aymen-Ben-Salem/inspora#preview/archive-updates
+claude plugin marketplace add https://github.com/inspora-design/inspora-plugin.git
 claude plugin install inspora@inspora-team
 ```
 
-On a machine without a GitHub SSH key, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` first. From a local checkout, run `claude plugin marketplace add <path-to-repo>` instead.
+From a local checkout, run `claude plugin marketplace add <path-to-repo>` instead.
 
 Sign in: start Claude Code or run `/reload-plugins`, then `/mcp`, select `plugin:inspora:inspora`, choose **Authenticate** and **Allow connection** in the browser. The skills are `/inspora:inspora-discovery` and `/inspora:inspora-design-direction`; Claude also loads them on its own when a request matches.
 
@@ -31,7 +31,7 @@ Update with `claude plugin marketplace update inspora-team` and `claude plugin u
 Install:
 
 ```bash
-codex plugin marketplace add Aymen-Ben-Salem/inspora --ref preview/archive-updates --sparse .agents/plugins --sparse plugins/inspora
+codex plugin marketplace add https://github.com/inspora-design/inspora-plugin.git
 codex plugin add inspora@inspora-team
 ```
 
@@ -54,4 +54,4 @@ Update with `codex plugin marketplace upgrade inspora-team` and then `codex plug
 - `skills/` at the repository root is the single source of truth for the skills. After you edit one, run `npm run sync:plugin-skills` in `tools/inspora-mcp`.
 - Increase `version` in both `plugin.json` files for every release teammates should receive.
 - Validate with `claude plugin validate ./plugins/inspora --strict` and `claude plugin validate . --strict`, and install into a throwaway `CODEX_HOME` with `codex plugin marketplace add <path-to-repo>` and `codex plugin add inspora@inspora-team`.
-- Keep this plugin out of public plugin directories. The marketplace lives in a personal repository for the team trial; move it to a company-owned repository before any public launch.
+- Keep this plugin out of public plugin directories. Teammates install from the published copy at [inspora-design/inspora-plugin](https://github.com/inspora-design/inspora-plugin); after a release, copy `.claude-plugin/`, `.agents/` and `plugins/inspora/` there and push. That repository holds only the plugin.

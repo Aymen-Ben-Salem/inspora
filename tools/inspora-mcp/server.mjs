@@ -1,7 +1,8 @@
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';import {z} from 'zod';
-import {SearchEngine,searchSchema,detailSchema,CURSOR_TTL_MS,SEARCH_REVISION} from './search.mjs';import {embed,dispose} from './model.mjs';
-import {localPreview} from './preview.mjs';
+import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,SEARCH_REVISION} from './search.mjs';import {embed,dispose} from './model.mjs';
+import {localVisuals} from './preview.mjs';
+import {workReply,VISUAL_RESPONSE_BYTES} from './visuals.mjs';
 import {fork} from 'node:child_process';
 import {STALE_MS} from './sync.mjs';
 import {connection} from './connection.mjs';
@@ -24,17 +25,9 @@ const server=new McpServer({name:'inspora-private-pilot',version:'0.1.0'},{instr
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
 function handled(fn){return async args=>{const start=performance.now();try{refresh();const out=await fn(args);if(option('--metrics',null)){const row={at:new Date().toISOString(),duration_ms:performance.now()-start,output_chars:JSON.stringify(out).length};fs.appendFileSync(path.join(dir,'data','server-metrics.jsonl'),JSON.stringify(row)+'\n');}return out;}catch(e){return {isError:true,content:[{type:'text',text:JSON.stringify({error:e instanceof z.ZodError?'INVALID_INPUT: arguments do not match the tool schema':String(e.message).slice(0,300)})}]};}};}
 server.registerTool('search_inspiration',{title:'Find Inspora inspiration',description:'Search written ideas OR an existing Inspora work URL across the full eligible catalog. Use subjects for concrete targets, subject_scope for main subject or contained feature, and context for industry preferences. Read interpreted_query, search_coverage and candidate evidence. Default 10 candidates per call; count 1–20. Direction discovery can use complementary queries across kinds for up to 10 direct and 5 separately labeled adaptation references. Hard constraints use kinds, filters, required_terms, exclude_terms and exclude_ids. Filters are AND, never relaxed. Reference similarity uses metadata and defaults to the reference kind. Continue with the returned query-bound, single-use cursor within 15 minutes. Uploaded reference-image search is deferred to the future backlog.',inputSchema:searchSchema,annotations},handled(async args=>textResult(await engine.search(args))));
-server.registerTool('get_work',{title:'Fetch selected Inspora work',description:'Retrieve details for one selected eligible work ID. preview=link returns a public media URL; preview=image attaches a locally prepared evidence thumbnail where available. No network fetch, no arbitrary paths. Client image rendering is not guaranteed.',inputSchema:detailSchema,annotations:{...annotations,idempotentHint:true}},handled(async args=>{
-  const data=engine.details(args),out=textResult(data);
-  if(args.preview==='image'){
-    const manifestPath=path.join(dataDir,'preview-manifest.json');
-    const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath,'utf8')):{drafts:[]};
-    const preview=localPreview(engine.byId.get(args.id),manifest,path.join(dataDir,'media'));
-    if(preview.bytes)out.content.push({type:'image',mimeType:'image/png',data:preview.bytes.toString('base64')});
-    else data.preview.inline_status=preview.status;
-    out.content[0].text=JSON.stringify(data);
-  }
-  return out;
-}));
-server.registerTool('catalog_status',{title:'Inspect pilot snapshot',description:'Report snapshot date, work counts, enrichment and automatic synchronization health. No admin/write tools.',inputSchema:z.object({}).strict(),annotations:{...annotations,idempotentHint:true}},handled(async()=>textResult({name:'Inspora private pilot',search_revision:SEARCH_REVISION,captured_at:engine.index.capturedAt,variant,ranking,counts:Object.fromEntries(['design','website','logo','icon'].map(k=>[k,engine.rows.filter(r=>r.kind===k).length])),enrichment:engine.index.enrichment??null,synchronization:syncStatus(),live:false,review:'pending',limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,detail_chars:10000,inline_preview_bytes:256000,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:true},phase2:'Shared Inspora Pro credits/payments; uploaded reference-image search is deferred to the future backlog'})));
+const loadVisuals=(row,options)=>localVisuals(dataDir,row,options);
+const detailAnnotations={...annotations,idempotentHint:true};
+server.registerTool('get_work',{title:'Fetch selected Inspora work',description:'Details and a prepared still for one eligible work when available. Use detail=study for timestamped motion sheets, preview=link for links, or preview=none for text only.',inputSchema:detailSchema,annotations:detailAnnotations},handled(({id,...args})=>workReply(engine,[id],args,{loadVisuals})));
+server.registerTool('get_works',{title:'Inspect selected Inspora works',description:'Details and prepared stills for up to six eligible work IDs. Each work identifies its own image or fallback.',inputSchema:batchDetailSchema,annotations:detailAnnotations},handled(({ids,...args})=>workReply(engine,ids,args,{loadVisuals,batch:true})));
+server.registerTool('catalog_status',{title:'Inspect pilot snapshot',description:'Report snapshot date, work counts, enrichment and automatic synchronization health. No admin/write tools.',inputSchema:z.object({}).strict(),annotations:detailAnnotations},handled(async()=>textResult({name:'Inspora private pilot',search_revision:SEARCH_REVISION,captured_at:engine.index.capturedAt,variant,ranking,counts:Object.fromEntries(['design','website','logo','icon'].map(k=>[k,engine.rows.filter(r=>r.kind===k).length])),enrichment:engine.index.enrichment??null,synchronization:syncStatus(),live:false,review:'pending',limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,detail_chars:10000,inline_image_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:true},phase2:'Shared Inspora Pro credits/payments; uploaded reference-image search is deferred to the future backlog'})));
 const transport=new StdioServerTransport();await server.connect(transport);transport.onclose=()=>{if(syncWorker?.connected)syncWorker.disconnect();dispose().finally(()=>process.exit(0));};

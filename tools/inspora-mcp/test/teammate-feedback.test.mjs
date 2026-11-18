@@ -6,6 +6,81 @@ import {tokens,queryIntent} from '../relevance.mjs';
 import {work,embed,vector} from './fixtures.mjs';
 function engine(works,options={}) {const capturedAt=new Date().toISOString();const rows=normalizeRows({capturedAt,rows:works}).map(row=>({...row,vector:vector()}));return new SearchEngine({snapshotId:'teammate-feedback',capturedAt,rows},{embed,...options});}
 
+test('compound AI agent brief offers evidenced related work without relaxing explicit filters',async()=>{
+ const agent={...work(1),title:'Agent approval',description:'An AI agent dashboard shows an approval workflow.',industries:['AI agents'],colors:['Blue']};
+ const unrelated={...work(2),title:'Shark chat',description:'A shark illustration sits above an inbox and chat.',colors:['Blue']};
+ const e=engine([agent,unrelated]);
+ const query='AI agent interface: agent tree, trace waterfall, agent inbox, chat with tools';
+ const result=await e.search({query,filters:{colors:['Blue']}});
+ assert.deepEqual(result.results.map(r=>[r.id,r.match]),[[agent.id,'related']]);
+ assert.match(result.results[0].reason,/AI agent/i);
+ assert.equal((await e.search({query,filters:{colors:['Red']}})).results.length,0);
+ assert.equal((await e.search({query,subjects:['trace waterfall']})).results.length,0);
+});
+
+test('software context finds relevant website and design evidence without generic filler',async()=>{
+ const site={...work(1,'website'),title:'Code collaboration',description:'A software product website presents API tooling and code review.'};
+ const design={...work(2),title:'Review workspace',description:'A code review dashboard shows diffs and pull request status.'};
+ const filler={...work(3,'website'),title:'Flower shop',description:'A website with a light floral layout.'};
+ const tag={...work(4,'website'),title:'Dev toolkit',description:'A developer tool for managing projects.',industries:['Developer Tools']};
+ const e=engine([site,design,filler,tag]);
+ assert.ok((await e.search({query:'SaaS landing page',kinds:['website']})).results.some(r=>r.id===site.id));
+ for(const [kind,id] of [['website',site.id],['design',design.id]]){
+  const result=await e.search({query:'developer tool',kinds:[kind]});
+  assert.ok(result.results.some(r=>r.id===id));
+  assert.ok(result.results.every(r=>r.id!==filler.id));
+ }
+});
+
+test('an icon within a design does not conflict with the explicit work kind',async()=>{
+ const design={...work(1),title:'Navigation panel',description:'A navigation panel with a calendar icon.'};
+ const icon={...work(2,'icon'),title:'Globe app icon',description:'A globe app icon.'};
+ const e=engine([design,icon]);
+ assert.deepEqual((await e.search({query:'icon'})).results.map(r=>r.id),[icon.id]);
+ assert.deepEqual((await e.search({query:'icon',kinds:['design']})).results.map(r=>r.id),[design.id]);
+});
+
+test('combined style preferences require positive evidence for both traits',async()=>{
+ const both={...work(1,'website'),title:'Editorial site',description:'Warm amber surfaces frame serif headings.'};
+ const sans={...work(2,'website'),title:'Amber site',description:'Warm colours with sans-serif headings.'};
+ const cold={...work(3,'website'),title:'Cool site',description:'Cold grey panels with serif headings.'};
+ const e=engine([both,sans,cold]);
+ assert.deepEqual((await e.search({query:'warm, serif'})).results.map(r=>r.id),[both.id]);
+ assert.deepEqual((await e.search({query:'warm sans-serif'})).results.map(r=>r.id),[sans.id]);
+});
+
+test('a date picker needs selection evidence and calendar remains a broader search',async()=>{
+ const picker={...work(1),title:'Date picker',description:'A date picker opens a calendar grid.'};
+ const grid={...work(2),title:'Contribution calendar',description:'A calendar plots contributions over the past year.'};
+ const e=engine([picker,grid]);
+ assert.deepEqual((await e.search({query:'date picker'})).results.map(r=>r.id),[picker.id]);
+ assert.equal((await e.search({query:'calendar'})).results.length,2);
+});
+
+test('explicit identity kinds and soft project context keep eligible adaptations in the pool',async()=>{
+ const e=engine([work(1,'logo'),work(2,'icon')]);
+ const mixed=await e.search({query:'Soft organic minimal logo with circle, wave, lotus, leaf or breath-like shapes, muted calm colors',kinds:['logo','icon']});
+ assert.deepEqual(mixed.search_coverage.matching_by_kind,{logo:1,icon:1});
+ const logo=await e.search({query:'Logo for a meditation app, calm and mindful',kinds:['logo'],context:'meditation, mindfulness, wellness'});
+ assert.equal(logo.results.length,1);
+ assert.equal(logo.results[0].match,'alternative');
+});
+
+test('a filtered website collection ranks style preferences and explains unavailable technology values',async()=>{
+ const dev={...work(1,'website'),title:'SDK toolkit',categories:['Development'],description:'A project for making music.'};
+ const e=engine([dev,work(2,'website')]);
+ const result=await e.search({query:'Software product website with warm palette and precise interface details',kinds:['website'],filters:{categories:['Development']}});
+ assert.deepEqual(result.results.map(r=>r.id),[dev.id]);
+ assert.equal(result.interpreted_query.subject_scope,'primary');
+ const empty=await e.search({query:'Send button animation',subjects:['send button'],filters:{technologies:['Framer Motion']}});
+ assert.deepEqual(empty.interpreted_query.unavailable_filter_values,{technologies:['Framer Motion']});
+});
+
+test('agent industry alone cannot substantiate a contained agent interface',async()=>{
+ const e=engine([{...work(1),title:'Brand work',industries:['AI Agent'],description:'A brand identity for a studio.'}]);
+ assert.equal((await e.search({query:'agent interface',subjects:['agent interface'],subject_scope:'contains'})).results.length,0);
+});
+
 test('general landing-page wording can retrieve websites without padding specific missing constraints',async()=>{
  const website={...work(1,'website'),title:'Studio Index',description:'A minimal studio website presents projects and services.'};
  const unrelated={...work(2,'design'),title:'Navigation bar',description:'A minimal navigation bar opens a menu.'};

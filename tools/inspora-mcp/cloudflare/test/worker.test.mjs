@@ -9,6 +9,8 @@ import {sha} from '../../catalog.mjs';
 import {Bucket,Namespace} from './helpers.mjs';
 import {HTTP_LIMITS} from '../access-state.mjs';
 import {previewKey} from '../previews.mjs';
+import {mediaFingerprint} from '../../enrichment.mjs';
+import {visualAssetKey,visualManifestKey,visualSha,VISUAL_RESPONSE_BYTES} from '../../visuals.mjs';
 const origin='https://mcp.test';
 const token='test_token_'.padEnd(43,'a'),otherToken='other_token_'.padEnd(43,'b');
 
@@ -26,12 +28,52 @@ async function clientFor(fixture,secret=token) {
 }
 const decoded=result=>JSON.parse(result.content[0].text);
 
-test('actual HTTP SDK initializes and lists three read-only tools without catalog/AI access',async()=>{
+test('actual HTTP SDK lists read-only tools without catalog/AI access',async()=>{
   const fixture=await fixtureSetup();const before=fixture.bucket.reads;const client=await clientFor(fixture);
-  const tools=await client.listTools();assert.deepEqual(tools.tools.map(tool=>tool.name).sort(),['catalog_status','get_work','search_inspiration']);
+  const tools=await client.listTools();assert.deepEqual(tools.tools.map(tool=>tool.name).sort(),['catalog_status','get_work','get_works','search_inspiration']);
   assert.ok(tools.tools.every(tool=>tool.annotations.readOnlyHint));assert.equal(fixture.bucket.reads,before);await client.close();
 });
 const fixtureSetup=fixture;
+
+test('HTTP serves bounded prepared stills and motion sheets for current eligible works',async()=>{
+  const fixture=await fixtureSetup(),client=await clientFor(fixture);
+  try {
+    const rows=fixture.index.rows.slice(0,5),stored=new Map();
+    const originalGet=fixture.bucket.get.bind(fixture.bucket);
+    fixture.bucket.get=async key=>{
+      const bytes=stored.get(key);
+      return bytes?{size:bytes.length,arrayBuffer:async()=>bytes.buffer}:originalGet(key);
+    };
+    function seed(row,roles){
+      const assets=roles.map(role=>{
+        const bytes=new Uint8Array(230_000);bytes[0]=255;bytes[1]=216;
+        const item={role,width:1234,height:1000,bytes:bytes.length,sha256:visualSha(bytes),timecodes:[1,2]};
+        stored.set(visualAssetKey(row,item),bytes);
+        return item;
+      });
+      stored.set(visualManifestKey(row),new TextEncoder().encode(JSON.stringify({
+        version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),duration:5,assets,
+      })));
+    }
+    for(const row of rows)seed(row,['still','overview']);
+    const [first]=rows;
+    const study=await client.callTool({name:'get_work',arguments:{id:first.id,detail:'study'}});
+    assert.deepEqual(study.content.map(item=>item.type),['text','image','image']);
+    assert.equal(study.content[2].mimeType,'image/jpeg');
+    const {preview}=decoded(study);
+    assert.equal(preview.duration_seconds,5);
+    assert.deepEqual(preview.images.map(({role})=>role),['still','overview']);
+    const batch=await client.callTool({name:'get_works',arguments:{ids:[...rows.map(r=>r.id),work(999).id]}});
+    assert.deepEqual(decoded(batch).works.map(w=>w.preview?.images?.[0].image_number??w.error??null),
+      [1,2,3,null,null,'WORK_NOT_ELIGIBLE']);
+    assert.ok(batch.content.slice(1).reduce((sum,item)=>sum+Buffer.from(item.data,'base64').length,0)<=VISUAL_RESPONSE_BYTES);
+    const links=await client.callTool({name:'get_work',arguments:{id:first.id,preview:'link'}});
+    assert.equal(links.content.length,1);
+    stored.set(visualManifestKey(first),stored.get(visualManifestKey(rows[1])));
+    const stale=await client.callTool({name:'get_work',arguments:{id:first.id}});
+    assert.equal(stale.content.length,1);
+  }finally{await client.close();}
+});
 
 test('HTTP search, filters, details and restart-safe single-use principal-bound continuation',async()=>{
   const fixture=await fixtureSetup(),alice=await clientFor(fixture),bob=await clientFor(fixture,otherToken);
@@ -49,6 +91,7 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   const forbidden=await bob.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});assert.match(decoded(forbidden).error,/EXPIRED/);
   const replies=await Promise.all([alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}}),alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}})]);
   assert.equal(replies.filter(reply=>reply.isError).length,1);
+  assert.match(decoded(replies.find(reply=>reply.isError)).error,/CURSOR_USED.*already used/);
   const next=decoded(replies.find(reply=>!reply.isError));assert.ok(next.results.every(row=>!first.results.some(before=>before.id===row.id)));
   assert.deepEqual(next.search_coverage,first.search_coverage);
   const empty=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass',filters:{colors:['Red']}}}));assert.equal(empty.results.length,0);assert.equal(empty.insufficient_matches,true);
@@ -127,7 +170,11 @@ test('access, configured origin, body bounds, revocation and errors protect back
 test('per-principal limits refuse excessive requests independently of other users',async()=>{
   const fixture=await fixtureSetup();
   for(let i=0;i<HTTP_LIMITS.minute;i++)assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
-  assert.equal((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
+  const limited=await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'});
+  assert.equal(limited.status,429);
+  const {retry_after}=await limited.json();
+  assert.ok(retry_after>=1&&retry_after<=60);
+  assert.equal(limited.headers.get('retry-after'),String(retry_after));
   assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+otherToken},body:'{}'})).status,429);
 });
 

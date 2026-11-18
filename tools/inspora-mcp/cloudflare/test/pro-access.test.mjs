@@ -100,10 +100,12 @@ test('continuation and details are free but still require current entitlement',a
   const next=await rpc(2,'search_inspiration',{cursor:first.data.next_cursor,count:2});
   assert.ok(next.data.results.length>0);
   await rpc(3,'get_work',{id:first.data.results[0].id});
+  const batch=await rpc(4,'get_works',{ids:first.data.results.map(work=>work.id)});
+  assert.equal(batch.data.works.length,2);
   assert.equal(accounting.balance,4);
-  assert.deepEqual(accounting.calls,['access','reserve','complete','access','access']);
+  assert.deepEqual(accounting.calls,['access','reserve','complete','access','access','access']);
   accounting.access='denied';accounting.reason='no_active_subscription';
-  const refused=await rpc(4,'get_work',{id:first.data.results[0].id});
+  const refused=await rpc(5,'get_works',{ids:[first.data.results[0].id]});
   assert.match(refused.error,/^PRO_REQUIRED: .*https:\/\/site\.test\/account\/pro/);
 });
 

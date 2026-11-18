@@ -8,6 +8,8 @@ import {buildCatalog,publishCatalog} from './catalog.mjs';
 import {work,note,embed} from '../test/fixtures.mjs';
 import {sha} from '../catalog.mjs';
 import {previewKey} from './previews.mjs';
+import {mediaFingerprint} from '../enrichment.mjs';
+import {visualAssetKey,visualManifestKey,visualSha} from '../visuals.mjs';
 import {runtimeModules} from './runtime-bundle.mjs';
 import fs from 'node:fs';
 
@@ -23,18 +25,27 @@ try{
   const index=await buildCatalog(feed,{embed});await publishCatalog(bucket,index);
   const thumbnail=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=','base64');
   await bucket.put(previewKey(index.rows[0]),thumbnail);
+  const visualRow=index.rows[1],packed=Uint8Array.of(255,216,255,217);
+  const asset={role:'still',width:1,height:1,bytes:packed.length,sha256:visualSha(packed)};
+  await bucket.put(visualAssetKey(visualRow,asset),packed);
+  await bucket.put(visualManifestKey(visualRow),JSON.stringify({
+    version:1,workId:visualRow.id,mediaFingerprint:mediaFingerprint(visualRow),assets:[asset],
+  }));
   client=new Client({name:'workerd-verification',version:'1'});
   const transport=new StreamableHTTPClientTransport(new URL(origin+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token}},fetch:(url,init)=>mf.dispatchFetch(url,init)});
   await client.connect(transport);
-  const tools=await client.listTools();assert.equal(tools.tools.length,3);
+  const tools=await client.listTools();assert.equal(tools.tools.length,4);
   const first=JSON.parse((await client.callTool({name:'search_inspiration',arguments:{reference_url:'https://www.inspora.design/posts/sample-1'}})).content[0].text);
   assert.equal(first.results.length,10);assert.ok(first.next_cursor);
   assert.equal(first.search_coverage.catalog_works,26);assert.equal(first.search_coverage.matching_works,25);
   const detail=await client.callTool({name:'get_work',arguments:{id:index.rows[0].id,preview:'image'}});
   assert.equal(detail.content[1].type,'image');assert.equal(detail.content[1].data,thumbnail.toString('base64'));
+  const batch=await client.callTool({name:'get_works',arguments:{ids:[visualRow.id]}});
+  assert.equal(batch.content[1].mimeType,'image/jpeg');
+  assert.equal(batch.content[1].data,Buffer.from(packed).toString('base64'));
   const next=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
   assert.equal(next.isError,undefined);assert.equal(JSON.parse(next.content[0].text).results.length,10);
   const replay=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
-  assert.equal(replay.isError,true);assert.match(JSON.parse(replay.content[0].text).error,/CURSOR_EXPIRED/);
+  assert.equal(replay.isError,true);assert.match(JSON.parse(replay.content[0].text).error,/CURSOR_USED/);
   console.log('PASS: bundled Worker + local R2 + SQLite continuation + HTTP MCP client');
 }finally{await client?.close();await mf.dispose();}

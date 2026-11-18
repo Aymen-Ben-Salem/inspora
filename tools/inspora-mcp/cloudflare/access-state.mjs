@@ -18,7 +18,10 @@ export class AccessState {
       // HTTP-level abuse bound (all MCP requests, including protocol traffic).
       const paidUntil=await storage.get('paid_http_until');
       const limits=paidUntil>now?PRO_HTTP_LIMITS:HTTP_LIMITS;
-      if(next.minuteCount>limits.minute||next.dayCount>limits.day)return fail(429,'RATE_LIMITED');
+      if(next.minuteCount>limits.minute||next.dayCount>limits.day){
+        const reset=next.dayCount>limits.day?(day+1)*86400000:(minute+1)*60000;
+        return Response.json({error:'RATE_LIMITED',retry_after:Math.ceil((reset-now)/1000)},{status:429});
+      }
       await storage.put('budget',next);return Response.json({ok:true});
     });
     // This short cache affects only the HTTP abuse ceiling, never entitlement.
@@ -73,8 +76,10 @@ export class AccessState {
       return this.state.storage.transaction(async storage=>{
         const key='cursor:'+args.cursor,value=await storage.get(key);
         if(!value||value.searchRevision!==SEARCH_REVISION||value.expires<=now||value.snapshotId!==input.snapshotId){await storage.delete(key);return fail(409,'CURSOR_EXPIRED');}
+        if(value.consumed)return fail(409,'CURSOR_USED: this continuation was already used; use the latest returned cursor');
         for(const field of queryFields)if(args[field]!==undefined&&stable(args[field])!==stable(value.query[field]))return fail(409,'CURSOR_QUERY_MISMATCH');
-        await storage.delete(key);return Response.json(value);
+        await storage.put(key,{consumed:true,expires:value.expires,searchRevision:value.searchRevision,snapshotId:value.snapshotId});
+        return Response.json(value);
       });
     }
     return fail(400,'INVALID_ACTION');
@@ -86,6 +91,8 @@ export function accessStore(binding,principal) {
   const object=binding.get(binding.idFromName(principal));
   return async(action,input={})=>{
     const response=await object.fetch('https://state.internal/',{method:'POST',body:JSON.stringify({action,...input})});
-    const body=await response.json();if(!response.ok)throw Error(body.error);return body;
+    const body=await response.json();
+    if(!response.ok)throw Object.assign(Error(body.error),{retryAfter:body.retry_after});
+    return body;
   };
 }

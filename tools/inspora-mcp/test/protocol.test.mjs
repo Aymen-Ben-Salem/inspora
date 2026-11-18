@@ -19,7 +19,7 @@ test('real stdio MCP discovers retrieval tools, searches, continues and fetches 
  await client.connect(transport);
  try {
   const {tools}=await client.listTools();
-  assert.deepEqual(tools.map(x=>x.name).sort(),['catalog_status','get_work','search_inspiration']);
+  assert.deepEqual(tools.map(x=>x.name).sort(),['catalog_status','get_work','get_works','search_inspiration']);
   assert.ok(tools.every(t=>t.annotations.readOnlyHint&&!t.annotations.destructiveHint));
   const status=JSON.parse((await client.callTool({name:'catalog_status',arguments:{}})).content[0].text);
   assert.equal(status.live,false);

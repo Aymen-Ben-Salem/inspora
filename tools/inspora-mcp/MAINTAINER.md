@@ -70,12 +70,23 @@ Session-only Codex overrides are also supported. Include the same absolute `--co
 ## Tools and limits
 
 - `search_inspiration`: written idea or existing Inspora link; ten candidates by default, 1–20 allowed; explicit kinds and AND filters; compact or links-only output. `search_coverage` reports eligible catalog size, candidates after hard filters and qualifying matches by kind for the full query, including across continuation. It does not measure every possible search angle or human usefulness. Hard filters are never relaxed. Similarity is based on metadata, not a verified visual match. Presentation defaults to up to ten direct references and, when direct coverage is sparse, up to five useful adaptation references in a separate table.
-- `get_work`: selected ID only, bounded details and optional preview. A URL alone does not guarantee image rendering. Inline images are available only for locally prepared thumbnails, capped at 256 KB.
+- `get_work`: details and a prepared still for one eligible work. Request `detail=study` for available timestamped motion sheets. Choose `preview=link` for media links or `preview=none` for text only.
+- `get_works`: up to six eligible IDs with stills and per-work image availability. Use it to inspect a shortlist without six separate tool calls.
 - `catalog_status`: date, counts, enrichment, ranking and synchronization health. Without a configured source it remains a dated offline snapshot.
 
 Discovery is bounded to 12,000 JSON characters, details to 10,000. These are prototype limits, not a cap on a host assistant's total token bill. Continuations are query-bound, single-use, non-repeating and expire after 15 minutes. An index refresh invalidates them. No automatic page draining. Insufficient results and unverified alternatives are explicitly labeled.
 
 All source text and input URLs are untrusted data. The server cannot fetch arbitrary URLs, upload images, edit records, or access admin/payment tools. It does not load repository environment files. Results sent to the host remain subject to that host's normal provider usage.
+
+## Prepare work visuals
+
+Run from the repository root with the installed project dependencies, FFmpeg and FFprobe. Supply a local catalog index and a JSON array of inputs. Each input has `id`, the exact first-party catalog media `source`, and a local `file` relative to the input manifest. Use a website poster or recording for websites, never the favicon. Use the original media approved for the selected work.
+
+```powershell
+node tools/inspora-mcp/prepare-visuals.mjs path/to/catalog-index.json path/to/local-inputs.json path/to/data/visuals
+```
+
+The command writes the still and, for video, a timestamped overview and detail sheets. Source dimensions, decode time, duration and image bytes are bounded. The local server reads the result with `--data path/to/data` and an index named `index-enriched.json`. The hosted Worker uses the same object keys relative to `visuals/` in the local output. Publish files before their manifest when rehearsing storage delivery. Old fingerprints remain unreachable through the current eligible work.
 
 ## Automatic content synchronization
 

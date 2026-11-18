@@ -18,7 +18,8 @@ const concepts = [
   ['pricing table', 'design', ['plan comparison table']],
   ['table', 'design', ['data table', 'data grid']],
   ['chart', 'design', ['graph', 'data visualization']],
-  ['calendar', 'design', ['date picker', 'datepicker']],
+  ['calendar', 'design', []],
+  ['date picker', 'design', ['datepicker', 'calendar picker', 'date range picker', 'date selector']],
   ['search interface', 'design', ['search bar', 'search field', 'search input', 'search box']],
   ['dialog', 'design', ['modal', 'popup', 'pop up']],
   ['menu', 'design', ['context menu', 'dropdown', 'drop down']],
@@ -71,8 +72,30 @@ const families = new Map(concepts.map(([subject, family]) => [subject, family]))
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
 export const designVocabulary = new Set([...stop, ...aliases.keys(), ...wordAliases.values(), 'red orange yellow green blue purple pink black white gray grey brown glass clean simple spacious uncluttered dark light modern'.split(' ')].flatMap(value => words(value)));
 
-function subjectsIn(text) {
-  return [...new Set([...normalized(text).matchAll(pattern)].map(match => aliases.get(match[1])))];
+const subjectMentions = text => [...normalized(text).matchAll(pattern)].map(([, from]) => ({from, to: aliases.get(from)}));
+const subjectsIn = text => [...new Set(subjectMentions(text).map(({to}) => to))];
+
+// Project context can be supported by what the product does even when the
+// catalog lacks its exact industry label. The phrases describe product roles.
+const projectSignals = [
+  {name:'developer tool', query:/\b(?:developer tools?|developer tooling|devtools?)\b/i,
+    evidence:/\b(?:developer tools?|developer toolkits?|developer tooling|devtools?|api tooling|api management|code review|code[ -]editor|pull requests?|software development|(?:ai )?coding (?:assistant|infrastructure)|code snippets?|build pipeline)\b/i},
+  {name:'SaaS', query:/\b(?:saas|software as a service)\b/i,
+    evidence:/\b(?:saas|software as a service|software product|software platform|web app|subscription plans?|product demos?|product screenshots?|feature sections?|pricing plans?)\b/i},
+];
+
+export function projectContext(text) {
+  return projectSignals.find(signal => signal.query.test(text));
+}
+
+export function typeAndTone(text) {
+  const sans = /\bsans[ -]+serifs?\b/i;
+  const warm = /\b(?:warm(?:er|th)?|warm[ -]toned)\b/i;
+  return [
+    ...(warm.test(text) ? ['warm'] : []),
+    ...(sans.test(text) ? ['sans-serif'] : []),
+    ...(/\bserifs?\b/i.test(text.replaceAll(/\bsans[ -]+serifs?\b/gi, ' ')) ? ['serif'] : []),
+  ];
 }
 
 function canonicalSubject(text) {
@@ -119,11 +142,21 @@ export function prepareDocument(row) {
     sourceText: row.text,
     terms: new Set([...tokens(lexicalText), ...publicTerms]),
     titleTerms: new Set(tokens(row.title)),
+    visibleWords: new Set(words(visibleText)),
     primaryTerms: new Set(tokens(primaryText)),
     denseLayout: hasDenseLayout(visibleText),
+    typeAndTone: new Set(typeAndTone(lexicalText)),
     primarySubjects: new Set([...subjectsIn(primaryText), ...subjectsIn([row.category, ...(row.categories ?? [])].join(' '))]),
     mentionedSubjects: new Set([...subjectsIn(visibleText), ...subjectsIn([row.category, ...(row.categories ?? [])].join(' '))]),
   };
+  if (prepared.primarySubjects.has('date picker') ||
+      (/\b(?:calendar|booking)\b/i.test(introduction) && /\b(?:selected (?:day|date|appointment)|date and time controls?)\b/i.test(visibleText))) {
+    for (const set of [prepared.primarySubjects,prepared.mentionedSubjects]) {
+      set.add('date picker');
+      set.add('calendar');
+    }
+  }
+  if (prepared.mentionedSubjects.has('date picker')) prepared.mentionedSubjects.add('calendar');
   for (const subject of prepared.mentionedSubjects) {
     for (const term of tokens(subject)) prepared.terms.add(term);
   }
@@ -149,25 +182,37 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
     const headSubjects = subjectsIn(head).filter(subject => subjects.includes(subject));
     if (headSubjects.length===1 || headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
   }
-  const scope = args.subject_scope ?? (/\bwebsites?\b.*\b(?:with|featuring|containing)\b/i.test(positive) ? 'contains' : 'primary');
+  if (!args.subjects && args.kinds?.length > 1 && subjects.length && subjects.every(subject=>args.kinds.includes(subject))) {
+    subjects=[...args.kinds];
+  }
+  const scope = args.subject_scope ?? (
+    /\bwebsites?\b.*\b(?:with|featuring|containing)\b/i.test(positive) && subjects.some(s=>s!=='website') ||
+    !args.subjects && subjects.includes('icon') && args.kinds?.some(kind => kind === 'design' || kind === 'website')
+      ? 'contains' : 'primary');
   const queryTerms = tokens(positive);
   const termSequence=' '+queryTerms.join(' ')+' ';
-  // Multiword taxonomy topics are more specific than a shared broad industry.
-  // Explicit context remains a soft preference; only topics named in the query bind.
-  const topics=[...new Set(contextPhrases.filter(phrase=>termSequence.includes(' '+phrase+' ')))];
+  // Specific catalog topics named in the query retain topical admission.
+  // Project roles with related evidence and explicit context stay flexible.
+  const project = projectContext(positive);
+  const topics=[...new Set(contextPhrases.filter(phrase=>termSequence.includes(' '+phrase+' ')&&!project?.query.test(phrase)))];
   const context = args.context ? tokens(args.context) : queryTerms.filter(term => contextVocabulary.has(term) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
   const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive);
-  return {subjects, subject_scope: scope, context, topics, kinds, lowDensity};
+  const subjectAliases = [...new Map([positive,...(args.subjects??[])].flatMap(subjectMentions)
+    .filter(({from,to})=>from!==to&&subjects.includes(to)).map(alias=>[alias.from,alias])).values()];
+  const [projectLead, ...requestedFeatures] = positive.split(':');
+  const relatedTopic = !args.subjects && requestedFeatures.some(part=>part.trim()) && topics.find(topic =>
+    (' ' + tokens(projectLead).join(' ') + ' ').includes(' ' + topic + ' '));
+  return {subjects, subject_scope: scope, context, topics, kinds, lowDensity, subjectAliases, project, relatedTopic};
 }
 
 export function subjectEvidence(document, intent) {
   const subjectSet = intent.subject_scope === 'contains' ? document.mentionedSubjects : document.primarySubjects;
-  const termSet = intent.subject_scope === 'contains' ? document.terms : document.primaryTerms;
+  const termSet = intent.subject_scope === 'contains' ? document.visibleWords : document.primaryTerms;
   return intent.subjects.filter(subject => {
     if (families.has(subject)) return subjectSet.has(subject);
-    const required = tokens(subject);
+    const required = intent.subject_scope === 'contains' ? words(subject).filter(word=>!['a','an','the','of','with','and','for'].includes(word)) : tokens(subject);
     return required.length > 0 && required.every(term => termSet.has(term));
   });
 }

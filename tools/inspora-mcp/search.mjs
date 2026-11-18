@@ -7,7 +7,7 @@ import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 import {workMedia} from './visuals.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=17;
+export const SEARCH_REVISION=18;
 export const DEFAULT_COUNT=10;
 // Similarity gates are model-specific. BGE-small scores the whole catalog around
 // 0.55-0.65, so MiniLM's 0.30 admitted everything on the hosted index. The BGE
@@ -50,7 +50,9 @@ const APPEARANCE=Object.freeze({
  light:{tones:['light','pale','white','bright'],words:['airy'],colors:['white','cream','beige'],light:true},
  pale:{tones:['pale','light'],words:['pastel'],colors:['cream','beige','peach','lavender'],light:true},
  bright:{tones:['bright'],words:['vivid','vibrant','colorful','colourful'],colors:['rainbow','colorful','multicolor','bright multicolor']},
- muted:{tones:[],words:['muted','desaturated','subdued','restrained'],colors:['earthy','beige','gray']},
+ muted:{tones:[],words:['muted','desaturated','subdued','restrained','soft'],colors:['earthy','beige','gray']},
+ // Mood words read like appearance cues: a calm brief is met by soft, serene or quiet prose.
+ calm:{tones:[],words:['calm','soft','serene','quiet','gentle','peaceful','tranquil','soothing','relaxed','restful'],colors:[]},
  neon:{tones:['neon'],words:['glow','glowing'],colors:[]},
  pastel:{tones:[],words:['pastel'],colors:['peach','lavender']},
  monochrome:{tones:[],words:['monochrome','monochromatic','grayscale','greyscale'],phrase:/\bblack(?:\s*(?:and|&)\s*|-and-)white\b/i,colors:['monochrome'],neutral:true},
@@ -78,7 +80,8 @@ function toneEvidence(row){
  }
  return {whole,nouns};
 }
-const MOTION=/\b(?:animat\w*|motion|transitions?|micro[- ]?interactions?|interactions?|hover|swip\w*|morph\w*|kinetic|loading|loaders?|spinners?|gestures?)\b/i;
+// Motion verbs (slide, reveal, scroll, expand...) ask how something moves: motion requests too.
+const MOTION=/\b(?:animat\w*|motion|transitions?|micro[- ]?interactions?|interactions?|hover|swip\w*|morph\w*|kinetic|loading|loaders?|spinners?|gestures?|slid(?:e|es|ing)|reveal\w*|scroll\w*|expand\w*|expansion|collaps\w*|drag\w*|fad(?:e|es|ing)|zoom\w*|parallax|bounc\w*|rotat\w*|spin(?:s|ning)?|flip\w*|scrub\w*|typewriter)\b/i;
 // One-line summary of a result's subject, context and style evidence; the evidence object
 // (with brief terms and meaning rank) is authoritative.
 export function evidenceReason({match,evidence:e={}},interpreted){
@@ -204,11 +207,15 @@ export class SearchEngine {
   // Labels match their inflections (Dark -> darker) across tags, prose and visual notes.
   this.taggedStyles=new Map(this.rows.map(row=>[row.id,new Set([...fieldValues(row,'styles'),...fieldValues(row,'themes')].map(normalizedPhrase))]));
   this.tones=new Map(this.rows.map(row=>[row.id,toneEvidence(row)]));
+  // Words of each work's own taxonomy (category, industries, styles, themes, shape): curated
+  // labels, so a brief word met there is evidence rather than a coincidence of prose.
+  this.labelTerms=new Map(this.rows.map(row=>[row.id,new Set(tokens([row.category,...(row.categories??[]),row.industry,...(row.industries??[]),...fieldValues(row,'styles'),...fieldValues(row,'themes'),row.shape].filter(Boolean).join(', ')))]));
   this.styles=new Map(this.rows.map(row=>{
    const tagged=[...this.taggedStyles.get(row.id)];
    // A tagged multi-word label also evidences the shorter labels inside it (Dark mode -> Dark).
    const inner=tagged.flatMap(label=>this.styleLabels.filter(other=>other!==label&&other.split(' ').every(word=>label.split(' ').includes(word))));
-   const prose=labelsIn([row.title,row.description,row.tagline,row.searchOnly,row.shape].filter(Boolean).join('. '),this.styleLabels,'family').filter(label=>!toneOf(label)||this.tones.get(row.id).whole.has(toneOf(label)));
+   // The "Typography:" heading of visual notes is structure, not a Typography style.
+   const prose=labelsIn([row.title,row.description,row.tagline,String(row.searchOnly??'').replace(/\bTypography\s*:/gi,' '),row.shape].filter(Boolean).join('. '),this.styleLabels,'family').filter(label=>!toneOf(label)||this.tones.get(row.id).whole.has(toneOf(label)));
    return [row.id,new Set([...tagged,...inner,...prose])];
   }));
   // Catalog support of each style label: works evidencing it by tag or prose.
@@ -562,9 +569,18 @@ export class SearchEngine {
    // word exists in the catalog) or when the domain holds no more than a page of works (a food
    // work for "recipe app home screen" with context food). Explicit subjects stay mandatory.
    const contextOnly=Boolean(args.context)&&contextShown&&!args.subjects&&(!briefTerms.length&&!cueTotal&&!subjectAsk||contextPool<=args.count);
+   // A distinctive brief word or a requested style met in the work's own taxonomy (a Retro
+   // theme, a Music or Banking industry) is curated evidence, not a coincidence of prose, so
+   // it needs only the concrete-evidence similarity.
+   const labels=this.labelTerms.get(row.id);
+   // A style tag alone admits only when styles are all the catalog can verify of the brief
+   // ("retro brutalist website": no work names brutalist); with other brief words, the work
+   // must share them.
+   const taxonomyHit=!ref&&!subjectAsk&&(matched.some(term=>!formatWords.has(term)&&!common(term)&&(forms.get(term)??[term]).some(form=>labels.has(form)))||!briefTerms.length&&styleCues.some(label=>this.taggedStyles.get(row.id).has(label)));
+   const concreteEvidence=concreteSubject||contextShown||taxonomyHit;
    const relevant=broad||contextualBrowse||filteredPool||contextOnly||(ref
     ? (this.ranking==='lexical'?matched.length>=3:semantic>=this.gate.reference)
-    : (concreteSubject||contextShown||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||semantic>=(concreteSubject||contextShown?concreteGate:this.gate.query)||projectEvidence||topicFallback));
+    : (concreteEvidence||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||semantic>=(concreteEvidence?concreteGate:this.gate.query)||projectEvidence||topicFallback));
    const related=topicFallback&&(!subjects.length||coverage<.66);
    // Admission by meaning: similarity to the subject phrase plus a shared brief term, or
    // standout similarity to the whole brief that also shares a brief term or stands far
@@ -610,8 +626,13 @@ export class SearchEngine {
     return a.tones.some(tone=>subjectTone(row,tone))||a.words.some(word=>document.terms.has(word))||Boolean(a.phrase?.test([row.title,row.description,row.tagline,row.searchOnly].filter(Boolean).join(' ')))||
      !(a.light&&darkWork)&&a.colors.some(color=>rowColors.includes(color)||this.taggedStyles.get(row.id).has(color))||Boolean(a.neutral&&rowColors.length&&rowColors.every(color=>NEUTRAL_COLORS.has(color)));});
    const cueCoverage=cueTotal?(styleMatches.length+colorMatches.length)/cueTotal:0;
-   const termsFound=briefTerms.filter(term=>(forms.get(term)??[term]).some(form=>document.terms.has(form))||Boolean(projectEvidence&&projectTerms?.has(term)));
-   const termCoverage=briefWeight?termsFound.reduce((sum,term)=>sum+this.idf(term),0)/briefWeight:0;
+   // An appearance or mood word is also found through its equivalents (soft for calm, a
+   // cream palette for pale); this only adds evidence, it never removes a found word.
+   const literalTerms=briefTerms.filter(term=>(forms.get(term)??[term]).some(form=>document.terms.has(form))||Boolean(projectEvidence&&projectTerms?.has(term)));
+   const termsFound=briefTerms.filter(term=>literalTerms.includes(term)||appearanceMatches.includes(appearanceOf(term)));
+   // Weighted by rarity; a word met only through equivalents weighs half.
+   const termWeight=term=>this.idf(term)*(literalTerms.includes(term)?1:.5);
+   const termCoverage=briefWeight?Math.min(1,termsFound.reduce((sum,term)=>sum+termWeight(term),0)/briefWeight):0;
    // A dense layout contradicts a request for something simpler; it ranks last rather than vanishing.
    const dense=intent.lowDensity&&intent.subject_scope==='primary'&&document.denseLayout;
    // Brief evidence (for coverage counts only): on average at least half of the brief's
@@ -620,7 +641,9 @@ export class SearchEngine {
    // The explicit context weighs double: a SaaS site with a hero meets "SaaS landing page
    // hero with product screenshot" without the word screenshot; a work sharing only a generic
    // brief word ("business") without the context does not.
-   if(args.context)briefParts.push(contextCoverage>=1?1:0,contextCoverage>=1?1:0);
+   // A work tagged with a related domain (Banking for personal finance) that also shows a word
+   // of the brief itself shows half the context.
+   if(args.context){const shown=contextCoverage>=1?1:relatedDomain&&literalTerms.length?.5:0;briefParts.push(shown,shown);}
    const briefEvidence=broad||(!briefParts.length||briefParts.reduce((sum,part)=>sum+part,0)/briefParts.length>=.5)&&!topicMissing;
    // Subject evidence facts: how and where the subject (or its reading) appears.
    let subjectFacts;
@@ -727,7 +750,9 @@ export class SearchEngine {
   // Without catalog vocabulary the request is a browse: only works standing out for the brief's
   // meaning (top 5%) keep their place ("weather widget"); a coincidental word match ("mixes" for
   // "fresh mix") does not.
-  if(criteriaFree&&briefAffinity!==null)main=main.filter(item=>item.semantic>=briefAffinity);
+  // With explicit filters the filters are the criteria ("app icon" among 3D icons): every work
+  // passing them meets the brief, so none is cut for meaning.
+  if(criteriaFree&&briefAffinity!==null&&!(args.filters&&Object.keys(args.filters).length))main=main.filter(item=>item.semantic>=briefAffinity);
   const selected=[...main,...withoutSubject,...meaningOnly];
   // A browse, and the safety net for a loose brief with no subject, context or style that admits
   // fewer than min(count, 3) works, continue with a varied, labelled browse of every other

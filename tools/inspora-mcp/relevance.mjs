@@ -36,7 +36,7 @@ const concepts = [
   ['carousel', 'design', []],
   ['toggle', 'design', ['switch control', 'toggle switch', 'switch']],
   ['slider', 'design', ['range control']],
-  ['input', 'design', ['text field', 'input field', 'input bar', 'text box', 'prompt bar', 'prompt field', 'prompt box', 'composer', 'message composer']],
+  ['input', 'design', ['text field', 'text input', 'input field', 'input bar', 'text box', 'prompt bar', 'prompt field', 'prompt box', 'composer', 'message composer']],
   ['player', 'design', ['media player', 'audio player', 'video player']],
   ['timeline', 'design', []],
   ['progress', 'design', ['progress indicator', 'progress bar', 'status control', 'loading indicator', 'loader', 'loading animation', 'loading spinner', 'spinner']],
@@ -57,6 +57,11 @@ const concepts = [
   ['book cover', 'design', ['album cover', 'cover art']],
   ['brand identity', 'design', ['branding', 'visual identity', 'brand system']],
   ['illustration', 'design', []],
+  // A character with a face or body (a mascot) appears in logos, icons and designs alike, so it
+  // implies no work kind. Abstract and letter senses of "character" are masked (see senseMasks).
+  ['character', null, ['mascot', 'mascot character', 'character mascot', 'brand mascot', 'cartoon character']],
+  // A food or drinks menu is another sense of "menu" (see senses), never a navigation menu.
+  ['food menu', 'design', ['restaurant menu', 'cafe menu', 'drink menu', 'drinks menu', 'coffee menu', 'wine menu', 'menu card', 'menu board']],
   ['wordmark', 'logo', []],
   ['monogram', 'logo', []],
   ['logo', 'logo', []],
@@ -169,6 +174,34 @@ export const normalizedPhrase = text => words(text).join(' ');
 const normalized = normalizedPhrase;
 const aliases = new Map(concepts.flatMap(([subject, , alternatives]) => [subject, ...alternatives].map(alias => [normalized(alias), subject])));
 const families = new Map(concepts.map(([subject, family]) => [subject, family]));
+// A concept that is another sense of a concept's head word: chosen when a cue word of that
+// sense appears in the request (a restaurant menu), and evidenced in a work when the head
+// word shares a sentence with a cue word (a menu card listing dishes and prices).
+const senses = [
+  {concept: 'food menu', head: 'menu', cues: new Set('food restaurant cafe coffee drink beverage dining dish meal cuisine bakery bistro eatery brunch dinner lunch breakfast cocktail wine pizza burger sushi'.split(' '))},
+];
+// A head word inside these compounds names a different thing than the bare word: a folder
+// tab is no interface tab, a visual language no spoken language. Literal subject evidence
+// skips the head word there (see unitsNear).
+const senseCompounds = [
+  {head: 'tab', modifiers: new Set('folder file index cabinet divider pull raised projecting end'.split(' '))},
+  {head: 'language', modifiers: new Set('visual design brand form body motion graphic shape'.split(' '))},
+];
+// Abstract and letter senses of "character" ("gives the wordmark a playful character",
+// "tiny characters of text") are not a depicted character; the masked word matches nothing.
+const senseMasks = [
+  [/\b(gives?|giving|gave|lends?|lending|lent|adds?|adding)\b([^.;:!?]*?)\b(an?)\s+((?:[\p{L}-]+,?\s+){0,4})characters?\b/giu, '$1$2$3 $4quality'],
+  [/\b(ascii|text|tiny|fine|small|typed|monospaced|unicode|special|chinese|japanese|korean|latin)(\s+)characters\b/giu, '$1$2glyphs'],
+  [/\bcharacters?\s+(?=(?:count|limit|set|spacing|width)s?\b)/giu, 'glyph '],
+  // In typography notes "character" describes lettering.
+  [/\b(?:typography|lettering|typeface|font)s?\b[^.;!?]*?\bcharacters?\b/giu, match => match.replace(/\bcharacters?\b/giu, 'quality')],
+];
+const maskSenses = text => senseMasks.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), String(text ?? ''));
+// Motion vocabulary: on a video work, a word naming how something moves evidences an
+// animation (a text that scales as it scrolls is a text animation).
+// A transition (between pages or states) is a specific motion, so only these general heads qualify.
+const motionHeads = new Set(['animation', 'motion']);
+const motionVerbs = 'animate scale fade reveal slide morph expand collapse scroll rotate bounce zoom spin flip warp ripple typewriter unfold'.split(' ');
 const parents = new Map(concepts.filter(([, , , parent]) => parent).map(([subject, , , parent]) => [subject, parent]));
 const withParents = set => { for (const subject of [...set]) if (parents.has(subject)) set.add(parents.get(subject)); return set; };
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
@@ -188,7 +221,7 @@ function wordSpans(text) {
 // A phrase never starts or ends inside a hyphen-joined compound: "controller-like window
 // buttons" does not supply "like", nor "add-to-calendar button" a calendar.
 const subjectMentions = text => {
-  const spans = wordSpans(text), joined = spans.map(({word}) => word).join(' ');
+  const spans = wordSpans(maskSenses(text)), joined = spans.map(({word}) => word).join(' ');
   const wordAt = offset => joined.slice(0, offset).split(' ').length - 1;
   return [...(' ' + joined).slice(1).matchAll(pattern)].map(match => {
     const start = match.index + (match[0].startsWith(' ') ? 1 : 0);
@@ -351,7 +384,19 @@ export function prepareDocument(row) {
     // Public prose alone: a fallback to supporting features never rests on hidden-note scenery.
     publicSubjects: withParents(new Set(subjectsIn([row.title, row.description, row.tagline].join('. ')))),
     publicWords: new Set(words([row.title, row.description, row.tagline].join('. '))),
+    video: (row.media ?? []).some(item => ['video', 'recording'].includes(item?.type)),
   };
+  // Another sense of a concept's head word (a food menu): the head word shares a sentence with
+  // a cue of that sense, or the work's industry taxonomy is that sense's domain.
+  const taggedCue = sense => [...prepared.tagTerms].some(term => sense.cues.has(term));
+  const senseShown = (sense, text) => String(text ?? '').split(/[.!?;\n]+/).some(sentence => {
+    const ws = new Set(words(sentence));
+    return ws.has(sense.head) && (taggedCue(sense) || [...ws].some(word => sense.cues.has(word)));
+  });
+  for (const sense of senses) {
+    if (senseShown(sense, primaryText)) prepared.primarySubjects.add(sense.concept);
+    if (senseShown(sense, visibleText)) prepared.mentionedSubjects.add(sense.concept);
+  }
   if (prepared.primarySubjects.has('date picker') ||
       (/\b(?:calendar|booking)\b/i.test(introduction) && /\b(?:selected (?:day|date|appointment)|date and time controls?)\b/i.test(visibleText))) {
     for (const set of [prepared.primarySubjects,prepared.mentionedSubjects]) {
@@ -367,6 +412,9 @@ export function prepareDocument(row) {
     for (const term of tokens(subject)) prepared.terms.add(term);
   }
   prepared.explicitLandingPage = prepared.primarySubjects.has('landing page');
+  // A logo or icon whose shape taxonomy is a face, figure or animal depicts a character.
+  if (['logo', 'icon'].includes(row.kind) && /\b(?:human|face|animal|character|mascot)\b/i.test(String(row.shape ?? '')))
+    for (const set of [prepared.primarySubjects, prepared.mentionedSubjects]) set.add('character');
   // A record's archive kind is reliable evidence for these broad subjects.
   if (['logo', 'icon', 'website'].includes(row.kind)) {
     prepared.primarySubjects.add(row.kind);
@@ -399,6 +447,10 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   if (!args.subjects && args.kinds?.length > 1 && subjects.length && subjects.every(subject=>args.kinds.includes(subject))) {
     subjects=[...args.kinds];
   }
+  // A head word with another sense takes that sense when the request names one of its cues
+  // ("restaurant menu", or "menu" with a food context).
+  const requestWords = new Set(words([positive, args.context ?? ''].join(' ')));
+  subjects = [...new Set(subjects.map(subject => senses.find(sense => sense.head === subject && [...requestWords].some(word => sense.cues.has(word)))?.concept ?? subject))];
   // A searched kind named in the wording ("funeral home website" on a website and design
   // search) is the work itself, never a feature inside it.
   const scope = args.subject_scope ?? (
@@ -462,7 +514,8 @@ function unitShown(document, scope, unit, related, required = unit.terms) {
   // subject (sleep-tracking for "sleep tracker"; never controller-like for "like button").
   const inPhrase = part => part.length <= 2 || required.some(term => has(new Set([part]), term));
   const shown = term => has(wordsIn.free, term) || has(document.depictionWords, term) ||
-    wordsIn.compounds.some(parts => parts.some(part => has(new Set([part]), term)) && parts.every(inPhrase));
+    wordsIn.compounds.some(parts => parts.some(part => has(new Set([part]), term)) && parts.every(inPhrase)) ||
+    motionHeads.has(term) && document.video && motionVerbs.some(verb => hasForm(wordsIn.free, verb));
   // The head noun must be visible; a modifier may also come from the work's
   // industry/category taxonomy ("AI agent") or its kind ("logo animation").
   if (unit.concept && subjectSet.has(unit.concept)) return true;
@@ -476,7 +529,7 @@ export function subjectEvidence(document, intent) {
     const units = subjectUnits(subject);
     const related = subjectTerms(subject).length > 1;
     const required = subjectTerms(subject);
-    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related, required)) && unitsNear(document, scope, units, related);
+    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related, required)) && unitsNear(document, scope, units, related, required);
   });
 }
 // The units of a literal phrase found in running text must belong together: within six words
@@ -484,18 +537,47 @@ export function subjectEvidence(document, intent) {
 // card", "stacks a large amount"), not the noun of the phrase (a card stack). Units evidenced only
 // by taxonomy or a concept set are not positioned and skip the check.
 const articles = new Set(['a', 'an', 'the', 'its', 'their']);
-function unitsNear(document, scope, units, related) {
-  if (units.length < 2) return true;
+// Positions in a word sequence where a literal word names something else: a modifier inside a
+// familiar multi-word concept ("text" of "text input" belongs to an input), or a head word
+// inside a compound of another sense ("tab" of "folder tab").
+const multiAliases = [...aliases].filter(([alias]) => alias.includes(' ')).map(([alias, concept]) => ({parts: alias.split(' '), concept}));
+const consumedCache = new WeakMap();
+function consumedPositions(sequence) {
+  if (consumedCache.has(sequence)) return consumedCache.get(sequence);
+  // modifiers: position -> the concepts and head words of the phrases it modifies.
+  const heads = new Set(), modifiers = new Map();
+  sequence.forEach((word, i) => {
+    for (const {parts, concept} of multiAliases) if (parts[0] === word && parts.every((part, j) => sequence[i + j] === part))
+      for (let j = 0; j < parts.length - 1; j++) modifiers.set(i + j, [...(modifiers.get(i + j) ?? []), {concept, head: parts.at(-1)}]);
+    for (const compound of senseCompounds) if (word === compound.head && compound.modifiers.has(sequence[i - 1])) heads.add(i);
+  });
+  const consumed = {heads, modifiers};
+  consumedCache.set(sequence, consumed);
+  return consumed;
+}
+function unitsNear(document, scope, units, related, required = []) {
   const sequence = (scope === 'public' ? document.publicWordSet : scope === 'contains' ? document.visibleWords : document.primaryWords).sequence;
   const has = related ? hasFamily : hasForm;
+  const consumed = consumedPositions(sequence);
+  // A phrase met in the text is the requested subject itself when it names a requested concept
+  // or ends in a requested word ("payment form" for a payment form, "prompt bar" for a prompt input).
+  const own = new Set(units.map(unit => unit.concept).filter(Boolean));
+  const elsewhere = i => (consumed.modifiers.get(i) ?? []).some(({concept, head}) => !own.has(concept) && !required.includes(head));
   const positions = [];
   for (const unit of units) {
     const words = unit.concept ? [...new Set(subjectNames(unit.concept).map(name => normalized(name).split(' ').at(-1)))] : unit.terms;
     const raw = sequence.flatMap((word, i) => words.some(term => has(new Set([word]), term)) ? [i] : []);
-    if (!raw.length) return true;
-    const nouns = unit.head ? raw.filter(i => !articles.has(sequence[i + 1])) : raw;
+    // An animation shown by how something moves on a video work ("scales text as it scrolls").
+    const motion = !unit.concept && document.video && unit.terms.some(term => motionHeads.has(term))
+      ? sequence.flatMap((word, i) => motionVerbs.some(verb => hasForm(new Set([word]), verb)) ? [i] : []) : [];
+    if (!raw.length && !motion.length) return true;
+    // A literal word counts only where it names the requested thing, and a head word directly
+    // followed by an article is a verb ("balances the layout"), not the noun.
+    const free = unit.concept ? raw : raw.filter(i => !(unit.head ? consumed.heads.has(i) : elsewhere(i)));
+    const nouns = [...(unit.head ? free.filter(i => !articles.has(sequence[i + 1])) : free), ...motion];
     if (!nouns.length) return false;
     positions.push(nouns);
   }
+  if (positions.length < 2) return true;
   return positions[0].some(start => positions.every(list => list.some(i => Math.abs(i - start) <= 6)));
 }

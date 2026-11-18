@@ -12,7 +12,7 @@ const flat=works=>new SearchEngine({snapshotId:'r17',capturedAt,rows:normalizeRo
 const at=s=>[s,Math.sqrt(1-s*s),...Array(382).fill(0)];
 const spread=works=>new SearchEngine({snapshotId:'r17-spread',capturedAt,model:{name:'Xenova/all-MiniLM-L6-v2'},rows:normalizeRows({capturedAt,rows:works.map(([row])=>row)}).map((row,i)=>({...row,vector:at(works[i][1])}))},{embed});
 
-test('revision 17 is current',()=>assert.equal(SEARCH_REVISION,17));
+test('revision 17 or later is current',()=>assert.ok(SEARCH_REVISION>=17));
 
 test('a searched kind named in the wording is the work itself, not a subject or a contained feature',async()=>{
  const site={...work(1,'website'),title:'Quiet house',description:'A calm website lists services with serif headings.'};

@@ -7,7 +7,7 @@ export function editorialSnapshot(kind: EditorialKind, input: Record<string, unk
   for (const field of editorialFields[kind]) {
     const raw = input[field];
     current[field] = Array.isArray(raw) ? raw.join(", ") : value(field);
-    if (!["description", "tagline", "industry", "category"].includes(field)) {
+    if (!["description", "tagline", "industry", "category", "shape"].includes(field)) {
       current[field] = current[field]!.split(",").map((x) => x.trim()).filter(Boolean).join(", ");
     }
   }

@@ -1,5 +1,5 @@
 import "server-only";
-import { prepareEditorialReview, saveEditorialReview } from "./editorial-review";
+import { prepareEditorialReview, refreshEditorialNotes, saveEditorialReview } from "./editorial-review";
 import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
@@ -261,6 +261,7 @@ export async function updateAdminLogo(
   input: AdminLogoInput,
   adminPrincipal: AdminPrincipal,
 ) {
+  const editorial = await prepareEditorialReview(input.kind, input, adminPrincipal.userId);
   return withWriteTransaction(async (tx) => {
     const [existing] = await tx
       .select()
@@ -304,6 +305,7 @@ export async function updateAdminLogo(
     await tx.delete(logoMedia).where(eq(logoMedia.logoId, id));
     await protectPublicationMedia(tx, [input.media]);
   await tx.insert(logoMedia).values(mediaValues(id, input));
+    const notes = await refreshEditorialNotes(tx, id, input.kind, input, adminPrincipal.userId, editorial);
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "logo.updated",
@@ -322,6 +324,7 @@ export async function updateAdminLogo(
       slug: input.slug,
       previousSlug: existing.slug,
       removedManagedMedia,
+      notesStale: notes === "stale",
     };
   });
 }

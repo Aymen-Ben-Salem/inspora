@@ -208,7 +208,7 @@ export async function updateWebsiteAction(
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidateWebsitePaths();
-  redirect(`/admin/websites/${websiteId}/edit?saved=updated` as Route);
+  redirect(`/admin/websites/${websiteId}/edit?saved=updated${updated.notesStale ? "&notes=stale" : ""}` as Route);
 }
 
 export async function archiveWebsiteAction(formData: FormData) {
@@ -278,7 +278,7 @@ export async function updateLogoAction(
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
   updateTag(PUBLISHED_POSTS_CACHE_TAG);
   revalidateLogoPaths();
-  redirect(`/admin/logos/${logoId}/edit?saved=updated` as Route);
+  redirect(`/admin/logos/${logoId}/edit?saved=updated${updated.notesStale ? "&notes=stale" : ""}` as Route);
 }
 
 export async function archiveLogoAction(formData: FormData) {
@@ -345,7 +345,7 @@ export async function updatePostAction(
   updateTag(PUBLIC_CREATOR_PROFILES_CACHE_TAG);
 
   revalidatePostPaths(updated.slug, updated.previousSlug);
-  redirect(`/admin/posts/${postId}/edit?saved=updated` as Route);
+  redirect(`/admin/posts/${postId}/edit?saved=updated${updated.notesStale ? "&notes=stale" : ""}` as Route);
 }
 
 export async function archivePostAction(formData: FormData) {

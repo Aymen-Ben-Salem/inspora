@@ -7,14 +7,15 @@ import {
   getAdminPostById,
 } from "@/features/admin/posts-repository";
 import { getAdminCreatorOptions } from "@/features/creators/identity";
+import { editorialNoteStatus } from "@/features/admin/editorial-review";
 
 type EditPostPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; notes?: string }>;
 };
 
 export default async function EditPostPage({ params, searchParams }: EditPostPageProps) {
-  const [{ id }, { saved }] = await Promise.all([params, searchParams]);
+  const [{ id }, { saved, notes }] = await Promise.all([params, searchParams]);
   const [post, creators, categories] = await Promise.all([
     getAdminPostById(id),
     getAdminCreatorOptions(),
@@ -22,6 +23,8 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
   ]);
 
   if (!post) notFound();
+  const editorialEnabled = process.env.EDITORIAL_GENERATION_ENABLED === "true";
+  const editorialStatus = editorialEnabled ? await editorialNoteStatus("design", post.id, post) : undefined;
 
   return (
     <div className="grid gap-7">
@@ -32,11 +35,13 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
         </div>
         {saved ? (
           <p className="rounded-full bg-emerald-100 px-4 py-2 text-sm text-emerald-800">
-            Changes saved.
+            {notes === "stale" ? "Saved. Search notes are out of date." : "Changes saved."}
           </p>
         ) : null}
       </div>
       <PostEditor
+        editorialEnabled={editorialEnabled}
+        editorialStatus={editorialStatus}
         action={updatePostAction.bind(null, post.id)}
         post={post}
         creators={creators}

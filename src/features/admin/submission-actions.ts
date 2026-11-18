@@ -17,10 +17,13 @@ import { parseAdminLogoForm } from "./logo-validation";
 import { parseAdminWebsiteForm } from "./website-validation";
 import type { AdminActionState } from "./types";
 import { canonicalizeSubmissionReviewForm } from "./submission-review-form";
+import { EditorialReviewError, prepareEditorialReview } from "./editorial-review";
+import type { EditorialKind } from "./editorial-contract";
 
 const submissionIdSchema = z.uuid();
 
 function actionFailure(error: unknown): AdminActionState {
+  if (error instanceof EditorialReviewError) return { status: "error", message: error.message };
   if (error instanceof z.ZodError) {
     return { status: "error", message: formatValidationError(error) };
   }
@@ -54,14 +57,16 @@ export async function acceptAndPublishAction(
     if (!submission) {
       return { status: "error", message: "That submission is no longer available." };
     }
-    const result = await acceptAndPublishSubmission(
-      id,
-      parsePublication(
-        submission.kind,
-        canonicalizeSubmissionReviewForm(formData, submission),
-      ),
-      userId,
+    const publication = parsePublication(
+      submission.kind,
+      canonicalizeSubmissionReviewForm(formData, submission),
     );
+    const editorialKind: EditorialKind = publication.kind === "design" ? "design"
+      : publication.kind === "website" ? "website" : publication.kind === "app-icon" ? "icon" : "logo";
+    // The browser swaps the private submission file for a managed upload on acceptance.
+    const editorial = await prepareEditorialReview(editorialKind, publication.content, userId,
+      { submittedMediaHref: submission.mediaHref ?? undefined });
+    const result = await acceptAndPublishSubmission(id, { ...publication, editorial }, userId);
     if (!result.ok) return { status: "error", message: result.message };
     revalidateReviewTransition(id, result.value);
   } catch (error) {

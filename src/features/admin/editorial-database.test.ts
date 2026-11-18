@@ -18,6 +18,10 @@ it.skipIf(process.env.EDITORIAL_DATABASE_TEST !== "1")("serializes concurrent ca
   loadPreviewEnvironment(); // Explicit approved Preview fingerprint before any write.
   for (const [key, value] of Object.entries(parse(readFileSync(".env.preview.local")))) vi.stubEnv(key, value);
   vi.stubEnv("EDITORIAL_GENERATION_ENABLED", "true"); vi.stubEnv("OPENAI_API_KEY", "mock-only");
+  // Run in a month no real ledger uses. A shifted clock would treat real pending rows as expired, so require none.
+  const pending = await withWriteTransaction(tx => tx.select({ id: editorialGenerations.id }).from(editorialGenerations).where(eq(editorialGenerations.state, "pending")));
+  if (pending.length) throw new Error("Integration test requires no pending Preview generations.");
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2099-01-15T12:00:00Z"));
   const actor = `editorial-integration-${randomUUID()}`, period = `${new Date().toISOString().slice(0, 7)}:preview`;
   const existing = await withWriteTransaction(tx => tx.select().from(editorialBudgets).where(eq(editorialBudgets.period, period)));
   if (existing.length) throw new Error("Integration test requires an unused Preview ledger; never overwrite existing usage.");
@@ -48,5 +52,6 @@ it.skipIf(process.env.EDITORIAL_DATABASE_TEST !== "1")("serializes concurrent ca
       if (!remaining.length) await tx.delete(editorialBudgets).where(eq(editorialBudgets.period, period));
     });
     vi.unstubAllEnvs();
+    vi.useRealTimers();
   }
 }, 60000);

@@ -28,8 +28,9 @@ function sample(source: HTMLImageElement | HTMLVideoElement, width: number, heig
 }
 
 export async function prepareEditorialEvidence(snapshot: EditorialSnapshot) {
-  const images: { dataUrl: string; frameSeconds: number | null }[] = [];
-  const media = snapshot.media.filter(m => m.url && m.type !== "favicon" && m.type !== "full_page");
+  const images: { dataUrl: string; frameSeconds: number | null; mediaIndex: number }[] = [];
+  const media = snapshot.media.map((item, mediaIndex) => ({ ...item, mediaIndex }))
+    .filter(m => m.url && m.type !== "favicon" && m.type !== "full_page");
   for (const item of media.slice(0, 6)) {
     if (images.length >= 6) break;
     if (["recording", "video"].includes(item.type)) {
@@ -42,7 +43,7 @@ export async function prepareEditorialEvidence(snapshot: EditorialSnapshot) {
           if (images.length >= 6) break;
           const at = video.duration * fraction;
           const sought = eventOnce(video, "seeked"); video.currentTime = at; await sought;
-          images.push({ dataUrl: sample(video, video.videoWidth, video.videoHeight), frameSeconds: Math.round(at * 1000) / 1000 });
+          images.push({ dataUrl: sample(video, video.videoWidth, video.videoHeight), frameSeconds: Math.round(at * 1000) / 1000, mediaIndex: item.mediaIndex });
         }
       } finally { video.pause(); video.removeAttribute("src"); video.load(); }
     } else {
@@ -50,10 +51,12 @@ export async function prepareEditorialEvidence(snapshot: EditorialSnapshot) {
       // Use the existing allowlisted image optimizer: same-origin canvas access
       // also works for live public images viewed from Preview. Its cached resize
       // avoids downloading a large original just to prepare a 1024px sample.
+      // A private submission file loads directly with the admin session; the optimizer
+      // would cache it and may not carry the session.
       const loaded = eventOnce(image, "load");
-      image.src = `/_next/image?url=${encodeURIComponent(item.url)}&w=1080&q=75`;
+      image.src = item.url.startsWith("/api/submissions/") ? item.url : `/_next/image?url=${encodeURIComponent(item.url)}&w=1080&q=75`;
       await loaded;
-      images.push({ dataUrl: sample(image, image.naturalWidth, image.naturalHeight), frameSeconds: null });
+      images.push({ dataUrl: sample(image, image.naturalWidth, image.naturalHeight), frameSeconds: null, mediaIndex: item.mediaIndex });
     }
   }
   if (!images.length) throw new Error("Upload the work's images or recording first.");

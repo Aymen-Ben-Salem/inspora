@@ -12,7 +12,7 @@ import {
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { WebsiteVideoCrop } from "@/components/admin/website-video-crop";
 import { WebsiteFaviconCrop } from "@/components/admin/website-favicon-crop";
-import { EditorialAssistant } from "./editorial-assistant";
+import { EditorialAssistant, type EditorialNoteState } from "./editorial-assistant";
 import { UploadGuide, UploadSectionTitle, FileDetails } from "./upload-flow";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
@@ -54,6 +54,7 @@ function mediaFor(
 export function WebsiteEditor({
   action,
   editorialEnabled = false,
+  editorialStatus,
   guidedUpload = false,
   creators,
   website,
@@ -66,6 +67,7 @@ export function WebsiteEditor({
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   editorialEnabled?: boolean;
+  editorialStatus?: EditorialNoteState;
   guidedUpload?: boolean;
   creators: AdminCreatorAttribution[];
   website?: AdminWebsiteRecord;
@@ -197,7 +199,7 @@ export function WebsiteEditor({
             <label className={labelClass}>{guidedUpload ? "URL name" : "Slug"}<input className={inputClass} name="slug" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="paper-website" defaultValue={website?.slug} /></label>
 
             <label className={labelClass}>Live website URL<input className={inputClass} name="sourceUrl" type="url" required placeholder="https://" defaultValue={website?.sourceUrl} /></label>
-            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant kind="website" hasMedia={!!recording.url} /></div>}
+            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant kind="website" noteStatus={editorialStatus} hasMedia={!!recording.url} onMediaAlt={(index, value) => { if (index === 0 || index === 1) updateMedia(index === 0 ? "recording" : "favicon", "alt", value); }} /></div>}
             <label className={labelClass}>Short feed description<input className={inputClass} name="tagline" required maxLength={300} defaultValue={website?.tagline} /></label>
             <label className={`${labelClass} sm:col-span-2`}>Full description<textarea className="focus-ring min-h-32 w-full resize-y rounded-xl border border-black/10 bg-white px-3 py-3 text-sm leading-relaxed outline-none focus:border-black/30" name="description" required maxLength={4000} defaultValue={website?.description} /></label>
             <label className={labelClass}>Categories<input className={inputClass} name="categories" required placeholder="SaaS, Portfolio" defaultValue={website?.categories.join(", ")} /></label>

@@ -142,7 +142,9 @@ export function SubmissionReview({
   categories,
   acceptAction,
   rejectAction,
+  editorialEnabled = false,
 }: {
+  editorialEnabled?: boolean;
   submission: AdminSubmissionReview;
   creator: AdminCreatorAttribution;
   creators: AdminCreatorAttribution[];
@@ -230,11 +232,11 @@ export function SubmissionReview({
       {submission.status === "in_review" ? (
         <>
           {submission.kind === "design" ? (
-            <PostEditor submittedMediaHref={submission.mediaHref ?? undefined} categories={categories} action={acceptWithSubmittedMedia} creators={creators} post={postDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <PostEditor editorialEnabled={editorialEnabled} submittedMediaHref={submission.mediaHref ?? undefined} categories={categories} action={acceptWithSubmittedMedia} creators={creators} post={postDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : submission.kind === "website" ? (
-            <WebsiteEditor action={acceptWithSubmittedMedia} creators={creators} website={websiteDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <WebsiteEditor editorialEnabled={editorialEnabled} action={acceptWithSubmittedMedia} creators={creators} website={websiteDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           ) : (
-            <LogoEditor submittedMediaHref={submission.mediaHref ?? undefined} action={acceptWithSubmittedMedia} creators={creators} logo={logoDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
+            <LogoEditor editorialEnabled={editorialEnabled} submittedMediaHref={submission.mediaHref ?? undefined} action={acceptWithSubmittedMedia} creators={creators} logo={logoDraft(submission, creator)} fixedCreator={creator} onEditCreator={() => setCreatorEditorOpen(true)} actionLabel="Accept and publish" cancelHref={cancelHref} publicationOnly />
           )}
           <RejectForm action={rejectAction} />
         </>

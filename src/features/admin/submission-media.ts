@@ -48,7 +48,7 @@ export async function prepareSubmissionMedia(
     source.kind === "design" ? "post-media" : "logo-media",
   );
   const prepared = items.map((item) => item?.url === source.mediaHref
-    ? { ...uploaded, alt: item.alt || uploaded.alt }
+    ? { ...uploaded, alt: item.alt ?? uploaded.alt }
     : item);
   formData.set("media", JSON.stringify(source.kind === "design" ? prepared : prepared[0]));
 }

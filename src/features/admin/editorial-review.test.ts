@@ -81,3 +81,26 @@ it("hashes websites as the catalog view does, without full-page captures", () =>
   expect(editorialHashFromInput("website", website)).toBe(editorialContentHash({ ...website, kind: "website", source_url: website.sourceUrl,
     media: [{ type: "recording", url: "/r.mp4", poster: "/p.webp", alt: "R", width: 1440, height: 900 }, { type: "favicon", url: "/f.png", poster: null, alt: "F", width: 32, height: 32 }] }));
 });
+
+it("accepts a submitted GIF converted to video, and only for GIF submissions", async () => {
+  const href = "/api/submissions/1c51893b-bc44-4d48-933b-e1402c74dc95/media";
+  const submitted = { ...source, media: [{ type: "image", url: href, alt: "Submitted loop", width: 1, height: 1 }] };
+  external.rows = [{ ...(external.rows[0] as object), snapshot: editorialSnapshot("design", submitted) }];
+  const accepted = { ...submitted, media: [{ type: "video", url: "/uploads/accepted.mp4", posterUrl: "/uploads/accepted.webp", alt: "Submitted loop", width: 640, height: 480 }], editorialReview: JSON.stringify({ id, selected: [], notes: true }) };
+  expect((await prepareEditorialReview("design", accepted, "admin", { submittedMediaHref: href, submittedMediaType: "image/gif" }))?.notes).toEqual(notes);
+  await expect(prepareEditorialReview("design", accepted, "admin", { submittedMediaHref: href, submittedMediaType: "image/png" })).rejects.toThrow(/work changed/);
+});
+
+it("saves a logo generated before shape suggestions existed with its current shape", async () => {
+  const logo = { title: "Mark", description: "A round mark", industry: "Tech", styles: ["Minimal"], colors: ["Black"], shape: "Circle", sourceUrl: "https://example.com", media: { url: "https://example.com/logo.png", alt: "Mark", width: 10, height: 10 } };
+  const snapshot = editorialSnapshot("logo", logo) as { current: Record<string, unknown> };
+  delete snapshot.current.shape;
+  external.rows = [{ ...(external.rows[0] as object), snapshot }];
+  const input = { ...logo, editorialReview: JSON.stringify({ id, selected: [], notes: true }) };
+  expect((await prepareEditorialReview("logo", input, "admin"))?.notes).toEqual(notes);
+});
+
+it("hashes an empty poster like a missing one on both sides", () => {
+  const row = { kind: "design", title: "Studio", description: "Original", media: [{ type: "video", url: "https://example.com/a.mp4", poster: "", alt: "Studio", width: 1, height: 1 }] };
+  expect(editorialContentHash(row)).toBe(editorialContentHash({ ...row, media: [{ ...row.media[0], poster: null }] }));
+});

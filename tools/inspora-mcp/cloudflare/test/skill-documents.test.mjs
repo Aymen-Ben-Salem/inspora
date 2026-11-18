@@ -29,10 +29,16 @@ test('document routing never catches MCP, authorization or arbitrary source path
  assert.equal(get('/setup?unexpected=1').status,404);
  assert.equal(get('/setup',{method:'POST'}).status,405);
 });
-test('setup guide uses company URLs and offers explicit agent installation',async()=>{
+test('setup guide installs the plugin in Claude Code and Codex and keeps a manual path for other agents',async()=>{
  const response=get('/setup');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/html/);
- const html=await response.text();assert.match(html,/npx skills add https:\/\/mcp\.inspora\.design -g/);assert.match(html,/-g --agent codex -y/);assert.match(html,/-g --agent claude-code -y/);
- assert.doesNotMatch(html,/Aymen-Ben-Salem|github\.com\/Aymen/i);
+ const html=await response.text();
+ assert.match(html,/claude plugin marketplace add Aymen-Ben-Salem\/inspora#preview\/archive-updates/);assert.match(html,/claude plugin install inspora@inspora-team/);
+ assert.match(html,/codex plugin marketplace add Aymen-Ben-Salem\/inspora --ref preview\/archive-updates/);assert.match(html,/codex plugin add inspora@inspora-team/);
+ // Team trial: the repository appears only as the plugin marketplace source. Move it to a company-owned repository before any public launch.
+ assert.equal(html.match(/Aymen-Ben-Salem/g).length,2);assert.doesNotMatch(html,/github\.com\/Aymen/i);
+ for(const client of ['claude-code','codex'])assert.match(html,new RegExp('npx skills remove inspora-discovery inspora-design-direction -g -a '+client+' -y'));
+ assert.match(html,/claude mcp remove inspora -s user/);assert.match(html,/codex mcp remove inspora/);assert.match(html,/codex mcp login inspora/);
+ assert.match(html,/npx skills add https:\/\/mcp\.inspora\.design -g --agent &lt;installer-id&gt; -y/);
  assert.match(html,/deferred to the future backlog/);assert.doesNotMatch(html,/planned for Phase 2/);
- assert.match(html,/npx\.cmd/);assert.match(html,/catalog_status/);assert.match(html,/mcp remove inspora/);assert.match(html,/not recognized/);
+ assert.match(html,/npx\.cmd/);assert.match(html,/catalog_status/);
 });

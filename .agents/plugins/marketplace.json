@@ -1,0 +1,20 @@
+{
+  "name": "inspora-team",
+  "interface": {
+    "displayName": "Inspora team"
+  },
+  "plugins": [
+    {
+      "name": "inspora",
+      "source": {
+        "source": "local",
+        "path": "./plugins/inspora"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Design"
+    }
+  ]
+}

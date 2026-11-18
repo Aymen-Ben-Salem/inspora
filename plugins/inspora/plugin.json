@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "inspora",
+  "version": "0.2.0",
+  "description": "Inspora design-inspiration search for the Inspora team: the hosted Inspora MCP (team OAuth sign-in required) plus the inspora-discovery and inspora-design-direction skills.",
+  "author": {
+    "name": "Inspora",
+    "url": "https://www.inspora.design"
+  },
+  "homepage": "https://mcp.inspora.design/setup",
+  "repository": "https://github.com/Aymen-Ben-Salem/inspora",
+  "keywords": ["inspora", "design", "inspiration", "references", "mcp"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Inspora",
+        "shortDescription": "Find credited design references from the Inspora catalog.",
+        "longDescription": "Team-only. Searches Inspora's curated websites, designs, logos and icons through the hosted Inspora MCP, and adds the inspora-discovery and inspora-design-direction skills. Each person signs in with an approved Inspora team account.",
+        "developerName": "Inspora",
+        "category": "Design",
+        "websiteURL": "https://www.inspora.design"
+      }
+    }
+  }
+}

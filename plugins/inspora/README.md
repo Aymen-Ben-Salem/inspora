@@ -1,60 +1,57 @@
-# Inspora plugin for Claude Code
+# Inspora plugin for Claude Code and Codex
 
-Team-only. The plugin connects Claude Code to the hosted Inspora MCP at `https://mcp.inspora.design/mcp`. It also installs the `inspora-discovery` and `inspora-design-direction` skills. The plugin holds no credentials: each person still signs in through Inspora's team OAuth, and only approved team accounts get access.
+Team-only. The plugin connects your agent to the hosted Inspora MCP at `https://mcp.inspora.design/mcp`. It also installs the `inspora-discovery` and `inspora-design-direction` skills. The plugin holds no credentials: each person still signs in through Inspora's team OAuth, and only approved team accounts get access.
 
-Codex and other agents keep the existing setup: add the MCP URL and run `npx skills add https://mcp.inspora.design -g --agent <agent> -y`. See [mcp.inspora.design/setup](https://mcp.inspora.design/setup).
+Other agents keep the manual setup: add the MCP URL and run `npx skills add https://mcp.inspora.design -g --agent <agent> -y`. The guide for everyone is at [mcp.inspora.design/setup](https://mcp.inspora.design/setup).
 
-## Install
+## Claude Code
 
-Run these commands in your shell (inside a Claude Code session, use `/plugin marketplace add …` and `/plugin install …`):
+Install, in your shell (inside a session, use `/plugin marketplace add …` and `/plugin install …`):
 
 ```bash
 claude plugin marketplace add Aymen-Ben-Salem/inspora#preview/archive-updates
 claude plugin install inspora@inspora-team
 ```
 
-On a machine without a GitHub SSH key, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` before you run these commands.
+On a machine without a GitHub SSH key, set `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` first. From a local checkout, run `claude plugin marketplace add <path-to-repo>` instead.
 
-To install from a local checkout of this repository, run `claude plugin marketplace add <path-to-repo>` and then the same install command.
+Sign in: start Claude Code or run `/reload-plugins`, then `/mcp`, select `plugin:inspora:inspora`, choose **Authenticate** and **Allow connection** in the browser. The skills are `/inspora:inspora-discovery` and `/inspora:inspora-design-direction`; Claude also loads them on its own when a request matches.
 
-Then sign in:
-
-1. Start Claude Code or run `/reload-plugins` in an open session.
-2. Run `/mcp` and select the Inspora plugin server, which `claude mcp list` shows as `plugin:inspora:inspora`. Choose **Authenticate**, then sign in to Inspora in the browser and choose **Allow connection**.
-3. Check it: ask Claude to find Inspora references for a landing page.
-
-The skills are available as `/inspora:inspora-discovery` and `/inspora:inspora-design-direction`. Claude also loads them on its own when a request matches.
-
-## Remove an earlier manual setup first
-
-If you set Inspora up by hand before, remove that setup so the server and skills aren't listed twice:
+Remove an earlier manual setup, so the old server isn't used instead of the plugin's and the skills aren't listed twice:
 
 ```bash
 claude mcp remove inspora -s user
 npx skills remove inspora-discovery inspora-design-direction -g -a claude-code -y
 ```
 
-The `skills remove` command removes only the Claude Code copies, so Codex keeps its skills. Run `claude mcp list` and `npx skills ls -g -a claude-code` to check that nothing is left. If you kept a manual `inspora` server, Claude Code connects to it instead of the plugin's server, because both use the same URL.
+Update with `claude plugin marketplace update inspora-team` and `claude plugin update inspora@inspora-team`, then `/reload-plugins`. Uninstall with `claude plugin uninstall inspora@inspora-team` and `claude plugin marketplace remove inspora-team`.
 
-## Update
+## Codex
 
-```bash
-claude plugin marketplace update inspora-team
-claude plugin update inspora@inspora-team
-```
-
-Then run `/reload-plugins` or restart Claude Code. Teammates receive a new release only when the plugin `version` changes. To get updates automatically, open `/plugin`, go to **Marketplaces**, select `inspora-team` and choose **Enable auto-update**.
-
-## Uninstall
+Install:
 
 ```bash
-claude plugin uninstall inspora@inspora-team
-claude plugin marketplace remove inspora-team
+codex plugin marketplace add Aymen-Ben-Salem/inspora --ref preview/archive-updates
+codex plugin add inspora@inspora-team
 ```
+
+In the Codex app or an interactive session you can instead open `/plugins` after adding the marketplace. From a local checkout, run `codex plugin marketplace add <path-to-repo>`.
+
+Remove an earlier manual setup; a manual `inspora` entry takes the place of the plugin's server:
+
+```bash
+codex mcp remove inspora
+npx skills remove inspora-discovery inspora-design-direction -g -a codex -y
+```
+
+Sign in: `codex mcp list` should show `inspora` at `https://mcp.inspora.design/mcp`. If Auth says **Not logged in**, run `codex mcp login inspora`. Start a new session; the skills appear as `inspora:inspora-discovery` and `inspora:inspora-design-direction`.
+
+Update with `codex plugin marketplace upgrade inspora-team` and then `codex plugin add inspora@inspora-team`. Uninstall with `codex plugin remove inspora@inspora-team` and `codex plugin marketplace remove inspora-team`.
 
 ## Maintainers
 
-- `skills/` at the repository root is the single source of truth. After you edit a skill, run `npm run sync:plugin-skills` in `tools/inspora-mcp`. `npm test` there fails when the plugin copies differ.
-- Increase `version` in `.claude-plugin/plugin.json` for every release that teammates should receive.
-- Validate with `claude plugin validate ./plugins/inspora` and `claude plugin validate .` from the repository root.
-- Don't submit this plugin to Anthropic's public plugin directory. It is for the team only.
+- One plugin directory serves both clients. Claude Code reads `.claude-plugin/plugin.json` and `.mcp.json`; Codex reads the portable `plugin.json` and `mcp.json` at the plugin root and `.agents/plugins/marketplace.json` at the repository root. `npm test` in `tools/inspora-mcp` fails when the two sets disagree.
+- `skills/` at the repository root is the single source of truth for the skills. After you edit one, run `npm run sync:plugin-skills` in `tools/inspora-mcp`.
+- Increase `version` in both `plugin.json` files for every release teammates should receive.
+- Validate with `claude plugin validate ./plugins/inspora --strict` and `claude plugin validate . --strict`, and install into a throwaway `CODEX_HOME` with `codex plugin marketplace add <path-to-repo>` and `codex plugin add inspora@inspora-team`.
+- Keep this plugin out of public plugin directories. The marketplace lives in a personal repository for the team trial; move it to a company-owned repository before any public launch.

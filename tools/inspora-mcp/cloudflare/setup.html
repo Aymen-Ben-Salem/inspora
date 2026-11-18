@@ -24,50 +24,45 @@
   <a href="https://www.inspora.design">Inspora</a>
   <h1>Connect to Inspora</h1>
   <p>Find design references in your AI agent. This trial is available to approved Inspora team accounts.</p>
-  <h2>Ask your agent to set it up</h2>
-  <p>Copy this prompt into the agent you use, then complete the browser sign-in.</p>
-  <pre><code>Set up Inspora for me.
-
-1. Connect https://mcp.inspora.design/mcp using Streamable HTTP and OAuth. Reuse an existing correct connection and sign me in if needed.
-2. Install inspora-discovery and inspora-design-direction from https://mcp.inspora.design with npx skills add, using -g -y and an explicit --agent for my current client (codex, claude-code, or its supported installer ID).
-3. Verify both installed skills are available to this agent, then call catalog_status through Inspora. Say "Inspora is ready" only when those checks succeed. If a check fails, explain the specific next step.</code></pre>
-  <p>The skills installer needs Node.js 22.20 or newer. If the agent needs a new conversation to load its tools or skills, open one and ask it to finish the checks.</p>
-  <h2>Set up manually</h2>
-  <p>Choose your agent. You will connect Inspora, install its two skills, then check they are ready.</p>
-  <p><strong>Windows PowerShell:</strong> if <code>npx</code> is blocked by the script execution policy, run the same command with <code>npx.cmd</code> instead, or use Command Prompt.</p>
-  <details>
-    <summary>Codex</summary>
-    <h3>1. Connect Inspora</h3>
-    <p>Add this URL in Codex's MCP settings and sign in:</p>
-    <pre><code>https://mcp.inspora.design/mcp</code></pre>
-    <p>Or use the installed Codex CLI:</p>
-    <pre><code>codex mcp add inspora --url https://mcp.inspora.design/mcp</code></pre>
-    <p>Choose <strong>Allow connection</strong> in your browser. If sign-in is still needed, run <code>codex mcp login inspora</code>. If the correct URL is already connected, continue.</p>
-    <h3>2. Install the skills</h3>
-    <pre><code>npx skills add https://mcp.inspora.design -g --agent codex -y</code></pre>
-    <h3>3. Check the installation</h3>
-    <pre><code>npx skills list -g --agent codex</code></pre>
-    <p>Look for <strong>inspora-discovery</strong> and <strong>inspora-design-direction</strong>. In Codex, confirm both are available in the skills selector and Inspora is connected in MCP settings. Start a fresh conversation if needed, then run the readiness check below.</p>
-  </details>
-  <details>
+  <h2>Install</h2>
+  <p>Claude Code and Codex install Inspora as a plugin: one install adds the Inspora connection and its two skills, inspora-discovery and inspora-design-direction. The plugin holds no credentials. You still sign in with an approved Inspora team account.</p>
+  <details open>
     <summary>Claude Code</summary>
-    <h3>1. Connect Inspora</h3>
-    <pre><code>claude mcp add --transport http --scope user inspora https://mcp.inspora.design/mcp</code></pre>
-    <p>If the correct URL is already connected, continue. Otherwise run <code>claude mcp login inspora</code>, sign in and choose <strong>Allow connection</strong>. You can also authenticate through <code>/mcp</code> in a Claude Code session.</p>
-    <h3>2. Install the skills</h3>
-    <pre><code>npx skills add https://mcp.inspora.design -g --agent claude-code -y</code></pre>
-    <h3>3. Check the installation</h3>
-    <pre><code>npx skills list -g --agent claude-code</code></pre>
-    <p>Look for <strong>inspora-discovery</strong> and <strong>inspora-design-direction</strong>. Start a fresh Claude Code conversation if needed and confirm Inspora is connected through <code>/mcp</code>. Then run the readiness check below.</p>
+    <h3>1. Install the plugin</h3>
+    <pre><code>claude plugin marketplace add Aymen-Ben-Salem/inspora#preview/archive-updates
+claude plugin install inspora@inspora-team</code></pre>
+    <p>Inside a Claude Code session, use <code>/plugin marketplace add &hellip;</code> and <code>/plugin install &hellip;</code> instead. If the GitHub download fails on a machine without an SSH key, set <code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> and run the commands again.</p>
+    <h3>2. Sign in</h3>
+    <p>Start Claude Code, or run <code>/reload-plugins</code> in an open session. Run <code>/mcp</code>, select <strong>plugin:inspora:inspora</strong>, choose <strong>Authenticate</strong>, then sign in to Inspora and choose <strong>Allow connection</strong>.</p>
+    <h3>3. Remove an earlier manual setup</h3>
+    <p>If you set Inspora up by hand before, remove that setup. Otherwise the old connection is used instead of the plugin's and the skills appear twice.</p>
+    <pre><code>claude mcp remove inspora -s user
+npx skills remove inspora-discovery inspora-design-direction -g -a claude-code -y</code></pre>
+    <p>Either command can report that nothing was found; that is fine. <code>claude mcp list</code> should then show only <code>plugin:inspora:inspora</code>.</p>
+  </details>
+  <details open>
+    <summary>Codex</summary>
+    <h3>1. Install the plugin</h3>
+    <pre><code>codex plugin marketplace add Aymen-Ben-Salem/inspora --ref preview/archive-updates
+codex plugin add inspora@inspora-team</code></pre>
+    <p>In the Codex app or an interactive session, you can also open <code>/plugins</code> after adding the marketplace and install <strong>Inspora</strong> from the <strong>Inspora team</strong> list.</p>
+    <h3>2. Remove an earlier manual setup</h3>
+    <p>An earlier manual <code>inspora</code> entry takes the place of the plugin's connection, so remove it and the separately installed skills:</p>
+    <pre><code>codex mcp remove inspora
+npx skills remove inspora-discovery inspora-design-direction -g -a codex -y</code></pre>
+    <p>Either command can report that nothing was found; that is fine.</p>
+    <h3>3. Sign in</h3>
+    <pre><code>codex mcp list</code></pre>
+    <p>The <code>inspora</code> row should show <code>https://mcp.inspora.design/mcp</code>. If its Auth column says <strong>Not logged in</strong>, run <code>codex mcp login inspora</code>, sign in to Inspora and choose <strong>Allow connection</strong>. Then start a new Codex session.</p>
   </details>
   <details>
-    <summary>Another agent or several agents</summary>
-    <p>Add <code>https://mcp.inspora.design/mcp</code> in your agent's MCP settings using Streamable HTTP and OAuth. Sign in to Inspora and allow the connection.</p>
-    <p>In either skills command above, replace the value after <code>--agent</code> with your client's <a href="https://github.com/vercel-labs/skills/blob/main/docs/agents.md">supported installer ID</a>. For several agents, name them explicitly, such as <code>--agent codex claude-code</code>.</p>
-    <p>Check both skills are available and the MCP connection succeeds in that client. Client support for MCP, OAuth and skills varies.</p>
+    <summary>Another agent</summary>
+    <p>Add <code>https://mcp.inspora.design/mcp</code> in your agent's MCP settings using Streamable HTTP and OAuth, then sign in to Inspora and allow the connection. Install the two skills with the installer ID of your client from the <a href="https://github.com/vercel-labs/skills/blob/main/docs/agents.md">supported agents list</a>:</p>
+    <pre><code>npx skills add https://mcp.inspora.design -g --agent &lt;installer-id&gt; -y</code></pre>
+    <p>The skills installer needs Node.js 22.20 or newer. On Windows PowerShell, if <code>npx</code> is blocked by the script execution policy, use <code>npx.cmd</code> or Command Prompt. Client support for MCP, OAuth and skills varies.</p>
   </details>
   <h2>Check it is ready</h2>
-  <p>Ask your agent: <code>Call Inspora catalog_status.</code> Inspora is ready when it reports a <code>search_revision</code>, work counts and <code>catalog_state</code> ready. If it says updating, retry after the seconds it gives.</p>
+  <p>In a new conversation, ask your agent: <code>Call Inspora catalog_status.</code> Inspora is ready when it reports a <code>search_revision</code>, work counts and <code>catalog_state</code> ready. If it says updating, retry after the seconds it gives.</p>
   <h2>Try it</h2>
   <p>Ask your agent:</p>
   <pre><code>Use Inspora to find ten dark website hero sections with bold typography. Include links.</code></pre>
@@ -75,18 +70,16 @@
   <details>
     <summary>Need help?</summary>
     <ul>
-      <li><strong>Command not found:</strong> use your client's MCP settings if its CLI is unavailable. For <code>npx</code>, install the <a href="https://nodejs.org/en/download">current Node.js LTS release</a> and reopen the terminal.</li>
-      <li><strong>Inspora already exists:</strong> check that its saved URL is <code>https://mcp.inspora.design/mcp</code> and use that connection.</li>
-      <li><strong>An older Inspora is used instead:</strong> an earlier local or project <code>inspora</code> entry can take precedence. List entries with <code>claude mcp list</code> or <code>codex mcp list</code>, remove the old one (for example <code>claude mcp remove inspora --scope project</code> or <code>--scope local</code>, or <code>codex mcp remove inspora</code>), then add the hosted URL again.</li>
-      <li><strong><code>mcp login</code> is not recognized:</strong> update your agent's CLI to its current version, or sign in from its MCP settings (<code>/mcp</code> in Claude Code).</li>
-      <li><strong>Sign-in required:</strong> authenticate Inspora in your client's MCP settings.</li>
+      <li><strong>Command not found:</strong> update Claude Code or Codex to its current version; the <code>plugin</code> commands need a recent release. For <code>npx</code>, install the <a href="https://nodejs.org/en/download">current Node.js LTS release</a> and reopen the terminal.</li>
+      <li><strong>An older Inspora is used instead:</strong> a manual or project <code>inspora</code> entry takes precedence over the plugin. List entries with <code>claude mcp list</code> or <code>codex mcp list</code> and remove the extra one (for Claude Code, <code>claude mcp remove inspora --scope project</code> or <code>--scope local</code> as well).</li>
+      <li><strong>Skills listed twice:</strong> remove the separately installed copies with the <code>npx skills remove</code> command for your client above.</li>
+      <li><strong>Sign-in required:</strong> Claude Code: <code>/mcp</code>, then <strong>Authenticate</strong>. Codex: <code>codex mcp login inspora</code>.</li>
       <li><strong>Access denied:</strong> use an approved Inspora team account or contact the team for access.</li>
-      <li><strong>Skills or tools missing:</strong> start a fresh conversation; restart your agent or extension if still missing, then check again.</li>
-      <li><strong>Earlier PromptScript warning:</strong> check whether both skills installed for your agent. If needed, rerun its explicit command above.</li>
+      <li><strong>Skills or tools missing:</strong> start a new conversation; restart your agent or extension if they are still missing. Check the plugin is enabled with <code>claude plugin list</code> or <code>codex plugin list</code>.</li>
       <li><strong>Service unavailable:</strong> retry later and share the error with the team, excluding credentials and callback URLs.</li>
     </ul>
   </details>
-  <footer>Catalog and search improvements arrive automatically. To update the local skills, rerun your agent's skill-install command. Uploaded reference-image search is deferred to the future backlog. Your AI agent's normal model usage applies.</footer>
+  <footer>Catalog and search improvements arrive automatically. To update the plugin's skills, run <code>claude plugin marketplace update inspora-team</code> then <code>claude plugin update inspora@inspora-team</code>, or <code>codex plugin marketplace upgrade inspora-team</code> then <code>codex plugin add inspora@inspora-team</code>. Other agents rerun their skill-install command. Uploaded reference-image search is deferred to the future backlog. Your AI agent's normal model usage applies.</footer>
 </main>
 </body>
 </html>

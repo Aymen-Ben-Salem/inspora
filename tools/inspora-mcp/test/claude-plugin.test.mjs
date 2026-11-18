@@ -41,3 +41,23 @@ test('the bundled MCP server is the hosted team endpoint over HTTP with no crede
   assert.deepEqual(mcpServers,{inspora:{type:'http',url:endpoint}},'OAuth is handled by the client; no headers or tokens in the plugin');
   assert.ok(text('tools/inspora-mcp/cloudflare/setup.html').includes(endpoint),'setup page documents the same endpoint');
 });
+
+// Codex reads the portable Agent Plugins files (root plugin.json, mcp.json) and .agents/plugins/marketplace.json;
+// Claude Code reads .claude-plugin/ and .mcp.json. Both must describe the same plugin.
+test('the Codex manifest matches the Claude Code manifest',()=>{
+  const claude=json(join(pluginRoot,'.claude-plugin','plugin.json')),portable=json(join(pluginRoot,'plugin.json'));
+  for(const field of ['name','version','description','homepage','repository','author','keywords'])assert.deepEqual(portable[field],claude[field],field);
+  assert.equal(portable.skills,undefined,'portable plugins discover skills/ at the root');
+  assert.equal(portable.extensions?.['com.openai']?.interface?.displayName,claude.displayName);
+});
+
+test('the Codex MCP file declares the same hosted endpoint as Streamable HTTP with no credentials',()=>{
+  const {mcpServers}=json(join(pluginRoot,'mcp.json'));
+  assert.deepEqual(mcpServers,{inspora:{type:'streamable-http',url:hostedEndpoint()}});
+});
+
+test('the Codex marketplace lists the same plugin under the same marketplace name',()=>{
+  const codex=json(join(repoRoot,'.agents','plugins','marketplace.json')),claude=json(join(repoRoot,'.claude-plugin','marketplace.json'));
+  assert.equal(codex.name,claude.name);
+  assert.deepEqual(codex.plugins,[{name:'inspora',source:{source:'local',path:'./plugins/inspora'},policy:{installation:'AVAILABLE',authentication:'ON_INSTALL'},category:'Design'}]);
+});

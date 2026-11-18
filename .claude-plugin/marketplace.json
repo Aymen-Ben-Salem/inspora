@@ -1,6 +1,6 @@
 {
   "name": "inspora-team",
-  "description": "Inspora team plugins for Claude Code. The Inspora MCP stays restricted to the approved team: installing the plugin does not grant access without the team OAuth sign-in.",
+  "description": "Inspora team plugins for Claude Code and Codex. The Inspora MCP stays restricted to the approved team: installing the plugin does not grant access without the team OAuth sign-in.",
   "owner": {
     "name": "Inspora",
     "url": "https://www.inspora.design"

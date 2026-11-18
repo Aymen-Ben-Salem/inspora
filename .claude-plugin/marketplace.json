@@ -1,0 +1,16 @@
+{
+  "name": "inspora-team",
+  "description": "Inspora team plugins for Claude Code. The Inspora MCP stays restricted to the approved team: installing the plugin does not grant access without the team OAuth sign-in.",
+  "owner": {
+    "name": "Inspora",
+    "url": "https://www.inspora.design"
+  },
+  "plugins": [
+    {
+      "name": "inspora",
+      "source": "./plugins/inspora",
+      "description": "Hosted Inspora design-inspiration MCP plus the inspora-discovery and inspora-design-direction skills.",
+      "category": "design"
+    }
+  ]
+}

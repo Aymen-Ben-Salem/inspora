@@ -1,3 +1,4 @@
+import {englishWords} from './english-words.mjs';
 // These aliases interpret familiar design vocabulary. Explicit subjects also accept
 // arbitrary phrases, so the supported subjects are not limited to this dictionary.
 const concepts = [
@@ -7,12 +8,18 @@ const concepts = [
   ['gift card', 'design', []],
   ['business card', 'design', ['visiting card']],
   ['dashboard', 'design', ['admin panel', 'analytics screen', 'analytics overview']],
-  ['navigation', 'design', ['nav', 'navbar', 'navigation bar', 'bottom nav', 'tab bar', 'sidebar']],
+  ['navigation', 'design', ['nav', 'navbar', 'navigation bar', 'nav bar']],
+  // A fourth entry names the broader concept: a sidebar is navigation, but navigation
+  // evidence alone is only partial evidence for a sidebar.
+  ['sidebar', 'design', ['side nav', 'side navigation', 'sidebar menu'], 'navigation'],
+  ['tab bar', 'design', ['bottom nav', 'bottom navigation', 'bottom tab bar', 'tabbar'], 'navigation'],
   ['button', 'design', ['cta button']],
   ['form', 'design', []],
   ['login', 'design', ['sign in', 'signin', 'log in', 'sign up', 'signup', 'login form', 'sign in form']],
   ['checkout', 'design', ['checkout flow', 'checkout form']],
-  ['payment', 'design', ['payment interface', 'payment flow', 'payment form', 'payment screen', 'payment link', 'payment status', 'money transfer', 'send money', 'receipt']],
+  ['payment', 'design', ['payment interface', 'payment flow', 'payment form', 'payment screen', 'payment link', 'payment status']],
+  ['money transfer', 'design', ['send money', 'transfer money', 'money transfer flow'], 'payment'],
+  ['receipt', 'design', ['invoice receipt'], 'payment'],
   ['onboarding', 'design', ['welcome flow']],
   ['pricing', 'design', ['pricing plan', 'payment plan', 'plan selector', 'plan picker']],
   ['pricing table', 'design', ['plan comparison table']],
@@ -27,12 +34,12 @@ const concepts = [
   ['tooltip', 'design', ['popover']],
   ['accordion', 'design', ['disclosure']],
   ['carousel', 'design', []],
-  ['toggle', 'design', ['switch control']],
+  ['toggle', 'design', ['switch control', 'toggle switch', 'switch']],
   ['slider', 'design', ['range control']],
-  ['input', 'design', ['text field', 'input field']],
+  ['input', 'design', ['text field', 'input field', 'input bar', 'text box', 'prompt bar', 'prompt field', 'prompt box', 'composer', 'message composer']],
   ['player', 'design', ['media player', 'audio player', 'video player']],
   ['timeline', 'design', []],
-  ['progress', 'design', ['progress indicator', 'progress bar', 'status control', 'loading indicator', 'loader']],
+  ['progress', 'design', ['progress indicator', 'progress bar', 'status control', 'loading indicator', 'loader', 'loading animation', 'loading spinner', 'spinner']],
   ['cursor', 'design', []],
   ['chat', 'design', ['conversation interface', 'messaging interface']],
   ['upload', 'design', ['file uploader', 'file upload']],
@@ -51,11 +58,18 @@ const concepts = [
   ['website', 'website', ['web site']],
 ];
 
-const stop = new Set('i me my a an the for of in on to with and or is are that this find show give want need looking inspiration some please from similar alternatives like can could would should it its using use design designs designing website websites logo logos icon icons app apps work works example examples result results only no not without ui interface'.split(' '));
+// Function words, request phrasing, work kinds and filler (vague evaluatives such as
+// cool or nice, hedges such as kinda, provenance such as built with) carry no visual evidence.
+const stop = new Set(('i me my a an the for of in on to with and or is are that this find show give want need looking inspiration some please from similar alternatives like can could would should it its using use design designs designing website websites logo logos icon icons app apps work works example examples result results only no not without ui interface ' +
+  'but so something anything sth smth stuff thing things kinda sorta kind really very just also maybe vibe vibes vibey feel feeling look style styled aesthetic cool nice awesome amazing great good beautiful lovely best built made created make create based idea ideas inspo inspired').split(' '));
 const wordAliases = new Map([['saas', 'saas'], ['paas', 'paas'], ['iaas', 'iaas'], ['minimalist', 'minimal'], ['minimalism', 'minimal'], ['geometrical', 'geometric']]);
 
+// A negating prefix forms one word with what it negates, so "sans-serif" or "sans serif"
+// is never read as serif and "non-profit" never as profit.
+const negated = text => text.replace(/(?<![\p{L}\p{N}])(sans|non|anti)[\s-]+(?=\p{L})/gu, '$1').replace(/(?<![\p{L}\p{N}])(no|un)-(?=\p{L})/gu, '$1');
+
 function words(text) {
-  return (String(text ?? '').toLowerCase().normalize('NFKC').match(/[\p{L}\p{N}]+/gu) ?? []).map(word => {
+  return (negated(String(text ?? '').toLowerCase().normalize('NFKC')).match(/[\p{L}\p{N}]+/gu) ?? []).map(word => {
     if (wordAliases.has(word)) return wordAliases.get(word);
     if (word.length > 4 && word.endsWith('ies')) return word.slice(0, -3) + 'y';
     if (/(?:ches|shes|xes|sses)$/.test(word)) return word.slice(0, -2);
@@ -64,16 +78,143 @@ function words(text) {
   });
 }
 
+// Inflections of a requested base word ("send" also matches sending/sent-style forms
+// "sending", "sended"; "dark" matches "darker"). Matching only expands the request: a
+// requested "booking" never matches "book". A form that is a noun of its own in the
+// English vocabulary (it has a plural there: buildings, landings, settings) is not an
+// inflection of its base.
+const lexicalized = form => englishWords().has(form + 's');
+export function inflections(term) {
+  const forms = new Set([term]);
+  // A requested -ation noun also reaches its verb's forms (animation -> animated).
+  const verb = term.slice(0, -3) + 'e';
+  if (/ation$/.test(term) && term.length >= 9 && [verb, verb + 'd', verb + 's'].some(form => englishWords().has(form))) for (const form of inflections(verb)) forms.add(form);
+  if (term.length < 3 || /(?:ing|ed|ation)$/.test(term) || /\d/.test(term)) return [...forms];
+  const e = term.endsWith('e'), base = e ? term.slice(0, -1) : term;
+  const doubled = /[^aeiou][aeiou][bdgklmnprt]$/.test(term) ? term + term.at(-1) : null;
+  for (const form of [base + 'ing', e ? term + 'd' : term + 'ed', doubled && doubled + 'ing', doubled && doubled + 'ed', e ? term + 'r' : term + 'er'])
+    if (form && !lexicalized(form)) forms.add(form);
+  return [...forms];
+}
+export const hasForm = (set, term) => inflections(term).some(form => set.has(form));
+const wordSet = text => new Set(words(text));
+
+// Derivational families: words built on one English base by -ing, -er/-or, -ment, -ion,
+// -ation or -ification (tracker, tracking -> track; manager, management -> manage;
+// verification, verifying -> verify; invoicing -> invoice). Candidate bases have at
+// least four letters. An -ing noun of its own (it has a plural: buildings,
+// landings, settings) keeps its own sense, and an agent noun (-er/-or: a printer, a
+// slider) meets only other derived forms, never its bare base (printer is not print).
+// Candidate bases in order of preference; the first vocabulary word wins.
+const undouble = stem => stem.replace(/([^aeiou])\1$/, '$1');
+const suffixRules = [
+  ['ification', stem => [stem + 'ify']],
+  ['ation', stem => [stem + 'ate', stem + 'e', stem]],
+  ['ment', stem => [stem]],
+  ['ying', stem => [stem + 'y']], ['ing', stem => [stem + 'e', stem, undouble(stem)]],
+  ['ied', stem => [stem + 'y']], ['ed', stem => [stem + 'e', stem, undouble(stem)]],
+  ['ier', stem => [stem + 'y']], ['er', stem => [stem + 'e', stem, undouble(stem)]],
+  ['or', stem => [stem + 'e', stem]],
+];
+const agentive = word => /(?:er|or)$/.test(word) && !word.endsWith('ier');
+const baseCache = new Map();
+function bases(word) {
+  if (baseCache.has(word)) return baseCache.get(word);
+  const found = new Set();
+  if (!(word.endsWith('ing') && lexicalized(word)) && !/\d/.test(word)) {
+    // Every candidate base of four or more letters: two words are related only when they
+    // share one, so unattested spellings never match anything.
+    const rule = suffixRules.find(([suffix]) => word.endsWith(suffix) && word.length - suffix.length >= 3);
+    for (const base of rule?.[1](word.slice(0, -rule[0].length)) ?? []) if (base !== word && base.length >= 4) found.add(base);
+  }
+  baseCache.set(word, found);
+  return found;
+}
+const familyCache = new Map();
+// The derived relatives of a term that share one of its bases (or the term itself as a
+// base), excluding the term's plain inflections (covered by inflections()).
+export function derivations(term) {
+  if (familyCache.has(term)) return familyCache.get(term);
+  const roots = new Set([...bases(term), ...(term.length >= 4 && !(term.endsWith('ing') && lexicalized(term)) ? [term] : [])]);
+  const out = new Set();
+  for (const base of roots) {
+    const e = base.replace(/e$/, ''), y = base.replace(/y$/, ''), ate = base.replace(/ate$/, '');
+    const doubled = /[^aeiou][aeiou][bdgklmnprt]$/.test(base) ? base + base.at(-1) : base;
+    for (const form of [base, e + 'ing', doubled + 'ing', base + 'ing', e + 'er', doubled + 'er', base + 'r', y + 'ier', base + 'ment', e + 'ion', base + 'ion', ate + 'ation', e + 'ation', y + 'ication', e + 'or', base + 'or', y + 'ying']) {
+      if (form === term) continue;
+      // An agent noun never reaches its bare base, nor a bare base an agent noun; an -ing
+      // form reaches its bare base only through derivationBases (a booking is no book).
+      if (form === base ? agentive(term) || term.endsWith('ing') : !bases(form).has(base) || term === base && agentive(form)) continue;
+      out.add(form);
+    }
+  }
+  familyCache.set(term, [...out]);
+  return familyCache.get(term);
+}
+// Inflections plus derivational relatives.
+export const hasFamily = (set, term) => hasForm(set, term) || derivations(term).some(form => set.has(form));
+// For an absence claim only: any relative, including a bare base (printing -> print).
+export const familyForms = term => [...new Set([...inflections(term), ...derivations(term), ...bases(term)])];
+// Candidate bases of a derived word (invoicing -> invoice), for callers that attest them.
+export const derivationBases = term => [...bases(term)];
+
 export const tokens = text => [...new Set(words(text).filter(word => word.length > 1 && !stop.has(word)))];
 export const normalizedPhrase = text => words(text).join(' ');
 const normalized = normalizedPhrase;
 const aliases = new Map(concepts.flatMap(([subject, , alternatives]) => [subject, ...alternatives].map(alias => [normalized(alias), subject])));
 const families = new Map(concepts.map(([subject, family]) => [subject, family]));
+const parents = new Map(concepts.filter(([, , , parent]) => parent).map(([subject, , , parent]) => [subject, parent]));
+const withParents = set => { for (const subject of [...set]) if (parents.has(subject)) set.add(parents.get(subject)); return set; };
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
 export const designVocabulary = new Set([...stop, ...aliases.keys(), ...wordAliases.values(), 'red orange yellow green blue purple pink black white gray grey brown glass clean simple spacious uncluttered dark light modern'.split(' ')].flatMap(value => words(value)));
 
-const subjectMentions = text => [...normalized(text).matchAll(pattern)].map(([, from]) => ({from, to: aliases.get(from)}));
+const subjectMentions = text => [...normalized(text).matchAll(pattern)].map(match => {
+  const start = match.index + (match[0].startsWith(' ') ? 1 : 0);
+  return {from: match[1], to: aliases.get(match[1]), start, end: start + match[1].length};
+});
 const subjectsIn = text => [...new Set(subjectMentions(text).map(({to}) => to))];
+export const isSubjectPhrase = phrase => aliases.has(normalized(phrase));
+// A subject concept and its familiar alternative names (toggle: toggle switch).
+export const subjectNames = subject => [subject, ...[...aliases].filter(([alias, to]) => to === subject && alias !== subject).map(([alias]) => alias)];
+const archiveKinds = ['website', 'logo', 'icon'];
+// Format nouns name the container, not the subject ("welcome screen", "onboarding flow").
+export const formatWords = new Set(words('screen page flow section component interface view layout widget element module block template site'));
+
+// Weaker evidence for a multi-word subject: the familiar concepts inside it ("nav bar"
+// contains navigation, "pricing table" contains pricing) and its head noun alone.
+// Ranked below exact matches. Format nouns ("welcome screen") never need evidence.
+// A listed concept is a distinct sense of its head noun (a payment card is not a UI card),
+// so it falls back only to its modifiers (pricing table -> pricing).
+export function subjectFallbacks(subject) {
+  const parts = normalized(subject).split(' ').filter(Boolean);
+  const inner = [];
+  for (let i = 0; i < parts.length; i++) for (let j = i + 1; j <= parts.length; j++) {
+    const concept = j - i < parts.length ? aliases.get(parts.slice(i, j).join(' ')) : undefined;
+    if (concept && concept !== subject && !archiveKinds.includes(concept) && !(families.has(subject) && j === parts.length)) inner.push(concept);
+  }
+  // Each remaining specific word ("booking" in "booking form", "animation" in "logo
+  // animation") is weaker, generic evidence; the caller confirms it semantically.
+  const specific = subjectTerms(subject);
+  const covered = new Set(inner.flatMap(concept => [concept, ...[...aliases].filter(([, to]) => to === concept).map(([from]) => from)]).flatMap(words));
+  // Format nouns ('page' of 'page transition') are too generic to stand alone.
+  const remaining = specific.length > 1 && !families.has(subject) ? specific.filter(word => !covered.has(word) && !formatWords.has(word)) : [];
+  // A narrower concept falls back to its broader one (sidebar -> navigation).
+  const parent = parents.has(subject) ? [parents.get(subject)] : [];
+  return [...new Set([...inner, ...remaining, ...parent])].filter(fallback => fallback !== subject);
+}
+// A literal subject whose format head was dropped ("home screen" -> home) is a looser
+// reading of the phrase, so its direct evidence needs semantic confirmation.
+export const reducedSubject = subject => !families.has(subject) && subjectTerms(subject).length < words(subject).filter(word => !subjectFunctionWords.has(word)).length;
+// Function, generic and format words of a literal subject need no evidence.
+const subjectFunctionWords = new Set(['a', 'an', 'the', 'of', 'with', 'and', 'for', 'to', 'in', 'on', 'ui', 'app', 'design']);
+// A format noun is dropped only as the head ("welcome screen"); as a modifier it is
+// the subject ("page transition", "screen recorder").
+export function subjectTerms(subject) {
+  const all = words(subject).filter(word => !subjectFunctionWords.has(word));
+  let end = all.length;
+  while (end > 1 && formatWords.has(all[end - 1])) end--;
+  return all.slice(0, end);
+}
 
 // Project context can be supported by what the product does even when the
 // catalog lacks its exact industry label. The phrases describe product roles.
@@ -88,21 +229,34 @@ export function projectContext(text) {
   return projectSignals.find(signal => signal.query.test(text));
 }
 
-export function typeAndTone(text) {
-  const sans = /\bsans[ -]+serifs?\b/i;
-  const warm = /\b(?:warm(?:er|th)?|warm[ -]toned)\b/i;
-  return [
-    ...(warm.test(text) ? ['warm'] : []),
-    ...(sans.test(text) ? ['sans-serif'] : []),
-    ...(/\bserifs?\b/i.test(text.replaceAll(/\bsans[ -]+serifs?\b/gi, ' ')) ? ['serif'] : []),
-  ];
+// Finds taxonomy labels (normalized phrases, longest first) in text. A longer label
+// consumes its words, so "sans serif" is not also read as "serif".
+// With inflected, each label word also matches its inflections in the text ("Dark"
+// matches "darker"); matched words are consumed so a longer label wins.
+export function labelsIn(text, labels, inflected = false) {
+  const textWords = words(text), used = new Set(), found = [];
+  for (const label of labels) {
+    const parts = label.split(' ');
+    // 'family' also accepts derivational relatives (Animated -> animation).
+    const accepts = parts.map(part => new Set(inflected === 'family' ? [...inflections(part), ...derivations(part)] : inflected ? inflections(part) : [part]));
+    let hit = false;
+    for (let i = 0; i + parts.length <= textWords.length; i++) {
+      if (parts.every((_, j) => !used.has(i + j) && accepts[j].has(textWords[i + j]))) { hit = true; parts.forEach((_, j) => used.add(i + j)); }
+    }
+    if (hit) found.push(label);
+  }
+  return found;
 }
 
-function canonicalSubject(text) {
+// An alias that adds another concept ("payment form" adds form to payment) stays a
+// literal subject, so a payment receipt without a form is partial evidence, not direct.
+const conceptWords = new Set([...aliases.keys()].filter(alias => !alias.includes(' ')));
+export function canonicalSubject(text) {
   const value=normalized(text),exact=aliases.get(value);
+  if(exact&&words(value).some(word=>conceptWords.has(word)&&aliases.get(word)!==exact&&!words(exact).includes(word)))return value;
   if(exact)return exact;
   const found=subjectsIn(value);
-  const remainder=value.replace(pattern,' ').split(/\s+/).filter(word=>word&&!['ui','interface','component','section','design'].includes(word));
+  const remainder=value.replace(pattern,' ').split(/\s+/).filter(word=>word&&!['ui','design'].includes(word)&&!formatWords.has(word));
   if(remainder.length)return value;
   const specific=found.filter(subject=>!['website','logo','icon'].includes(subject));
   return specific.length===1?specific[0]:found.length===1?found[0]:value;
@@ -147,10 +301,21 @@ export function prepareDocument(row) {
     titleTerms: new Set(tokens(row.title)),
     visibleWords: new Set(words(visibleText)),
     primaryTerms: new Set(tokens(primaryText)),
+    // Stemmed evidence for literal subjects. Modifiers may come from industry/category
+    // taxonomy (an AI agent card), never from the format category (Product, Motion).
+    primaryWords: wordSet(primaryText), publicWordSet: wordSet([row.title, row.description, row.tagline].join('. ')),
+    tagWords: wordSet([row.industry, ...(row.industries ?? []), ...(row.categories ?? [])].filter(Boolean).join(' ')),
+    // Shape and theme taxonomy describe what a work depicts (an Animal mark), so they can
+    // evidence a literal subject itself, not only its modifiers.
+    depictionWords: wordSet([row.shape, ...(Array.isArray(row.themes) ? row.themes : [row.themes])].filter(Boolean).join(' ')),
+    kind: row.kind,
     denseLayout: hasDenseLayout(visibleText),
-    typeAndTone: new Set(typeAndTone(lexicalText)),
-    primarySubjects: new Set([...subjectsIn(primaryText), ...subjectsIn([row.category, ...(row.categories ?? [])].join(' '))]),
-    mentionedSubjects: new Set([...subjectsIn(visibleText), ...subjectsIn([row.category, ...(row.categories ?? [])].join(' '))]),
+    // Category and shape taxonomy name what a work is (a Wordmark shape is a wordmark).
+    primarySubjects: withParents(new Set([...subjectsIn(primaryText), ...subjectsIn([row.category, ...(row.categories ?? []), ...String(row.shape ?? '').split(',')].join(', '))])),
+    mentionedSubjects: withParents(new Set([...subjectsIn(visibleText), ...subjectsIn([row.category, ...(row.categories ?? []), ...String(row.shape ?? '').split(',')].join(', '))])),
+    // Public prose alone: a fallback to supporting features never rests on hidden-note scenery.
+    publicSubjects: withParents(new Set(subjectsIn([row.title, row.description, row.tagline].join('. ')))),
+    publicWords: new Set(words([row.title, row.description, row.tagline].join('. '))),
   };
   if (prepared.primarySubjects.has('date picker') ||
       (/\b(?:calendar|booking)\b/i.test(introduction) && /\b(?:selected (?:day|date|appointment)|date and time controls?)\b/i.test(visibleText))) {
@@ -183,7 +348,14 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
     const specific = all.filter(subject => !['website', 'logo', 'icon'].includes(subject));
     subjects = specific.length ? specific : all;
     const headSubjects = subjectsIn(head).filter(subject => subjects.includes(subject));
-    if (headSubjects.length===1 || headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
+    // Adjacent concepts form one compound subject ("pricing card"): the earlier concept
+    // modifies the head noun instead of being dropped. Fallbacks keep each concept reachable.
+    const mentions = subjectMentions(head).filter(({to}) => !archiveKinds.includes(to));
+    let run = mentions.slice(-1);
+    for (let i = mentions.length - 2; i >= 0 && mentions[i].end + 1 === run[0].start; i--) run = [mentions[i], ...run];
+    const compound = run.length > 1 ? run.map(({to}) => to).join(' ') : '';
+    if (compound && !aliases.has(compound) && run.at(-1).to === headSubjects.at(-1)) subjects = [compound];
+    else if (headSubjects.length===1 || headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
   }
   if (!args.subjects && args.kinds?.length > 1 && subjects.length && subjects.every(subject=>args.kinds.includes(subject))) {
     subjects=[...args.kinds];
@@ -205,9 +377,16 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
     const phrase=topic.split(' ').map(word=>word.replace(/[^\p{L}\p{N}]/gu,'')+'\\w*').join('\\W+');
     return new RegExp('\\b'+phrase+'\\s+or\\b|\\bor\\s+(?:an?\\s+)?'+phrase,'iu').test(positive);
   };
-  const topics=args.subjects?[]:named.filter(topic=>!offeredAsAlternative(topic));
+  // Only the query text names a mandatory topic: a phrase that merely restates the soft
+  // context ("food and drink") ranks instead.
+  const contextTerms = new Set(tokens(args.context ?? ''));
+  const softContext = topic => tokens(topic).every(term => contextTerms.has(term));
+  const topics=args.subjects?[]:named.filter(topic=>!offeredAsAlternative(topic)&&!softContext(topic));
   const topicPreferences=named.filter(topic=>!topics.includes(topic));
-  const context = args.context ? tokens(args.context) : queryTerms.filter(term => contextVocabulary.has(term) && !subjects.some(subject => tokens(subject).includes(term)));
+  // Inferred context: single-word domain labels, or every word of a multi-word domain
+  // label the query names whole ("real estate"; "personal" alone is no domain).
+  const namedWords = new Set(contextPhrases.filter(phrase => termSequence.includes(' ' + phrase + ' ')).flatMap(phrase => phrase.split(' ')));
+  const context = args.context ? tokens(args.context) : queryTerms.filter(term => (contextVocabulary.has(term) || namedWords.has(term)) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
   const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive);
@@ -219,16 +398,38 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   return {subjects, subject_scope: scope, context, topics, topicPreferences, kinds, lowDensity, subjectAliases, project, relatedTopic};
 }
 
+// Scope 'public' is the internal contains-fallback scope: mentions in public prose only.
+// A literal subject is read as units: each familiar concept inside it ("credit card" ->
+// payment card, met by a debit or Visa card too) and each remaining word. A word of a
+// multi-word subject also matches its derivational relatives (sleep tracker ->
+// sleep-tracking, file manager -> file-management).
+function subjectUnits(subject) {
+  const required = subjectTerms(subject);
+  // A mention spanning the whole phrase is the literal subject itself ("payment form"
+  // kept literal because form adds a concept), so its words stay separate units.
+  const mentions = subjectMentions(subject).filter(({from, to}) => to !== subject && !archiveKinds.includes(to) && from !== normalized(subject));
+  const covered = new Set(mentions.flatMap(({from}) => words(from)));
+  return [...mentions.map(({from, to}) => ({text: from, concept: to, terms: words(from).filter(term => required.includes(term))})).filter(unit => unit.terms.length),
+    ...required.filter(term => !covered.has(term)).map(term => ({text: term, terms: [term]}))]
+    .map(unit => ({...unit, head: unit.terms.includes(required.at(-1))}));
+}
+function unitShown(document, scope, unit, related) {
+  const subjectSet = scope === 'public' ? document.publicSubjects : scope === 'contains' ? document.mentionedSubjects : document.primarySubjects;
+  const wordsIn = scope === 'public' ? document.publicWordSet : scope === 'contains' ? document.visibleWords : document.primaryWords;
+  const has = related ? hasFamily : hasForm;
+  const shown = term => has(wordsIn, term) || has(document.depictionWords, term);
+  // The head noun must be visible; a modifier may also come from the work's
+  // industry/category taxonomy ("AI agent") or its kind ("logo animation").
+  if (unit.concept && subjectSet.has(unit.concept)) return true;
+  return unit.terms.every(term => shown(term) || !unit.head && (has(document.tagWords, term) || term === document.kind));
+}
 export function subjectEvidence(document, intent) {
-  const subjectSet = intent.subject_scope === 'contains' ? document.mentionedSubjects : document.primarySubjects;
-  const termSet = intent.subject_scope === 'contains' ? document.visibleWords : document.primaryTerms;
+  const scope = intent.subject_scope;
+  const subjectSet = scope === 'public' ? document.publicSubjects : scope === 'contains' ? document.mentionedSubjects : document.primarySubjects;
   return intent.subjects.filter(subject => {
     if (families.has(subject)) return subjectSet.has(subject);
-    const required = intent.subject_scope === 'contains' ? words(subject).filter(word=>!['a','an','the','of','with','and','for'].includes(word)) : tokens(subject);
-    // The head noun must be visible. Earlier modifiers may come from the work's
-    // own taxonomy, so "AI agent" admits an agent card tagged with the AI industry.
-    const head = required.at(-1);
-    return required.length > 0 && termSet.has(head) &&
-      required.every(term => termSet.has(term) || document.tagTerms?.has(term));
+    const units = subjectUnits(subject);
+    const related = subjectTerms(subject).length > 1;
+    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related));
   });
 }

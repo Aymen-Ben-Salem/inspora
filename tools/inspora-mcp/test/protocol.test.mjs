@@ -36,9 +36,15 @@ test('real stdio MCP discovers retrieval tools, searches, continues and fetches 
   }
   const detail=await client.callTool({name:'get_work',arguments:{id:(imageRow||rows[0]).id,preview:'image'}});
   assert.ok(!detail.isError);
-  if(imageRow){assert.equal(detail.content[1].type,'image');assert.ok(Buffer.from(detail.content[1].data,'base64').length<=256000);}
+  if(imageRow){assert.match(detail.content[1].text,/^Image 1 · /);assert.equal(detail.content[2].type,'image');assert.ok(Buffer.from(detail.content[2].data,'base64').length<=256000);}
   else {assert.equal(detail.content.length,1);assert.match(JSON.parse(detail.content[0].text).preview.inline_status,/URL only/);}
   const bad=await client.callTool({name:'search_inspiration',arguments:{query:'blue',count:21}});
   assert.equal(bad.isError,true);
+  const textOnly=JSON.parse((await client.callTool({name:'get_work',arguments:{id:rows[0].id,preview:'none',detail:'study'}})).content[0].text);
+  assert.equal(textOnly.study.available,false);
+  const batch=await client.callTool({name:'get_works',arguments:{ids:[rows[0].id],detail:'study'}});
+  assert.ok(!batch.isError);assert.ok(JSON.parse(batch.content[0].text).works[0].preview.study);
+  const described=tools.find(t=>t.name==='get_works').inputSchema.properties;
+  assert.ok(described.detail.description&&described.ids.description&&described.preview.description);
  } finally {await client.close();}
 });

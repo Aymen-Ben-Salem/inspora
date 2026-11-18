@@ -32,5 +32,7 @@ test('document routing never catches MCP, authorization or arbitrary source path
 test('setup guide uses company URLs and offers explicit agent installation',async()=>{
  const response=get('/setup');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/html/);
  const html=await response.text();assert.match(html,/npx skills add https:\/\/mcp\.inspora\.design -g/);assert.match(html,/-g --agent codex -y/);assert.match(html,/-g --agent claude-code -y/);
- assert.doesNotMatch(html,/Aymen-Ben-Salem|github\.com\/Aymen/i);assert.match(html,/Phase 2/);
+ assert.doesNotMatch(html,/Aymen-Ben-Salem|github\.com\/Aymen/i);
+ assert.match(html,/deferred to the future backlog/);assert.doesNotMatch(html,/planned for Phase 2/);
+ assert.match(html,/npx\.cmd/);assert.match(html,/catalog_status/);assert.match(html,/mcp remove inspora/);assert.match(html,/not recognized/);
 });

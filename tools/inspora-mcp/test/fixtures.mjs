@@ -4,3 +4,6 @@ export function work(number,kind='design') {return {id:id(number),kind,slug:'sam
 export function note(row,overrides={}) {return {id:row.id,sourceFingerprint:sourceFingerprint(row),scope:'component',visualNotes:'A translucent layered panel sits above a fine geometric grid.',typography:null,evidence:{mediaMetadataSha256:mediaFingerprint(row),primarySha256:'a'.repeat(64),frameSha256:[],reviewedAt:new Date().toISOString()},...overrides};}
 export const vector=()=>[1,...Array(383).fill(0)];
 export const embed=async texts=>texts.map(vector);
+// Works carrying the evidence a search asked for: the subject shown in the requested scope
+// when a subject is asked, otherwise brief or browse evidence. Fit is the reader's decision.
+export const evidencedIds=result=>result.results.filter(r=>result.search_coverage.subject_matches!==undefined?r.match==='subject':['brief','browse'].includes(r.match)).map(r=>r.id);

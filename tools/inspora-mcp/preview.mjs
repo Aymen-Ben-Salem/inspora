@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {sha} from './catalog.mjs';
 import {mediaFingerprint} from './enrichment.mjs';
-import {preparedVisuals,LEGACY_STATUS} from './visuals.mjs';
+import {preparedVisuals,encodedBytes,LEGACY_STATUS,VISUAL_BUDGET_STATUS} from './visuals.mjs';
 
 export function localPreview(row, manifest, mediaDirectory) {
   const entry = manifest.drafts?.find(d => d.id === row.id);
@@ -24,15 +24,17 @@ export async function localVisuals(dataDirectory,row,options) {
     const bytes=fs.readFileSync(file);
     return bytes.length<=limit?bytes:null;
   },options);
-  if(pack.images.length||options.budget<4)return pack;
+  // A valid pack stopped by the budget is reported as such, never replaced by a legacy thumbnail.
+  if(pack.images.length||pack.truncated)return pack;
+  if(options.budget<4)return {...pack,status:VISUAL_BUDGET_STATUS,truncated:true};
   const manifestPath=path.join(dataDirectory,'preview-manifest.json');
   try {
     const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath,'utf8')):{drafts:[]};
     const legacy=localPreview(row,manifest,path.join(dataDirectory,'media'));
-    if(legacy.bytes&&legacy.bytes.length<=options.budget){
+    if(legacy.bytes&&encodedBytes(legacy.bytes.length)<=options.budget){
       return {status:LEGACY_STATUS,images:[{bytes:legacy.bytes,mimeType:'image/png'}]};
     }
-    return {...pack,status:legacy.bytes?'Image response budget reached; URL only':legacy.status};
+    return legacy.bytes?{...pack,status:VISUAL_BUDGET_STATUS,truncated:true,omitted_roles:['legacy_thumbnail']}:{...pack,status:legacy.status};
   } catch {
     return {...pack,status:'Prepared preview unavailable; URL only'};
   }

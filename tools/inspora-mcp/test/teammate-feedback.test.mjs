@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {SearchEngine} from '../search.mjs';
 import {normalizeRows} from '../catalog.mjs';
 import {tokens,queryIntent} from '../relevance.mjs';
-import {work,embed,vector} from './fixtures.mjs';
+import {work,embed,vector,evidencedIds} from './fixtures.mjs';
 function engine(works,options={}) {const capturedAt=new Date().toISOString();const rows=normalizeRows({capturedAt,rows:works}).map(row=>({...row,vector:vector()}));return new SearchEngine({snapshotId:'teammate-feedback',capturedAt,rows},{embed,...options});}
 
 test('compound AI agent brief offers evidenced related work without relaxing explicit filters',async()=>{
@@ -12,7 +12,8 @@ test('compound AI agent brief offers evidenced related work without relaxing exp
  const e=engine([agent,unrelated]);
  const query='AI agent interface: agent tree, trace waterfall, agent inbox, chat with tools';
  const result=await e.search({query,filters:{colors:['Blue']}});
- assert.deepEqual(result.results.map(r=>[r.id,r.match]),[[agent.id,'related']]);
+ assert.deepEqual(result.results.map(r=>[r.id,r.match]),[[agent.id,'related'],[unrelated.id,'subject']],'a wording topic orders works showing it first instead of removing others');
+ assert.deepEqual(result.results[1].evidence.topic,{unverified:['ai agent']});
  assert.match(result.results[0].reason,/AI agent/i);
  assert.equal((await e.search({query,filters:{colors:['Red']}})).results.length,0);
  assert.equal((await e.search({query,subjects:['trace waterfall']})).results.length,0);
@@ -40,13 +41,21 @@ test('an icon within a design does not conflict with the explicit work kind',asy
  assert.deepEqual((await e.search({query:'icon',kinds:['design']})).results.map(r=>r.id),[design.id]);
 });
 
-test('combined style preferences require positive evidence for both traits',async()=>{
- const both={...work(1,'website'),title:'Editorial site',description:'Warm amber surfaces frame serif headings.'};
- const sans={...work(2,'website'),title:'Amber site',description:'Warm colours with sans-serif headings.'};
+// Revision 10: style traits come from the catalog's styles taxonomy and rank rather than filter.
+test('taxonomy style cues rank works with every requested trait first and keep sans-serif distinct from serif',async()=>{
+ const both={...work(1,'website'),title:'Editorial site',description:'Warm amber surfaces frame serif headings.',styles:['Serif']};
+ const sans={...work(2,'website'),title:'Amber site',description:'Warm colours with sans-serif headings.',styles:['Sans-Serif']};
  const cold={...work(3,'website'),title:'Cool site',description:'Cold grey panels with serif headings.'};
- const e=engine([both,sans,cold]);
- assert.deepEqual((await e.search({query:'warm, serif'})).results.map(r=>r.id),[both.id]);
- assert.deepEqual((await e.search({query:'warm sans-serif'})).results.map(r=>r.id),[sans.id]);
+ const other={...work(4,'website'),title:'Grey site',description:'Grey panels with sans-serif labels.',styles:['Serif','Sans-Serif']};
+ const e=engine([both,sans,cold,other]);
+ const serif=await e.search({query:'warm, serif'});
+ assert.equal(serif.results[0].id,both.id);
+ assert.deepEqual(serif.results[0].evidence.style,{matched:['Serif']});
+ assert.match(serif.results.find(r=>r.id===sans.id).reason,/Style Serif unverified/,'sans-serif is not serif evidence');
+ assert.deepEqual(serif.interpreted_query.derived_constraints.style,['Serif']);
+ const sansSerif=await e.search({query:'warm sans-serif'});
+ assert.equal(sansSerif.results[0].id,sans.id);
+ assert.deepEqual(sansSerif.interpreted_query.derived_constraints.style,['Sans-Serif']);
 });
 
 test('a date picker needs selection evidence and calendar remains a broader search',async()=>{
@@ -61,9 +70,17 @@ test('explicit identity kinds and soft project context keep eligible adaptations
  const e=engine([work(1,'logo'),work(2,'icon')]);
  const mixed=await e.search({query:'Soft organic minimal logo with circle, wave, lotus, leaf or breath-like shapes, muted calm colors',kinds:['logo','icon']});
  assert.deepEqual(mixed.search_coverage.matching_by_kind,{logo:1,icon:1});
- const logo=await e.search({query:'Logo for a meditation app, calm and mindful',kinds:['logo'],context:'meditation, mindfulness, wellness'});
- assert.equal(logo.results.length,1);
- assert.equal(logo.results[0].match,'alternative');
+ // Revision 11: a domain the catalog lacks ranks adaptations sharing another brief term
+ // first, pads with at most one page of other works, and reports the shortage.
+ const calm={...work(3,'logo'),title:'Still',description:'A calm rounded logo with soft curves.'};
+ const others=Array.from({length:12},(_,i)=>work(10+i,'logo'));
+ const logo=await engine([...others,calm]).search({query:'Logo for a meditation app, calm and mindful',kinds:['logo'],context:'meditation, mindfulness, wellness'});
+ assert.deepEqual(logo.results[0].id,calm.id);
+ assert.ok(logo.results.every(r=>!r.evidence.context.matched),'no work evidences the explicit context');
+ assert.equal(logo.search_coverage.brief_matches,0);
+ assert.equal(logo.search_coverage.matching_works,10,'the whole kind is not returned as padding');
+ assert.equal(logo.search_coverage.context_matches,0);
+ assert.match(logo.notice,/No works show the whole brief: 1 shows most brief terms \(calm\), 0 show the context \(meditation mindfulness wellness\)\./);
 });
 
 test('a filtered website collection ranks style preferences and explains unavailable technology values',async()=>{
@@ -105,7 +122,8 @@ test('service acronyms remain intact and explicit subject aliases are deduplicat
 test('singular/plural negative terms exclude the same works',async()=>{
  const rows=[{...work(1),title:'Liquid glass buttons',description:'A row of liquid glass buttons.'},{...work(2),title:'Glass card',description:'A liquid glass profile card.'}];
  const e=engine(rows);
- for(const args of [{exclude_terms:['button']},{exclude_terms:['buttons']},{query:'glass without button'}]){const r=await e.search({query:'glass',...args});assert.deepEqual(r.results.map(x=>x.id),[rows[1].id]);}
+ for(const args of [{exclude_terms:['button']},{exclude_terms:['buttons']}]){const r=await e.search({query:'glass',...args});assert.deepEqual(r.results.map(x=>x.id),[rows[1].id]);}
+ const text=await e.search({query:'glass without button'});assert.deepEqual(text.results.map(x=>[x.id,x.evidence.mentions_excluded]),[[rows[1].id,undefined],[rows[0].id,['button']]],'a text negation ranks last and is reported');
 });
 
 test('response-limited pages say why they return fewer than requested and preserve continuation',async()=>{
@@ -130,7 +148,8 @@ test('conjoined adjectives do not promote a supporting feature into an alternati
  const e=engine([target,horse,unrelated]);
  const result=await e.search({query:'Find clean and minimal AI agent dashboard UI with a clear chat interface and task workflow, dark background, blue accents'});
  assert.deepEqual(result.interpreted_query.subjects,['dashboard']);
- assert.deepEqual(result.results.map(r=>r.id),[target.id]);
+ assert.deepEqual(evidencedIds(result),[target.id,unrelated.id],'the chat horse is not a dashboard; the topic orders the dashboards');
+ assert.deepEqual(result.results[1].evidence.topic,{unverified:['ai agent']});
 });
 
 test('long conversational briefs retain a specific topic across style and motion wording',async()=>{
@@ -138,7 +157,8 @@ test('long conversational briefs retain a specific topic across style and motion
  const noise=[{...work(3),title:'AI keychain',description:'A clean modern keychain has a clear charm.',industries:['AI']},{...work(4),title:'A shark',description:'A modern blue shark illustration uses clear outlines.'}];
  const e=engine([...targets,...noise]);
  for(const query of ['AI agent interface','I need inspiration for an AI agent interface that feels clean modern and professional with clear hierarchy and subtle motion']){
-  const result=await e.search({query});assert.deepEqual(new Set(result.results.map(r=>r.id)),new Set(targets.map(r=>r.id)),query);
+  const result=await e.search({query});assert.deepEqual(new Set(result.results.slice(0,2).map(r=>r.id)),new Set(targets.map(r=>r.id)),query);
+  assert.ok(result.results.slice(2).every(r=>r.evidence.topic?.unverified),query);
  }
 });
 
@@ -148,9 +168,9 @@ test('payment interfaces exclude decorative payment cards and pricing plans',asy
  const card={...work(3),title:'Shader credit card',description:'A payment card has a decorative flowing shader.'};
  const plan={...work(4),title:'Payment plans',description:'A payment-plan component lists a monthly price and features.'};
  const e=engine([checkout,payment,card,plan]);
- const exact=await e.search({query:'checkout'});assert.deepEqual(exact.results.map(r=>r.id),[checkout.id]);
- const payments=await e.search({query:'payment'});assert.ok(payments.results.some(r=>r.id===payment.id));assert.ok(payments.results.every(r=>![card.id,plan.id].includes(r.id)));
- const either=await e.search({query:'checkout or payment UI'});assert.deepEqual(new Set(either.results.map(r=>r.id)),new Set([checkout.id,payment.id]));
+ const exact=await e.search({query:'checkout'});assert.deepEqual(evidencedIds(exact),[checkout.id]);
+ const payments=await e.search({query:'payment'});assert.ok(evidencedIds(payments).includes(payment.id));assert.ok(evidencedIds(payments).every(id=>![card.id,plan.id].includes(id)));
+ const either=await e.search({query:'checkout or payment UI'});assert.deepEqual(new Set(evidencedIds(either)),new Set([checkout.id,payment.id]));
 });
 
 test('negative lists retain every excluded subject and remove them from positive interpretation',async()=>{
@@ -158,7 +178,9 @@ test('negative lists retain every excluded subject and remove them from positive
  const horse={...work(2),title:'Horse dashboard',description:'A clean dashboard has a pixel horse mascot.'};
  const shark={...work(3),title:'Shark dashboard',description:'A clean dashboard has a shark illustration.'};
  const e=engine([target,horse,shark]);
- const result=await e.search({query:'clean dashboards without sharks or horses'});assert.deepEqual(result.results.map(r=>r.id),[target.id]);
+ const result=await e.search({query:'clean dashboards without sharks or horses'});assert.equal(result.results[0].id,target.id);
+ assert.deepEqual(result.results.slice(1).map(r=>r.evidence.mentions_excluded).sort(),[['horses'],['sharks']],'works mentioning an excluded subject rank last and say so');
+ assert.deepEqual(result.interpreted_query.derived_constraints.excluded,['sharks','horses']);
 });
 
 test('unambiguous ordinary typos preserve the intended artifact and expose corrections',async()=>{

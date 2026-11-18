@@ -39,13 +39,13 @@ try{
   assert.equal(first.results.length,10);assert.ok(first.next_cursor);
   assert.equal(first.search_coverage.catalog_works,26);assert.equal(first.search_coverage.matching_works,25);
   const detail=await client.callTool({name:'get_work',arguments:{id:index.rows[0].id,preview:'image'}});
-  assert.equal(detail.content[1].type,'image');assert.equal(detail.content[1].data,thumbnail.toString('base64'));
+  assert.match(detail.content[1].text,/^Image 1 · /);assert.equal(detail.content[2].type,'image');assert.equal(detail.content[2].data,thumbnail.toString('base64'));
   const batch=await client.callTool({name:'get_works',arguments:{ids:[visualRow.id]}});
-  assert.equal(batch.content[1].mimeType,'image/jpeg');
-  assert.equal(batch.content[1].data,Buffer.from(packed).toString('base64'));
+  assert.equal(batch.content[2].mimeType,'image/jpeg');
+  assert.equal(batch.content[2].data,Buffer.from(packed).toString('base64'));
   const next=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
   assert.equal(next.isError,undefined);assert.equal(JSON.parse(next.content[0].text).results.length,10);
   const replay=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
-  assert.equal(replay.isError,true);assert.match(JSON.parse(replay.content[0].text).error,/CURSOR_USED/);
+  assert.equal(replay.isError,undefined);assert.deepEqual(JSON.parse(replay.content[0].text),JSON.parse(next.content[0].text));
   console.log('PASS: bundled Worker + local R2 + SQLite continuation + HTTP MCP client');
 }finally{await client?.close();await mf.dispose();}

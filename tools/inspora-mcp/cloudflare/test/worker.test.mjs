@@ -7,10 +7,10 @@ import {buildCatalog,publishCatalog,MAX_SOURCE_AGE_MS} from '../catalog.mjs';
 import {work,note,embed} from '../../test/fixtures.mjs';
 import {sha} from '../../catalog.mjs';
 import {Bucket,Namespace} from './helpers.mjs';
-import {HTTP_LIMITS} from '../access-state.mjs';
+import {TEAM_HTTP_LIMITS,TOOL_LIMITS} from '../access-state.mjs';
 import {previewKey} from '../previews.mjs';
 import {mediaFingerprint} from '../../enrichment.mjs';
-import {visualAssetKey,visualManifestKey,visualSha,VISUAL_RESPONSE_BYTES} from '../../visuals.mjs';
+import {visualAssetKey,visualManifestKey,visualSha,VISUAL_RESPONSE_BYTES,VISUAL_BUDGET_STATUS} from '../../visuals.mjs';
 const origin='https://mcp.test';
 const token='test_token_'.padEnd(43,'a'),otherToken='other_token_'.padEnd(43,'b');
 
@@ -58,8 +58,11 @@ test('HTTP serves bounded prepared stills and motion sheets for current eligible
     for(const row of rows)seed(row,['still','overview']);
     const [first]=rows;
     const study=await client.callTool({name:'get_work',arguments:{id:first.id,detail:'study'}});
-    assert.deepEqual(study.content.map(item=>item.type),['text','image','image']);
-    assert.equal(study.content[2].mimeType,'image/jpeg');
+    // The JSON block stays first; each image follows a label naming its work, role and samples.
+    assert.deepEqual(study.content.map(item=>item.type),['text','text','image','text','image']);
+    assert.equal(study.content[4].mimeType,'image/jpeg');
+    assert.equal(study.content[1].text,`Image 1 · ${first.title} by Actual Creator · ${first.id} · still · t=1s–2s (2 samples)`);
+    assert.match(study.content[3].text,/^Image 2 · .* · overview · t=1s–2s \(2 samples\)$/);
     const {preview}=decoded(study);
     assert.equal(preview.duration_seconds,5);
     assert.deepEqual(preview.images.map(({role})=>role),['still','overview']);
@@ -68,11 +71,31 @@ test('HTTP serves bounded prepared stills and motion sheets for current eligible
     const stillOnly=decoded(await client.callTool({name:'get_work',arguments:{id:rows[1].id,detail:'study'}}));
     assert.equal(stillOnly.preview.inline_status,'prepared_current_media');
     assert.equal(stillOnly.preview.study.available,false);assert.ok(stillOnly.preview.study.reason);
+    assert.equal(stillOnly.preview.motion_sheets,0);
     seed(rows[1],['still','overview']);
+    // A legacy thumbnail must not replace a valid pack that was only stopped by the budget.
+    const png=Uint8Array.from([137,80,78,71,13,10,26,10,0]);stored.set(previewKey(rows[2]),png);
     const batch=await client.callTool({name:'get_works',arguments:{ids:[...rows.map(r=>r.id),work(999).id]}});
-    assert.deepEqual(decoded(batch).works.map(w=>w.preview?.images?.[0].image_number??w.error??null),
-      [1,2,3,null,null,'WORK_NOT_ELIGIBLE']);
-    assert.ok(batch.content.slice(1).reduce((sum,item)=>sum+Buffer.from(item.data,'base64').length,0)<=VISUAL_RESPONSE_BYTES);
+    const works=decoded(batch).works;
+    // The budget counts base64-encoded size: two 230 KB stills encode to ~613 KB, a third would exceed 900 KB.
+    assert.deepEqual(works.map(w=>w.preview?.images?.[0].image_number??w.error??null),[1,2,null,null,null,'WORK_NOT_ELIGIBLE']);
+    for(const omitted of works.slice(2,5))assert.deepEqual([omitted.preview.inline_status,omitted.preview.budget_reached,omitted.preview.omitted_roles],[VISUAL_BUDGET_STATUS,true,['still']]);
+    // Glance still says whether a study is worthwhile, including for works stopped by the budget.
+    assert.deepEqual(works.slice(0,5).map(w=>w.preview.motion_sheets),[1,1,1,1,1]);
+    const images=batch.content.filter(item=>item.type==='image');
+    assert.ok(images.every(item=>item.mimeType==='image/jpeg'));
+    assert.ok(images.reduce((sum,item)=>sum+item.data.length,0)<=VISUAL_RESPONSE_BYTES);
+    assert.ok(JSON.stringify(batch).length<1_000_000);
+    // get_works accepts detail=study; the shared budget flags partial and omitted sheet sets.
+    const studies=decoded(await client.callTool({name:'get_works',arguments:{ids:[rows[0].id,rows[4].id],detail:'study'}})).works;
+    assert.deepEqual(studies[0].preview.study,{available:true,sheets:1});
+    assert.deepEqual(studies[1].preview.study,{available:false,reason:VISUAL_BUDGET_STATUS,omitted_roles:['still','overview']});
+    seed(rows[4],['still','overview','detail-1','detail-2']);
+    const partial=decoded(await client.callTool({name:'get_work',arguments:{id:rows[4].id,detail:'study'}})).preview;
+    assert.deepEqual(partial.images.map(image=>image.role),['still','overview']);
+    assert.deepEqual(partial.study,{available:true,sheets:1,partial:true,omitted_roles:['detail-1','detail-2'],reason:'Image response budget reached; request this work alone for the remaining sheets.'});
+    const textOnly=decoded(await client.callTool({name:'get_work',arguments:{id:first.id,detail:'study',preview:'none'}}));
+    assert.equal(textOnly.preview,undefined);assert.equal(textOnly.study.available,false);assert.match(textOnly.study.reason,/preview=image/);
     const links=await client.callTool({name:'get_work',arguments:{id:first.id,preview:'link'}});
     assert.equal(links.content.length,1);
     stored.set(visualManifestKey(first),stored.get(visualManifestKey(rows[1])));
@@ -81,24 +104,26 @@ test('HTTP serves bounded prepared stills and motion sheets for current eligible
   }finally{await client.close();}
 });
 
-test('HTTP search, filters, details and restart-safe single-use principal-bound continuation',async()=>{
+test('HTTP search, filters, details and restart-safe re-readable principal-bound continuation',async()=>{
   const fixture=await fixtureSetup(),alice=await clientFor(fixture),bob=await clientFor(fixture,otherToken);
   const first=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass'}}));
   assert.equal(first.results.length,10);assert.equal(first.snapshot.live,true);assert.ok(first.next_cursor);
   const status=decoded(await alice.callTool({name:'catalog_status',arguments:{}}));
   assert.equal(status.limits.default_count,first.results.length);
-  assert.equal(status.limits.cursor_minutes,15);assert.equal(status.limits.cursor_single_use,true);
+  assert.equal(status.limits.cursor_minutes,15);assert.equal(status.limits.cursor_single_use,false);assert.equal(status.catalog_state,'ready');
   assert.equal(first.search_coverage.catalog_works,18);assert.equal(first.search_coverage.matching_works,18);
   const wrong=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,query:'red'}});assert.match(decoded(wrong).error,/MISMATCH/);
   for(const changed of [{subjects:['poster']},{subject_scope:'contains'},{context:'fitness'}]){
     const mismatch=await alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor,...changed}});
     assert.match(decoded(mismatch).error,/MISMATCH/);
   }
-  const forbidden=await bob.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});assert.match(decoded(forbidden).error,/EXPIRED/);
+  const forbidden=await bob.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});assert.match(decoded(forbidden).error,/^CURSOR_EXPIRED: .*Rerun the original search/);
+  // Deliberate change from single-use: re-reading a cursor within its TTL returns the same page and next cursor.
   const replies=await Promise.all([alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}}),alice.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}})]);
-  assert.equal(replies.filter(reply=>reply.isError).length,1);
-  assert.match(decoded(replies.find(reply=>reply.isError)).error,/CURSOR_USED.*already used/);
-  const next=decoded(replies.find(reply=>!reply.isError));assert.ok(next.results.every(row=>!first.results.some(before=>before.id===row.id)));
+  assert.ok(replies.every(reply=>!reply.isError));
+  assert.deepEqual(decoded(replies[0]),decoded(replies[1]));
+  const next=decoded(replies[0]);assert.ok(next.results.every(row=>!first.results.some(before=>before.id===row.id)));
+  assert.equal(next.next_cursor,null);assert.equal(next.exhausted,true);
   assert.deepEqual(next.search_coverage,first.search_coverage);
   const empty=decoded(await alice.callTool({name:'search_inspiration',arguments:{query:'blue glass',filters:{colors:['Red']}}}));assert.equal(empty.results.length,0);assert.equal(empty.insufficient_matches,true);
   const id=first.results[0].id,row=fixture.index.rows.find(row=>row.id===id),key=previewKey(row);
@@ -106,10 +131,12 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   const get=fixture.bucket.get.bind(fixture.bucket),png=Uint8Array.from([137,80,78,71,13,10,26,10,0]);
   fixture.bucket.get=async name=>name===key?{size:png.length,arrayBuffer:async()=>png.buffer}:get(name);
   const illustrated=await alice.callTool({name:'get_work',arguments:{id,preview:'image'}});
-  assert.equal(illustrated.content[1].type,'image');assert.equal(illustrated.content[1].mimeType,'image/png');
+  assert.match(illustrated.content[1].text,/^Image 1 · .* · legacy_thumbnail$/);
+  assert.equal(illustrated.content[2].type,'image');assert.equal(illustrated.content[2].mimeType,'image/png');
   const legacy=decoded(illustrated).preview;
   assert.equal(legacy.inline_status,'legacy_low_resolution_thumbnail');assert.match(legacy.inline_note,/legacy thumbnail/);
-  assert.equal(legacy.images[0].role,'legacy_thumbnail');
+  assert.equal(legacy.images[0].role,'legacy_thumbnail');assert.equal(legacy.motion_sheets,undefined,'no prepared pack: the status explains');
+  assert.equal(details.preview.motion_sheets,undefined);
   const legacyStudy=decoded(await alice.callTool({name:'get_work',arguments:{id,detail:'study'}})).preview.study;
   assert.equal(legacyStudy.available,false);assert.match(legacyStudy.reason,/legacy thumbnail|no motion/i);
   fixture.bucket.get=async name=>name===key?{size:256001,arrayBuffer:async()=>{throw Error('Oversized file was read');}}:get(name);
@@ -127,7 +154,12 @@ test('catalog replacements invalidate continuation and remove old details; stale
   const reply=decoded(await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}}));assert.match(reply.error,/EXPIRED/);
   const details=decoded(await client.callTool({name:'get_work',arguments:{id:first.results[0].id}}));assert.match(details.error,/NOT_ELIGIBLE/);
   for(const [key,value] of fixture.bucket.values)if(key.endsWith('/current.json'))fixture.bucket.values.set(key,JSON.stringify({...JSON.parse(value),sourceCheckedAt:new Date(Date.now()-MAX_SOURCE_AGE_MS-1000).toISOString()}));
-  const status=decoded(await client.callTool({name:'catalog_status',arguments:{}}));assert.match(status.error,/STALE/);await client.close();
+  // Status still answers and reports the stale state; search and details fail closed with a next step.
+  const status=await client.callTool({name:'catalog_status',arguments:{}});
+  assert.equal(status.isError,undefined);assert.equal(decoded(status).catalog_state,'stale');assert.equal(decoded(status).live,false);
+  const search=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'blue glass'}}));assert.match(search.error,/^CATALOG_STALE: .*Retry later/);
+  assert.match(decoded(await client.callTool({name:'get_work',arguments:{id:first.results[1].id}})).error,/^CATALOG_STALE/);
+  await client.close();
 });
 
 test('HTTP accepts arbitrary subjects and rejects continuation from a previous ranking release',async()=>{
@@ -144,7 +176,7 @@ test('HTTP accepts arbitrary subjects and rejects continuation from a previous r
   await client.close();
 });
 
-test('HTTP refinement preserves the artifact, rejects dense layouts and reports an honest shortage',async()=>{
+test('HTTP refinement preserves the artifact, ranks dense layouts last with a label and reports an honest shortage',async()=>{
   const fixture=await fixtureSetup();
   const rows=[
     {...work(1),title:'Finance dashboard',description:'A dense finance dashboard packs charts into a crowded interface.'},
@@ -160,7 +192,14 @@ test('HTTP refinement preserves the artifact, rejects dense layouts and reports 
     const refined=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'simpler finance dashboard designs for a small laptop screen',exclude_ids:[rows[1].id]}}));
     assert.equal(refined.snapshot.live,true);
     assert.deepEqual(refined.interpreted_query.subjects,['dashboard']);
-    assert.equal(refined.results.length,0);
+    // Search revision 10: a free-text density cue ranks instead of filtering. The dense work
+    // stays, last and labeled, and the derived constraint is reported.
+    assert.equal(refined.interpreted_query.derived_constraints.density,'low');
+    assert.ok(!refined.interpreted_query.derived_constraints.enforced?.includes('density'));
+    assert.equal(refined.results.at(-1).id,rows[0].id);
+    assert.ok(!refined.results.some(result=>result.id===rows[1].id));
+    assert.match(refined.results.at(-1).reason,/dens/i);
+    assert.notEqual(refined.results.at(-1).match,'candidate');
     assert.equal(refined.insufficient_matches,true);
     assert.equal(refined.next_cursor,null);
     assert.equal(original.results[0].evidence.description,rows.find(row=>row.id===original.results[0].id).description);
@@ -178,15 +217,33 @@ test('access, configured origin, body bounds, revocation and errors protect back
   fixture.env.MCP_PILOT_TOKENS='[]';assert.equal((await worker.fetch(request(),fixture.env)).status,401);assert.equal(fixture.bucket.reads,before);
 });
 
-test('per-principal limits refuse excessive requests independently of other users',async()=>{
+test('per-principal HTTP ceiling refuses excessive non-tool requests independently of other users',async()=>{
   const fixture=await fixtureSetup();
-  for(let i=0;i<HTTP_LIMITS.minute;i++)assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
+  for(let i=0;i<TEAM_HTTP_LIMITS.minute;i++)assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'})).status,429);
   const limited=await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token},body:'{}'});
   assert.equal(limited.status,429);
-  const {retry_after}=await limited.json();
-  assert.ok(retry_after>=1&&retry_after<=60);
+  const {retry_after,limit_window,error}=await limited.json();
+  assert.ok(retry_after>=1&&retry_after<=60);assert.equal(limit_window,'minute');assert.match(error,/^RATE_LIMITED: retry after \d+ seconds/);
   assert.equal(limited.headers.get('retry-after'),String(retry_after));
   assert.notEqual((await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+otherToken},body:'{}'})).status,429);
+  // A tools/call over the ceiling is still a readable MCP tool result, not a bare HTTP 429.
+  const call=await fixture.fetch(origin+'/mcp',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:7,method:'tools/call',params:{name:'catalog_status',arguments:{}}})});
+  assert.equal(call.status,200);const rpc=await call.json();
+  assert.equal(rpc.id,7);assert.equal(rpc.result.isError,true);assert.equal(JSON.parse(rpc.result.content[0].text).limit_window,'minute');
+});
+
+test('the per-person tool budget ignores protocol traffic and refuses with a readable tool result',async()=>{
+  const fixture=await fixtureSetup(),client=await clientFor(fixture);
+  try{
+    for(let i=0;i<5;i++)await client.listTools();
+    for(let i=0;i<TOOL_LIMITS.minute;i++){const reply=await client.callTool({name:'catalog_status',arguments:{}});assert.equal(reply.isError,undefined,'call '+(i+1));}
+    const refused=await client.callTool({name:'catalog_status',arguments:{}});
+    assert.equal(refused.isError,true);
+    const body=decoded(refused);
+    assert.match(body.error,/^TOOL_LIMIT_REACHED: retry after \d+ seconds\. The per-person minute limit of 30 tool calls/);
+    assert.equal(body.limit_window,'minute');assert.ok(body.retry_after>=1&&body.retry_after<=60);
+    await client.listTools();
+  }finally{await client.close();}
 });
 
 test('HTTP category aliases and plural exclusions preserve hard filters',async()=>{

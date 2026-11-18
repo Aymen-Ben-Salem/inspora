@@ -52,14 +52,28 @@ export async function publishCatalog(bucket,index,{now=()=>Date.now(),eventDrive
   return pointer;
 }
 
+// Typical notification-to-publish time (coalescing plus the source read) used for retry hints.
+export const UPDATE_ESTIMATE_MS=20000;
+export function updateRetrySeconds(delivery,now=Date.now()){
+  const due=Date.parse(delivery?.retryAt??'')||Date.parse(delivery?.since??'')+UPDATE_ESTIMATE_MS;
+  return Number.isFinite(due)?Math.min(300,Math.max(5,Math.ceil((due-now)/1000))):30;
+}
+
+// By default a stale or updating catalog throws, so search and details fail closed.
+// {status:true} returns the last complete snapshot with delivery.state for reporting only.
 export function createCatalogReader({now=()=>Date.now()}={}) {
   let cached;
-  return async bucket=>{
+  return async(bucket,{status=false}={})=>{
     const object=await bucket.get(POINTER_KEY);
     if(!object)throw Error('CATALOG_UNAVAILABLE');
     const pointer=pointerSchema.parse(await object.json()),age=now()-Date.parse(pointer.sourceCheckedAt);
-    if(age>(pointer.eventDriven?REPAIR_INTERVAL_MS+60000:MAX_SOURCE_AGE_MS)||age< -60000)throw Error('CATALOG_STALE');
-    if(pointer.eventDriven){const fence=await bucket.get(FENCE_KEY),delivery=fence?await fence.json():null;if(!delivery||delivery.pending||delivery.snapshotId!==pointer.snapshotId)throw Error('CATALOG_UPDATING');}
+    let state='ready',retryAfter;
+    if(age>(pointer.eventDriven?REPAIR_INTERVAL_MS+60000:MAX_SOURCE_AGE_MS)||age< -60000)state='stale';
+    else if(pointer.eventDriven){
+      const fence=await bucket.get(FENCE_KEY),delivery=fence?await fence.json():null;
+      if(!delivery||delivery.pending||delivery.snapshotId!==pointer.snapshotId){state='updating';retryAfter=updateRetrySeconds(delivery,now());}
+    }
+    if(state!=='ready'&&!status)throw Object.assign(Error(state==='stale'?'CATALOG_STALE':'CATALOG_UPDATING'),{retryAfter});
     if(cached?.snapshotId!==pointer.snapshotId){
       const blob=await bucket.get(pointer.objectKey);
       if(!blob||blob.size>24*1024*1024)throw Error('CATALOG_UNAVAILABLE');
@@ -70,6 +84,6 @@ export function createCatalogReader({now=()=>Date.now()}={}) {
       cached=index;
     }
     // Capture time can advance without invalidating continuation for unchanged content.
-    return {...cached,capturedAt:pointer.sourceCheckedAt,delivery:{eventDriven:pointer.eventDriven??false,repairIntervalHours:pointer.eventDriven?12:null,pendingWorks:pointer.pendingWorks??0}};
+    return {...cached,capturedAt:pointer.sourceCheckedAt,delivery:{state,...(retryAfter?{retry_after_seconds:retryAfter}:{}),eventDriven:pointer.eventDriven??false,repairIntervalHours:pointer.eventDriven?12:null,pendingWorks:pointer.pendingWorks??0}};
   };
 }

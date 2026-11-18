@@ -5,6 +5,8 @@ import {requestCatalog} from './source-request.mjs';
 import {pruneIndexes} from './retention.mjs';
 
 export const COALESCE_MS=5000;
+// While a known edit fences reads, failed refreshes retry at least this often.
+export const PENDING_RETRY_MS=60000;
 export async function sourceFeed(env) {
   if(!/^[A-Za-z0-9_-]{32,128}$/.test(env.CATALOG_SOURCE_TOKEN??''))throw Error('SOURCE_NOT_CONFIGURED');
   const response=await requestCatalog(env.CATALOG_SOURCE_TOKEN);
@@ -25,7 +27,12 @@ export class CatalogSync {
       const sequence=(await this.state.storage.get('sequence')??0)+1;
       await this.state.storage.put('sequence',sequence);
       // A known edit blocks reads until current eligibility/metadata is captured.
-      if(input.reason!=='repair')await this.env.CATALOG.put(FENCE_KEY,JSON.stringify({pending:true,sequence}));
+      // The notification names no works, so nothing from the previous snapshot is safe to serve.
+      if(input.reason!=='repair'){
+        const since=await this.state.storage.get('pendingSince')??new Date().toISOString();
+        await this.state.storage.put('pendingSince',since);
+        await this.env.CATALOG.put(FENCE_KEY,JSON.stringify({pending:true,sequence,since}));
+      }
       const alarm=await this.state.storage.getAlarm();
       if(alarm===null||alarm>Date.now()+COALESCE_MS)await this.state.storage.setAlarm(Date.now()+COALESCE_MS);
     });
@@ -41,15 +48,22 @@ export class CatalogSync {
       if(pointerObject){const pointer=await pointerObject.json(),object=await this.env.CATALOG.get(pointer.objectKey);if(object)previous=await object.json();}
       stage='normalize';const interim=safeInterim(feed,previous);
       // The short gate protects commit ordering against an edit arriving mid-build.
-      const publish=async index=>this.state.blockConcurrencyWhile(async()=>{
-        if(sequence!==(await this.state.storage.get('sequence')??0))return false;
+      // Only a build whose source read began after the latest edit lifts the fence.
+      const publish=async(index,{always=false}={})=>this.state.blockConcurrencyWhile(async()=>{
+        const current=sequence===(await this.state.storage.get('sequence')??0);
+        if(!current&&!always)return false;
         await publishCatalog(this.env.CATALOG,index,{eventDriven:true});
-        await this.env.CATALOG.put(FENCE_KEY,JSON.stringify({pending:false,sequence,snapshotId:index.snapshotId}));
-        return true;
+        if(current){
+          await this.env.CATALOG.put(FENCE_KEY,JSON.stringify({pending:false,sequence,snapshotId:index.snapshotId}));
+          await this.state.storage.delete('pendingSince');
+        }
+        return current;
       });
       stage='interim';if(!await publish(interim))return;
       stage='embedding';const index=await buildCatalog(feed,{previous,embed:this.embed});
-      stage='commit';if(!await publish(index))return;
+      // Keep new vectors even when a newer edit arrived: the fence stays pending and the
+      // next run reuses them instead of restarting the embedding work.
+      stage='commit';if(!await publish(index,{always:true}))return;
       await this.state.storage.put('status',{state:'ready',lastSuccessAt:feed.catalog.capturedAt,works:index.rows.length,pendingWorks:0,repairIntervalHours:12});
       await this.state.storage.put('failures',0);
       if((await this.state.storage.get('pruneAt')??0)<=Date.now()){
@@ -64,7 +78,14 @@ export class CatalogSync {
       await this.state.storage.put('failures',failures);
       const errorCode=/^[A-Z_0-9]+$/.test(error.message??'')?error.message:'REFRESH_FAILED';
       await this.state.storage.put('status',{state:'retrying',lastFailureAt:new Date().toISOString(),failures,errorCode,stage,errorName:['Error','TypeError','SyntaxError','ZodError'].includes(error.name)?error.name:'Error'});
-      await this.state.storage.setAlarm(Date.now()+Math.min(REPAIR_INTERVAL_MS,30000*2**Math.min(failures-1,10)));
+      // A pending edit keeps reads fenced, so retry it quickly rather than with the long backoff.
+      const pending=await this.state.storage.get('pendingSince');
+      const retryAt=Date.now()+Math.min(pending?PENDING_RETRY_MS:REPAIR_INTERVAL_MS,30000*2**Math.min(failures-1,10));
+      await this.state.storage.setAlarm(retryAt);
+      if(pending)await this.state.blockConcurrencyWhile(async()=>{
+        const fence=await this.env.CATALOG.get(FENCE_KEY),value=fence?await fence.json():null;
+        if(value?.pending)await this.env.CATALOG.put(FENCE_KEY,JSON.stringify({...value,retryAt:new Date(retryAt).toISOString()}));
+      }).catch(()=>{});
     }finally{
       // Preserve a newer notification's alarm. Otherwise schedule the shared repair.
       const next=await this.state.storage.getAlarm();

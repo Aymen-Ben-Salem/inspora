@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SearchEngine} from '../search.mjs';
 import {normalizeRows} from '../catalog.mjs';
-import {work, embed, vector} from './fixtures.mjs';
+import {work, embed, vector, evidencedIds} from './fixtures.mjs';
 
 function engine(works) {
   const capturedAt = new Date().toISOString();
@@ -25,7 +25,10 @@ test('subject evidence is required across component, web, print and brand reques
     const wrongSubject = {...work(2), title: 'Minimal clean sculpture', description: 'A clean minimal sculpture in a gallery.'};
     const wrongKind = {...work(3, 'icon'), title: 'Minimal clean icon', description: 'A minimal clean geometric app icon.'};
     const result = await engine([target, wrongSubject, wrongKind]).search({query});
-    assert.deepEqual(result.results.map(row => row.id), [target.id], query);
+    // An inferred subject ranks: works without it follow, reported with subject evidence none.
+    assert.deepEqual(evidencedIds(result), [target.id], query);
+    assert.equal(result.results[0].id, target.id, query);
+    assert.ok(result.results.every(row => row.id === target.id || row.match === 'brief' && row.evidence.subject.matched_as === 'none'), query);
     assert.equal(result.insufficient_matches, true);
   }
 });
@@ -41,8 +44,8 @@ test('main subjects outrank background mentions and every continuation retains a
   const first = await e.search({query: 'clean fitness dashboard'});
   assert.equal(first.results.length, 10);
   const second = await e.search({cursor: first.next_cursor});
-  assert.equal(second.results.length, 3);
-  assert.deepEqual(new Set([...first.results, ...second.results].map(row => row.id)), new Set(dashboards.map(row => row.id)));
+  assert.equal(evidencedIds(second).length, 3);
+  assert.deepEqual(new Set([...evidencedIds(first), ...evidencedIds(second)]), new Set(dashboards.map(row => row.id)));
   assert.equal(second.next_cursor, null);
 });
 
@@ -56,11 +59,11 @@ test('card meanings, plurals and subject aliases remain distinct', async () => {
   ];
   const e = engine(rows);
   for (const query of ['clean cards', 'clean card designs', 'clean UI cards']) {
-    assert.deepEqual((await e.search({query})).results.map(row => row.id), [rows[0].id]);
+    assert.deepEqual(evidencedIds(await e.search({query})), [rows[0].id]);
   }
-  assert.deepEqual((await e.search({query: 'clean payment cards'})).results.map(row => row.id), [rows[2].id]);
-  assert.deepEqual((await e.search({query: 'clean playing cards'})).results.map(row => row.id), [rows[1].id]);
-  assert.deepEqual((await e.search({query: 'clean login'})).results.map(row => row.id), [rows[4].id]);
+  assert.deepEqual(evidencedIds(await e.search({query: 'clean payment cards'})), [rows[2].id]);
+  assert.deepEqual(evidencedIds(await e.search({query: 'clean playing cards'})), [rows[1].id]);
+  assert.deepEqual(evidencedIds(await e.search({query: 'clean login'})), [rows[4].id]);
 });
 
 test('explicit kinds, mixed requests and containing a feature are supported', async () => {
@@ -97,8 +100,11 @@ test('context improves ranking and alternatives disclose unsupported context', a
   const fitness = {...work(2), title: 'Activity overview', description: 'A dashboard summarizes fitness and recovery.', industries: ['Fitness']};
   const result = await engine([generic, fitness]).search({query: 'clean dashboard', context: 'fitness'});
   assert.equal(result.results[0].id, fitness.id);
-  assert.match(result.results[1].reason, /fitness.*unverified/i);
-  assert.equal(result.results[1].match, 'alternative');
+  // Both show the subject; context evidence orders them and is reported per result.
+  assert.deepEqual(result.results.map(row => row.match), ['subject', 'subject']);
+  assert.deepEqual(result.results[0].evidence.context, {matched: ['fitness']});
+  assert.deepEqual(result.results[1].evidence.context, {unverified: ['fitness']});
+  assert.match(result.results[1].reason, /Subject dashboard \(literal in title, description\)\. Context fitness unverified/);
 });
 
 test('hidden-note scenery cannot override an identified subject and raw reference requests still work', async () => {
@@ -112,7 +118,7 @@ test('hidden-note scenery cannot override an identified subject and raw referenc
   rows[0].text += ' ' + rows[0].searchOnly;
   const e = new SearchEngine({snapshotId: 'notes', capturedAt, rows}, {embed});
   const result = await e.search({query: 'clean dashboard'});
-  assert.deepEqual(new Set(result.results.map(row => row.id)), new Set([rows[1].id, rows[2].id]));
+  assert.deepEqual(new Set(evidencedIds(result)), new Set([rows[1].id, rows[2].id]));
   const references = await e.search({reference_url: rows[1].url});
   assert.ok(references.results.some(row => row.id === rows[2].id));
   assert.ok(references.results.every(row => row.id !== rows[1].id));
@@ -125,7 +131,9 @@ test('old ranked continuations expire after the search algorithm changes', async
   await assert.rejects(e.search({cursor: first.next_cursor}), /CURSOR_EXPIRED/);
 });
 
-test('simpler refinements reject contradictory layouts without filling sparse results', async () => {
+// Revision 10: a density cue read from free text ranks instead of filtering (only explicit
+// arguments are hard); a contradicting dense layout comes last and says why.
+test('simpler refinements rank contradictory layouts last without filling sparse results', async () => {
   const dense = {...work(1), title: 'Finance dashboard', description: 'A dense finance dashboard packs many small charts and compact data tables into a multi-column desktop layout.', styles: ['Minimal']};
   const simple = {...work(2), title: 'Finance overview', description: 'A simple finance dashboard uses a spacious single-column layout, large text and a few key metrics.'};
   const unrelated = {...work(3), title: 'Glossy orb animation', description: 'A simple orb on a sparse background with generous whitespace.'};
@@ -133,16 +141,19 @@ test('simpler refinements reject contradictory layouts without filling sparse re
   assert.equal((await e.search({query: 'clean finance dashboard designs'})).results.length, 2);
   for (const preference of ['simple', 'simpler', 'minimal', 'less dense', 'uncluttered']) {
     const result = await e.search({query: `${preference} finance dashboard designs for a small laptop screen`});
-    assert.deepEqual(result.results.map(row => row.id), [simple.id], preference);
+    assert.deepEqual(result.results.map(row => row.id), [simple.id, dense.id], preference);
+    assert.match(result.results[1].reason, /denser than requested/);
+    assert.equal(result.results[1].evidence.dense_layout, true);
+    assert.equal(result.interpreted_query.derived_constraints.density, 'low');
     assert.equal(result.insufficient_matches, true);
     assert.equal(result.next_cursor, null);
   }
-  const empty = await engine([dense, unrelated]).search({query: 'simpler finance dashboard designs'});
-  assert.equal(empty.results.length, 0);
-  assert.equal(empty.exhausted, true);
+  const sparse = await engine([dense, unrelated]).search({query: 'simpler finance dashboard designs'});
+  assert.deepEqual(sparse.results.map(row => row.id), [dense.id], 'the unrelated orb is never padded in');
+  assert.equal(sparse.exhausted, true);
 });
 
-test('layout contradictions use prose evidence across subjects, including hidden notes', async () => {
+test('layout contradictions use prose evidence across subjects, including hidden notes, and rank last', async () => {
   for (const subject of ['dashboard', 'landing page', 'kanban board']) {
     const capturedAt = new Date().toISOString();
     const rows = normalizeRows({capturedAt, rows: [
@@ -154,7 +165,9 @@ test('layout contradictions use prose evidence across subjects, including hidden
     rows[0].text += ' ' + rows[0].searchOnly;
     const e = new SearchEngine({snapshotId: subject, capturedAt, rows}, {embed});
     const result = await e.search({query: `simple ${subject}`, subjects: [subject]});
-    assert.deepEqual(new Set(result.results.map(row => row.id)), new Set([rows[1].id, rows[2].id]), subject);
+    assert.deepEqual(new Set(result.results.slice(0, 2).map(row => row.id)), new Set([rows[1].id, rows[2].id]), subject);
+    assert.equal(result.results[2].id, rows[0].id);
+    assert.match(result.results[2].reason, /denser than requested/);
     const broad = await e.search({query: subject, subjects: [subject]});
     assert.equal(broad.results.length, 3, 'ordinary subject searches retain dense layouts');
   }

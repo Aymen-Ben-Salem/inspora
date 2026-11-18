@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "inspora": {
+      "type": "http",
+      "url": "https://mcp.inspora.design/mcp"
+    }
+  }
+}

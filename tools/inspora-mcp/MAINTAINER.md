@@ -18,7 +18,7 @@ Completion means the selected client can reach Inspora and return credited publi
 
 Phase 1E will evaluate a hosted MCP URL before the team trial and Phase 2 reference uploads. Target: add the connection, authorize access, search; no repository or model download for testers. Hosting, authentication, shared-index freshness, actual operating cost and clean-machine client checks must be settled before claiming this experience works. The current local MCP and one-minute refresh remain unchanged. The catalog feed URL below is not an MCP endpoint.
 
-Retrieval-only stdio MCP for Claude Code and Codex, supplied by an authenticated production catalog feed. The MCP runs locally; the catalog service runs online. The MCP page remains unpublished. Uploaded reference images remain required **Phase 2** work.
+Retrieval-only stdio MCP for Claude Code and Codex, supplied by an authenticated production catalog feed. The MCP runs locally; the catalog service runs online. The MCP page remains unpublished. Uploaded reference images are deferred to the unscheduled future backlog.
 
 ## Setup
 
@@ -70,11 +70,12 @@ Session-only Codex overrides are also supported. Include the same absolute `--co
 ## Tools and limits
 
 - `search_inspiration`: written idea or existing Inspora link; ten candidates by default, 1–20 allowed; explicit kinds and AND filters; compact or links-only output. `search_coverage` reports eligible catalog size, candidates after hard filters and qualifying matches by kind for the full query, including across continuation. It does not measure every possible search angle or human usefulness. Hard filters are never relaxed. Similarity is based on metadata, not a verified visual match. Presentation defaults to up to ten direct references and, when direct coverage is sparse, up to five useful adaptation references in a separate table.
-- `get_work`: details and a prepared still for one eligible work. Request `detail=study` for available timestamped motion sheets; `preview.study.available` says whether sheets were attached and gives the reason when not. A `legacy_low_resolution_thumbnail` status marks the small fallback image used when no prepared pack exists. Choose `preview=link` for media links or `preview=none` for text only.
-- `get_works`: up to six eligible IDs with stills and per-work image availability. Use it to inspect a shortlist without six separate tool calls.
+- `get_work`: details and a prepared still for one eligible work. Request `detail=study` for available timestamped motion sheets; `preview.study.available` says whether sheets were attached and gives the reason when not (also with `preview=none`). A `legacy_low_resolution_thumbnail` status marks the small fallback image used when no prepared pack exists. Choose `preview=link` for media links or `preview=none` for text only.
+- `get_works`: up to six eligible IDs with stills and per-work image availability; `detail=study` adds motion sheets within the shared budget. Use it to inspect a shortlist without six separate tool calls.
+- Each attached image follows a short text label (`Image N · title by creator · id · role · t=…`). Inline images are bounded to 900,000 base64-encoded bytes per reply. Assets that do not fit are listed in `preview.omitted_roles` with `budget_reached`, and partial study sets are flagged; a valid pack stopped by the budget is never replaced by a legacy thumbnail. Request such a work alone. When a full study set does not fit, the overview (the same frames as the detail sheets at lower resolution) is dropped first if the still and every detail sheet then fit; otherwise the overview is kept for full time coverage and detail sheets are added in order.
 - `catalog_status`: date, counts, enrichment, ranking and synchronization health. Without a configured source it remains a dated offline snapshot.
 
-Discovery is bounded to 12,000 JSON characters, details to 10,000. These are prototype limits, not a cap on a host assistant's total token bill. Continuations are query-bound, single-use, non-repeating and expire after 15 minutes. An index refresh invalidates them. No automatic page draining. Insufficient results and unverified alternatives are explicitly labeled.
+Discovery is bounded to 12,000 JSON characters, details to 10,000. These are prototype limits, not a cap on a host assistant's total token bill. Continuations are query-bound and non-repeating, and expire 15 minutes after the original search. Re-reading a cursor with the same page settings returns the same page and next cursor, as on the hosted server. An index refresh invalidates them. No automatic page draining. Insufficient results and unverified alternatives are explicitly labeled.
 
 All source text and input URLs are untrusted data. The server cannot fetch arbitrary URLs, upload images, edit records, or access admin/payment tools. It does not load repository environment files. Results sent to the host remain subject to that host's normal provider usage.
 
@@ -100,7 +101,7 @@ While the MCP is running, a separate worker checks the configured feed every 60 
 
 The worker rejects oversized/malformed/stale/future/out-of-order/conflicting snapshots, retries on the next poll, and atomically publishes complete indexes. Shared-directory writers serialize updates. Failures preserve the last complete index, expose an error and mark the catalog stale after three minutes. Unchanged content preserves continuation cursors; actual content changes invalidate them. `catalog_status.synchronization` reports the last success, failures, worker health and staleness.
 
-The configured feed may alternatively use HTTPS; redirects, URL credentials and query strings are rejected. Shared authentication uses `INSPORA_CATALOG_TOKEN` or the connection file, never a secret in the URL. A shared catalog feed is not a hosted MCP endpoint: Claude Code and Codex still run the stdio server locally. External reference uploads remain Phase 2.
+The configured feed may alternatively use HTTPS; redirects, URL credentials and query strings are rejected. Shared authentication uses `INSPORA_CATALOG_TOKEN` or the connection file, never a secret in the URL. A shared catalog feed is not a hosted MCP endpoint: Claude Code and Codex still run the stdio server locally. External reference uploads are deferred to the future backlog.
 
 ## Offline rebuild and verification
 
@@ -121,8 +122,8 @@ Open `tools/inspora-mcp/evaluation-results/review.html` to score the twenty requ
 
 The user confirmed the prepared search review on November 12; no numerical score sheet was supplied. The benchmark remains at least four useful results among six on sixteen of twenty requests. Agent-run Codex and Claude Code checks have passed, but the user's and teammates' own installation/use has not yet been tested. Preparing configuration alone is not a successful client check.
 
-## Phase 2
+## Uploaded reference images (deferred)
 
-External uploaded reference images are planned, not implemented. Decide formats/size, storage/retention, privacy, access, model/compute cost and visual matching criteria first. Evaluate genuinely external references. Multiple references and motion uploads need separate decisions.
+External uploaded reference images are deferred to the unscheduled future backlog, not implemented. Decide formats/size, storage/retention, privacy, access, model/compute cost and visual matching criteria first. Evaluate genuinely external references. Multiple references and motion uploads need separate decisions.
 
 Client references checked November 11, 2026: [Codex MCP](https://developers.openai.com/codex/mcp), [Claude Code MCP](https://code.claude.com/docs/en/mcp), [MCP SDK](https://ts.sdk.modelcontextprotocol.io/server).

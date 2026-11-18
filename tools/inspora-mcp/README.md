@@ -20,6 +20,8 @@ Complete the browser sign-in and choose **Allow connection**. The skills install
 
 ## Set up manually
 
+On Windows PowerShell, if `npx` is blocked by the script execution policy, run the same command with `npx.cmd`, or use Command Prompt.
+
 ### 1. Connect Inspora
 
 In your agent's MCP settings, add this server URL:
@@ -76,6 +78,8 @@ npx skills list -g --agent codex
 
 For Claude Code, use `--agent claude-code`. A successful file listing confirms installation; the agent's available skills confirm it has loaded them.
 
+Then ask your agent to call Inspora `catalog_status`. Inspora is ready when it reports a `search_revision`, work counts and `catalog_state` ready. If it says updating, retry after the seconds it gives.
+
 Now ask:
 
 > Use Inspora to find ten dark website hero sections with bold typography. Include links.
@@ -85,6 +89,8 @@ You should receive relevant references with creator credits and Inspora links, o
 ## If something needs attention
 
 - **Inspora already exists:** check that its saved URL is `https://mcp.inspora.design/mcp`, then use that connection.
+- **An older Inspora is used instead:** an earlier local or project `inspora` entry can take precedence. List entries with `claude mcp list` or `codex mcp list`, remove the old one (for example `claude mcp remove inspora --scope project` or `--scope local`, or `codex mcp remove inspora`), then add the hosted URL again.
+- **`mcp login` is not recognized:** update your agent's CLI to its current version, or sign in from its MCP settings (`/mcp` in Claude Code).
 - **Sign-in required:** authenticate Inspora in your client's MCP settings. Existing users only need to sign in again when the client requests it.
 - **Access denied:** the trial requires an approved Inspora team/admin account. Contact the team if you need access.
 - **Command not found:** use the client's MCP settings if its CLI is unavailable. For `npx`, install the current Node.js LTS release and reopen your terminal.

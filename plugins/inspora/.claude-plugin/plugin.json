@@ -1,0 +1,13 @@
+{
+  "name": "inspora",
+  "displayName": "Inspora",
+  "version": "0.1.2",
+  "description": "Inspora design-inspiration search for the Inspora team: the hosted Inspora MCP (team OAuth sign-in required) plus the inspora-discovery and inspora-design-direction skills.",
+  "author": {
+    "name": "Inspora",
+    "url": "https://www.inspora.design"
+  },
+  "homepage": "https://mcp.inspora.design/setup",
+  "repository": "https://github.com/Aymen-Ben-Salem/inspora",
+  "keywords": ["inspora", "design", "inspiration", "references", "mcp"]
+}

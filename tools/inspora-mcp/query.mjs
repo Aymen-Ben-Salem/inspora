@@ -1,4 +1,5 @@
 import {tokens,normalizedPhrase,designVocabulary} from './relevance.mjs';
+import {englishWords} from './english-words.mjs';
 
 // Bounded Damerau-Levenshtein distance handles adjacent transpositions too.
 function distance(a,b,limit) {
@@ -19,22 +20,49 @@ function distance(a,b,limit) {
 const quoted=/"[^"\n]*"|\u201c[^\u201d\n]*\u201d|'[^'\n]+'|`[^`\n]*`/g;
 const letters=/[\p{L}\p{N}]+/gu;
 const normalizedWord=word=>normalizedPhrase(word);
+// Common English derivational/inflectional endings. A word whose base is a real word is real too.
+const suffixes=/(?:ies|es|s|ed|ing|ers?|est|ly|ally|al|ness|ments?|ity|ive|ions?|able|ful|less|ists?|isms?|i[sz]e[sd]?)$/;
+
+// High-frequency function words of the major Latin-script languages, omitting the forms
+// most common in English briefs (a, e, o, in, come, non, no, do, as, lo). Two distinct
+// ones that outnumber English function words mark an untranslated brief.
+const functionWords=Object.entries({
+  french:'le les des du une un pour et est avec dans sur par aux au ce cette ces qui que pas plus mais sont nous vous ils elle leur tr\u00e8s comme sans entre mon notre votre de en',
+  spanish:'el los las del una unos unas es con por para pero sin muy como su sus al m\u00e1s est\u00e1 son de en que',
+  portuguese:'os das dos um uma \u00e9 com para por n\u00e3o mais muito como seu sua na nos nas em de que',
+  italian:'il gli per con della delle dei degli del una uno \u00e8 che sono pi\u00f9 nel nella alla di da',
+  german:'der die das und ist mit f\u00fcr ein eine einen einem dem den des nicht auf von zu im ich wir sie auch oder aber wie',
+}).map(([language,list])=>[language,new Set(list.split(' '))]);
+const englishFunctionWords=new Set('the of for with and or to in on at by is are my our your this that from as but an a it be'.split(' '));
+export function untranslatedLanguage(text) {
+  const words=new Set((String(text).toLowerCase().normalize('NFC').match(/\p{L}+/gu)??[]));
+  const english=[...words].filter(word=>englishFunctionWords.has(word)).length;
+  const [language,hits]=functionWords.map(([name,set])=>[name,[...words].filter(word=>set.has(word)).length]).sort((a,b)=>b[1]-a[1])[0];
+  return hits>=2&&hits>english?language:null;
+}
+
+const rewriteRequired='QUERY_REWRITE_REQUIRED: translate search instructions into concise English, preserve constraints, quote unchanged names, and retry once. For an already-English unfamiliar subject, supply explicit subjects. This is not an empty-catalog result.';
 
 export function prepareSearchQuery(args,df) {
   if(!args.query)return {query:'',corrections:[]};
   const original=args.query,unquoted=original.replace(quoted,part=>' '.repeat(part.length));
-  const raw=unquoted.match(letters)??[],inVocabulary=word=>designVocabulary.has(normalizedWord(word))||df.has(normalizedWord(word));
+  if(untranslatedLanguage(unquoted))throw Error(rewriteRequired);
+  const raw=unquoted.match(letters)??[],english=englishWords();
+  const inVocabulary=word=>designVocabulary.has(normalizedWord(word))||df.has(normalizedWord(word))||english.has(word);
+  // Real English words are never "corrected" into catalog words (patient is not payment).
   const known=word=>{
-    if(inVocabulary(word))return true;
-    const stem=word.toLowerCase().replace(/(?:al|ly|ed|ing)$/,'');
-    return stem.length>=4&&stem!==word.toLowerCase()&&[stem,stem+'e',stem.replace(/(.)\1$/,'$1')].some(inVocabulary);
+    const value=word.toLowerCase().normalize('NFKC');
+    if(inVocabulary(value))return true;
+    const stem=value.replace(suffixes,'');
+    return stem.length>=3&&stem!==value&&[stem,stem+'e',stem+'y',stem.replace(/(.)\1$/,'$1')].some(inVocabulary);
   };
   const vocabulary=new Set([...designVocabulary,...[...df].filter(([,count])=>count>=3).map(([term])=>term)]);
   const corrections=[];
   for(const word of new Set(raw)){
     const value=word.toLowerCase().normalize('NFKC');
     if(value.length<4||known(word)||!/^[a-z]+$/i.test(value)||/^[A-Z]/.test(word))continue;
-    const limit=value.length>=7?2:1;let best=limit+1,choices=[];
+    // Edit budget grows with length: one edit below nine letters, two from nine.
+    const limit=value.length>=9?2:1;let best=limit+1,choices=[];
     for(const candidate of vocabulary){
       if(candidate[0]!==value[0])continue;
       const forms=[candidate];
@@ -55,8 +83,7 @@ export function prepareSearchQuery(args,df) {
   const unexplained=meaningful.some(word=>!known(word)&&!replacements.has(word));
   // Do not label an uninterpreted request as a catalog shortage. The host already
   // has translation capability; explicit subjects preserve unfamiliar English names.
-  if(nonLatin||!args.subjects&&meaningful.length>=2&&!meaningful.some(known)&&unexplained)
-    throw Error('QUERY_REWRITE_REQUIRED: translate search instructions into concise English, preserve constraints, quote unchanged names, and retry once. For an already-English unfamiliar subject, supply explicit subjects. This is not an empty-catalog result.');
+  if(nonLatin||!args.subjects&&meaningful.length>=2&&!meaningful.some(known)&&unexplained)throw Error(rewriteRequired);
   return {query,corrections};
 }
 

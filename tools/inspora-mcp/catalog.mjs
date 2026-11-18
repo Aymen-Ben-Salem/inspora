@@ -3,10 +3,17 @@ import {parseEnrichment,currentEnrichment} from './enrichment.mjs';
 export const KINDS=['design','website','logo','icon'];
 export const tagFields=['category','industries','styles','colors','categories','themes','technologies','industry','shape'];
 export const sha=x=>crypto.createHash('sha256').update(typeof x==='string'?x:JSON.stringify(x)).digest('hex');
-export const clean=(s,n=800)=>String(s??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'').slice(0,n);
+// With boundary (display excerpts), over-long text ends at a word boundary with an ellipsis.
+// Stored catalog text keeps the plain cut so fingerprints and hashes are unchanged.
+export const clean=(s,n=800,boundary=false)=>{
+ const text=String(s??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'');
+ if(!boundary||text.length<=n)return text.slice(0,n);
+ const cut=text.slice(0,n-1),space=cut.search(/\s\S*$/);
+ return (space>n*.6?cut.slice(0,space):cut).replace(/[\s,;:\-]+$/,'')+'…';
+};
 export function eligible(r,at=Date.now()){return KINDS.includes(r.kind)&&r.status==='published'&&r.creator_visible===true&&Number.isFinite(Date.parse(r.published_at))&&Date.parse(r.published_at)<=at&&(r.kind!=='website'||r.media?.some(m=>m.type==='recording'&&m.poster&&m.preview!=null)&&r.media?.some(m=>m.type==='favicon'));}
 export function publicUrl(r){if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(r.slug))throw Error('Invalid catalog slug');return 'https://www.inspora.design/'+(r.kind==='design'?'posts/'+r.slug:r.kind==='website'?'websites?website='+r.slug:'logos?logo='+r.slug);}
-export function resolveReference(raw,rows){let u;try{u=new URL(raw);}catch{throw Error('INVALID_REFERENCE: use a public Inspora work link');}if(u.protocol!=='https:'||!['inspora.design','www.inspora.design'].includes(u.hostname)||u.port||u.username||u.password||u.hash)throw Error('INVALID_REFERENCE: external or credential-bearing URLs are not supported; uploaded images are Phase 2');let slug,kinds;
+export function resolveReference(raw,rows){let u;try{u=new URL(raw);}catch{throw Error('INVALID_REFERENCE: use a public Inspora work link');}if(u.protocol!=='https:'||!['inspora.design','www.inspora.design'].includes(u.hostname)||u.port||u.username||u.password||u.hash)throw Error('INVALID_REFERENCE: only public inspora.design work links are supported; for other references, describe them in query');let slug,kinds;
 if(/^\/posts\/[a-z0-9]+(?:-[a-z0-9]+)*\/?$/.test(u.pathname)&&!u.search){slug=u.pathname.split('/')[2];kinds=['design'];}
 else if(u.pathname==='/logos'&&[...u.searchParams.keys()].length===1&&u.searchParams.has('logo')){slug=u.searchParams.get('logo');kinds=['logo','icon'];}
 else if(u.pathname==='/websites'&&[...u.searchParams.keys()].length===1&&u.searchParams.has('website')){slug=u.searchParams.get('website');kinds=['website'];}

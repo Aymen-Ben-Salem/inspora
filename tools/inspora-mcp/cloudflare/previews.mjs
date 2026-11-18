@@ -1,5 +1,5 @@
 import {mediaFingerprint} from '../enrichment.mjs';
-import {preparedVisuals,LEGACY_STATUS} from '../visuals.mjs';
+import {preparedVisuals,encodedBytes,LEGACY_STATUS,VISUAL_BUDGET_STATUS} from '../visuals.mjs';
 
 export const MAX_PREVIEW_BYTES=256000;
 export const previewKey=row=>`mcp/hosted/v1/previews/${mediaFingerprint(row)}.png`;
@@ -24,10 +24,12 @@ export async function hostedVisuals(bucket,row,options) {
     const bytes=new Uint8Array(await object.arrayBuffer());
     return bytes.length<=limit?bytes:null;
   },options);
-  if(pack.images.length||options.budget<4)return pack;
+  // A valid pack stopped by the budget is reported as such, never replaced by a legacy thumbnail.
+  if(pack.images.length||pack.truncated)return pack;
+  if(options.budget<4)return {...pack,status:VISUAL_BUDGET_STATUS,truncated:true};
   const legacy=await selectedPreview(bucket,row);
-  if(legacy.bytes&&legacy.bytes.length<=options.budget){
+  if(legacy.bytes&&encodedBytes(legacy.bytes.length)<=options.budget){
     return {status:LEGACY_STATUS,images:[{bytes:legacy.bytes,mimeType:'image/png'}]};
   }
-  return {...pack,status:legacy.bytes?'Image response budget reached; use the public link.':legacy.status};
+  return legacy.bytes?{...pack,status:VISUAL_BUDGET_STATUS,truncated:true,omitted_roles:['legacy_thumbnail']}:{...pack,status:legacy.status};
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "inspora",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Inspora design-inspiration search for the Inspora team: the hosted Inspora MCP (team OAuth sign-in required) plus the inspora-discovery and inspora-design-direction skills.",
   "author": {
     "name": "Inspora",

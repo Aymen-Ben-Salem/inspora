@@ -33,9 +33,9 @@ Pro-policy tool calls are limited to 30 per minute and 500 per day across client
 
 ## Team allowlist and offboarding
 
-Consent is checked against the website's MCP allowlist only when a client connects; refresh tokens stay valid for up to 30 days. Set `TEAM_USER_IDS` (comma-separated `user_…` IDs) in the release configuration to also check membership on every authenticated call. Unset or blank keeps the current behaviour; a malformed list fails closed with 503; non-members receive 403 `TEAM_ACCESS_REQUIRED`.
+Consent is checked against the website's MCP allowlist only when a client connects; refresh tokens stay valid for up to 30 days. The Worker secret `TEAM_USER_IDS` (comma-separated `user_…` IDs) also checks membership on every authenticated call; set it with `wrangler secret put TEAM_USER_IDS --config <release config>` so deploys keep it. Unset or blank keeps the current behaviour; a malformed list fails closed with 503; non-members receive 403 `TEAM_ACCESS_REQUIRED`.
 
-To offboard someone: remove them from the website allowlist (blocks new consent) and from `TEAM_USER_IDS` (blocks existing tokens on their next call), then redeploy with the release configuration. To also delete their grants, list `grant:<userId>:` keys in the OAuth KV namespace and delete each grant and its `token:<userId>:<grantId>:` keys, or call the provider's `revokeGrant`.
+To onboard someone, add their ID to the website allowlist and to `TEAM_USER_IDS`; a member missing from the secret signs in but gets 403 on every call. To offboard someone: remove them from the website allowlist (blocks new consent) and from `TEAM_USER_IDS` (blocks existing tokens on their next call). `wrangler secret put` replaces the whole list, so send every remaining ID; it takes effect without a redeploy. To also delete their grants, list `grant:<userId>:` keys in the OAuth KV namespace and delete each grant and its `token:<userId>:<grantId>:` keys, or call the provider's `revokeGrant`.
 
 ## Observability
 

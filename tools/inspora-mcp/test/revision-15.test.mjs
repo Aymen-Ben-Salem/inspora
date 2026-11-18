@@ -148,3 +148,20 @@ test('with no brief word in the catalog, a fully shown explicit context admits w
  assert.equal(result.results[0].id,order.id);
  assert.deepEqual(result.results[0].evidence.context,{matched:['food']});
 });
+
+test('a phrase never starts or ends inside a hyphen-joined compound, in public text or notes',async()=>{
+ const macos={...work(1),title:'MacOS',description:'A window-control concept with controller-like window buttons.',media:[{type:'image',url:'https://media.inspora.design/a.webp'}]};
+ const ticket={...work(2),title:'Ticket card',description:'A card on a grey page.',searchOnly:'A ticket-like button sits below.',media:[{type:'video',url:'https://media.inspora.design/b.mp4'}]};
+ const like={...work(3),title:'Like button',description:'A heart like button bursts when tapped.',media:[{type:'video',url:'https://media.inspora.design/c.mp4'}]};
+ const sleep={...work(4),title:'Sleep board',description:'A sleep-tracking dashboard.'};
+ const signature={...work(5),title:'Sign',description:'An e-signature field for contracts.'};
+ const button={...work(6),title:'Event button',description:'An add-to-calendar button.'};
+ const e=flat([macos,ticket,like,sleep,signature,button]);
+ const result=await e.search({query:'like button tap animation',kinds:['design'],subjects:['like button']});
+ assert.deepEqual(result.results.filter(r=>r.match==='subject').map(r=>r.id),[like.id],'controller-like and ticket-like supply no "like"');
+ const tiers=result.results.map(r=>[r.match,r.evidence.media]);
+ assert.ok(tiers.every(([match,media],i)=>media==='video'||!tiers.slice(i+1).some(([other,m])=>other===match&&m==='video')),'no still precedes a video of its tier');
+ assert.equal((await e.search({query:'sleep tracker',subjects:['sleep tracker']})).results[0].evidence.subject.matched_as,'derived','a compound wholly inside the phrase still counts');
+ assert.equal((await e.search({query:'signature field',subjects:['signature field']})).results[0].id,signature.id,'a short prefix (e-) does not bind');
+ assert.ok(!(await e.search({query:'calendar',subjects:['calendar']})).results.some(r=>r.id===button.id&&r.match==='subject'),'add-to-calendar names a button, not a calendar');
+});

@@ -168,10 +168,33 @@ const withParents = set => { for (const subject of [...set]) if (parents.has(sub
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
 export const designVocabulary = new Set([...stop, ...aliases.keys(), ...wordAliases.values(), 'red orange yellow green blue purple pink black white gray grey brown glass clean simple spacious uncluttered dark light modern'.split(' ')].flatMap(value => words(value)));
 
-const subjectMentions = text => [...normalized(text).matchAll(pattern)].map(match => {
-  const start = match.index + (match[0].startsWith(' ') ? 1 : 0);
-  return {from: match[1], to: aliases.get(match[1]), start, end: start + match[1].length};
-});
+// The words of a text with their hyphen-joined compounds ("controller-like" is one
+// compound of two words). A word is bound on a side when a compound part of three or more
+// letters joins it there, so "e-signature" still yields a free "signature".
+function wordSpans(text) {
+  const spans = [];
+  for (const [token] of negated(String(text ?? '').toLowerCase().normalize('NFKC')).matchAll(/[\p{L}\p{N}]+(?:[-\u2010\u2011][\p{L}\p{N}]+)*/gu)) {
+    const parts = words(token);
+    parts.forEach((word, i) => spans.push({word, parts, boundLeft: parts.slice(0, i).some(part => part.length > 2), boundRight: parts.slice(i + 1).some(part => part.length > 2)}));
+  }
+  return spans;
+}
+// A phrase never starts or ends inside a hyphen-joined compound: "controller-like window
+// buttons" does not supply "like", nor "add-to-calendar button" a calendar.
+const subjectMentions = text => {
+  const spans = wordSpans(text), joined = spans.map(({word}) => word).join(' ');
+  const wordAt = offset => joined.slice(0, offset).split(' ').length - 1;
+  return [...(' ' + joined).slice(1).matchAll(pattern)].map(match => {
+    const start = match.index + (match[0].startsWith(' ') ? 1 : 0);
+    return {from: match[1], to: aliases.get(match[1]), start, end: start + match[1].length};
+  }).filter(({start, end}) => !spans[wordAt(start)]?.boundLeft && !spans[wordAt(end - 1)]?.boundRight);
+};
+// Free words (not bound inside a compound) and the compounds, for literal subject evidence.
+function compoundWords(text) {
+  const spans = wordSpans(text);
+  return {free: new Set(spans.filter(span => !span.boundLeft && !span.boundRight).map(({word}) => word)),
+    compounds: [...new Map(spans.filter(span => span.parts.length > 1).map(({parts}) => [parts.join('-'), parts])).values()]};
+}
 const subjectsIn = text => [...new Set(subjectMentions(text).map(({to}) => to))];
 export const isSubjectPhrase = phrase => aliases.has(normalized(phrase));
 // A subject concept and its familiar alternative names (toggle: toggle switch).
@@ -299,11 +322,11 @@ export function prepareDocument(row) {
     sourceText: row.text,
     terms: new Set([...tokens(lexicalText), ...publicTerms]),
     titleTerms: new Set(tokens(row.title)),
-    visibleWords: new Set(words(visibleText)),
+    visibleWords: compoundWords(visibleText),
     primaryTerms: new Set(tokens(primaryText)),
     // Stemmed evidence for literal subjects. Modifiers may come from industry/category
     // taxonomy (an AI agent card), never from the format category (Product, Motion).
-    primaryWords: wordSet(primaryText), publicWordSet: wordSet([row.title, row.description, row.tagline].join('. ')),
+    primaryWords: compoundWords(primaryText), publicWordSet: compoundWords([row.title, row.description, row.tagline].join('. ')),
     tagWords: wordSet([row.industry, ...(row.industries ?? []), ...(row.categories ?? [])].filter(Boolean).join(' ')),
     // Shape and theme taxonomy describe what a work depicts (an Animal mark), so they can
     // evidence a literal subject itself, not only its modifiers.
@@ -413,11 +436,15 @@ function subjectUnits(subject) {
     ...required.filter(term => !covered.has(term)).map(term => ({text: term, terms: [term]}))]
     .map(unit => ({...unit, head: unit.terms.includes(required.at(-1))}));
 }
-function unitShown(document, scope, unit, related) {
+function unitShown(document, scope, unit, related, required = unit.terms) {
   const subjectSet = scope === 'public' ? document.publicSubjects : scope === 'contains' ? document.mentionedSubjects : document.primarySubjects;
   const wordsIn = scope === 'public' ? document.publicWordSet : scope === 'contains' ? document.visibleWords : document.primaryWords;
   const has = related ? hasFamily : hasForm;
-  const shown = term => has(wordsIn, term) || has(document.depictionWords, term);
+  // A word inside a compound counts only when the compound's other parts belong to the same
+  // subject (sleep-tracking for "sleep tracker"; never controller-like for "like button").
+  const inPhrase = part => part.length <= 2 || required.some(term => has(new Set([part]), term));
+  const shown = term => has(wordsIn.free, term) || has(document.depictionWords, term) ||
+    wordsIn.compounds.some(parts => parts.some(part => has(new Set([part]), term)) && parts.every(inPhrase));
   // The head noun must be visible; a modifier may also come from the work's
   // industry/category taxonomy ("AI agent") or its kind ("logo animation").
   if (unit.concept && subjectSet.has(unit.concept)) return true;
@@ -430,6 +457,7 @@ export function subjectEvidence(document, intent) {
     if (families.has(subject)) return subjectSet.has(subject);
     const units = subjectUnits(subject);
     const related = subjectTerms(subject).length > 1;
-    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related));
+    const required = subjectTerms(subject);
+    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related, required));
   });
 }

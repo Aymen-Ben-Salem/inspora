@@ -19,7 +19,7 @@ const bodySchema = z.object({
     current: z.record(z.string().max(30), z.string().max(4000)),
     media: z.array(z.object({ type: z.string().max(20), url: z.string().max(2000), posterUrl: z.string().max(2000), alt: z.string().max(500), width: z.number(), height: z.number() })).min(1).max(20),
   }),
-  images: z.array(z.object({ dataUrl: z.string().max(600_000), frameSeconds: z.number().finite().nonnegative().nullable() })).min(1).max(6),
+  images: z.array(z.object({ dataUrl: z.string().max(600_000), frameSeconds: z.number().finite().nonnegative().nullable(), mediaIndex: z.number().int().min(0).max(19).nullable().default(null) })).min(1).max(6),
   regeneration: z.uuid().optional(),
 });
 
@@ -27,7 +27,7 @@ const taxonomyFor = unstable_cache(async (kind: EditorialKind): Promise<Editoria
   const db = requireDatabase();
   const rows = kind === "design" ? await db.select({ industries: posts.industries, styles: posts.styles, colors: posts.colors }).from(posts).where(eq(posts.status, "published"))
     : kind === "website" ? await db.select({ categories: websites.categories, themes: websites.themes, colors: websites.colors }).from(websites).where(eq(websites.status, "published"))
-    : await db.select({ industry: logos.industry, styles: logos.styles, colors: logos.colors }).from(logos).where(and(eq(logos.status, "published"), eq(logos.kind, kind)));
+    : await db.select({ industry: logos.industry, shape: logos.shape, styles: logos.styles, colors: logos.colors }).from(logos).where(and(eq(logos.status, "published"), eq(logos.kind, kind)));
   const result: EditorialTaxonomy = {};
   for (const field of editorialFields[kind]) {
     if (["description", "tagline"].includes(field)) continue;
@@ -39,7 +39,7 @@ const taxonomyFor = unstable_cache(async (kind: EditorialKind): Promise<Editoria
   }
   if (kind === "design") result.category = await getDesignCategories();
   return result;
-}, ["editorial-taxonomy-v1"], { revalidate: 300 });
+}, ["editorial-taxonomy-v2"], { revalidate: 300 });
 
 export async function generateEditorial(raw: unknown, actorId: string) {
   if (process.env.EDITORIAL_GENERATION_ENABLED !== "true" || !process.env.OPENAI_API_KEY) {
@@ -48,7 +48,7 @@ export async function generateEditorial(raw: unknown, actorId: string) {
   const request = bodySchema.parse(raw);
   const snapshot = editorialSnapshot(request.kind, { ...request.snapshot.current, ...request.snapshot,
     media: request.snapshot.media.map(m => ({ ...m, ...(request.kind === "website" ? { role: m.type } : {}) })) });
-  const images: { dataUrl: string; sha256: string; frameSeconds: number | null }[] = [];
+  const images: { dataUrl: string; sha256: string; frameSeconds: number | null; mediaIndex: number | null }[] = [];
   for (const image of request.images) {
     if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) throw new Error("Use JPEG visual samples.");
     const bytes = Buffer.from(image.dataUrl.split(",")[1], "base64");
@@ -56,10 +56,12 @@ export async function generateEditorial(raw: unknown, actorId: string) {
     if (meta.format !== "jpeg" || !meta.width || !meta.height || meta.width > 1024 || meta.height > 1024 || (meta.pages ?? 1) !== 1) {
       throw new Error("Visual samples must be still images within 1024 pixels.");
     }
+    if (image.mediaIndex !== null && !snapshot.media[image.mediaIndex]?.url) throw new Error("Visual samples must come from this work's media.");
     images.push({ ...image, sha256: createHash("sha256").update(bytes).digest("hex") });
   }
   const input = { kind: request.kind, title: snapshot.title, context: `Source: ${snapshot.sourceUrl}. Evidence is sampled from uploaded media; no external page was read.`,
     current: snapshot.current, taxonomy: await taxonomyFor(request.kind),
+    media: snapshot.media.map((item, index) => ({ index, type: item.type, alt: item.alt })),
     sourceVersion: createHash("sha256").update(JSON.stringify(snapshot)).digest("hex"), images };
   if (Buffer.byteLength(JSON.stringify({ ...input, images: [] })) > 32000) throw new Error("Work context is too large. Shorten the current fields.");
   const environment = process.env.DATA_ENVIRONMENT ?? "unknown";

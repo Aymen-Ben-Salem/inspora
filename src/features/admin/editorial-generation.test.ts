@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { selectedEditorialPatch, validateEditorialProposal } from "./editorial-contract";
+import { selectedAltPatch, selectedEditorialPatch, storedEditorialProposal, validateEditorialProposal } from "./editorial-contract";
 import { editorialCacheKey, editorialRequest, requestEditorialProposal, type EditorialGenerationInput } from "./editorial-generation";
 
 const proposal = {
   fields: [{ field: "description", value: "A compact storage interface uses colored blocks to show disk usage.", reason: "Describes the visible interface." }],
   hiddenNotes: { scope: "component", visualNotes: "Colored blocks organize file categories on a dark surface.", typography: null, typographyIsSubject: false },
+  mediaAlt: [] as { media: number; value: string; reason: string }[],
   uncertainty: [],
 };
 const bytes = Buffer.from("visual-evidence-fixture");
@@ -16,6 +17,29 @@ const input: EditorialGenerationInput = {
 };
 
 describe("editorial generation contract", () => {
+  it("suggests logo shape from the existing taxonomy and alt text only for sampled media", () => {
+    const shape = { ...proposal, fields: [{ field: "shape", value: "Wordmark", reason: "Lettering only" }] };
+    expect(validateEditorialProposal(shape, "logo", { shape: ["Wordmark", "Symbol"] }).fields[0].value).toBe("Wordmark");
+    expect(() => validateEditorialProposal({ ...shape, fields: [{ ...shape.fields[0], value: "Invented" }] }, "icon", { shape: ["Wordmark"] })).toThrow(/taxonomy/);
+    expect(() => validateEditorialProposal(shape, "design", { shape: ["Wordmark"] })).toThrow(/unsupported/);
+    const alt = { ...proposal, mediaAlt: [{ media: 0, value: "Dark storage panel with colored usage blocks", reason: "Visible" }] };
+    expect(validateEditorialProposal(alt, "design", {}, [0]).mediaAlt).toHaveLength(1);
+    expect(() => validateEditorialProposal(alt, "design", {}, [1])).toThrow(/sampled media/);
+    expect(() => validateEditorialProposal({ ...alt, mediaAlt: [...alt.mediaAlt, ...alt.mediaAlt] }, "design", {}, [0])).toThrow(/once each/);
+    expect(storedEditorialProposal({ ...proposal, mediaAlt: undefined }).mediaAlt).toEqual([]);
+    const validated = validateEditorialProposal(alt, "design", {}, [0]);
+    expect(selectedAltPatch({ proposal: validated, selected: [0], before: [{ alt: "" }], current: [{ alt: "" }] })).toEqual([{ media: 0, value: alt.mediaAlt[0].value }]);
+    expect(() => selectedAltPatch({ proposal: validated, selected: [0], before: [{ alt: "" }], current: [{ alt: "Typed" }] })).toThrow(/Alt text changed/);
+  });
+
+  it("tells the model which media each sample shows and keys the cache on it", () => {
+    const indexed = { ...input, media: [{ index: 0, type: "image", alt: "" }], images: [{ ...input.images[0], mediaIndex: 0 }] };
+    const text = JSON.parse((editorialRequest(indexed).input[0].content[0] as { text: string }).text);
+    expect(text.frames).toEqual([{ media: 0, seconds: null }]);
+    expect(text.media).toEqual([{ index: 0, type: "image", alt: "" }]);
+    expect(editorialCacheKey(indexed)).not.toBe(editorialCacheKey({ ...indexed, images: [{ ...input.images[0], mediaIndex: 1 }] }));
+  });
+
   it("rejects invented labels, duplicate fields and fields unavailable for the work kind", () => {
     const invalid = { ...proposal, fields: [{ field: "category", value: "Invented", reason: "Guess" }] };
     expect(() => validateEditorialProposal(invalid, "design", input.taxonomy)).toThrow(/taxonomy/);

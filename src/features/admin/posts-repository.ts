@@ -1,5 +1,5 @@
 import "server-only";
-import { prepareEditorialReview, saveEditorialReview } from "./editorial-review";
+import { prepareEditorialReview, refreshEditorialNotes, saveEditorialReview } from "./editorial-review";
 import { protectPublicationMedia } from "../submissions/publication-assets";
 
 import { randomUUID } from "node:crypto";
@@ -273,6 +273,7 @@ export async function updateAdminPost(
   input: AdminPostInput,
   adminPrincipal: AdminPrincipal,
 ) {
+  const editorial = await prepareEditorialReview("design", input, adminPrincipal.userId);
   return withWriteTransaction(async (tx) => {
     const [existing] = await tx
       .select()
@@ -317,6 +318,7 @@ export async function updateAdminPost(
     await tx.delete(postMedia).where(eq(postMedia.postId, id));
     await protectPublicationMedia(tx, input.media);
   await tx.insert(postMedia).values(mediaValues(id, input));
+    const notes = await refreshEditorialNotes(tx, id, "design", input, adminPrincipal.userId, editorial);
     await tx.insert(adminAuditLogs).values({
       actorId: adminPrincipal.userId,
       action: "post.updated",
@@ -335,6 +337,7 @@ export async function updateAdminPost(
       slug: input.slug,
       previousSlug: existing.slug,
       removedManagedMedia,
+      notesStale: notes === "stale",
     };
   });
 }

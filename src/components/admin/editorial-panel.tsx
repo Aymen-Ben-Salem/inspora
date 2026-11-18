@@ -1,20 +1,22 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { editorialProposalSchema, selectedEditorialPatch, type EditorialField, type EditorialKind, type EditorialProposal } from "@/features/admin/editorial-contract";
+import { selectedAltPatch, selectedEditorialPatch, storedEditorialProposal, type EditorialField, type EditorialKind, type EditorialProposal } from "@/features/admin/editorial-contract";
 import { snapshotFromForm, type EditorialSnapshot } from "@/features/admin/editorial-snapshot";
 import { prepareEditorialEvidence } from "@/features/admin/editorial-evidence";
 
 type Result = { id: string; proposal: EditorialProposal; before: EditorialSnapshot; costUsd: number; cached: boolean };
 const button = "focus-ring min-h-11 rounded-lg border border-black/15 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[#eeefeb] active:bg-[#e4e7e0] disabled:cursor-not-allowed disabled:opacity-45";
 const primary = `${button} !border-[#262626] !bg-[#262626] text-white hover:!bg-[#41413e]`;
-const label = (field: string) => ({ industries: "Industry", industry: "Industry", styles: "Style", colors: "Color", categories: "Categories", themes: "Theme", tagline: "Feed description", category: "Category", description: "Description" }[field] ?? field);
+const label = (field: string) => ({ industries: "Industry", industry: "Industry", shape: "Shape", styles: "Style", colors: "Color", categories: "Categories", themes: "Theme", tagline: "Feed description", category: "Category", description: "Description" }[field] ?? field);
+const mediaLabel = (kind: EditorialKind, index: number) => kind === "website" ? (index === 0 ? "Recording alt text" : "Favicon alt text") : kind === "design" ? `Alt text, media ${index + 1}` : "Alt text";
 
-export default function EditorialPanel({ kind, onCategory, autoStart = false }: { kind: EditorialKind; onCategory?: (value: string) => void; autoStart?: boolean }) {
+export default function EditorialPanel({ kind, onCategory, onMediaAlt, autoStart = false }: { kind: EditorialKind; onCategory?: (value: string) => void; onMediaAlt?: (index: number, value: string) => void; autoStart?: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const running = useRef(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [selected, setSelected] = useState<EditorialField[]>([]);
+  const [alts, setAlts] = useState<number[]>([]);
   const [notes, setNotes] = useState(true);
   const [review, setReview] = useState("");
   const [message, setMessage] = useState("");
@@ -37,12 +39,14 @@ export default function EditorialPanel({ kind, onCategory, autoStart = false }: 
         body: JSON.stringify({ kind, snapshot: before, images, ...(regenerate ? { regeneration: crypto.randomUUID() } : {}) }), signal: AbortSignal.timeout(85000) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Generation failed.");
-      const proposal = editorialProposalSchema.parse(body.proposal);
-      setResult({ ...body, proposal, before }); setSelected(proposal.fields.map(f => f.field)); setNotes(true);
+      const proposal = storedEditorialProposal(body.proposal);
+      // Alt text can only be applied when the editor exposes its media state.
+      const usable = onMediaAlt ? proposal : { ...proposal, mediaAlt: [] };
+      setResult({ ...body, proposal: usable, before }); setSelected(usable.fields.map(f => f.field)); setAlts(usable.mediaAlt.map(a => a.media)); setNotes(true);
       setMessage("Your suggestions are ready to review.");
     } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "Could not prepare suggestions. Try again when you are ready."); }
     finally { running.current = false; setBusy(false); }
-  }, [form, kind]);
+  }, [form, kind, onMediaAlt]);
   useEffect(() => {
     // The parent mounts this panel only after an explicit Generate click.
     // The ref also prevents a duplicate request under Strict Mode.
@@ -50,7 +54,7 @@ export default function EditorialPanel({ kind, onCategory, autoStart = false }: 
   }, [autoStart, generate]);
   async function decide(action: "applied" | "rejected") {
     if (!result) return;
-    const response = await fetch("/api/admin/editorial", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: result.id, selected, notes, action }) });
+    const response = await fetch("/api/admin/editorial", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: result.id, selected, alts, notes, action }) });
     if (!response.ok) throw new Error("The review could not be recorded. Try again.");
   }
   async function apply() {
@@ -60,6 +64,7 @@ export default function EditorialPanel({ kind, onCategory, autoStart = false }: 
       const current = snapshotFromForm(form(), kind);
       const patch = selectedEditorialPatch({ proposal: result.proposal, selected, before: result.before.current, current: current.current,
         sourceVersion: JSON.stringify(result.before), currentSourceVersion: JSON.stringify(current) });
+      const altPatch = selectedAltPatch({ proposal: result.proposal, selected: alts, before: result.before.media, current: current.media });
       await decide("applied");
       // Recheck after the audit request: don't overwrite edits made while awaiting it.
       if (JSON.stringify(snapshotFromForm(form(), kind)) !== JSON.stringify(current)) throw new Error("The work changed. Review it and generate again.");
@@ -71,7 +76,8 @@ export default function EditorialPanel({ kind, onCategory, autoStart = false }: 
           control.value = value; control.dispatchEvent(new Event("input", { bubbles: true }));
         }
       }
-      setReview(JSON.stringify({ id: result.id, selected, notes }));
+      for (const alt of altPatch) onMediaAlt?.(alt.media, alt.value);
+      setReview(JSON.stringify({ id: result.id, selected, alts, notes }));
       setMessage("Details added to your form. Nothing is published yet.");
     } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : "Could not apply suggestions."); }
     finally { setBusy(false); }
@@ -114,6 +120,15 @@ export default function EditorialPanel({ kind, onCategory, autoStart = false }: 
 
           </div>
         </div>)}
+        {result.proposal.mediaAlt.map(alt => <div key={`alt-${alt.media}`} className="grid gap-2 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4">
+          <label className="flex min-h-11 cursor-pointer items-start gap-2 pt-2 text-sm font-medium">
+            <input className="mt-0.5 size-4 shrink-0 accent-[#262626]" type="checkbox" disabled={busy || applied} checked={alts.includes(alt.media)} onChange={e => setAlts(values => e.target.checked ? [...values, alt.media] : values.filter(m => m !== alt.media))} />{mediaLabel(kind, alt.media)}
+          </label>
+          <div className="min-w-0 py-1 text-sm leading-relaxed">
+            <p className="whitespace-pre-wrap break-words">{alt.value}</p>
+            <p className="mt-1 text-xs text-[#62625d]">Read aloud by screen readers on the public page.</p>
+          </div>
+        </div>)}
         <div className="grid gap-2 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4">
           <label className="flex min-h-11 cursor-pointer items-start gap-2 pt-2 text-sm font-medium"><input className="mt-0.5 size-4 shrink-0 accent-[#262626]" type="checkbox" checked={notes} disabled={busy || applied} onChange={e => setNotes(e.target.checked)} />Search notes</label>
           <div className="min-w-0 py-1 text-sm leading-relaxed">
@@ -126,11 +141,12 @@ export default function EditorialPanel({ kind, onCategory, autoStart = false }: 
       </div>
       <details className="mt-2 text-sm text-[#62625d]">
         <summary className="focus-ring min-h-11 w-fit cursor-pointer py-3 underline-offset-4 hover:underline">Compare with current details</summary>
-        <dl className="divide-y divide-black/10">{result.proposal.fields.map(change => <div key={change.field} className="grid gap-1 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4"><dt className="font-medium">{label(change.field)}</dt><dd className="min-w-0 space-y-1"><p className="whitespace-pre-wrap break-words">{result.before.current[change.field] || "Empty"}</p><p className="text-xs leading-relaxed">{change.reason}</p></dd></div>)}</dl>
+        <dl className="divide-y divide-black/10">{result.proposal.fields.map(change => <div key={change.field} className="grid gap-1 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4"><dt className="font-medium">{label(change.field)}</dt><dd className="min-w-0 space-y-1"><p className="whitespace-pre-wrap break-words">{result.before.current[change.field] || "Empty"}</p><p className="text-xs leading-relaxed">{change.reason}</p></dd></div>)}
+          {result.proposal.mediaAlt.map(alt => <div key={`alt-${alt.media}`} className="grid gap-1 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:gap-4"><dt className="font-medium">{mediaLabel(kind, alt.media)}</dt><dd className="min-w-0 space-y-1"><p className="whitespace-pre-wrap break-words">{result.before.media[alt.media]?.alt || "Empty"}</p><p className="text-xs leading-relaxed">{alt.reason}</p></dd></div>)}</dl>
       </details>
       {result.proposal.uncertainty.length > 0 && <div className="mt-4 border-l-2 border-[#b48a3a] bg-[#faf5e9] px-4 py-3 text-sm leading-relaxed text-[#654c21]"><p className="font-medium">Worth a check</p><ul className="mt-1 list-disc space-y-1 pl-4">{result.proposal.uncertainty.map((text, i) => <li key={i}>{text}</li>)}</ul></div>}
       {!applied && <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" className={primary} disabled={busy || (!selected.length && !notes)} onClick={apply}>Use selected details</button>
+        <button type="button" className={primary} disabled={busy || (!selected.length && !alts.length && !notes)} onClick={apply}>Use selected details</button>
         <div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={busy} onClick={() => generate(true)}>Try again (paid)</button><button type="button" className={button} disabled={busy} onClick={dismiss}>Discard suggestions</button></div>
       </div>}
     </div>}

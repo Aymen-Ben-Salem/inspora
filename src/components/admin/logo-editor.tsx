@@ -11,7 +11,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { LOGO_KINDS, type LogoKind } from "@/domain/logo";
-import { EditorialAssistant } from "./editorial-assistant";
+import { EditorialAssistant, type EditorialNoteState } from "./editorial-assistant";
 import { UploadGuide, UploadSectionTitle, FileDetails } from "./upload-flow";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
@@ -40,6 +40,7 @@ function blankMedia(): MediaDraft {
 export function LogoEditor({
   action,
   editorialEnabled = false,
+  editorialStatus,
   guidedUpload = false,
   creators,
   logo,
@@ -56,6 +57,7 @@ export function LogoEditor({
     formData: FormData,
   ) => Promise<AdminActionState>;
   editorialEnabled?: boolean;
+  editorialStatus?: EditorialNoteState;
   guidedUpload?: boolean;
   creators: AdminCreatorAttribution[];
   logo?: AdminLogoRecord;
@@ -297,7 +299,7 @@ export function LogoEditor({
                 defaultValue={logo?.sourceUrl}
               />
             </label>
-            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant key={kind} kind={kind} hasMedia={!!media.url} /></div>}
+            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant key={kind} kind={kind} noteStatus={editorialStatus} hasMedia={!!media.url} onMediaAlt={(index, value) => { if (index === 0) updateMedia("alt", value); }} /></div>}
             <label className={`${labelClass} sm:col-span-2`}>
               Description
               <textarea

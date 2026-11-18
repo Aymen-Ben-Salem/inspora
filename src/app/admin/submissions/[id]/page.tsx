@@ -37,6 +37,7 @@ export default async function SubmissionReviewPage({
         categories={categories}
         acceptAction={acceptAndPublishAction.bind(null, submission.id)}
         rejectAction={rejectSubmissionAction.bind(null, submission.id)}
+        editorialEnabled={process.env.EDITORIAL_GENERATION_ENABLED === "true"}
       />
     </div>
   );

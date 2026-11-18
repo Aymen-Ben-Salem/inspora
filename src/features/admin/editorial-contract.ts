@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const editorialFields = {
   design: ["description", "category", "industries", "styles", "colors"],
-  logo: ["description", "industry", "styles", "colors"],
-  icon: ["description", "industry", "styles", "colors"],
+  logo: ["description", "industry", "shape", "styles", "colors"],
+  icon: ["description", "industry", "shape", "styles", "colors"],
   website: ["description", "tagline", "categories", "themes", "colors"],
 } as const;
 
@@ -13,17 +13,23 @@ export type EditorialValues = Partial<Record<EditorialField, string>>;
 export type EditorialTaxonomy = Partial<Record<EditorialField, string[]>>;
 
 const classificationFields = new Set<EditorialField>([
-  "category", "industries", "industry", "styles", "colors", "categories", "themes",
+  "category", "industries", "industry", "shape", "styles", "colors", "categories", "themes",
 ]);
-const singleFields = new Set<EditorialField>(["category", "industry"]);
+const singleFields = new Set<EditorialField>(["category", "industry", "shape"]);
 
 export const editorialProposalSchema = z.object({
   fields: z.array(z.object({
     field: z.enum([
       "description", "tagline", "category", "industries", "industry",
-      "styles", "colors", "categories", "themes",
+      "shape", "styles", "colors", "categories", "themes",
     ]),
     value: z.string().trim().max(4000),
+    reason: z.string().trim().min(1).max(400),
+  }).strict()).max(6),
+  // Alt text for sampled media only; `media` is the item's index in the work's media list.
+  mediaAlt: z.array(z.object({
+    media: z.number().int().min(0).max(19),
+    value: z.string().trim().min(1).max(200),
     reason: z.string().trim().min(1).max(400),
   }).strict()).max(6),
   hiddenNotes: z.object({
@@ -37,12 +43,26 @@ export const editorialProposalSchema = z.object({
 
 export type EditorialProposal = z.infer<typeof editorialProposalSchema>;
 
+/** Proposals stored before alt-text suggestions existed have no mediaAlt list. */
+export function storedEditorialProposal(raw: unknown): EditorialProposal {
+  const value = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as { mediaAlt?: unknown };
+  return editorialProposalSchema.parse({ ...value, mediaAlt: value.mediaAlt ?? [] });
+}
+
 export function validateEditorialProposal(
   input: unknown,
   kind: EditorialKind,
   taxonomy: EditorialTaxonomy,
+  sampledMedia: readonly number[] = [],
 ): EditorialProposal {
   const proposal = editorialProposalSchema.parse(input);
+  const altFor = new Set<number>();
+  for (const alt of proposal.mediaAlt) {
+    if (!sampledMedia.includes(alt.media) || altFor.has(alt.media)) {
+      throw new Error("Alt text may only describe sampled media, once each.");
+    }
+    altFor.add(alt.media);
+  }
   const supported: readonly string[] = editorialFields[kind];
   const seen = new Set<string>();
   for (const change of proposal.fields) {
@@ -100,4 +120,19 @@ export function selectedEditorialPatch({
     patch[field] = suggestion.value;
   }
   return patch;
+}
+
+/** Selected alt-text suggestions, rejecting media whose alt text changed after generation. */
+export function selectedAltPatch({ proposal, selected, before, current }: {
+  proposal: EditorialProposal;
+  selected: number[];
+  before: { alt: string }[];
+  current: { alt: string }[];
+}) {
+  return [...new Set(selected)].map((media) => {
+    const suggestion = proposal.mediaAlt.find((alt) => alt.media === media);
+    if (!suggestion || !before[media] || !current[media]) throw new Error("Selected alt text is unavailable.");
+    if (current[media].alt !== before[media].alt) throw new Error("Alt text changed. Review the current value first.");
+    return { media, value: suggestion.value };
+  });
 }

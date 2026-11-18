@@ -12,7 +12,7 @@ import {
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import { CategoryPicker } from "./category-picker";
-import { EditorialAssistant } from "./editorial-assistant";
+import { EditorialAssistant, type EditorialNoteState } from "./editorial-assistant";
 import { UploadGuide, UploadSectionTitle, FileDetails } from "./upload-flow";
 import { preserveFormDraft } from "./preserve-form-draft";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
@@ -48,6 +48,7 @@ function blankMedia(): MediaDraft {
 export function PostEditor({
   action,
   editorialEnabled = false,
+  editorialStatus,
   guidedUpload = false,
   creators,
   categories,
@@ -62,6 +63,7 @@ export function PostEditor({
 }: {
   action: (state: AdminActionState, formData: FormData) => Promise<AdminActionState>;
   editorialEnabled?: boolean;
+  editorialStatus?: EditorialNoteState;
   guidedUpload?: boolean;
   creators: AdminCreatorAttribution[];
   categories: string[];
@@ -335,7 +337,7 @@ export function PostEditor({
               Original project URL
               <input className={inputClass} name="sourceUrl" type="url" required defaultValue={post?.sourceUrl} />
             </label>
-            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant kind="design" hasMedia={media.some(item => !!item.url)} onCategory={setEditorialCategory} /></div>}
+            {editorialEnabled && <div className="sm:col-span-2"><EditorialAssistant kind="design" noteStatus={editorialStatus} hasMedia={media.some(item => !!item.url)} onCategory={setEditorialCategory} onMediaAlt={(index, value) => updateMedia(index, "alt", value)} /></div>}
             <label className={`${labelClass} sm:col-span-2`}>
               Description
               <textarea

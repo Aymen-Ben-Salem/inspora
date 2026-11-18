@@ -15,11 +15,13 @@ import { insertAdminLogoInTransaction } from "./logos-repository";
 import { insertAdminPostInTransaction } from "./posts-repository";
 import type { AdminLogoInput, AdminPostInput, AdminWebsiteInput } from "./types";
 import { insertAdminWebsiteInTransaction } from "./websites-repository";
+import { saveEditorialReview, type PreparedEditorialReview } from "./editorial-review";
 
-export type ReviewPublicationInput =
+type ReviewedEditorial = { editorial?: PreparedEditorialReview };
+export type ReviewPublicationInput = ReviewedEditorial & (
   | { kind: "design"; content: AdminPostInput }
   | { kind: "logo" | "app-icon"; content: AdminLogoInput }
-  | { kind: "website"; content: AdminWebsiteInput };
+  | { kind: "website"; content: AdminWebsiteInput });
 
 export type PublishReviewedWork = (
   tx: WriteTx,
@@ -61,6 +63,7 @@ export const publishReviewedWork: PublishReviewedWork = async (
       actorId,
       creatorId,
     );
+    await saveEditorialReview(tx, created.id, "design", reviewed.content, actorId, reviewed.editorial ?? null);
     return { kind: "design", id: created.id, href: `/posts/${created.slug}` };
   }
   if (reviewed.kind === "website") {
@@ -70,6 +73,7 @@ export const publishReviewedWork: PublishReviewedWork = async (
       actorId,
       creatorId,
     );
+    await saveEditorialReview(tx, created.id, "website", reviewed.content, actorId, reviewed.editorial ?? null);
     return {
       kind: "website",
       id: created.id,
@@ -82,6 +86,7 @@ export const publishReviewedWork: PublishReviewedWork = async (
     actorId,
     creatorId,
   );
+  await saveEditorialReview(tx, created.id, reviewed.content.kind, reviewed.content, actorId, reviewed.editorial ?? null);
   return {
     kind: "logo",
     id: created.id,

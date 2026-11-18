@@ -5,7 +5,7 @@ import {
   type EditorialKind, type EditorialTaxonomy, type EditorialValues,
 } from "./editorial-contract";
 
-export const EDITORIAL_PROMPT_VERSION = "2026-11-13-v2";
+export const EDITORIAL_PROMPT_VERSION = "2026-11-18-v3";
 export const EDITORIAL_TEST_CAP_USD = 2;
 export const EDITORIAL_MODEL = "gpt-6.1-sol";
 export const EDITORIAL_REASONING_EFFORT = "medium";
@@ -29,6 +29,10 @@ typography under scope brand even when typographyIsSubject=false. Do not classif
 Describe supported serif/sans-serif/monospaced/handwritten traits, weight, width, spacing, case and hierarchy.
 Never guess an exact font name. Symbol-only work requires no invented typography.
 Still images establish appearance. Claim motion only when ordered sampled frames support it, and disclose limited evidence.
+For logos and icons, set shape to the one taxonomy label that describes how the mark is built, only when clearly visible.
+mediaAlt: for each sampled media item (frames[].media) whose current alt text is empty, generic or inaccurate, write
+short factual alt text under 150 characters describing what is visible, such as the subject, layout and key colors.
+Never guess brand, person or font names and never start with "Image of". Omit items whose current alt text is accurate.
 Give a short reason for each proposed field and list uncertainties for the uploader's review.`;
 
 export type EditorialGenerationInput = {
@@ -38,20 +42,24 @@ export type EditorialGenerationInput = {
   current: EditorialValues;
   taxonomy: EditorialTaxonomy;
   sourceVersion: string;
-  images: { dataUrl: string; sha256: string; frameSeconds: number | null }[];
+  /** Current alt text by media index, so the model can judge whether to improve it. */
+  media?: { index: number; type: string; alt: string }[];
+  images: { dataUrl: string; sha256: string; frameSeconds: number | null; mediaIndex?: number | null }[];
 };
 
 function validatedInput(input: EditorialGenerationInput) {
   if (!Object.hasOwn(editorialFields, input.kind) || input.title.length > 200 ||
       input.context.length > 2000 || input.sourceVersion.length > 200 ||
       JSON.stringify(input.current).length > 12000 || JSON.stringify(input.taxonomy).length > 24000 ||
+      JSON.stringify(input.media ?? []).length > 12000 ||
       input.images.length < 1 || input.images.length > 6) {
     throw new Error("Editorial input exceeds its supported limits.");
   }
   for (const image of input.images) {
     if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl) ||
         image.dataUrl.length > 1_400_000 ||
-        (image.frameSeconds !== null && (!Number.isFinite(image.frameSeconds) || image.frameSeconds < 0))) {
+        (image.frameSeconds !== null && (!Number.isFinite(image.frameSeconds) || image.frameSeconds < 0)) ||
+        (image.mediaIndex != null && (!Number.isInteger(image.mediaIndex) || image.mediaIndex < 0 || image.mediaIndex > 19))) {
       throw new Error("Use bounded image evidence or sampled video frames.");
     }
     const bytes = Buffer.from(image.dataUrl.split(",")[1], "base64");
@@ -64,7 +72,7 @@ function validatedInput(input: EditorialGenerationInput) {
 
 export function editorialCacheKey(input: EditorialGenerationInput, model: string = EDITORIAL_MODEL) {
   validatedInput(input);
-  const payload = { ...input, images: input.images.map(({ sha256, frameSeconds }) => ({ sha256, frameSeconds })), model, reasoningEffort: EDITORIAL_REASONING_EFFORT, prompt: EDITORIAL_PROMPT_VERSION };
+  const payload = { ...input, images: input.images.map(({ sha256, frameSeconds, mediaIndex }) => ({ sha256, frameSeconds, mediaIndex: mediaIndex ?? null })), model, reasoningEffort: EDITORIAL_REASONING_EFFORT, prompt: EDITORIAL_PROMPT_VERSION };
   const canonical = JSON.stringify(payload, (_key, value) =>
     value && typeof value === "object" && !Array.isArray(value)
       ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
@@ -84,12 +92,15 @@ export function editorialRequest(input: EditorialGenerationInput, model: string 
     instructions: editorialInstructions,
     max_output_tokens: 2500,
     input: [{ role: "user", content: [
-      { type: "input_text", text: JSON.stringify({ ...context, supportedFields: editorialFields[input.kind], frames: images.map((image) => image.frameSeconds) }) },
+      { type: "input_text", text: JSON.stringify({ ...context, supportedFields: editorialFields[input.kind], frames: images.map((image) => ({ media: image.mediaIndex ?? null, seconds: image.frameSeconds })) }) },
       ...images.map((image) => ({ type: "input_image", image_url: image.dataUrl, detail: "high" })),
     ] }],
     text: { format: { type: "json_schema", name: "inspora_editorial", strict: true, schema } },
   };
 }
+
+export const sampledMedia = (input: EditorialGenerationInput) =>
+  [...new Set(input.images.flatMap((image) => image.mediaIndex == null ? [] : [image.mediaIndex]))];
 
 /** Called only after the admin service has reserved budget and checked its cache. */
 export async function requestEditorialProposal(
@@ -122,7 +133,7 @@ export async function requestEditorialProposal(
   if (content.some((item) => item.type === "refusal")) throw new Error("Generation was declined. Review the supplied evidence.");
   const text = content.filter((item) => item.type === "output_text").map((item) => item.text ?? "").join("");
   return {
-    proposal: validateEditorialProposal(JSON.parse(text), input.kind, input.taxonomy),
+    proposal: validateEditorialProposal(JSON.parse(text), input.kind, input.taxonomy, sampledMedia(input)),
     responseId: result.id,
     usage: result.usage,
     cacheKey: editorialCacheKey(input, options.model),

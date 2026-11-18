@@ -1,6 +1,6 @@
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';import {z} from 'zod';
-import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,SEARCH_REVISION} from './search.mjs';import {embed,dispose} from './model.mjs';
+import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,SEARCH_REVISION,DEFAULT_COUNT} from './search.mjs';import {embed,dispose} from './model.mjs';
 import {localVisuals} from './preview.mjs';
 import {workReply,detailTools,VISUAL_RESPONSE_BYTES} from './visuals.mjs';
 import {fork} from 'node:child_process';
@@ -30,5 +30,5 @@ const loadVisuals=(row,options)=>localVisuals(dataDir,row,options);
 const detailAnnotations={...annotations,idempotentHint:true},details=detailTools({detailSchema,batchDetailSchema});
 server.registerTool('get_work',{...details.get_work,annotations:detailAnnotations},handled(({id,...args})=>workReply(engine,[id],args,{loadVisuals})));
 server.registerTool('get_works',{...details.get_works,annotations:detailAnnotations},handled(({ids,...args})=>workReply(engine,ids,args,{loadVisuals,batch:true})));
-server.registerTool('catalog_status',{...catalogStatusTool,annotations:detailAnnotations},handled(async()=>textResult({name:'Inspora private pilot',search_revision:SEARCH_REVISION,captured_at:engine.index.capturedAt,variant,ranking,counts:Object.fromEntries(['design','website','logo','icon'].map(k=>[k,engine.rows.filter(r=>r.kind===k).length])),enrichment:engine.index.enrichment??null,synchronization:syncStatus(),live:false,review:'pending',limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,detail_chars:10000,inline_image_base64_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:false,cursor_rereadable:true}})));
+server.registerTool('catalog_status',{...catalogStatusTool,annotations:detailAnnotations},handled(async()=>textResult({name:'Inspora private pilot',search_revision:SEARCH_REVISION,captured_at:engine.index.capturedAt,variant,ranking,counts:Object.fromEntries(['design','website','logo','icon'].map(k=>[k,engine.rows.filter(r=>r.kind===k).length])),enrichment:engine.index.enrichment??null,synchronization:syncStatus(),live:false,review:'pending',limits:{default_count:DEFAULT_COUNT,max_count:20,response_chars:12000,detail_chars:10000,inline_image_base64_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:false,cursor_rereadable:true}})));
 const transport=new StdioServerTransport();await server.connect(transport);transport.onclose=()=>{if(syncWorker?.connected)syncWorker.disconnect();dispose().finally(()=>process.exit(0));};

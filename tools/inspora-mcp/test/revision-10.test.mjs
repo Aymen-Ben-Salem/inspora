@@ -35,7 +35,7 @@ test('context without catalog evidence is reported as a shortage and evidenced c
  const none=await flat(plain).search({query:'bold logo',kinds:['logo'],context:'aviation'});
  assert.equal(none.results.length,3,'context stays a soft preference');
  assert.equal(none.search_coverage.context_matches,0);
- assert.match(none.notice,/No works show the whole brief: 3 show most brief terms \(bold\), 0 show the context \(aviation\)\./);
+ assert.match(none.notice,/No works match most of the brief overall; by part, 3 show most brief terms \(bold\), 0 show the context \(aviation\)\./);
  const wing={...work(9,'logo'),title:'Wing',description:'A bold geometric logo.',industries:['Aviation']};
  const some=await flat([...plain,wing]).search({query:'bold logo',kinds:['logo'],context:'aviation'});
  assert.equal(some.results[0].id,wing.id);
@@ -63,12 +63,12 @@ test('meaning alone admits only standout works, matched as similar, and never on
  // Revision 16: a brief without catalog vocabulary is completed with a varied, labelled browse.
  assert.equal(result.search_coverage.browse_fill,120,'every other design continues the browse');
  assert.ok(result.results.slice(1).every(r=>r.match==='browse'));
- assert.match(result.notice,/The brief matched 1 work; the next 120 are a varied browse/);
+ assert.match(result.notice,/1 work shows some part of the brief; 120 more are a varied browse/);
  assert.match(result.results[0].reason,/Similar overall description/);
  assert.equal(result.results[0].evidence.meaning_top_pct,1);
  assert.equal(result.search_coverage.brief_matches,0);
  assert.equal(result.insufficient_matches,true);
- assert.match(result.notice,/No catalog work mentions stark, monolithic, composition/);
+ assert.match(result.notice,/Not found in any work's text \(ranking only\): stark, monolithic, composition/);
  const level=flat([standout[0],...filler(20).map(([row])=>row)]);
  const levelResult=await level.search({query:'stark monolithic composition',kinds:['design']});
  assert.equal(admitted(levelResult).length,0,'a flat distribution admits nothing by meaning');

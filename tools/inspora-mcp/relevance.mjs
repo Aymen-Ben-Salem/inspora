@@ -399,9 +399,11 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   if (!args.subjects && args.kinds?.length > 1 && subjects.length && subjects.every(subject=>args.kinds.includes(subject))) {
     subjects=[...args.kinds];
   }
+  // A searched kind named in the wording ("funeral home website" on a website and design
+  // search) is the work itself, never a feature inside it.
   const scope = args.subject_scope ?? (
-    /\bwebsites?\b.*\b(?:with|featuring|containing)\b/i.test(positive) && subjects.some(s=>s!=='website') ||
-    !args.subjects && subjects.includes('icon') && args.kinds?.some(kind => kind === 'design' || kind === 'website')
+    /\bwebsites?\b.*\b(?:with|featuring|containing)\b/i.test(positive) && subjects.some(s=>s!=='website'&&!(args.kinds??[]).includes(s)) ||
+    !args.subjects && subjects.includes('icon') && !args.kinds?.includes('icon') && args.kinds?.some(kind => kind === 'design' || kind === 'website')
       ? 'contains' : 'primary');
   const queryTerms = tokens(positive);
   const termSequence=' '+queryTerms.join(' ')+' ';

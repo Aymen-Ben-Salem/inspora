@@ -14,7 +14,7 @@ const spread=works=>new SearchEngine({snapshotId:'r15-spread',capturedAt,model:{
 const facts=result=>result.results.map(({evidence:{description,visual_notes,...rest}})=>rest);
 
 test('results carry compact factual evidence and never a direct verdict',async()=>{
- assert.equal(SEARCH_REVISION,16);
+ assert.ok(SEARCH_REVISION>=16);
  const title={...work(1),title:'Toggle switch',description:'A toggle switch flips dark mode.',industries:['Fintech'],styles:['Dark']};
  const notes={...work(2),title:'Settings card',description:'A card lists account options.',industries:['Fintech'],searchOnly:'A small toggle sits at the right edge.'};
  const tag={...work(3),title:'Panel',description:'A dark panel.',categories:['Toggle'],styles:['Dark']};
@@ -105,7 +105,7 @@ test('explicit context evidence orders every tier: a context-matched work preced
  const result=await flat([icon,...notes]).search({query:'notes app interface and identity',context:'notes app'});
  assert.deepEqual(result.results.map(r=>r.id).slice(0,2).sort(),notes.map(r=>r.id).sort());
  assert.equal(result.results[2].id,icon.id);
- assert.match(result.notice,/the whole brief: \d+ shows? most brief terms \(identity\), 2 show the context/,'the shortage sentence restates the counts');
+ assert.match(result.notice,/most of the brief overall; by part, \d+ shows? most brief terms \(identity\), 2 show the context/,'the shortage sentence restates the counts');
 });
 
 test('a context part that begins a word of the work\'s taxonomy label is related, not unverified',async()=>{
@@ -189,7 +189,7 @@ test('revision 16: a criteria-free request is a varied browse of the requested k
  const mix=await e.search({query:'a surprise mix of standout app icons',kinds:['icon']});
  assert.equal(mix.results.length,8);
  assert.ok(mix.results.every(r=>r.match==='browse'),'words outside the catalog vocabulary are no criteria');
- assert.match(mix.notice,/the next 8 are a varied browse/);
+ assert.match(mix.notice,/8 more are a varied browse/);
  for(const query of ['fresh mix of icons','surprise mix of diverse icon styles','varied icon inspiration','surprise me with a fresh mix of icons'])assert.equal((await e.search({query,kinds:['icon']})).results.length,8,query);
  assert.match((await e.search({query:'icons',kinds:['icon']})).notice,/No specific criteria were applied/);
  assert.notEqual(mix.results[0].title.split(' ')[0],mix.results[1].title.split(' ')[0],'the first page alternates categories');

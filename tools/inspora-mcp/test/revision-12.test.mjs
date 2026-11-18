@@ -87,5 +87,5 @@ test('a hard filter that leaves no more than a page keeps those works with their
  const result=await flat([only,work(2,'website')]).search({query:'e-commerce website built with Svelte',kinds:['website'],filters:{technologies:['Svelte']}});
  assert.deepEqual(result.results.map(r=>r.id),[only.id]);
  assert.deepEqual(result.interpreted_query.unmatched_terms,['commerce']);
- assert.match(result.notice,/No catalog work mentions commerce/);
+ assert.match(result.notice,/Not found in any work's text \(ranking only\): commerce/);
 });

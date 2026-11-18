@@ -2,7 +2,7 @@ import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {z} from 'zod';
 import {sha} from '../catalog.mjs';
-import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,SEARCH_REVISION} from '../search.mjs';
+import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,SEARCH_REVISION,DEFAULT_COUNT} from '../search.mjs';
 import {createEmbed} from './embeddings.mjs';
 import {createCatalogReader} from './catalog.mjs';
 import {accessStore,packContinuation,unpackContinuation,continuationCursor,CONTINUATION_MAX_WORKS,TOOL_LIMITS} from './access-state.mjs';
@@ -260,7 +260,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         return {...(account?{account}:{}),search_revision:SEARCH_REVISION,catalog_state:catalogState,...(catalogState==='updating'?{retry_after_seconds:current.delivery.retry_after_seconds}:{}),
           captured_at:current.capturedAt,variant:current.variant,live:catalogState==='ready',delivery:current.delivery,
           counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,rows.filter(row=>row.kind===kind).length])),
-          limits:{default_count:searchSchema.shape.count.parse(undefined),max_count:20,response_chars:12000,inline_image_base64_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:false,cursor_rereadable:true,tool_calls_per_minute:TOOL_LIMITS.minute,tool_calls_per_day:TOOL_LIMITS.day}};
+          limits:{default_count:DEFAULT_COUNT,max_count:20,response_chars:12000,inline_image_base64_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:false,cursor_rereadable:true,tool_calls_per_minute:TOOL_LIMITS.minute,tool_calls_per_day:TOOL_LIMITS.day}};
       }));
       const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
       await server.connect(transport);

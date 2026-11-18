@@ -80,7 +80,7 @@ test('explicit identity kinds and soft project context keep eligible adaptations
  assert.equal(logo.search_coverage.brief_matches,0);
  assert.equal(logo.search_coverage.matching_works,10,'the whole kind is not returned as padding');
  assert.equal(logo.search_coverage.context_matches,0);
- assert.match(logo.notice,/No works show the whole brief: 1 shows most brief terms \(calm\), 0 show the context \(meditation mindfulness wellness\)\./);
+ assert.match(logo.notice,/No works match most of the brief overall; by part, 1 shows most brief terms \(calm\), 0 show the context \(meditation mindfulness wellness\)\./);
 });
 
 test('a filtered website collection ranks style preferences and explains unavailable technology values',async()=>{

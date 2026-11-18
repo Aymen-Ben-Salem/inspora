@@ -9,4 +9,4 @@ export const embed=async texts=>texts.map(vector);
 export const evidencedIds=result=>result.results.filter(r=>result.search_coverage.subject_matches!==undefined?r.match==='subject':['brief','browse'].includes(r.match)).map(r=>r.id);
 
 // The works a brief admitted, without the varied browse that completes a short page.
-export const admitted=result=>result.results.slice(0,Math.max(0,result.search_coverage.matching_works-(result.search_coverage.browse_fill??0)));
+export const admitted=result=>result.results.slice(0,Math.max(0,result.search_coverage.matching_works-(result.search_coverage.browse_fill??0)-(result.search_coverage.similar_fill??0)));

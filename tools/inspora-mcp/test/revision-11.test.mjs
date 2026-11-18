@@ -82,7 +82,7 @@ test('product-role evidence also counts for a context naming that role',async()=
 test('brief words no eligible work uses are reported as unmatched',async()=>{
  const result=await flat([{...work(1,'logo'),title:'Wave',description:'A retro wave logo.'}]).search({query:'retro podcast logo',kinds:['logo']});
  assert.deepEqual(result.interpreted_query.unmatched_terms,['podcast']);
- assert.match(result.notice,/No catalog work mentions podcast/);
+ assert.match(result.notice,/Not found in any work's text \(ranking only\): podcast/);
 });
 
 test('a familiar synonym phrase maps to its concept',()=>{

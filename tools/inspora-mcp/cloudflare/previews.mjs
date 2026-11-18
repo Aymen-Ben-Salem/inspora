@@ -1,5 +1,5 @@
 import {mediaFingerprint} from '../enrichment.mjs';
-import {preparedVisuals} from '../visuals.mjs';
+import {preparedVisuals,LEGACY_STATUS} from '../visuals.mjs';
 
 export const MAX_PREVIEW_BYTES=256000;
 export const previewKey=row=>`mcp/hosted/v1/previews/${mediaFingerprint(row)}.png`;
@@ -27,7 +27,7 @@ export async function hostedVisuals(bucket,row,options) {
   if(pack.images.length||options.budget<4)return pack;
   const legacy=await selectedPreview(bucket,row);
   if(legacy.bytes&&legacy.bytes.length<=options.budget){
-    return {status:'prepared_current_media',images:[{bytes:legacy.bytes,mimeType:'image/png'}]};
+    return {status:LEGACY_STATUS,images:[{bytes:legacy.bytes,mimeType:'image/png'}]};
   }
   return {...pack,status:legacy.bytes?'Image response budget reached; use the public link.':legacy.status};
 }

@@ -181,3 +181,47 @@ test('uninterpretable untranslated input requests a rewrite rather than declarin
  assert.deepEqual((await e.search({query:'blue glass buttons'})).results.map(r=>r.id),[button.id]);
  assert.equal((await e.search({query:'purple submarine websites'})).results.length,0,'a genuine English shortage stays an empty result');
 });
+
+// Regressions from the 18 Nov 2026 revision-8 user test (search revision 9).
+const similar=s=>[s,Math.sqrt(1-s*s),...Array(382).fill(0)];
+function scored(works,model){const capturedAt=new Date().toISOString();const rows=normalizeRows({capturedAt,rows:works.map(([row])=>row)}).map((row,i)=>({...row,vector:similar(works[i][1])}));return new SearchEngine({snapshotId:'revision-9',capturedAt,model,rows},{embed});}
+
+test('explicit subjects turn a wording-inferred topic into a preference and modifiers may come from taxonomy',async()=>{
+ const coding={...work(1),title:'Coding agent',description:'A coding-agent card presents a five-step checklist with connected tools.',industries:['AI','SaaS']};
+ const assistant={...work(2),title:'Assistant status',description:'An AI assistant agent card shows thinking states.',industries:['AI assistants']};
+ const keychain={...work(3),title:'Keychain',description:'A clean keychain with a charm.',industries:['AI']};
+ const e=engine([coding,assistant,keychain]);
+ const result=await e.search({query:'AI assistant or agent interface showing reasoning steps and tool use',subjects:['AI agent'],subject_scope:'contains'});
+ assert.deepEqual(result.results.map(r=>r.id),[assistant.id,coding.id],'the topic ranks first but no longer excludes the coding agent');
+ assert.deepEqual(result.interpreted_query.topic_preferences,['ai assistant']);
+ assert.equal(result.interpreted_query.topic_constraints,undefined);
+ const alternative=await e.search({query:'AI assistant or agent interface'});
+ assert.ok(alternative.results.some(r=>r.id===coding.id),'"X or Y" offers alternatives rather than one mandatory topic');
+});
+
+test('studio and portfolio sites are not developer-tool evidence on the Development category alone',async()=>{
+ const library={...work(1,'website'),title:'Motion library',tagline:'JavaScript animation library.',description:'Technical diagrams and code panels.',categories:['Development','Software']};
+ const studio={...work(2,'website'),title:'North',tagline:'Creative design and development studio.',description:'Oversized service labels and project previews.',categories:['Design','Development']};
+ const portfolio={...work(3,'website'),title:'Jones',tagline:'Interactive creative development.',description:'A rotating cube of project imagery.',categories:['Portfolio','Development']};
+ const result=await engine([library,studio,portfolio]).search({query:'developer tool website',kinds:['website']});
+ assert.deepEqual(result.results.map(r=>r.id),[library.id]);
+});
+
+test('a page type needs topical evidence when the brief names a topic',async()=>{
+ const notes={...work(1),title:'Notes landing page',description:'A landing page for a meeting transcription app.'};
+ const alarm={...work(2),title:'Alarm landing page',description:'A landing page for an alarm clock app with a signup form.'};
+ const e=engine([notes,alarm]);
+ assert.deepEqual((await e.search({query:'landing page for a meeting transcription app',subjects:['landing page']})).results.map(r=>r.id),[notes.id]);
+ assert.equal((await e.search({query:'simple landing page',subjects:['landing page']})).results.length,2,'style words are not a topic');
+});
+
+test('semantic gates follow the index embedding model',async()=>{
+ const strong=[{...work(1),title:'Glass panel',description:'A frosted glass panel with soft blue light.'},.70];
+ const weak=[{...work(2),title:'Glass bottle',description:'A glass bottle on a shelf.'},.60];
+ const bge=scored([strong,weak],{name:'@cf/baai/bge-small-en-v1.5'});
+ assert.deepEqual((await bge.search({query:'frosted glass'})).results.map(r=>r.id),[strong[0].id],'BGE scores near 0.6 for unrelated work');
+ const mini=scored([strong,weak],{name:'Xenova/all-MiniLM-L6-v2'});
+ assert.equal((await mini.search({query:'frosted glass'})).results.length,2);
+ const filters=await bge.search({query:'frosted glass',filters:{colors:['Blue']}});
+ assert.deepEqual(filters.interpreted_query.filters,{colors:['Blue']});
+});

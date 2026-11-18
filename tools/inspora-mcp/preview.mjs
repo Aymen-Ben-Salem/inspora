@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {sha} from './catalog.mjs';
 import {mediaFingerprint} from './enrichment.mjs';
-import {preparedVisuals} from './visuals.mjs';
+import {preparedVisuals,LEGACY_STATUS} from './visuals.mjs';
 
 export function localPreview(row, manifest, mediaDirectory) {
   const entry = manifest.drafts?.find(d => d.id === row.id);
@@ -30,7 +30,7 @@ export async function localVisuals(dataDirectory,row,options) {
     const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath,'utf8')):{drafts:[]};
     const legacy=localPreview(row,manifest,path.join(dataDirectory,'media'));
     if(legacy.bytes&&legacy.bytes.length<=options.budget){
-      return {status:'prepared_current_media',images:[{bytes:legacy.bytes,mimeType:'image/png'}]};
+      return {status:LEGACY_STATUS,images:[{bytes:legacy.bytes,mimeType:'image/png'}]};
     }
     return {...pack,status:legacy.bytes?'Image response budget reached; URL only':legacy.status};
   } catch {

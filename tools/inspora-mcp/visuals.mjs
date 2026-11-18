@@ -81,7 +81,24 @@ export async function preparedVisuals(row, read, {detail='glance', budget=VISUAL
   }
 }
 
+export const LEGACY_STATUS = 'legacy_low_resolution_thumbnail';
+const LEGACY_NOTE = 'Small legacy thumbnail only. Fine text and controls may be unreadable; use the description or media links for details.';
+const pngSize = bytes => bytes.length >= 24 && bytes[0] === 137 && bytes[1] === 80 ?
+  {width:(bytes[16]<<24|bytes[17]<<16|bytes[18]<<8|bytes[19])>>>0,height:(bytes[20]<<24|bytes[21]<<16|bytes[22]<<8|bytes[23])>>>0} : {};
 const imageContent = image => ({type:'image',mimeType:image.mimeType,data:Buffer.from(image.bytes).toString('base64')});
+
+// A study request must say whether timestamped sheets were attached, so a host
+// never mistakes a single still or legacy thumbnail for observed motion.
+function studyAvailability(work, pack) {
+  const sheets = pack.images.filter(image => image.item && image.item.role !== 'still').length;
+  if (sheets) return {available:true,sheets};
+  const motion = Boolean(work.preview?.video_url);
+  const reason = !motion ? 'Still image work; there is no motion to study.' :
+    /budget/i.test(pack.status) ? 'Image response budget reached before the motion sheets; request this work alone.' :
+    'No prepared motion sheets for the current media' + (pack.status === LEGACY_STATUS ? '; only a small legacy thumbnail is attached' : '') +
+    '. Treat motion as description-only, or open video_url outside the chat.';
+  return {available:false,reason};
+}
 const textContent = data => ({type:'text',text:JSON.stringify(data)});
 
 export async function workReply(engine, ids, args, {loadVisuals, live=false, batch=false}={}) {
@@ -100,6 +117,7 @@ export async function workReply(engine, ids, args, {loadVisuals, live=false, bat
     if (args.preview === 'image') {
       const pack = await loadVisuals(row,{detail:args.detail,budget});
       work.preview.inline_status = pack.status;
+      if (pack.status === LEGACY_STATUS) work.preview.inline_note = LEGACY_NOTE;
       if (pack.duration !== undefined) work.preview.duration_seconds = pack.duration;
       if (pack.images.length) work.preview.images = [];
       for (const image of pack.images) {
@@ -110,9 +128,12 @@ export async function workReply(engine, ids, args, {loadVisuals, live=false, bat
           ...(image.item ? {
             role:image.item.role,width:image.item.width,height:image.item.height,
             ...(image.item.timecodes ? {sample_times_seconds:image.item.timecodes} : {}),
-          } : {role:'legacy_thumbnail'}),
+          } : {role:'legacy_thumbnail',...pngSize(image.bytes)}),
         });
       }
+      if (args.detail === 'study') work.preview.study = studyAvailability(work,pack);
+    } else if (args.detail === 'study' && work.preview) {
+      work.preview.study = {available:false,reason:'Motion sheets are attached only with preview=image.'};
     }
     works.push(work);
   }

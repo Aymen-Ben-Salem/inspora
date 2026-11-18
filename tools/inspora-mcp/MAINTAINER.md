@@ -70,7 +70,7 @@ Session-only Codex overrides are also supported. Include the same absolute `--co
 ## Tools and limits
 
 - `search_inspiration`: written idea or existing Inspora link; ten candidates by default, 1–20 allowed; explicit kinds and AND filters; compact or links-only output. `search_coverage` reports eligible catalog size, candidates after hard filters and qualifying matches by kind for the full query, including across continuation. It does not measure every possible search angle or human usefulness. Hard filters are never relaxed. Similarity is based on metadata, not a verified visual match. Presentation defaults to up to ten direct references and, when direct coverage is sparse, up to five useful adaptation references in a separate table.
-- `get_work`: details and a prepared still for one eligible work. Request `detail=study` for available timestamped motion sheets. Choose `preview=link` for media links or `preview=none` for text only.
+- `get_work`: details and a prepared still for one eligible work. Request `detail=study` for available timestamped motion sheets; `preview.study.available` says whether sheets were attached and gives the reason when not. A `legacy_low_resolution_thumbnail` status marks the small fallback image used when no prepared pack exists. Choose `preview=link` for media links or `preview=none` for text only.
 - `get_works`: up to six eligible IDs with stills and per-work image availability. Use it to inspect a shortlist without six separate tool calls.
 - `catalog_status`: date, counts, enrichment, ranking and synchronization health. Without a configured source it remains a dated offline snapshot.
 

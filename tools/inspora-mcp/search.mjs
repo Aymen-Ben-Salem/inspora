@@ -1,19 +1,36 @@
 import crypto from 'node:crypto';
 import {z} from 'zod';
 import {KINDS,eligible,resolveReference,clean,tagFields} from './catalog.mjs';
-import {tokens,prepareDocument,queryIntent,subjectEvidence,normalizedPhrase,typeAndTone} from './relevance.mjs';
+import {tokens,prepareDocument,queryIntent,subjectEvidence,normalizedPhrase,typeAndTone,designVocabulary} from './relevance.mjs';
 import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 import {workMedia} from './visuals.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=8;
+export const SEARCH_REVISION=9;
+// Similarity gates are model-specific. BGE-small scores the whole catalog around
+// 0.55-0.65, so MiniLM's 0.30 admitted everything on the hosted index. The BGE
+// values approximate MiniLM's selection rate on the evaluation requests (18 Nov 2026:
+// written-request equivalents 0.63-0.71; work-to-work median 0.70). Both gates sit
+// below those medians: they keep every reference request's top six and the recall
+// of short style briefs while removing the previously unfiltered tail.
+export const SEMANTIC_GATES=Object.freeze({
+ 'Xenova/all-MiniLM-L6-v2':Object.freeze({query:.30,concrete:.30,reference:.38}),
+ // Concrete subject evidence (a titled date picker) only screens contradictions:
+ // above both 0.55 and the query's catalog median, which can fall to 0.49.
+ '@cf/baai/bge-small-en-v1.5':Object.freeze({query:.62,concrete:.55,reference:.66}),
+});
+const semanticGate=model=>SEMANTIC_GATES[model?.name]??SEMANTIC_GATES['Xenova/all-MiniLM-L6-v2'];
+// Web studios share the Development category with developer products. A studio
+// or portfolio site is not developer-tool evidence on that tag alone.
+const serviceStudio=row=>fieldValues(row,'categories').some(tag=>['agency','portfolio'].includes(norm(tag.trim())))||
+ /\b(?:studios?|agency|agencies|portfolio)\b/i.test([row.title,row.tagline].filter(Boolean).join(' '));
 const list=z.array(z.string().trim().min(1).max(100)).max(20);
 export const searchSchema=z.object({
  query:z.string().trim().min(1).max(600).optional().describe('Concise, self-contained English visual brief. Translate non-English instructions and correct obvious typos while preserving names, quoted text and all design constraints. Omit conversational filler. On refinement retain artifact, project and unchanged requirements. No conversation history is received.'),
  reference_url:z.string().max(500).optional(),
  kinds:z.array(z.enum(KINDS)).min(1).max(4).optional(),
  subjects:z.array(z.string().trim().min(1).max(100)).min(1).max(6).optional().describe('Concrete visual subjects, any of which may qualify, such as pricing table or packaging. Accepts arbitrary phrases. Omit for broad style-only discovery. Inferred from common design vocabulary when omitted.'),
- subject_scope:z.enum(['primary','contains']).optional().describe('Primary requires the subject to be the main work. Contains allows a supporting feature within a larger work. Default primary.'),
+ subject_scope:z.enum(['primary','contains']).optional().describe('Primary requires the subject to be the main work. Contains allows a supporting feature within a larger work. Default primary, except a "website with/featuring X" query defaults to contains. interpreted_query reports the scope used.'),
  context:z.string().trim().min(1).max(150).optional().describe('Industry or project context to prioritize, such as education. Soft preference. Use filters or required_terms for mandatory constraints.'),
  filters:z.object(Object.fromEntries(tagFields.map(f=>[f,list.optional().describe(['category','categories'].includes(f)?'Category taxonomy; category and categories are equivalent across work kinds.':'Exact taxonomy values; all supplied values must match.')]))).strict().optional(),
  required_terms:list.optional(),exclude_terms:list.optional(),exclude_ids:z.array(z.string().uuid()).max(100).optional(),
@@ -39,6 +56,7 @@ export class SearchEngine {
  constructor(index,{embed,ranking='hybrid',now=()=>Date.now(),responseChars=MAX_RESPONSE_CHARS}={}){this.embed=embed;this.ranking=ranking;this.now=now;this.responseChars=responseChars;this.cursors=new Map();this.replaceIndex(index);}
  replaceIndex(index) {
   this.index=index;
+  this.gate=semanticGate(index.model);
   this.rows=index.rows.filter(row=>eligible(row,this.now()));
   this.byId=new Map(this.rows.map(row=>[row.id,row]));
   this.cursors.clear();
@@ -54,6 +72,7 @@ export class SearchEngine {
    for (const label of [...(row.industries||[]),row.industry||''].flatMap(value=>String(value).split(','))){const terms=tokens(label);if(terms.length>1)this.contextPhrases.add(terms.join(' '));}
   }
  }
+ idf(term){return Math.log(1+(this.rows.length+1)/((this.df.get(term)||0)+1));}
  prune(){for(const [key,v] of this.cursors)if(v.expires<=this.now())this.cursors.delete(key);while(this.cursors.size>=128)this.cursors.delete(this.cursors.keys().next().value);}
  async rank(args) {
   if (Boolean(args.query)===Boolean(args.reference_url)) throw Error('INPUT: provide exactly one query or reference_url');
@@ -79,6 +98,11 @@ export class SearchEngine {
    Object.entries(args.filters||{}).every(([field,values])=>values.every(value=>fieldValues(row,field).some(tag=>norm(tag.trim())===norm(value))))
   );
   const queryWords=ref?tokens(ref.text):words;
+  const topicalWords=words.filter(word=>!designVocabulary.has(word));
+  // Concrete subject evidence only has to be more similar than the typical work;
+  // the model gate still screens matches that rest on shared words alone.
+  const typical=queryVec&&!ref?[...this.rows.map(row=>dot(queryVec,row.vector))].sort((a,b)=>a-b)[Math.floor(this.rows.length/2)]??0:0;
+  const concreteGate=Math.min(this.gate.query,Math.max(this.gate.concrete,typical));
   const scored=[];
   const archiveSubject=intent.subjects.length>0&&intent.subjects.every(s=>KINDS.includes(s));
   const contextualBrowse=archiveSubject && !args.subjects && (Boolean(args.context) ||
@@ -86,9 +110,11 @@ export class SearchEngine {
     (args.kinds?.includes('logo')&&args.kinds.includes('icon')));
   const projectTerms=intent.project?new Set(tokens(intent.project.name)):null;
   const topicTerms=intent.topics.map(topic=>({topic,terms:tokens(topic)}));
+  const preferenceTerms=intent.topicPreferences.map(topic=>({topic,terms:tokens(topic)}));
   for (const row of candidates) {
    const document=this.documents.get(row.id);
    const matchingTopics=topicTerms.filter(({terms})=>terms.every(term=>document.terms.has(term))).map(({topic})=>topic);
+   const preferredTopics=preferenceTerms.filter(({terms})=>terms.every(term=>document.terms.has(term))).map(({topic})=>topic);
    if(intent.topics.length&&!matchingTopics.length)continue;
    const subjects=subjectEvidence(document,intent);
    const topicFallback = Boolean(intent.relatedTopic && matchingTopics.includes(intent.relatedTopic));
@@ -96,28 +122,30 @@ export class SearchEngine {
    if (intent.lowDensity&&intent.subject_scope==='primary'&&document.denseLayout) continue;
    if (combinedStyle&&!style.every(trait=>document.typeAndTone.has(trait))) continue;
    const projectEvidence = intent.project?.evidence.exec(row.text)?.[0] ??
-     (intent.project?.name==='developer tool'&&fieldValues(row,'categories').some(tag=>norm(tag)==='development')?'Development category':'');
+     (intent.project?.name==='developer tool'&&!serviceStudio(row)&&fieldValues(row,'categories').some(tag=>norm(tag.trim())==='development')?'Development category':'');
    if (intent.project && !projectEvidence && (!subjects.length || subjects.every(s=>s==='landing page'||KINDS.includes(s)))) continue;
    const matched=queryWords.filter(term=>document.terms.has(term));
    const coverage=matched.length/Math.max(1,queryWords.length);
-   const lexical=matched.reduce((score,term)=>score+Math.log(1+(this.rows.length+1)/((this.df.get(term)||0)+1))*(document.titleTerms.has(term)?2:1),0);
+   const lexical=matched.reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0);
    const semantic=queryVec?dot(queryVec,row.vector):0;
    const broad=!ref&&!words.length;
-   const concreteSubject=matchingTopics.length>0||projectEvidence||combinedStyle||subjects.some(subject=>!KINDS.includes(subject)&&(subject!=='landing page'||document.explicitLandingPage));
+   // A page type sets the format, not the topic: when the brief names a topic
+   // ("landing page for an AI meeting-notes app"), a landing page also needs topical terms.
+   const concreteSubject=matchingTopics.length>0||projectEvidence||combinedStyle||subjects.some(subject=>!KINDS.includes(subject)&&(subject!=='landing page'||document.explicitLandingPage&&!topicalWords.length));
    const minimumCoverage=this.ranking==='lexical'?.34:.25;
    const relevant=broad||contextualBrowse||(ref
-    ? (this.ranking==='lexical'?matched.length>=3:semantic>=.38)
-    : (concreteSubject||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||semantic>=.30||projectEvidence||combinedStyle||topicFallback));
+    ? (this.ranking==='lexical'?matched.length>=3:semantic>=this.gate.reference)
+    : (concreteSubject||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||semantic>=(concreteSubject?concreteGate:this.gate.query)||projectEvidence||combinedStyle||topicFallback));
    const related=topicFallback&&(!subjects.length||coverage<.66);
    if (!relevant&&!related) continue;
    const missingContext=intent.context.filter(term=>!document.terms.has(term)&&!(projectEvidence&&projectTerms?.has(term)));
    const contextCoverage=intent.context.length?1-missingContext.length/intent.context.length:0;
-   scored.push({row,lexical,semantic,coverage,matched,subjects,matchingTopics,missingContext,contextCoverage,broad,related,projectEvidence});
+   scored.push({row,lexical,semantic,coverage,matched,subjects,matchingTopics:[...matchingTopics,...preferredTopics],preferred:preferredTopics.length>0,missingContext,contextCoverage,broad,related,projectEvidence});
   }
   const maxLexical=Math.max(1,...scored.map(item=>item.lexical));
   for (const item of scored) {
    const base=this.ranking==='semantic'?item.semantic:this.ranking==='lexical'?item.lexical/maxLexical:.55*item.lexical/maxLexical+.45*item.semantic;
-   item.score=intent.context.length?.65*base+.35*item.contextCoverage:base;
+   item.score=(intent.context.length?.65*base+.35*item.contextCoverage:base)+(item.preferred?.15:0);
   }
   scored.sort((a,b)=>Number(a.related)-Number(b.related)||b.score-a.score||a.row.id.localeCompare(b.row.id));
   const related = scored.filter(item=>item.related).slice(0,5);
@@ -146,7 +174,7 @@ export class SearchEngine {
   }
   if(related.length)coverage.related_works=related.length;
   for(const item of selected)coverage.matching_by_kind[item.row.kind]=(coverage.matching_by_kind[item.row.kind]??0)+1;
-  return {ranked,coverage,interpreted:{kinds,subjects:intent.subjects,subject_scope:intent.subject_scope,context:intent.context,...(Object.keys(unavailableFilters).length?{unavailable_filter_values:unavailableFilters}:{}),...(intent.project?{project_context:intent.project.name}:{}),...(combinedStyle?{style_preferences:style}:{}),...(intent.subjectAliases.length?{subject_aliases:intent.subjectAliases}:{}),...(intent.topics.length?{topic_constraints:intent.topics}:{}),...(prepared.corrections.length?{normalized_query:prepared.query,corrections:prepared.corrections}:{}),...(intent.lowDensity?{layout_density:'low'}:{})}};
+  return {ranked,coverage,interpreted:{kinds,subjects:intent.subjects,subject_scope:intent.subject_scope,context:intent.context,...(args.filters&&Object.keys(args.filters).length?{filters:args.filters}:{}),...(intent.topicPreferences.length?{topic_preferences:intent.topicPreferences}:{}),...(Object.keys(unavailableFilters).length?{unavailable_filter_values:unavailableFilters}:{}),...(intent.project?{project_context:intent.project.name}:{}),...(combinedStyle?{style_preferences:style}:{}),...(intent.subjectAliases.length?{subject_aliases:intent.subjectAliases}:{}),...(intent.topics.length?{topic_constraints:intent.topics}:{}),...(prepared.corrections.length?{normalized_query:prepared.query,corrections:prepared.corrections}:{}),...(intent.lowDensity?{layout_density:'low'}:{})}};
  }
  async search(input){const args=searchSchema.parse(input);let state,oldCursor=args.cursor;
  if(oldCursor){state=this.cursors.get(oldCursor);if(!state||state.searchRevision!==SEARCH_REVISION||state.expires<=this.now())throw Error('CURSOR_EXPIRED: unknown, refreshed or expired continuation; explicitly start a new search');if(state.consumed)throw Error('CURSOR_USED: this continuation was already used; use the latest returned cursor');for(const f of queryFields)if(args[f]!==undefined&&stable(args[f])!==stable(state.query[f]))throw Error('CURSOR_QUERY_MISMATCH: start a new search for changed constraints');}

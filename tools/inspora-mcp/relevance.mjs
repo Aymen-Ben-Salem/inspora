@@ -138,7 +138,10 @@ export function prepareDocument(row) {
   // Retain actual public prose, including a public title/heading with that word.
   const lexicalText = String(row.text ?? '').replace(/\bTypography\s*:/gi, '');
   const publicTerms = tokens([row.title, row.description, row.tagline].join(' '));
+  const tags = [row.category, ...(row.categories ?? []), row.industry, ...(row.industries ?? [])];
   const prepared = {
+    // Taxonomy can qualify a visible subject (an "AI" agent card) but never supplies the subject itself.
+    tagTerms: new Set(words(tags.filter(Boolean).join(' '))),
     sourceText: row.text,
     terms: new Set([...tokens(lexicalText), ...publicTerms]),
     titleTerms: new Set(tokens(row.title)),
@@ -194,7 +197,16 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   // Specific catalog topics named in the query retain topical admission.
   // Project roles with related evidence and explicit context stay flexible.
   const project = projectContext(positive);
-  const topics=[...new Set(contextPhrases.filter(phrase=>termSequence.includes(' '+phrase+' ')&&!project?.query.test(phrase)))];
+  const named=[...new Set(contextPhrases.filter(phrase=>termSequence.includes(' '+phrase+' ')&&!project?.query.test(phrase)))];
+  // A topic inferred from wording admits works only when it is the brief's single
+  // stated domain. Explicit subjects already define admission, and "X or Y" offers
+  // alternatives; in both cases the topic ranks matching works first instead.
+  const offeredAsAlternative=topic=>{
+    const phrase=topic.split(' ').map(word=>word.replace(/[^\p{L}\p{N}]/gu,'')+'\\w*').join('\\W+');
+    return new RegExp('\\b'+phrase+'\\s+or\\b|\\bor\\s+(?:an?\\s+)?'+phrase,'iu').test(positive);
+  };
+  const topics=args.subjects?[]:named.filter(topic=>!offeredAsAlternative(topic));
+  const topicPreferences=named.filter(topic=>!topics.includes(topic));
   const context = args.context ? tokens(args.context) : queryTerms.filter(term => contextVocabulary.has(term) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
@@ -204,7 +216,7 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   const [projectLead, ...requestedFeatures] = positive.split(':');
   const relatedTopic = !args.subjects && requestedFeatures.some(part=>part.trim()) && topics.find(topic =>
     (' ' + tokens(projectLead).join(' ') + ' ').includes(' ' + topic + ' '));
-  return {subjects, subject_scope: scope, context, topics, kinds, lowDensity, subjectAliases, project, relatedTopic};
+  return {subjects, subject_scope: scope, context, topics, topicPreferences, kinds, lowDensity, subjectAliases, project, relatedTopic};
 }
 
 export function subjectEvidence(document, intent) {
@@ -213,6 +225,10 @@ export function subjectEvidence(document, intent) {
   return intent.subjects.filter(subject => {
     if (families.has(subject)) return subjectSet.has(subject);
     const required = intent.subject_scope === 'contains' ? words(subject).filter(word=>!['a','an','the','of','with','and','for'].includes(word)) : tokens(subject);
-    return required.length > 0 && required.every(term => termSet.has(term));
+    // The head noun must be visible. Earlier modifiers may come from the work's
+    // own taxonomy, so "AI agent" admits an agent card tagged with the AI industry.
+    const head = required.at(-1);
+    return required.length > 0 && termSet.has(head) &&
+      required.every(term => termSet.has(term) || document.tagTerms?.has(term));
   });
 }

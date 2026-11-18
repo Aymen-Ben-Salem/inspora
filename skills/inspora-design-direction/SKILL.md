@@ -21,7 +21,7 @@ Explain concrete observations, practical tradeoffs and the reason for a recommen
 
 A website hero supports observations about the visible hero. Treat lower sections, blank product windows and cropped controls as unverified until a separate image shows them. For motion, check which frames the response actually attached before describing a transition.
 
-Inspect shortlisted works using `get_works` when available or `get_work` with `preview=image`. For a motion reference that informs a build, request `get_work` with `detail=study` when supported. Use the sheet timestamps for observed states and label any proposed timing between samples. Identify description-only evidence and missing or unreadable images.
+Inspect shortlisted works using `get_works` when available or `get_work` with `preview=image`. For a motion reference that informs a build, request `get_work` with `detail=study` when supported. Read `preview.study`: when `available` is true, use the sheet timestamps for observed states and label any proposed timing between samples; when it is false, treat the motion as description-only and say so. Identify description-only evidence and missing or unreadable images.
 
 Compare the qualities that matter to this project, such as hierarchy, composition, typography, density or interaction. Explain the practical tradeoffs and credit each reference with its creator and Inspora link. Distinguish observations from proposed adaptations. Verify exact font and technology claims from the source.
 

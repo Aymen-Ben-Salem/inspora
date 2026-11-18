@@ -63,6 +63,12 @@ test('HTTP serves bounded prepared stills and motion sheets for current eligible
     const {preview}=decoded(study);
     assert.equal(preview.duration_seconds,5);
     assert.deepEqual(preview.images.map(({role})=>role),['still','overview']);
+    assert.deepEqual(preview.study,{available:true,sheets:1});
+    seed(rows[1],['still']);
+    const stillOnly=decoded(await client.callTool({name:'get_work',arguments:{id:rows[1].id,detail:'study'}}));
+    assert.equal(stillOnly.preview.inline_status,'prepared_current_media');
+    assert.equal(stillOnly.preview.study.available,false);assert.ok(stillOnly.preview.study.reason);
+    seed(rows[1],['still','overview']);
     const batch=await client.callTool({name:'get_works',arguments:{ids:[...rows.map(r=>r.id),work(999).id]}});
     assert.deepEqual(decoded(batch).works.map(w=>w.preview?.images?.[0].image_number??w.error??null),
       [1,2,3,null,null,'WORK_NOT_ELIGIBLE']);
@@ -101,6 +107,11 @@ test('HTTP search, filters, details and restart-safe single-use principal-bound 
   fixture.bucket.get=async name=>name===key?{size:png.length,arrayBuffer:async()=>png.buffer}:get(name);
   const illustrated=await alice.callTool({name:'get_work',arguments:{id,preview:'image'}});
   assert.equal(illustrated.content[1].type,'image');assert.equal(illustrated.content[1].mimeType,'image/png');
+  const legacy=decoded(illustrated).preview;
+  assert.equal(legacy.inline_status,'legacy_low_resolution_thumbnail');assert.match(legacy.inline_note,/legacy thumbnail/);
+  assert.equal(legacy.images[0].role,'legacy_thumbnail');
+  const legacyStudy=decoded(await alice.callTool({name:'get_work',arguments:{id,detail:'study'}})).preview.study;
+  assert.equal(legacyStudy.available,false);assert.match(legacyStudy.reason,/legacy thumbnail|no motion/i);
   fixture.bucket.get=async name=>name===key?{size:256001,arrayBuffer:async()=>{throw Error('Oversized file was read');}}:get(name);
   assert.equal((await alice.callTool({name:'get_work',arguments:{id,preview:'image'}})).content.length,1);
   const changed=previewKey({...row,media:[{url:'https://new-media.test/image.png'}]});assert.notEqual(changed,key);

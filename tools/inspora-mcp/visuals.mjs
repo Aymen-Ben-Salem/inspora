@@ -44,6 +44,24 @@ export function publicMediaUrl(value) {
   } catch { return null; }
 }
 
+const VIDEO_EXTENSIONS = ['.mp4','.mov','.webm'];
+const IMAGE_EXTENSIONS = ['.png','.jpg','.jpeg','.webp'];
+
+/** The first-party media a visual pack is prepared from: the recording for websites,
+ * otherwise the first non-favicon item (its video for motion, else its image). Null when
+ * that media is not on media.inspora.design or has no preparable file type. */
+export function visualSource(row) {
+  const media = row.kind === 'website' ? row.media?.find(item => item.type === 'recording') :
+    row.media?.find(item => item.type !== 'favicon');
+  if (!media) return null;
+  const motion = media.type === 'video' || media.type === 'recording';
+  const source = publicMediaUrl(media.url);
+  if (!source) return null;
+  const extension = (new URL(source).pathname.match(/\.[a-z0-9]{2,5}$/i)?.[0] ?? '').toLowerCase();
+  if (!(motion ? VIDEO_EXTENSIONS : IMAGE_EXTENSIONS).includes(extension)) return null;
+  return {source, extension, motion};
+}
+
 export function workMedia(row) {
   const media = row.kind === 'website' ? row.media?.find(item => item.type === 'recording') :
     row.media?.find(item => item.type !== 'favicon');

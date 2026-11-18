@@ -1,0 +1,11 @@
+{
+  "name": "inspora-visual-pack",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Container that builds Inspora MCP visual packs; shares prepare-visuals.mjs with the CLI.",
+  "dependencies": {
+    "sharp": "0.34.5",
+    "zod": "4.4.3"
+  }
+}

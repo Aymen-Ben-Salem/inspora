@@ -88,3 +88,30 @@ test('sheet tiles follow the frame aspect ratio', async () => {
     assert.ok(detail.height<=1568 && detail.width<1200,'portrait tiles narrow instead of padding: '+detail.width);
   } finally { await fs.rm(directory,{recursive:true,force:true}); }
 });
+
+test('buildVisualPack is deterministic, keyed like the MCP reads it, and rejects media it can never prepare', async () => {
+  const {buildVisualPack, VisualPackRejected} = await import('../prepare-visuals.mjs');
+  const {visualManifest, visualManifestKey, visualAssetKey, visualSha} = await import('../visuals.mjs');
+  const {execFile} = await import('node:child_process');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(),'inspora-pack-'));
+  try {
+    const image = path.join(directory,'source.png');
+    await sharp(layout(800,500)).png().toFile(image);
+    const row = {id:'00000000-0000-4000-8000-000000000101',kind:'design',media:[{type:'image',url:'https://media.inspora.design/posts/a.png',width:800,height:500}]};
+    const first = await buildVisualPack(row,{file:image,source:row.media[0].url},path.join(directory,'one'));
+    const second = await buildVisualPack(row,{file:image,source:row.media[0].url},path.join(directory,'two'));
+    assert.equal(first.key,visualManifestKey(row));
+    visualManifest.parse(first.manifest);
+    assert.deepEqual(first.manifest,second.manifest);
+    for (const asset of first.assets) {assert.equal(asset.key,visualAssetKey(row,asset.item)); assert.equal(visualSha(asset.bytes),asset.item.sha256);}
+    await assert.rejects(buildVisualPack(row,{file:image,source:'https://example.com/a.png'},directory),VisualPackRejected);
+
+    // A short generated clip exercises the motion path: still, overview and detail sheets.
+    const clip = path.join(directory,'clip.mp4');
+    await new Promise((resolve,reject)=>execFile('ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc=size=640x360:rate=24:duration=3','-pix_fmt','yuv420p',clip],error=>error?reject(error):resolve()));
+    const video = {id:'00000000-0000-4000-8000-000000000102',kind:'design',media:[{type:'video',url:'https://media.inspora.design/posts/b.mp4',poster:'https://media.inspora.design/posts/b.webp',width:640,height:360}]};
+    const motion = await buildVisualPack(video,{file:clip,source:video.media[0].url},path.join(directory,'three'));
+    assert.deepEqual(motion.manifest.assets.map(item=>item.role),['still','overview','detail-1','detail-2','detail-3']);
+    assert.equal(motion.manifest.duration,3);
+  } finally { await fs.rm(directory,{recursive:true,force:true}); }
+});

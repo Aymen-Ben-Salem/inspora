@@ -3,6 +3,7 @@ import {createEmbed} from './embeddings.mjs';
 import {buildCatalog,publishCatalog,safeInterim,POINTER_KEY,FENCE_KEY,REPAIR_INTERVAL_MS} from './catalog.mjs';
 import {requestCatalog} from './source-request.mjs';
 import {pruneIndexes} from './retention.mjs';
+import {enqueueVisualJobs,recordVisualResult} from './visual-jobs.mjs';
 
 export const COALESCE_MS=5000;
 // While a known edit fences reads, failed refreshes retry at least this often.
@@ -21,7 +22,16 @@ export class CatalogSync {
   constructor(state,env,{readSource=sourceFeed,embed=createEmbed(env.AI)}={}){this.state=state;this.env=env;this.readSource=readSource;this.embed=embed;}
   async fetch(request){
     const input=await request.json();
-    if(input.action==='status')return Response.json(await this.state.storage.get('status')??{state:'not_started'});
+    if(input.action==='status'){
+      // Maintainer-only (sync token): includes the last visual-pack scheduling summary when enabled.
+      const status=await this.state.storage.get('status')??{state:'not_started'},visuals=await this.state.storage.get('visuals');
+      return Response.json(visuals?{...status,visuals}:status);
+    }
+    if(input.action==='visual-result'){
+      try{await recordVisualResult(this.state.storage,{workId:input.workId,mediaFingerprint:input.mediaFingerprint,state:input.state,...(input.reason?{reason:input.reason}:{})});}
+      catch{return Response.json({error:'INVALID_RESULT'},{status:400});}
+      return Response.json({recorded:true});
+    }
     if(input.action!=='enqueue')return Response.json({error:'INVALID_ACTION'},{status:400});
     await this.state.blockConcurrencyWhile(async()=>{
       const sequence=(await this.state.storage.get('sequence')??0)+1;
@@ -66,6 +76,11 @@ export class CatalogSync {
       stage='commit';if(!await publish(index,{always:true}))return;
       await this.state.storage.put('status',{state:'ready',lastSuccessAt:feed.catalog.capturedAt,works:index.rows.length,pendingWorks:0,repairIntervalHours:12});
       await this.state.storage.put('failures',0);
+      // Queue visual packs for new or changed media. Never part of the refresh's outcome.
+      if(this.env.VISUAL_QUEUE){
+        try{await this.state.storage.put('visuals',await enqueueVisualJobs({bucket:this.env.CATALOG,queue:this.env.VISUAL_QUEUE,storage:this.state.storage,rows:index.rows}));}
+        catch{await this.state.storage.put('visuals',{state:'failed',checkedAt:new Date().toISOString()}).catch(()=>{});}
+      }
       if((await this.state.storage.get('pruneAt')??0)<=Date.now()){
         try{
           const cursor=await pruneIndexes(this.env.CATALOG,`mcp/hosted/v1/indexes/${index.snapshotId}.json`,await this.state.storage.get('pruneCursor'));

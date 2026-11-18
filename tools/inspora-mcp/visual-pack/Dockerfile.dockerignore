@@ -1,0 +1,7 @@
+*
+!prepare-visuals.mjs
+!visuals.mjs
+!enrichment.mjs
+!visual-pack/package.json
+!visual-pack/package-lock.json
+!visual-pack/server.mjs

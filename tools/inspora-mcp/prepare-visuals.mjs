@@ -3,7 +3,6 @@ import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import sharp from 'sharp';
-import {eligible} from './catalog.mjs';
 import {mediaFingerprint} from './enrichment.mjs';
 import {
   publicMediaUrl, visualAssetKey, visualManifest, visualManifestKey, visualSha, VISUAL_MAX_EDGE,
@@ -16,13 +15,15 @@ const frameCount = 30;
 const background = '#191a1f';
 sharp.concurrency(2);
 
+// The hosted container runs on a fraction of a vCPU, so it allows a longer decode; output is unaffected.
+const ffmpegTimeout = Number(process.env.VISUAL_FFMPEG_TIMEOUT_MS) || 90_000;
 async function ffmpeg(args) {
   await run('ffmpeg', ['-hide_banner','-loglevel','error','-nostdin',...args], {
-    timeout:90_000, maxBuffer:256_000, windowsHide:true,
+    timeout:ffmpegTimeout, maxBuffer:256_000, windowsHide:true,
   });
 }
 
-async function writeAsset(directory,row,role,rendered,limit,timecodes) {
+async function renderAsset(row,role,rendered,limit,timecodes) {
   // Lower JPEG quality first; dense sheets (grain, noise, fine gradients) may also need smaller dimensions.
   const {width:full} = await sharp(rendered).metadata();
   let bytes;
@@ -35,9 +36,7 @@ async function writeAsset(directory,row,role,rendered,limit,timecodes) {
   if (bytes.length > limit) throw Error(role + ' exceeds the image budget even at reduced dimensions');
   const {width,height} = await sharp(bytes).metadata();
   const item = {role,width,height,bytes:bytes.length,sha256:visualSha(bytes),...(timecodes?{timecodes}:{})};
-  const target = path.join(directory,visualAssetKey(row,item));
-  await fs.writeFile(target,bytes);
-  return item;
+  return {item,bytes,key:visualAssetKey(row,item)};
 }
 
 async function assetStill(row,file) {
@@ -202,7 +201,7 @@ export async function sheet(frames,columns) {
   return sharp({create:{width:width*columns,height:height*rows,channels:3,background}}).composite(tiles).png().toBuffer();
 }
 
-async function motionAssets(row,file,directory,temp) {
+async function motionAssets(row,file,temp) {
   const {stdout} = await run('ffprobe', [
     '-v','error','-protocol_whitelist','file,pipe','-select_streams','v:0',
     '-show_entries','format=duration:stream=width,height','-of','json',file,
@@ -227,17 +226,26 @@ async function motionAssets(row,file,directory,temp) {
   // The sheets below keep every sample in chronological order; only the still is chosen.
   const best = await chooseStill(frames,{hero:row.kind==='website'});
   const assets = [
-    await writeAsset(directory,row,'still',await assetStill(row,best.file),220_000,[best.time]),
-    await writeAsset(directory,row,'overview',await sheet(frames,6),140_000,frames.map(frame=>frame.time)),
+    await renderAsset(row,'still',await assetStill(row,best.file),220_000,[best.time]),
+    await renderAsset(row,'overview',await sheet(frames,6),140_000,frames.map(frame=>frame.time)),
   ];
   for (let offset=0;offset<frames.length;offset+=12) {
     const page = frames.slice(offset,offset+12);
-    assets.push(await writeAsset(directory,row,'detail-'+(offset/12+1),await sheet(page,3),180_000,page.map(frame=>frame.time)));
+    assets.push(await renderAsset(row,'detail-'+(offset/12+1),await sheet(page,3),180_000,page.map(frame=>frame.time)));
   }
   return {assets,duration:Number(duration.toFixed(3))};
 }
 
-async function prepare(row,input,directory) {
+/** Thrown for media that can never be prepared (wrong type, over the limits); retrying cannot help. */
+export class VisualPackRejected extends Error {}
+
+/**
+ * Build a work's visual pack from a local copy of its first-party media. Returns the
+ * manifest and each content-addressed asset ({key,item,bytes}); writes nothing except
+ * temporary frames inside workDir. The CLI below and the hosted container both use it,
+ * so the same inputs and tool versions give byte-identical packs.
+ */
+export async function buildVisualPack(row,input,workDir) {
   const extension = path.extname(input.file).toLowerCase();
   const isVideo = ['.mp4','.mov','.webm'].includes(extension);
   const medium = row.media?.find(media => publicMediaUrl(input.source) &&
@@ -245,23 +253,40 @@ async function prepare(row,input,directory) {
   if (!medium || medium.type === 'favicon' ||
       (isVideo && !(medium.url===input.source && ['recording','video'].includes(medium.type))) ||
       (!isVideo && !['.png','.jpg','.jpeg','.webp'].includes(extension))) {
-    throw Error('Input must represent a current first-party still or recording in the eligible work');
+    throw new VisualPackRejected('Input must represent a current first-party still or recording in the eligible work');
   }
   const stat = await fs.stat(input.file);
-  if (!stat.isFile() || stat.size>sourceBytes) throw Error('Media exceeds the local input limit');
+  if (!stat.isFile() || stat.size>sourceBytes) throw new VisualPackRejected('Media exceeds the local input limit');
+  let built;
+  try {
+    built = isVideo ? await withFrames(workDir,temp=>motionAssets(row,input.file,temp)) :
+      {assets:[await renderAsset(row,'still',await assetStill(row,input.file),220_000)]};
+  } catch (error) {
+    // Limits, missing streams and undecodable media are properties of the media itself.
+    if (/exceeds|limits|no video stream|Too few decoded frames|Input file|unsupported image format|Invalid data/i.test(error.message ?? '') && !error.killed) {
+      throw new VisualPackRejected(error.message);
+    }
+    throw error;
+  }
+  const manifest = visualManifest.parse({version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),
+    ...(built.duration!==undefined?{duration:built.duration}:{}),assets:built.assets.map(asset=>asset.item)});
+  return {key:visualManifestKey(row),manifest,assets:built.assets};
+}
+
+async function prepare(row,input,directory) {
   const target = path.join(directory,visualManifestKey(row));
   await fs.mkdir(path.dirname(target),{recursive:true});
-  const built = isVideo ? await withFrames(directory,temp=>motionAssets(row,input.file,directory,temp)) :
-    {assets:[await writeAsset(directory,row,'still',await assetStill(row,input.file),220_000)]};
-  const manifest = visualManifest.parse({version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),...built});
+  const pack = await buildVisualPack(row,input,directory);
+  for (const asset of pack.assets) await fs.writeFile(path.join(directory,asset.key),asset.bytes);
   // Publish the manifest after its content-addressed files are complete.
   const draft=target+'.'+process.pid+'.tmp';
-  await fs.writeFile(draft,JSON.stringify(manifest));
+  await fs.writeFile(draft,JSON.stringify(pack.manifest));
   await fs.rename(draft,target);
-  return manifest;
+  return pack.manifest;
 }
 
 async function withFrames(directory,work) {
+  await fs.mkdir(directory,{recursive:true});
   const temp = await fs.mkdtemp(path.join(directory,'frames-'));
   try {return await work(temp);}
   finally {
@@ -277,6 +302,7 @@ if (import.meta.main) {
   if (!out || process.argv.length!==5) {
     throw Error('Usage: node prepare-visuals.mjs <catalog-index.json> <local-inputs.json> <data-directory>/visuals');
   }
+  const {eligible} = await import('./catalog.mjs');
   const directory = path.resolve(out);
   const index = JSON.parse(await fs.readFile(indexFile,'utf8'));
   const inputs = JSON.parse(await fs.readFile(inputFile,'utf8'));

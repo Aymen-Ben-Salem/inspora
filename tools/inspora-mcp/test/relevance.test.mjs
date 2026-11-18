@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SearchEngine} from '../search.mjs';
 import {normalizeRows} from '../catalog.mjs';
-import {work, embed, vector, evidencedIds} from './fixtures.mjs';
+import {work, embed, vector, evidencedIds, admitted} from './fixtures.mjs';
 
 function engine(works) {
   const capturedAt = new Date().toISOString();
@@ -206,7 +206,7 @@ test('editorial field labels alone cannot qualify a result while real typography
   rows[0].text+=' '+rows[0].searchOnly;
   const e=new SearchEngine({snapshotId:'field-labels',capturedAt,rows},{embed});
   const result=await e.search({query:'expressive typography websites'});
-  assert.ok(!result.results.some(row=>row.id===rows[0].id),'a structural heading is not visual subject evidence');
+  assert.ok(!admitted(result).some(row=>row.id===rows[0].id),'a structural heading is not visual subject evidence');
   assert.ok(result.results.some(row=>row.id===rows[1].id));
   assert.ok(result.results.some(row=>row.id===rows[2].id),'public prose remains searchable, including headings');
 });

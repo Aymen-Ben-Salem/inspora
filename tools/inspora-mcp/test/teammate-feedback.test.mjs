@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {SearchEngine} from '../search.mjs';
 import {normalizeRows} from '../catalog.mjs';
 import {tokens,queryIntent} from '../relevance.mjs';
-import {work,embed,vector,evidencedIds} from './fixtures.mjs';
+import {work,embed,vector,evidencedIds,admitted} from './fixtures.mjs';
 function engine(works,options={}) {const capturedAt=new Date().toISOString();const rows=normalizeRows({capturedAt,rows:works}).map(row=>({...row,vector:vector()}));return new SearchEngine({snapshotId:'teammate-feedback',capturedAt,rows},{embed,...options});}
 
 test('compound AI agent brief offers evidenced related work without relaxing explicit filters',async()=>{
@@ -29,7 +29,7 @@ test('software context finds relevant website and design evidence without generi
  for(const [kind,id] of [['website',site.id],['design',design.id]]){
   const result=await e.search({query:'developer tool',kinds:[kind]});
   assert.ok(result.results.some(r=>r.id===id));
-  assert.ok(result.results.every(r=>r.id!==filler.id));
+  assert.ok(admitted(result).every(r=>r.id!==filler.id));
  }
 });
 
@@ -104,7 +104,7 @@ test('general landing-page wording can retrieve websites without padding specifi
  const ornate={...work(3,'website'),title:'Ornate campaign',description:'A retro promotional website uses ornamental illustrations and bold headlines.'};
  const e=engine([website,unrelated,ornate]);
  assert.equal((await e.search({query:'landing page',kinds:['website']})).results.length,2);
- for(const query of ['minimal landing pages','minimal website','minimal homepage'])assert.deepEqual((await e.search({query,kinds:['website']})).results.map(r=>r.id),[website.id],query);
+ for(const query of ['minimal landing pages','minimal website','minimal homepage'])assert.deepEqual(admitted(await e.search({query,kinds:['website']})).map(r=>r.id),[website.id],query);
  assert.equal((await e.search({query:'purple submarine landing page',kinds:['website']})).results.length,0);
 });
 
@@ -241,7 +241,7 @@ test('semantic gates follow the index embedding model',async()=>{
  const strong=[{...work(1),title:'Glass panel',description:'A frosted glass panel with soft blue light.'},.70];
  const weak=[{...work(2),title:'Glass bottle',description:'A glass bottle on a shelf.'},.60];
  const bge=scored([strong,weak],{name:'@cf/baai/bge-small-en-v1.5'});
- assert.deepEqual((await bge.search({query:'frosted glass'})).results.map(r=>r.id),[strong[0].id],'BGE scores near 0.6 for unrelated work');
+ assert.deepEqual(admitted(await bge.search({query:'frosted glass'})).map(r=>r.id),[strong[0].id],'BGE scores near 0.6 for unrelated work');
  const mini=scored([strong,weak],{name:'Xenova/all-MiniLM-L6-v2'});
  assert.equal((await mini.search({query:'frosted glass'})).results.length,2);
  const filters=await bge.search({query:'frosted glass',filters:{colors:['Blue']}});

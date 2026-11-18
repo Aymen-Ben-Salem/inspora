@@ -5,7 +5,7 @@ import {SearchEngine} from '../search.mjs';
 import {normalizeRows,clean} from '../catalog.mjs';
 import {prepareSearchQuery,untranslatedLanguage} from '../query.mjs';
 import {tokens,subjectFallbacks,queryIntent} from '../relevance.mjs';
-import {work,embed,vector} from './fixtures.mjs';
+import {work,embed,vector,admitted} from './fixtures.mjs';
 
 const flat=(works,options={})=>{const capturedAt=new Date().toISOString();const rows=normalizeRows({capturedAt,rows:works}).map(row=>({...row,vector:vector()}));return new SearchEngine({snapshotId:'r10',capturedAt,rows},{embed,...options});};
 // Each work's similarity to the (constant) query embedding is set explicitly.
@@ -59,14 +59,20 @@ test('meaning alone admits only standout works, matched as similar, and never on
  const standout=[{...work(1),title:'Quiet slab',description:'Heavy concrete forms in grey.'},.9];
  const e=spread([standout,...filler(120)]);
  const result=await e.search({query:'stark monolithic composition',kinds:['design']});
- assert.deepEqual(result.results.map(r=>[r.id,r.match]),[[standout[0].id,'similar']]);
+ assert.deepEqual(admitted(result).map(r=>[r.id,r.match]),[[standout[0].id,'similar']]);
+ // Revision 16: a brief without catalog vocabulary is completed with a varied, labelled browse.
+ assert.equal(result.search_coverage.browse_fill,120,'every other design continues the browse');
+ assert.ok(result.results.slice(1).every(r=>r.match==='browse'));
+ assert.match(result.notice,/The brief matched 1 work; the next 120 are a varied browse/);
  assert.match(result.results[0].reason,/Similar overall description/);
  assert.equal(result.results[0].evidence.meaning_top_pct,1);
  assert.equal(result.search_coverage.brief_matches,0);
  assert.equal(result.insufficient_matches,true);
  assert.match(result.notice,/No catalog work mentions stark, monolithic, composition/);
  const level=flat([standout[0],...filler(20).map(([row])=>row)]);
- assert.equal((await level.search({query:'stark monolithic composition',kinds:['design']})).results.length,0);
+ const levelResult=await level.search({query:'stark monolithic composition',kinds:['design']});
+ assert.equal(admitted(levelResult).length,0,'a flat distribution admits nothing by meaning');
+ assert.ok(levelResult.results.every(r=>r.match==='browse'));
 });
 
 test('multi-word subjects degrade to the concepts and specific words they contain, below exact matches',async()=>{

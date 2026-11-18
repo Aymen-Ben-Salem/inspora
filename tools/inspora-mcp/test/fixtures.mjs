@@ -7,3 +7,6 @@ export const embed=async texts=>texts.map(vector);
 // Works carrying the evidence a search asked for: the subject shown in the requested scope
 // when a subject is asked, otherwise brief or browse evidence. Fit is the reader's decision.
 export const evidencedIds=result=>result.results.filter(r=>result.search_coverage.subject_matches!==undefined?r.match==='subject':['brief','browse'].includes(r.match)).map(r=>r.id);
+
+// The works a brief admitted, without the varied browse that completes a short page.
+export const admitted=result=>result.results.slice(0,Math.max(0,result.search_coverage.matching_works-(result.search_coverage.browse_fill??0)));

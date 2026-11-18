@@ -14,7 +14,7 @@ const spread=works=>new SearchEngine({snapshotId:'r15-spread',capturedAt,model:{
 const facts=result=>result.results.map(({evidence:{description,visual_notes,...rest}})=>rest);
 
 test('results carry compact factual evidence and never a direct verdict',async()=>{
- assert.equal(SEARCH_REVISION,15);
+ assert.equal(SEARCH_REVISION,16);
  const title={...work(1),title:'Toggle switch',description:'A toggle switch flips dark mode.',industries:['Fintech'],styles:['Dark']};
  const notes={...work(2),title:'Settings card',description:'A card lists account options.',industries:['Fintech'],searchOnly:'A small toggle sits at the right edge.'};
  const tag={...work(3),title:'Panel',description:'A dark panel.',categories:['Toggle'],styles:['Dark']};
@@ -164,4 +164,77 @@ test('a phrase never starts or ends inside a hyphen-joined compound, in public t
  assert.equal((await e.search({query:'sleep tracker',subjects:['sleep tracker']})).results[0].evidence.subject.matched_as,'derived','a compound wholly inside the phrase still counts');
  assert.equal((await e.search({query:'signature field',subjects:['signature field']})).results[0].id,signature.id,'a short prefix (e-) does not bind');
  assert.ok(!(await e.search({query:'calendar',subjects:['calendar']})).results.some(r=>r.id===button.id&&r.match==='subject'),'add-to-calendar names a button, not a calendar');
+});
+
+test('revision 16: drag-and-drop vocabulary reaches drop zones and dragged objects; dragging alone is the broader drag gesture',async()=>{
+ const card={...work(1),title:'File upload card',description:'A PDF chip is dragged toward a dark upload card with a dimensional drop target.'};
+ const zone={...work(2),title:'HEIC File Upload',description:'Softly colored photo cards sit above a clear drop zone.'};
+ const slider={...work(3),title:'Sliders',description:'Thin sliders on a dark panel. Dragging the controls pulls their handles.'};
+ const dropdown={...work(4),title:'Dropdown',description:'A dropdown menu opens with a soft drop shadow.'};
+ const e=flat([card,zone,slider,dropdown]);
+ for(const subjects of [['drag and drop'],['drag-and-drop'],['draggable'],['drop zone']]){
+  const result=await e.search({query:'drag and drop interaction',kinds:['design'],subjects});
+  assert.deepEqual(result.results.filter(r=>r.match==='subject').map(r=>r.id).sort(),[card.id,zone.id].sort(),JSON.stringify(subjects));
+  assert.ok(!result.results.some(r=>r.id===dropdown.id&&r.match==='subject'),'a dropdown or drop shadow is no drop zone');
+ }
+ const broader=await e.search({query:'drag and drop interaction',kinds:['design'],subjects:['drag and drop']});
+ assert.deepEqual(broader.results.find(r=>r.id===slider.id)?.evidence.subject,{via:['drag'],matched_as:'broader',where:['description']});
+ assert.deepEqual((await e.search({query:'drag and drop interaction',kinds:['design']})).interpreted_query.subjects,['drag and drop']);
+});
+
+test('revision 16: a criteria-free request is a varied browse of the requested kinds, never empty',async()=>{
+ const icons=[...Array.from({length:4},(_,i)=>({...work(10+i,'icon'),title:'Travel '+i,description:'A travel icon.',industry:'Travel'})),
+  ...Array.from({length:4},(_,i)=>({...work(20+i,'icon'),title:'Music '+i,description:'A music icon.',industry:'Music'}))];
+ const e=flat(icons);
+ const mix=await e.search({query:'a surprise mix of standout app icons',kinds:['icon']});
+ assert.equal(mix.results.length,8);
+ assert.ok(mix.results.every(r=>r.match==='browse'),'words outside the catalog vocabulary are no criteria');
+ assert.match(mix.notice,/the next 8 are a varied browse/);
+ for(const query of ['fresh mix of icons','surprise mix of diverse icon styles','varied icon inspiration','surprise me with a fresh mix of icons'])assert.equal((await e.search({query,kinds:['icon']})).results.length,8,query);
+ assert.match((await e.search({query:'icons',kinds:['icon']})).notice,/No specific criteria were applied/);
+ assert.notEqual(mix.results[0].title.split(' ')[0],mix.results[1].title.split(' ')[0],'the first page alternates categories');
+ assert.equal(mix.insufficient_matches,true,'8 works for a page of 10');
+ assert.ok((await e.search({query:'surprise mix'})).results.length,'no kinds: browse everything rather than an input error');
+});
+
+test('revision 16: page-format subjects, equivalent aliases, supported style labels and catalog product names',async()=>{
+ const saas=[1,2].map(n=>({...work(n,'website'),title:'Tool '+n,description:'A software product website.',industries:['SaaS']}));
+ const hero=await flat([...saas,{...work(3,'website'),title:'Shop',description:'A shop website.'}]).search({query:'SaaS landing page hero section with product screenshot',kinds:['website'],subjects:['hero section'],context:'SaaS'});
+ assert.equal(hero.search_coverage.matching_works,3,'a hero section filters out no website');
+ assert.equal(hero.search_coverage.brief_matches,2,'the explicit context carries the brief without the word screenshot');
+ const navbar={...work(4),title:'Navbar',description:'A navbar slides between pages.'};
+ const nav=await flat([navbar]).search({query:'navigation menu hover animation',kinds:['design'],subjects:['navigation menu']});
+ assert.deepEqual([nav.interpreted_query.subjects,nav.results[0].match],[['navigation'],'subject']);
+ const darks=[5,6,7].map(n=>({...work(n),title:'Board '+n,description:'A dashboard.',styles:['Dark']}));
+ const modes=[8,9].map(n=>({...work(n),title:'Mode '+n,description:'A dashboard.',styles:['Dark mode']}));
+ const dark=await flat([...darks,...modes]).search({query:'dark mode dashboard',kinds:['design'],subjects:['dashboard']});
+ assert.deepEqual(dark.interpreted_query.derived_constraints.style,['Dark'],'the supported label wins');
+ assert.equal(dark.search_coverage.style_matches,5,'a Dark mode tag also evidences Dark');
+ const island={...work(10),title:'Dynamic Island alert',description:'A Dynamic Island notification expands.'};
+ const di=await flat([island]).search({query:'Dynamic Island style notification animations',kinds:['design']});
+ assert.equal(di.interpreted_query.derived_constraints?.reference_brands,undefined,'a product name the catalog uses is no reference brand');
+});
+
+test('revision 16: an AI thinking state is loading evidence, but a progress bar is no thinking state',async()=>{
+ const think={...work(1),title:'Thinking states',description:'An AI assistant card shows thinking states.'};
+ const bar={...work(2),title:'Progress bar',description:'A progress bar fills from left to right.'};
+ const e=flat([think,bar]);
+ const loading=await e.search({query:'loading animation',kinds:['design'],subjects:['loading animation']});
+ assert.deepEqual(loading.results.filter(r=>r.match==='subject').map(r=>r.id).sort(),[think.id,bar.id].sort());
+ const thinking=await e.search({query:'AI thinking state animation',kinds:['design'],subjects:['thinking state']});
+ assert.deepEqual(thinking.results.filter(r=>r.match==='subject').map(r=>r.id),[think.id]);
+});
+
+test('revision 16: phrase units stand together and a facet naming a domain needs a domain part',async()=>{
+ const stack={...work(1),title:'Card stack',description:'A stack of cards fans out when swiped.'};
+ const verb={...work(2),title:'Send',description:'The screen stacks an amount card above recipient details.'};
+ const far={...work(3),title:'Ticker',description:'An animation warps a dense page of text into a vortex.'};
+ const e=flat([stack,verb,far]);
+ const result=await e.search({query:'card stack',kinds:['design'],subjects:['card stack']});
+ assert.deepEqual(result.results.filter(r=>r.match==='subject').map(r=>r.id),[stack.id],'"stacks an amount card" is no card stack');
+ assert.equal((await e.search({query:'text animation',kinds:['design'],subjects:['text animation']})).results.find(r=>r.id===far.id)?.match,'subject','units a few words apart still belong together');
+ const food={...work(3,'website'),title:'Oat drink',description:'A plant-based drink brand website.',industries:['Food & Drink']};
+ const studio={...work(4,'website'),title:'Studio',description:'A brand design studio website.'};
+ const site=await flat([food,studio]).search({query:'website for a plant-based food brand',kinds:['website'],context:'food and beverage consumer brand'});
+ assert.equal(site.search_coverage.context_matches,1,'"brand" alone does not make a studio a food work');
 });

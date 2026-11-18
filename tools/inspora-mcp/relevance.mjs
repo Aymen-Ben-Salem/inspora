@@ -8,7 +8,7 @@ const concepts = [
   ['gift card', 'design', []],
   ['business card', 'design', ['visiting card']],
   ['dashboard', 'design', ['admin panel', 'analytics screen', 'analytics overview']],
-  ['navigation', 'design', ['nav', 'navbar', 'navigation bar', 'nav bar']],
+  ['navigation', 'design', ['nav', 'navbar', 'navigation bar', 'nav bar', 'navigation menu', 'nav menu', 'menu bar', 'dock', 'app dock']],
   // A fourth entry names the broader concept: a sidebar is navigation, but navigation
   // evidence alone is only partial evidence for a sidebar.
   ['sidebar', 'design', ['side nav', 'side navigation', 'sidebar menu'], 'navigation'],
@@ -40,9 +40,15 @@ const concepts = [
   ['player', 'design', ['media player', 'audio player', 'video player']],
   ['timeline', 'design', []],
   ['progress', 'design', ['progress indicator', 'progress bar', 'status control', 'loading indicator', 'loader', 'loading animation', 'loading spinner', 'spinner']],
+  // An AI thinking state is a kind of loading state: it evidences progress, not the reverse.
+  ['thinking', 'design', ['thinking state', 'thinking indicator', 'thinking animation', 'typing indicator'], 'progress'],
   ['cursor', 'design', []],
   ['chat', 'design', ['conversation interface', 'messaging interface']],
   ['upload', 'design', ['file uploader', 'file upload']],
+  // Standard gesture vocabulary: a drop zone or drop target is drag-and-drop evidence; dragging
+  // alone (a slider handle) is the broader drag gesture.
+  ['drag', 'design', ['dragging', 'dragged', 'drag gesture']],
+  ['drag and drop', 'design', ['drag drop', 'drop zone', 'dropzone', 'drop target', 'drop area', 'draggable', 'drag to reorder', 'drag and drop interaction'], 'drag'],
   ['hero', 'web', ['hero section', 'hero area']],
   ['landing page', 'web', ['homepage', 'home page']],
   ['portfolio', 'web', []],
@@ -192,7 +198,9 @@ const subjectMentions = text => {
 // Free words (not bound inside a compound) and the compounds, for literal subject evidence.
 function compoundWords(text) {
   const spans = wordSpans(text);
-  return {free: new Set(spans.filter(span => !span.boundLeft && !span.boundRight).map(({word}) => word)),
+  // Sentences are separated by a marker so no phrase or verb test spans a boundary.
+  const sequence = String(text ?? '').split(/[.!?;:|\n]+/).flatMap((part, i) => [...(i ? ['|'] : []), ...wordSpans(part).map(({word}) => word)]);
+  return {sequence, free: new Set(spans.filter(span => !span.boundLeft && !span.boundRight).map(({word}) => word)),
     compounds: [...new Map(spans.filter(span => span.parts.length > 1).map(({parts}) => [parts.join('-'), parts])).values()]};
 }
 const subjectsIn = text => [...new Set(subjectMentions(text).map(({to}) => to))];
@@ -200,6 +208,7 @@ export const isSubjectPhrase = phrase => aliases.has(normalized(phrase));
 // A subject concept and its familiar alternative names (toggle: toggle switch).
 export const subjectNames = subject => [subject, ...[...aliases].filter(([alias, to]) => to === subject && alias !== subject).map(([alias]) => alias)];
 const archiveKinds = ['website', 'logo', 'icon'];
+const interactionConcepts = new Set(['drag', 'drag and drop']);
 // Format nouns name the container, not the subject ("welcome screen", "onboarding flow").
 export const formatWords = new Set(words('screen page flow section component interface view layout widget element module block template site'));
 
@@ -273,10 +282,13 @@ export function labelsIn(text, labels, inflected = false) {
 
 // An alias that adds another concept ("payment form" adds form to payment) stays a
 // literal subject, so a payment receipt without a form is partial evidence, not direct.
+// Aliases that name the same artifact although they contain another concept word (a
+// navigation menu is navigation, while a payment form adds a form to a payment).
+const equivalentAliases = new Set(['navigation menu', 'nav menu', 'menu bar']);
 const conceptWords = new Set([...aliases.keys()].filter(alias => !alias.includes(' ')));
 export function canonicalSubject(text) {
   const value=normalized(text),exact=aliases.get(value);
-  if(exact&&words(value).some(word=>conceptWords.has(word)&&aliases.get(word)!==exact&&!words(exact).includes(word)))return value;
+  if(exact&&!equivalentAliases.has(value)&&words(value).some(word=>conceptWords.has(word)&&aliases.get(word)!==exact&&!words(exact).includes(word)))return value;
   if(exact)return exact;
   const found=subjectsIn(value);
   const remainder=value.replace(pattern,' ').split(/\s+/).filter(word=>word&&!['ui','design'].includes(word)&&!formatWords.has(word));
@@ -348,6 +360,9 @@ export function prepareDocument(row) {
     }
   }
   if (prepared.mentionedSubjects.has('date picker')) prepared.mentionedSubjects.add('calendar');
+  // An interaction is what a motion work does, usually told after the object it moves ("a PDF
+  // chip is dragged toward a drop target"), so public prose naming it is main-subject evidence.
+  for (const subject of prepared.publicSubjects) if (interactionConcepts.has(subject)) prepared.primarySubjects.add(subject);
   for (const subject of prepared.mentionedSubjects) {
     for (const term of tokens(subject)) prepared.terms.add(term);
   }
@@ -356,7 +371,8 @@ export function prepareDocument(row) {
   if (['logo', 'icon', 'website'].includes(row.kind)) {
     prepared.primarySubjects.add(row.kind);
     // Website entries are general page references even when their prose omits homepage/landing page.
-    if (row.kind === 'website') { prepared.primarySubjects.add('landing page'); prepared.mentionedSubjects.add('landing page'); }
+    // A website is a page with a hero, so both page-format subjects are evidenced.
+    if (row.kind === 'website') for (const set of [prepared.primarySubjects, prepared.mentionedSubjects]) { set.add('landing page'); set.add('hero'); }
     prepared.mentionedSubjects.add(row.kind);
   }
   documents.set(row, prepared);
@@ -458,6 +474,26 @@ export function subjectEvidence(document, intent) {
     const units = subjectUnits(subject);
     const related = subjectTerms(subject).length > 1;
     const required = subjectTerms(subject);
-    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related, required));
+    return units.length > 0 && units.every(unit => unitShown(document, scope, unit, related, required)) && unitsNear(document, scope, units, related);
   });
+}
+// The units of a literal phrase found in running text must belong together: within six words
+// of each other, and a head word directly followed by an article is a verb ("stacks an amount
+// card", "stacks a large amount"), not the noun of the phrase (a card stack). Units evidenced only
+// by taxonomy or a concept set are not positioned and skip the check.
+const articles = new Set(['a', 'an', 'the', 'its', 'their']);
+function unitsNear(document, scope, units, related) {
+  if (units.length < 2) return true;
+  const sequence = (scope === 'public' ? document.publicWordSet : scope === 'contains' ? document.visibleWords : document.primaryWords).sequence;
+  const has = related ? hasFamily : hasForm;
+  const positions = [];
+  for (const unit of units) {
+    const words = unit.concept ? [...new Set(subjectNames(unit.concept).map(name => normalized(name).split(' ').at(-1)))] : unit.terms;
+    const raw = sequence.flatMap((word, i) => words.some(term => has(new Set([word]), term)) ? [i] : []);
+    if (!raw.length) return true;
+    const nouns = unit.head ? raw.filter(i => !articles.has(sequence[i + 1])) : raw;
+    if (!nouns.length) return false;
+    positions.push(nouns);
+  }
+  return positions[0].some(start => positions.every(list => list.some(i => Math.abs(i - start) <= 6)));
 }

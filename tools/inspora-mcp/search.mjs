@@ -7,7 +7,7 @@ import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 import {workMedia} from './visuals.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=15;
+export const SEARCH_REVISION=16;
 // Similarity gates are model-specific. BGE-small scores the whole catalog around
 // 0.55-0.65, so MiniLM's 0.30 admitted everything on the hosted index. The BGE
 // values approximate MiniLM's selection rate on the evaluation requests (18 Nov 2026:
@@ -129,6 +129,7 @@ export class SearchEngine {
   this.cursors.clear();
   this.labelVectors=null;
   this.fieldWords=new Map();
+  this.taxonomyTerms=new Set(this.rows.flatMap(row=>[row.industry,...(row.industries??[]),...(row.categories??[])]).flatMap(value=>tokens(String(value??''))));
   this.labelWords=new Set(this.rows.flatMap(row=>[row.industry,...(row.industries??[]),...(row.categories??[]),...(row.technologies??[])]).flatMap(value=>String(value??'').split(',')).map(normalizedPhrase).filter(Boolean));
   this.df=new Map();
   this.documents=new Map();
@@ -156,8 +157,14 @@ export class SearchEngine {
   this.taggedStyles=new Map(this.rows.map(row=>[row.id,new Set([...fieldValues(row,'styles'),...fieldValues(row,'themes')].map(normalizedPhrase))]));
   this.styles=new Map(this.rows.map(row=>{
    const tagged=[...this.taggedStyles.get(row.id)];
-   return [row.id,new Set([...tagged,...labelsIn([row.title,row.description,row.tagline,row.searchOnly,row.shape].filter(Boolean).join('. '),this.styleLabels,'family')])];
+   // A tagged multi-word label also evidences the shorter labels inside it (Dark mode -> Dark).
+   const inner=tagged.flatMap(label=>this.styleLabels.filter(other=>other!==label&&other.split(' ').every(word=>label.split(' ').includes(word))));
+   return [row.id,new Set([...tagged,...inner,...labelsIn([row.title,row.description,row.tagline,row.searchOnly,row.shape].filter(Boolean).join('. '),this.styleLabels,'family')])];
   }));
+  // Catalog support of each style label: works evidencing it by tag or prose.
+  this.styleSupport=new Map();
+  for(const set of this.styles.values())for(const label of set)this.styleSupport.set(label,(this.styleSupport.get(label)??0)+1);
+  this.catalogPhrases=null;
  }
  idf(term){return Math.log(1+(this.rows.length+1)/((this.df.get(term)||0)+1));}
  prune(){for(const [key,v] of this.cursors)if(v.expires<=this.now())this.cursors.delete(key);while(this.cursors.size>=128)this.cursors.delete(this.cursors.keys().next().value);}
@@ -257,12 +264,14 @@ export class SearchEngine {
   // A capitalised name used as a reference ("like Linear", "Stripe-style", or mid-query
   // and unknown to the design vocabulary and taxonomy) describes a style, not catalog
   // words: it stays in the embedding text but never matches literally ("striped").
+  this.catalogPhrases??=' '+this.rows.map(row=>normalizedPhrase([row.title,row.description,row.searchOnly].filter(Boolean).join(' '))).join(' | ')+' ';
+  const catalogName=match=>{const previous=prepared.query.slice(0,match.index+match[1].length).match(/(\p{Lu}[\p{L}\p{N}]*)[\s-]*$/u)?.[1];return Boolean(previous)&&this.catalogPhrases.includes(' '+normalizedPhrase(previous+' '+match[3])+' ');};
   const brands=[...new Set([...prepared.query.matchAll(/(^|[.!?:;]\s*|\s)(?:(like|as)\s+)?(\p{Lu}[\p{L}\p{N}]*)(?=([-\s](?:style|like|esque|inspired)\b)?)/gu)]
-   .filter(([,lead,like,name,suffix])=>(like||suffix||!/[.!?:;]|^$/.test(lead))&&name.slice(1)!==name.slice(1).toUpperCase()&&!designVocabulary.has(normalizedPhrase(name))&&!isSubjectPhrase(name)&&!this.styleLabels.includes(normalizedPhrase(name))&&(like||suffix||!this.labelWords.has(normalizedPhrase(name)))&&!restated.has(normalizedPhrase(name)))
+   .filter(match=>!catalogName(match)).filter(([,lead,like,name,suffix])=>(like||suffix||!/[.!?:;]|^$/.test(lead))&&name.slice(1)!==name.slice(1).toUpperCase()&&!designVocabulary.has(normalizedPhrase(name))&&!isSubjectPhrase(name)&&!this.styleLabels.includes(normalizedPhrase(name))&&(like||suffix||!this.labelWords.has(normalizedPhrase(name)))&&!restated.has(normalizedPhrase(name)))
    .map(([,,,name])=>name))];
   const brandTerms=new Set(brands.map(normalizedPhrase));
   if(!args.context)intent.context=intent.context.filter(term=>!brandTerms.has(term));
-  const stated=tokens(intent.subjects.includes('landing page')?cons.positive.replace(/\b(?:landing[ -]?pages?|home[ -]?pages?)\b/gi,' '):cons.positive),words=stated.filter(word=>!restated.has(word)&&!brandTerms.has(word));
+  const stated=tokens(intent.subjects.includes('landing page')||kinds.every(kind=>kind==='website')?cons.positive.replace(/\b(?:landing[ -]?pages?|home[ -]?pages?)\b/gi,' '):cons.positive),words=stated.filter(word=>!restated.has(word)&&!brandTerms.has(word));
   // Only explicit exclude_terms filter; a negation read from the text ranks last instead.
   const negative=[...(args.exclude_terms||[])];
   // Free-text cues rank rather than filter: style traits come from the catalog's own
@@ -276,11 +285,20 @@ export class SearchEngine {
   // A label that is also a domain (Photography, the industry, in "photography camera app
   // icon") is read as the domain.
   const domainLabel=label=>this.contextVocabulary.has(label)||tokens(args.context??'').includes(label);
-  const askedStyles=labelsIn(cons.positive,this.styleLabels,true).filter(label=>!compound(label)&&!domainLabel(label));
+  // Among equivalent readings prefer the label with real catalog support: a rare "Dark mode"
+  // label yields to "Dark" when the shorter label inside it evidences more works.
+  const support=label=>this.styleSupport.get(label)??0;
+  const askedStyles=[...new Set(labelsIn(cons.positive,this.styleLabels,true).filter(label=>!compound(label)&&!domainLabel(label)).map(label=>{
+   const inner=this.styleLabels.filter(other=>other!==label&&other.split(' ').every(word=>label.split(' ').includes(word))&&support(other)>support(label)).sort((a,b)=>support(b)-support(a));
+   return inner[0]??label;
+  }))];
   const colorCues=cons.colors.filter(color=>!restated.has(color));
-  if (!ref&&!stated.length&&!intent.subjects.length&&kinds.length===KINDS.length) throw Error('INPUT: add a visual idea or an explicit work kind');
+  // A request whose words are all filler ("a surprise mix") is a browse of the requested
+  // kinds; only a query without any word is an input error.
+  if (!ref&&!/[\p{L}\p{N}]/u.test(cons.positive)&&!intent.subjects.length&&kinds.length===KINDS.length) throw Error('INPUT: add a visual idea or an explicit work kind');
   const embeddingText=[cons.positive,args.subjects?.join(', '),args.context].filter(Boolean).join('\n');
-  const concrete=subject=>!KINDS.includes(subject)&&subject!=='landing page';
+  // Page formats (landing page; a hero on website-only searches) are met by every website.
+  const concrete=subject=>!KINDS.includes(subject)&&subject!=='landing page'&&!(subject==='hero'&&kinds.every(kind=>kind==='website'));
   // An alias is an equivalent name for its concept (toggle switch = toggle); it is kept
   // only to embed the subject in the user's own words.
   const aliasPhrase=new Map((args.subjects??[]).map(phrase=>[canonicalSubject(phrase),normalizedPhrase(phrase)]).filter(([canonical,phrase])=>canonical!==phrase));
@@ -359,7 +377,7 @@ export class SearchEngine {
   };
   // Every website is a page, so a page-type subject on a website-only search is the
   // archive kind itself, never a filter that needs extra topical words.
-  const archiveSubject=intent.subjects.length>0&&intent.subjects.every(s=>KINDS.includes(s)||s==='landing page'&&kinds.every(kind=>kind==='website'));
+  const archiveSubject=intent.subjects.length>0&&intent.subjects.every(s=>KINDS.includes(s)||['landing page','hero'].includes(s)&&kinds.every(kind=>kind==='website'));
   const contextualBrowse=archiveSubject && (Boolean(args.context) ||
     Boolean(args.filters?.categories?.length||args.filters?.category?.length) ||
     (args.kinds?.includes('logo')&&args.kinds.includes('icon')));
@@ -380,6 +398,11 @@ export class SearchEngine {
    const a=facets.find(facet=>facet.includes(i)),b=facets.find(facet=>facet.includes(j));
    if(a!==b){a.push(...b);facets.splice(facets.indexOf(b),1);}
   }
+  // Context coverage counts facets naming a catalog domain (a taxonomy word or product role):
+  // "startup" of "technology startup" names no domain, so it neither matches nor blocks.
+  const domainPart=unit=>unit.terms.some(term=>this.taxonomyTerms.has(term)||this.contextVocabulary.has(term))||Boolean(contextRole&&contextRole.query.test(unit.text));
+  const domainFacets=facets.map((facet,i)=>facet.some(j=>domainPart(contextUnits[j]))?i:-1).filter(i=>i>=0);
+  const countedFacets=domainFacets.length?domainFacets:facets.map((_facet,i)=>i);
   const topicTerms=intent.topics.map(topic=>({topic,terms:tokens(topic)}));
   const preferenceTerms=intent.topicPreferences.map(topic=>({topic,terms:tokens(topic)}));
   // An explicit phrase that names a concept also falls back to its own specific words
@@ -392,6 +415,14 @@ export class SearchEngine {
   const contextHit=document=>contextUnits.length>0&&facets.every(facet=>facet.some(i=>contextUnits[i].terms.every(term=>contextForms(term).some(form=>document.terms.has(form)))));
   const briefAffinity=this.tail(queryVec,.95);
   const queryAffine=row=>briefAffinity!==null&&!ref&&dot(queryVec,row.vector)>=briefAffinity;
+  // A request is a browse when, beyond kind words, nothing in it is the catalog's own
+  // vocabulary: no subject, style, colour, context, topic or reference brand, and no word that
+  // is a concept, taxonomy label or style word. Ordinary adjectives the catalog does not use
+  // ("fresh", "varied", "surprise") are no criteria.
+  const styleWords=new Set(this.styleLabels.flatMap(label=>label.split(' ')));
+  const vocabularyWords=words.filter(word=>!KINDS.includes(canonicalSubject(word))&&(isSubjectPhrase(word)||this.taxonomyTerms.has(word)||this.contextVocabulary.has(word)||styleWords.has(word)));
+  const criteriaFree=!ref&&!vocabularyWords.length&&!cueTotal&&!brands.length&&!args.context&&!subjectAsk&&!intent.topics.length&&!intent.project&&!(args.required_terms??[]).length;
+  const broad0=!ref&&!words.length;
   const contextPool=args.context?candidates.filter(row=>contextHit(this.documents.get(row.id))).length:0;
   const scored=[];
   for (const row of candidates) {
@@ -482,17 +513,19 @@ export class SearchEngine {
    // A context part is evidenced when each of its words (or a relative: gaming -> game) is
    // in the work's terms, or product-role evidence covers it; a facet needs one evidenced part.
    const unitFound=contextUnits.map(unit=>unit.terms.every(term=>contextForms(term).some(form=>document.terms.has(form)))||Boolean(roleEvidence&&contextRole.query.test(unit.text))||Boolean(projectEvidence&&contextProject&&unit.terms.every(term=>projectTerms?.has(term))));
-   const facetFound=facets.map(facet=>facet.some(i=>unitFound[i]));
+   // Within a facet naming a catalog domain, only a domain part counts: "brand" of "food and
+   // beverage consumer brand" does not make a design studio a food work.
+   const facetFound=facets.map(facet=>{const domain=facet.some(i=>domainPart(contextUnits[i]));return facet.some(i=>unitFound[i]&&(!domain||domainPart(contextUnits[i])));});
    const missingContext=contextUnits.length||projectEvidence&&contextProject||roleEvidence?[]:intent.context.filter(term=>!document.terms.has(term)&&!(projectEvidence&&projectTerms?.has(term)));
    const rowLabels=[row.industry,...(row.industries??[]),...(row.categories??[])].flatMap(value=>String(value??'').split(',')).map(value=>value.trim()).filter(Boolean);
    // A part whose words each begin a word of one of the work's taxonomy labels (tech of
    // Technology) is related evidence, not absent.
    const labelWords=rowLabels.flatMap(label=>tokens(label));
-   const unitRelated=contextUnits.map((unit,i)=>!unitFound[i]&&unit.terms.every(term=>term.length>=3&&labelWords.some(word=>word!==term&&word.startsWith(term))));
+   const unitRelated=contextUnits.map((unit,i)=>!unitFound[i]&&unit.terms.every(term=>term.length>=3&&labelWords.some(word=>word!==term&&(word.startsWith(term)||word.length>=4&&term.startsWith(word)))));
    const contextFound=contextUnits.filter((_unit,i)=>unitFound[i]).map(unit=>unit.text),contextAbsent=contextUnits.filter((_unit,i)=>!unitFound[i]&&!unitRelated[i]).map(unit=>unit.text);
    const contextNear=contextUnits.filter((_unit,i)=>unitRelated[i]).map(unit=>unit.text);
    const relatedDomain=rowLabels.find(label=>relatedLabels.has(label));
-   const contextCoverage=contextUnits.length?facetFound.filter(Boolean).length/facets.length:intent.context.length?1-missingContext.length/intent.context.length:0;
+   const contextCoverage=contextUnits.length?countedFacets.filter(i=>facetFound[i]).length/countedFacets.length:intent.context.length?1-missingContext.length/intent.context.length:0;
    const contextSimilar=contextTail!==null&&dot(contextVec,row.vector)>=contextTail;
    const styles=this.styles.get(row.id);
    const styleMatches=styleCues.filter(label=>styles.has(label));
@@ -503,9 +536,13 @@ export class SearchEngine {
    // A dense layout contradicts a request for something simpler; it ranks last rather than vanishing.
    const dense=intent.lowDensity&&intent.subject_scope==='primary'&&document.denseLayout;
    // Brief evidence (for coverage counts only): on average at least half of the brief's
-   // weighted terms and style cues, every facet of an explicit context, any wording topic.
+   // weighted terms, its style cues and an explicit context (fully shown), and any wording topic.
    const briefParts=[...(briefTerms.length?[termCoverage]:[]),...(cueTotal?[cueCoverage]:[])];
-   const briefEvidence=broad||(!briefParts.length||briefParts.reduce((sum,part)=>sum+part,0)/briefParts.length>=.5)&&(!args.context||contextCoverage>=1)&&!topicMissing;
+   // The explicit context weighs double: a SaaS site with a hero meets "SaaS landing page
+   // hero with product screenshot" without the word screenshot; a work sharing only a generic
+   // brief word ("business") without the context does not.
+   if(args.context)briefParts.push(contextCoverage>=1?1:0,contextCoverage>=1?1:0);
+   const briefEvidence=broad||(!briefParts.length||briefParts.reduce((sum,part)=>sum+part,0)/briefParts.length>=.5)&&!topicMissing;
    // Subject evidence facts: how and where the subject (or its reading) appears.
    let subjectFacts;
    if(subjectAsk){
@@ -524,7 +561,9 @@ export class SearchEngine {
    }
    // Subject evidence found only in visual notes is weaker than public text or a concept the
    // catalog derives from it (a date picker read as a calendar).
-   const subjectStrength=subjectFacts?.where?.length&&subjectFacts.where.every(field=>field==='notes')?0:1;
+   // So is a page format a website has only by being a website (every site has a hero).
+   const implicitFormat=row.kind==='website'&&!subjectFacts?.where?.length&&subjects.every(subject=>['hero','landing page'].includes(subject));
+   const subjectStrength=subjectFacts?.where?.length&&subjectFacts.where.every(field=>field==='notes')||implicitFormat?0:1;
    // Whether a broader reading carries at least half of the requested subject, by rarity: the
    // receipt of "receipt animation" says more than its animation.
    const reading=level==='subject'||level==='contains'?1:level==='broader'?Number(Math.max(...subjects.map(subjectWeight))>=.5*Math.max(1e-9,...askedSubjects.map(subjectWeight))):0;
@@ -588,7 +627,7 @@ export class SearchEngine {
   // standing out for the brief or the context, then at most one page of the best others.
   if (contextualBrowse&&args.context&&main.filter(item=>item.contextCoverage>=.5).length<=1) {
    const contextTerms=new Set(intent.context);
-   const kept=main.filter(item=>item.contextCoverage>=.5||item.contextSimilar||item.semantic>=similarGate||item.termsFound.some(term=>!contextTerms.has(term)));
+   const kept=main.filter(item=>item.contextCoverage>=.5||item.relatedDomain||item.contextSimilar||item.semantic>=similarGate||item.termsFound.some(term=>!contextTerms.has(term)));
    main=[...kept,...main.filter(item=>!kept.includes(item)).slice(0,Math.max(0,args.count-kept.length))];
   }
   // Works without the subject read from the wording complete at most one page; meaning
@@ -596,7 +635,27 @@ export class SearchEngine {
   const withoutSubject=subjectAsk?scored.filter(item=>item.match==='brief').slice(0,args.count):[];
   const shown=main.length+withoutSubject.length;
   const meaningOnly=shown>=args.count?[]:scored.filter(item=>item.tier===1).slice(0,shown?Math.min(3,args.count-shown):5);
+  // A browse (a surprise mix of icons) is dealt round-robin across kinds and categories, the
+  // categories ordered by their best work, so the first page is varied rather than one cluster.
+  const varied=items=>{
+   const groups=new Map();
+   for(const item of items){const row=item.row,key=row.kind+':'+(fieldValues(row,'category')[0]??fieldValues(row,'industry')[0]??fieldValues(row,'styles')[0]??'');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);}
+   const lists=[...groups.values()],dealt=[];
+   for(let round=0;dealt.length<items.length;round++)for(const list of lists)if(list[round])dealt.push(list[round]);
+   return dealt;
+  };
+  if(broad0&&!brands.length)main=varied(main);
+  // Without catalog vocabulary the request is a browse: only works standing out for the brief's
+  // meaning (top 5%) keep their place ("weather widget"); a coincidental word match ("mixes" for
+  // "fresh mix") does not.
+  if(criteriaFree&&briefAffinity!==null)main=main.filter(item=>item.semantic>=briefAffinity);
   const selected=[...main,...withoutSubject,...meaningOnly];
+  // A browse, and the safety net for a loose brief with no subject, context or style that admits
+  // fewer than min(count, 3) works, continue with a varied, labelled browse of every other
+  // allowed work. Precise briefs keep their honest short list.
+  const fillWanted=!ref&&!args.subjects&&!(args.required_terms??[]).length&&(criteriaFree||!subjectAsk&&!args.context&&!cueTotal&&!intent.project&&!intent.topics.length&&selected.length<Math.min(args.count,3));
+  const fill=fillWanted?
+   varied(candidates.filter(row=>!selected.some(item=>item.row===row)).map(row=>({row,semantic:queryVec?dot(queryVec,row.vector):0})).sort((a,b)=>b.semantic-a.semantic||a.row.id.localeCompare(b.row.id))):[];
   const ranked=selected.map(item=>{
    const row=item.row,evidence={};
    if(item.subjectFacts)evidence.subject=item.subjectFacts;
@@ -627,6 +686,7 @@ export class SearchEngine {
    if(top!==undefined)evidence.meaning_top_pct=top;
    return {id:row.id,match:item.match,evidence};
   });
+  for(const item of fill){const top=queryVec?meaningTop(item.semantic):undefined;ranked.push({id:item.row.id,match:'browse',evidence:{media:mediaType(item.row),...(top!==undefined?{meaning_top_pct:top}:{})}});}
   // Every broader reading actually used: an alias's concept, or a concept/word inside a phrase.
   const substitutions=[...new Set(selected.filter(item=>item.match==='broader').flatMap(item=>item.subjects))];
   const coverage={catalog_works:this.rows.length,filtered_works:candidates.length,matching_works:ranked.length,matching_by_kind:{}};
@@ -652,11 +712,12 @@ export class SearchEngine {
   if(briefTerms.length&&!subjectAsk&&!ref)coverage.term_matches=count(item=>item.termCoverage>=.5);
   const relatedCount=count(item=>item.match==='related');
   if(relatedCount)coverage.related_works=relatedCount;
-  for(const item of selected)coverage.matching_by_kind[item.row.kind]=(coverage.matching_by_kind[item.row.kind]??0)+1;
+  for(const item of [...selected,...fill])coverage.matching_by_kind[item.row.kind]=(coverage.matching_by_kind[item.row.kind]??0)+1;
+  if(fill.length)coverage.browse_fill=fill.length;
   // Cues read from free text. Only exclusions and topic constraints are enforced; the
   // rest rank. Explicit filters, exclude_terms or subject_scope override them.
   const scopeReason=!args.subject_scope&&intent.subject_scope==='contains'?'query asks for a work with or featuring the subject':'';
-  const derived={...(motionAsk?{motion:true}:{}),...(colorCues.length?{colors:colorCues}:{}),...(styleCues.length?{style:styleCues.map(cue=>this.styleNames.get(cue))}:{}),...(commonStyles.length?{common_styles:commonStyles.map(cue=>this.styleNames.get(cue))}:{}),...(intent.lowDensity?{density:'low'}:{}),
+  const derived={...(broad0&&!brands.length?{browse:'no specific criteria; varied across kinds and categories'}:{}),...(motionAsk?{motion:true}:{}),...(colorCues.length?{colors:colorCues}:{}),...(styleCues.length?{style:styleCues.map(cue=>this.styleNames.get(cue))}:{}),...(commonStyles.length?{common_styles:commonStyles.map(cue=>this.styleNames.get(cue))}:{}),...(intent.lowDensity?{density:'low'}:{}),
    ...(cons.negative.length?{excluded:cons.negative}:{}),...(intent.topics.length?{topics:intent.topics}:{}),...(!args.subjects&&intent.subjects.length?{subjects:intent.subjects}:{}),
    ...(scopeReason?{scope_reason:scopeReason}:{}),...(restated.size&&tokens(cons.positive).some(word=>restated.has(word))?{restated_by_filters:tokens(cons.positive).filter(word=>restated.has(word))}:{})};
   if(!args.kinds&&!ref&&kinds.length<KINDS.length)derived.kinds=kinds;
@@ -709,6 +770,8 @@ export class SearchEngine {
  const contextMatches=coverage.context_matches,relatedContext=coverage.context_related??0,relatedLabels=interpreted.related_context_labels??[];
  if(contextMatches!==undefined&&contextMatches<=1&&state.ranked.length>contextMatches&&!result.insufficient_matches)notices.push(works(contextMatches,'matching work shows','matching works show')+' evidence of the requested context ('+contextText+').');
  if(relatedContext&&contextMatches<=1&&state.ranked.length)notices.push(relatedContext+' '+plural(relatedContext,'shows','show')+' related context evidence'+(relatedLabels.length?' (related domains: '+relatedLabels.join(', ')+')':'')+'.');
+ if(coverage.browse_fill)notices.push('The brief matched '+(coverage.matching_works-coverage.browse_fill)+' '+plural(coverage.matching_works-coverage.browse_fill,'work','works')+'; the next '+coverage.browse_fill+' are a varied browse of the requested kinds (match browse), not evidence for the brief.');
+ if(interpreted.derived_constraints?.browse&&state.ranked.length)notices.push('No specific criteria were applied: works are spread across kinds and categories.');
  if(interpreted.unmatched_terms&&state.ranked.length)notices.push('No catalog work mentions '+interpreted.unmatched_terms.join(', ')+'.');
  if(interpreted.derived_constraints?.reference_brands&&state.ranked.length)notices.push('Reference brands ('+interpreted.derived_constraints.reference_brands.join(', ')+') inform meaning only; no catalog field verifies that look.');
  // The untrusted-data warning always stays; evidence counts are appended to it.

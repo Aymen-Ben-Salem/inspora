@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test --test-isolation=none test/search.test.mjs test/relevance.test.mjs test/teammate-feedback.test.mjs test/revision-10.test.mjs test/revision-11.test.mjs test/revision-12.test.mjs test/revision-13.test.mjs test/revision-13-recall.test.mjs test/revision-15.test.mjs test/revision-17.test.mjs test/revision-18.test.mjs test/preview.test.mjs test/enrichment.test.mjs test/sync.test.mjs test/hosted-feed.test.mjs test/editorial-notes.test.mjs test/prepare-visuals.test.mjs test/claude-plugin.test.mjs",
+    "test": "node --test --test-isolation=none test/search.test.mjs test/relevance.test.mjs test/teammate-feedback.test.mjs test/revision-10.test.mjs test/revision-11.test.mjs test/revision-12.test.mjs test/revision-13.test.mjs test/revision-13-recall.test.mjs test/revision-15.test.mjs test/revision-17.test.mjs test/revision-18.test.mjs test/revision-19.test.mjs test/preview.test.mjs test/enrichment.test.mjs test/sync.test.mjs test/hosted-feed.test.mjs test/editorial-notes.test.mjs test/prepare-visuals.test.mjs test/claude-plugin.test.mjs",
     "sync:plugin-skills": "node sync-plugin-skills.mjs",
     "connect": "node connect.mjs",
     "build:index": "node build-index.mjs",

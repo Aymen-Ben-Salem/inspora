@@ -38,6 +38,9 @@ const concepts = [
   ['slider', 'design', ['range control']],
   ['input', 'design', ['text field', 'text input', 'input field', 'input bar', 'text box', 'prompt bar', 'prompt field', 'prompt box', 'composer', 'message composer']],
   ['player', 'design', ['media player', 'audio player', 'video player']],
+  // A music interface with playback controls is a music player, whatever its object (a cassette
+  // stack, a track list); it is a player for "player" requests too.
+  ['music player', 'design', ['music interface', 'music streaming interface', 'track list', 'tracklist', 'now playing'], 'player'],
   ['timeline', 'design', []],
   ['progress', 'design', ['progress indicator', 'progress bar', 'status control', 'loading indicator', 'loader', 'loading animation', 'loading spinner', 'spinner']],
   // An AI thinking state is a kind of loading state: it evidences progress, not the reverse.
@@ -429,6 +432,7 @@ export function prepareDocument(row) {
 
 export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]) {
   let subjects = args.subjects ? [...new Set(args.subjects.map(canonicalSubject))] : undefined;
+  let featureOnly = false;
   if (!subjects) {
     const head = positive.split(/\b(?:with|featuring|containing|for)\b/i, 1)[0];
     const all = subjectsIn(positive);
@@ -443,6 +447,19 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
     const compound = run.length > 1 ? run.map(({to}) => to).join(' ') : '';
     if (compound && !aliases.has(compound) && run.at(-1).to === headSubjects.at(-1)) subjects = [compound];
     else if (headSubjects.length===1 || headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
+    else if (!headSubjects.length && subjects.length) {
+      // Nothing named before the first clause: a concept read only from a "for" clause names
+      // whom the work is for ("a logo for a payments brand"), not the artifact; one read only
+      // from a "with/featuring/containing" clause is a feature inside the work ("an ordering
+      // interface with item cards"), searched as a supporting feature.
+      const parts = positive.split(/\b(with|featuring|containing|for)\b/i);
+      const clauses = parts.slice(1).flatMap((marker, i) => i % 2 ? [] : [{marker: marker.toLowerCase(), concepts: subjectsIn(parts[i + 2] ?? '')}]);
+      const only = (subject, test) => clauses.some(clause => clause.concepts.includes(subject)) && clauses.every(clause => !clause.concepts.includes(subject) || test(clause.marker));
+      const domainOnly = subjects.filter(subject => only(subject, marker => marker === 'for'));
+      featureOnly = subjects.length > domainOnly.length && subjects.filter(subject => !domainOnly.includes(subject)).every(subject => only(subject, marker => marker !== 'for'));
+      if (domainOnly.length) subjects = subjects.filter(subject => !domainOnly.includes(subject));
+      if (!subjects.length) subjects = subjectsIn(head);
+    }
   }
   if (!args.subjects && args.kinds?.length > 1 && subjects.length && subjects.every(subject=>args.kinds.includes(subject))) {
     subjects=[...args.kinds];
@@ -453,7 +470,7 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   subjects = [...new Set(subjects.map(subject => senses.find(sense => sense.head === subject && [...requestWords].some(word => sense.cues.has(word)))?.concept ?? subject))];
   // A searched kind named in the wording ("funeral home website" on a website and design
   // search) is the work itself, never a feature inside it.
-  const scope = args.subject_scope ?? (
+  const scope = args.subject_scope ?? (featureOnly ||
     /\bwebsites?\b.*\b(?:with|featuring|containing)\b/i.test(positive) && subjects.some(s=>s!=='website'&&!(args.kinds??[]).includes(s)) ||
     !args.subjects && subjects.includes('icon') && !args.kinds?.includes('icon') && args.kinds?.some(kind => kind === 'design' || kind === 'website')
       ? 'contains' : 'primary');

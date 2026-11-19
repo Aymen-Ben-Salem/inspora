@@ -7,7 +7,7 @@ import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 import {workMedia} from './visuals.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=18;
+export const SEARCH_REVISION=19;
 export const DEFAULT_COUNT=10;
 // Similarity gates are model-specific. BGE-small scores the whole catalog around
 // 0.55-0.65, so MiniLM's 0.30 admitted everything on the hosted index. The BGE
@@ -55,10 +55,16 @@ const APPEARANCE=Object.freeze({
  calm:{tones:[],words:['calm','soft','serene','quiet','gentle','peaceful','tranquil','soothing','relaxed','restful'],colors:[]},
  neon:{tones:['neon'],words:['glow','glowing'],colors:[]},
  pastel:{tones:[],words:['pastel'],colors:['peach','lavender']},
+ // Earthy is met by earth-toned prose or a palette of earth colours, never by "earth" alone (a globe).
+ earthy:{tones:[],words:['earthy','terracotta','ochre','clay'],phrase:/\bearth(?:[- ]?ton(?:e|ed|es)|y)\b/i,colors:['earthy','brown','beige','olive','terracotta','sand','tan','ochre']},
  monochrome:{tones:[],words:['monochrome','monochromatic','grayscale','greyscale'],phrase:/\bblack(?:\s*(?:and|&)\s*|-and-)white\b/i,colors:['monochrome'],neutral:true},
 });
 const NEUTRAL_COLORS=new Set(['black','white','gray','grey','silver']);
 const appearanceOf=word=>({monochromatic:'monochrome',greyscale:'monochrome',grayscale:'monochrome'})[word]??(APPEARANCE[word]&&word)??null;
+// A compound domain word: a stem of at least two letters followed by "tech" (fintech, edtech).
+const COMPOUND_DOMAIN=/^([a-z]{2,})tech$/;
+// A form is one word or a phrase whose every word must be present ("real estate").
+const inSet=(set,form)=>form.includes(' ')?form.split(' ').every(word=>set.has(word)):set.has(form);
 // Per tone word: whether the work's prose applies it to the whole work, and the plain nouns it
 // modifies elsewhere (checked against a search's subject at query time).
 function toneEvidence(row){
@@ -179,6 +185,7 @@ export class SearchEngine {
   this.byId=new Map(this.rows.map(row=>[row.id,row]));
   this.cursors.clear();
   this.labelVectors=null;
+  this.compoundCache=null;
   this.fieldWords=new Map();
   this.taxonomyTerms=new Set(this.rows.flatMap(row=>[row.industry,...(row.industries??[]),...(row.categories??[])]).flatMap(value=>tokens(String(value??''))));
   this.labelWords=new Set(this.rows.flatMap(row=>[row.industry,...(row.industries??[]),...(row.categories??[]),...(row.technologies??[])]).flatMap(value=>String(value??'').split(',')).map(normalizedPhrase).filter(Boolean));
@@ -197,6 +204,16 @@ export class SearchEngine {
   // Food of "Food & Drink"); a multi-word label (Personal Finance, Real Estate) is a
   // phrase, so its words are a domain only together.
   for (const [label,count] of domainCounts){const terms=label.split(' ');if(terms.length>1)this.contextPhrases.add(label);else if(count>=2)this.contextVocabulary.add(label);}
+  // How widely each word of the public prose spreads across the catalog's industry labels. A
+  // word used across a sixth or more of all domains (mobile, screen) names a platform or format
+  // rather than a topic, so on its own it is no evidence for a domain brief.
+  const spread=new Map(),domains=new Set();
+  for (const row of this.rows) {
+   const labels=[row.industry,...(row.industries??[]),...(row.categories??[])].flatMap(value=>String(value??'').split(',')).map(value=>value.trim()).filter(Boolean);
+   labels.forEach(label=>domains.add(label));
+   for (const term of new Set(tokens([row.title,row.description,row.tagline].filter(Boolean).join(' ')))) {const set=spread.get(term)??new Set();labels.forEach(label=>set.add(label));spread.set(term,set);}
+  }
+  this.genericTerms=new Set([...spread].filter(([,labels])=>domains.size>=12&&labels.size>=domains.size/6).map(([term])=>term));
   // Style vocabulary is the catalog's own styles/themes taxonomy (values used at least
   // twice), excluding labels that name a subject such as Dashboard or Illustration.
   const styleCounts=new Map();
@@ -255,6 +272,37 @@ export class SearchEngine {
   const floor=(median+(scored.find(item=>!literal(item.label))?.sim??median))/2;
   return new Set(scored.filter(item=>!literal(item.label)&&item.sim>median&&item.sim>=item.own&&item.sim>=floor).slice(0,5).map(item=>item.label));
  }
+ // The domain a compound word (fintech, proptech, insurtech) names. Candidates are English and
+ // taxonomy words beginning with its stem; a candidate is a domain word when its closest
+ // taxonomy label is nearer to it than a third of the way from that label's own sibling
+ // closeness to identity (property -> Real Estate; not propeller -> Aviation). The three
+ // domain words closest to the compound vote for one label (market, marketed -> Marketing).
+ // Forms: that label's words as one phrase, plus a "<stem> tech" label when one exists
+ // (Health tech for healthtech). Cached per catalog index.
+ async compoundDomain(term){
+  this.compoundCache??=new Map();
+  if(this.compoundCache.has(term))return this.compoundCache.get(term);
+  const stem=term.match(COMPOUND_DOMAIN)?.[1],forms=new Set();
+  if(stem){
+   const candidates=[...new Set([...englishWords()].filter(word=>word.startsWith(stem)&&word.length>=stem.length+3&&word.length<=stem.length+9&&!/s$/.test(word)).concat([...this.taxonomyTerms].filter(word=>word!==term&&word.startsWith(stem)&&word.length>stem.length+1)))].slice(0,120);
+   if(candidates.length){
+    const [vector,...vectors]=await this.embed([term,...candidates]);
+    await this.relatedLabels(vector,[]);
+    const domain=candidates.map((word,i)=>{
+     const best=this.labelVectors.map(label=>({label,sim:dot(vectors[i],label.vector)})).sort((a,b)=>b.sim-a.sim)[0];
+     return {word,near:dot(vector,vectors[i]),label:best.label.label,tied:best.sim>=best.label.own+(1-best.label.own)/3};
+    }).filter(item=>item.tied).sort((a,b)=>b.near-a.near).slice(0,3);
+    const votes=new Map();for(const item of domain)votes.set(item.label,(votes.get(item.label)??0)+item.near);
+    const winner=[...votes].sort((a,b)=>b[1]-a[1])[0]?.[0];
+    if(winner)forms.add(tokens(winner).join(' '));
+   }
+   const techLabel=this.labelVectors?.find(item=>normalizedPhrase(item.label)===stem+' tech');
+   if(techLabel)forms.add(tokens(techLabel.label).join(' '));
+   forms.delete(term);
+  }
+  this.compoundCache.set(term,forms);
+  return forms;
+ }
  // Parts of an explicit context: list items and conjuncts, then within each a taxonomy
  // phrase (personal finance, AI agents), a hyphenated compound (e-commerce, ride-hailing)
  // or a single word. Each part keeps the user's spelling for embedding.
@@ -303,8 +351,20 @@ export class SearchEngine {
   }
   return EVIDENCE_FIELDS.filter(field=>where.has(field));
  }
+ // "health tech" and "healthtech" are one domain word: a two-word "<stem> tech" is joined when
+ // the joined word names a domain ("high tech" stays as it is).
+ async joinCompounds(text){
+  if(!text||this.ranking==='lexical')return text;
+  let out=String(text);
+  for(const match of [...out.matchAll(/\b(\p{L}{2,})[\s-]+tech\b/giu)]){
+   const joined=(match[1]+'tech').toLowerCase();
+   if(COMPOUND_DOMAIN.test(joined)&&(await this.compoundDomain(joined)).size)out=out.replace(match[0],joined);
+  }
+  return out;
+ }
  async rank(args) {
   if (Boolean(args.query)===Boolean(args.reference_url)) throw Error('INPUT: provide exactly one query or reference_url');
+  if(!args.reference_url)args={...args,query:await this.joinCompounds(args.query),...(args.context?{context:await this.joinCompounds(args.context)}:{})};
   const ref=args.reference_url?resolveReference(args.reference_url,this.rows):null;
   const prepared=prepareSearchQuery(args,this.df);
   const cons=constraints(prepared.query);
@@ -337,6 +397,15 @@ export class SearchEngine {
   // A one-word style label that is a noun (Video, Paper) directly before a domain or
   // subject word names that thing ("video game", "paper receipt"), not a style.
   const queryTokens=tokens(cons.positive);
+  // A compound domain word (fintech, proptech, healthtech) names a domain: it reaches that
+  // domain's taxonomy label as the domain itself.
+  const expansions=new Map();
+  if(!ref&&this.ranking!=='lexical'){
+   for(const term of new Set([...queryTokens,...tokens(args.context??'')].filter(term=>COMPOUND_DOMAIN.test(term)))){
+    const found=await this.compoundDomain(term);if(found.size)expansions.set(term,found);
+   }
+  }
+  const expandedForms=term=>[...(expansions.get(term)??[])];
   const domainNoun=term=>[...this.contextVocabulary,...tokens(args.context??''),...(args.subjects??[]).flatMap(tokens)].some(word=>word===term||inflections(term).includes(word)||derivations(term).includes(word));
   const compound=label=>!label.includes(' ')&&englishWords().has(label+'s')&&queryTokens.some((term,i)=>inflections(label).includes(term)&&queryTokens[i+1]&&domainNoun(queryTokens[i+1]));
   // A label that is also a domain (Photography, the industry, in "photography camera app
@@ -402,14 +471,14 @@ export class SearchEngine {
   const styleCues=askedStyles.filter(label=>!commonStyles.includes(label)),cueTotal=styleCues.length+colorCues.length;
   const motionAsk=!ref&&(MOTION.test([cons.positive,...(args.subjects??[])].join(' '))||askedStyles.some(label=>MOTION.test(label)));
   const queryWords=ref?tokens(ref.text):words;
-  const forms=new Map(ref?[]:queryWords.map(term=>[term,inflections(term)]));
+  const forms=new Map(ref?[]:queryWords.map(term=>[term,[...inflections(term),...expandedForms(term)]]));
   // Absence is claimed only when no relative of the word is in the catalog (printing is
   // not absent when Print Receipt exists).
-  const inCatalog=term=>familyForms(term).some(form=>this.df.has(form));
+  const inCatalog=term=>familyForms(term).some(form=>this.df.has(form))||expansions.has(term);
   // A context word also reaches its bare base when the request itself uses that base
   // ("invoicing" context, "invoice" subject).
   const attested=new Set([...tokens(cons.positive),...(args.subjects??[]).flatMap(tokens)]);
-  const contextForms=term=>[term,...inflections(term),...derivations(term),...derivationBases(term).filter(base=>attested.has(base))];
+  const contextForms=term=>[term,...inflections(term),...derivations(term),...derivationBases(term).filter(base=>attested.has(base)),...expandedForms(term)];
   // Brief terms reported per result: the brief's words that no other evidence part covers
   // (subject, style, colour, kind, explicit context, format nouns), that some catalog
   // work uses and that most eligible works do not. They are weighed by rarity, so "particle" counts for more than "animation".
@@ -418,7 +487,7 @@ export class SearchEngine {
   const covered=new Set([...intent.subjects.flatMap(tokens),...(args.subjects??[]).flatMap(tokens),...intent.subjectAliases.flatMap(({from})=>tokens(from)),
    ...askedStyles.flatMap(label=>label.split(' ').flatMap(inflections)),...colorCues,...toneNouns,...KINDS]);
   // A word most eligible works use (mark among logos) distinguishes nothing.
-  const common=term=>candidates.length>=20&&candidates.filter(row=>(forms.get(term)??[term]).some(form=>this.documents.get(row.id).terms.has(form))).length>candidates.length/4;
+  const common=term=>candidates.length>=20&&candidates.filter(row=>(forms.get(term)??[term]).some(form=>inSet(this.documents.get(row.id).terms,form))).length>candidates.length/4;
   const briefTerms=ref?[]:briefWords.filter(term=>!covered.has(term)&&!FUNCTION_WORDS.has(term)&&!(args.context&&intent.context.includes(term))&&!common(term));
   const briefWeight=briefTerms.reduce((sum,term)=>sum+this.idf(term),0);
   const topicalWords=words.filter(word=>!designVocabulary.has(word));
@@ -426,6 +495,13 @@ export class SearchEngine {
   // the model gate still screens matches that rest on shared words alone.
   const typical=queryVec&&!ref?[...this.rows.map(row=>dot(queryVec,row.vector))].sort((a,b)=>a-b)[Math.floor(this.rows.length/2)]??0:0;
   const concreteGate=Math.min(this.gate.query,Math.max(this.gate.concrete,typical));
+  // Curated evidence (a requested subject named in the work's own title, a brief word in its
+  // taxonomy) is no coincidence of shared prose: it needs the model's concrete floor or to be
+  // more similar than this query's typical work, whichever is easier.
+  // A domain brief names at least one context word that is not itself widely spread (banking,
+  // not animation or mobile).
+  const domainBrief=intent.context.some(term=>!this.genericTerms.has(term));
+  const curatedPass=semantic=>semantic>=Math.min(concreteGate,this.gate.concrete)||semantic>typical;
   // Meaning alone admits a work only from the top percentile of this query's own
   // similarity distribution and above the model gate.
   const queryTail=ref?null:this.tail(queryVec,.99);
@@ -456,12 +532,13 @@ export class SearchEngine {
   // whether or not the query repeats it.
   const contextRole=args.context?projectContext(args.context):null;
   const contextProject=Boolean(contextRole&&intent.project&&contextRole.name===intent.project.name);
-  const relatedLabels=contextVec&&!ref?await this.relatedLabels(contextVec,intent.context):new Set();
+  const contextOwnTerms=[...intent.context,...intent.context.flatMap(expandedForms)];
+  const relatedLabels=contextVec&&!ref?await this.relatedLabels(contextVec,contextOwnTerms):new Set();
   // A phrase whose meaning reaches no taxonomy label ("specialty coffee") borrows the related
   // domains of its part closest in meaning to the whole phrase (coffee).
   if(!relatedLabels.size&&contextVec&&unitVecs.length>1){
    const core=unitVecs.map((vector,i)=>[dot(vector,contextVec),i]).sort((a,b)=>b[0]-a[0])[0][1];
-   for(const label of await this.relatedLabels(unitVecs[core],intent.context))relatedLabels.add(label);
+   for(const label of await this.relatedLabels(unitVecs[core],contextOwnTerms))relatedLabels.add(label);
   }
   const facets=contextUnits.map((_unit,i)=>[i]);
   if(unitVecs.length>1&&this.facetGate!==undefined)for(let i=0;i<contextUnits.length;i++)for(let j=i+1;j<contextUnits.length;j++){
@@ -471,7 +548,7 @@ export class SearchEngine {
   }
   // Context coverage counts facets naming a catalog domain (a taxonomy word or product role):
   // "startup" of "technology startup" names no domain, so it neither matches nor blocks.
-  const domainPart=unit=>unit.terms.some(term=>this.taxonomyTerms.has(term)||this.contextVocabulary.has(term))||Boolean(contextRole&&contextRole.query.test(unit.text));
+  const domainPart=unit=>unit.terms.some(term=>expansions.has(term)||(this.taxonomyTerms.has(term)||this.contextVocabulary.has(term))&&!this.genericTerms.has(term))||Boolean(contextRole&&contextRole.query.test(unit.text));
   const domainFacets=facets.map((facet,i)=>facet.some(j=>domainPart(contextUnits[j]))?i:-1).filter(i=>i>=0);
   const countedFacets=domainFacets.length?domainFacets:facets.map((_facet,i)=>i);
   const topicTerms=intent.topics.map(topic=>({topic,terms:tokens(topic)}));
@@ -483,7 +560,7 @@ export class SearchEngine {
   // The default primary scope may hide a subject that appears as a supporting feature.
   const containsIntent=!ref&&!args.subject_scope&&intent.subject_scope==='primary'?{...intent,subject_scope:'public'}:null;
   // Every facet of an explicit context shown in the work's words.
-  const contextHit=document=>contextUnits.length>0&&facets.every(facet=>facet.some(i=>contextUnits[i].terms.every(term=>contextForms(term).some(form=>document.terms.has(form)))));
+  const contextHit=document=>contextUnits.length>0&&facets.every(facet=>facet.some(i=>contextUnits[i].terms.every(term=>contextForms(term).some(form=>inSet(document.terms,form)))));
   const briefAffinity=this.tail(queryVec,.95);
   const queryAffine=row=>briefAffinity!==null&&!ref&&dot(queryVec,row.vector)>=briefAffinity;
   // A request is a browse when, beyond kind words, nothing in it is the catalog's own
@@ -537,8 +614,8 @@ export class SearchEngine {
     // also shows a brief term or the explicit context; or the top 5% for the whole brief when
     // its title names a brief term or it shows the explicit context
     // (the streak of "habit tracker streak"; a heart-rate tracker for a fitness dashboard).
-    const corroborated=briefTerms.some(term=>(forms.get(term)??[term]).some(form=>document.terms.has(form)))||contextHit(document);
-    const titled=briefTerms.some(term=>(forms.get(term)??[term]).some(form=>document.titleTerms.has(form)));
+    const corroborated=briefTerms.some(term=>(forms.get(term)??[term]).some(form=>inSet(document.terms,form)))||contextHit(document);
+    const titled=briefTerms.some(term=>(forms.get(term)??[term]).some(form=>inSet(document.titleTerms,form)));
     const nearby=meaning.length?meaning:corroborated&&affinity.length?affinity:(titled||contextHit(document))&&queryAffine(row)?subjectPhrases:[];
     if(!subjects.length&&nearby.length){subjects=nearby;level='semantic';semanticSubject=true;}
     // A subject read from the wording (no explicit subjects) ranks: works without it stay
@@ -549,7 +626,7 @@ export class SearchEngine {
    const projectEvidence = intent.project?.evidence.exec(row.text)?.[0] ??
      (intent.project?.name==='developer tool'&&!serviceStudio(row)&&fieldValues(row,'categories').some(tag=>norm(tag.trim())==='development')?'Development category':'');
    const roleEvidence=contextRole&&(contextRole.evidence.exec(row.text)?.[0]??(contextRole.name==='developer tool'&&!serviceStudio(row)&&fieldValues(row,'categories').some(tag=>norm(tag.trim())==='development')?'Development category':''));
-   const matched=queryWords.filter(term=>(forms.get(term)??[term]).some(form=>document.terms.has(form)));
+   const matched=queryWords.filter(term=>(forms.get(term)??[term]).some(form=>inSet(document.terms,form)));
    const coverage=matched.length/Math.max(1,queryWords.length);
    const lexical=matched.reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0);
    const semantic=queryVec?dot(queryVec,row.vector):0;
@@ -576,11 +653,13 @@ export class SearchEngine {
    // A style tag alone admits only when styles are all the catalog can verify of the brief
    // ("retro brutalist website": no work names brutalist); with other brief words, the work
    // must share them.
-   const taxonomyHit=!ref&&!subjectAsk&&(matched.some(term=>!formatWords.has(term)&&!common(term)&&(forms.get(term)??[term]).some(form=>labels.has(form)))||!briefTerms.length&&styleCues.some(label=>this.taggedStyles.get(row.id).has(label)));
+   const taxonomyHit=!ref&&!subjectAsk&&(matched.some(term=>!formatWords.has(term)&&!common(term)&&(forms.get(term)??[term]).some(form=>inSet(labels,form)))||!briefTerms.length&&styleCues.some(label=>this.taggedStyles.get(row.id).has(label)));
    const concreteEvidence=concreteSubject||contextShown||taxonomyHit;
+   const titleSubject=level==='subject'&&subjects.length>0&&subjects.every(subject=>concrete(subject)&&subjectTerms(subject).every(term=>hasForm(document.titleTerms,term)));
+   const curated=taxonomyHit||titleSubject;
    const relevant=broad||contextualBrowse||filteredPool||contextOnly||(ref
     ? (this.ranking==='lexical'?matched.length>=3:semantic>=this.gate.reference)
-    : (concreteEvidence||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||semantic>=(concreteEvidence?concreteGate:this.gate.query)||projectEvidence||topicFallback));
+    : (concreteEvidence||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||(concreteEvidence?(curated?curatedPass(semantic):semantic>=concreteGate):semantic>=this.gate.query)||projectEvidence||topicFallback));
    const related=topicFallback&&(!subjects.length||coverage<.66);
    // Admission by meaning: similarity to the subject phrase plus a shared brief term, or
    // standout similarity to the whole brief that also shares a brief term or stands far
@@ -592,7 +671,7 @@ export class SearchEngine {
    const excluded=cons.negative.filter(term=>has(row.text,term));
    // A context part is evidenced when each of its words (or a relative: gaming -> game) is
    // in the work's terms, or product-role evidence covers it; a facet needs one evidenced part.
-   const unitFound=contextUnits.map(unit=>unit.terms.every(term=>contextForms(term).some(form=>document.terms.has(form)))||Boolean(roleEvidence&&contextRole.query.test(unit.text))||Boolean(projectEvidence&&contextProject&&unit.terms.every(term=>projectTerms?.has(term))));
+   const unitFound=contextUnits.map(unit=>unit.terms.every(term=>contextForms(term).some(form=>inSet(document.terms,form)))||Boolean(roleEvidence&&contextRole.query.test(unit.text))||Boolean(projectEvidence&&contextProject&&unit.terms.every(term=>projectTerms?.has(term))));
    // In a context of several parts, a part naming no catalog domain ("services" of "funeral
    // services") stands alone only when the work is also close to the whole context's meaning
    // or tagged with a related domain; otherwise the shared word is another sense of it.
@@ -628,11 +707,16 @@ export class SearchEngine {
    const cueCoverage=cueTotal?(styleMatches.length+colorMatches.length)/cueTotal:0;
    // An appearance or mood word is also found through its equivalents (soft for calm, a
    // cream palette for pale); this only adds evidence, it never removes a found word.
-   const literalTerms=briefTerms.filter(term=>(forms.get(term)??[term]).some(form=>document.terms.has(form))||Boolean(projectEvidence&&projectTerms?.has(term)));
+   const literalTerms=briefTerms.filter(term=>(forms.get(term)??[term]).some(form=>inSet(document.terms,form))||Boolean(projectEvidence&&projectTerms?.has(term)));
    const termsFound=briefTerms.filter(term=>literalTerms.includes(term)||appearanceMatches.includes(appearanceOf(term)));
+   // With a domain brief, widely spread words (mobile, app, screen) found alone, with the domain
+   // unshown, are reported as matched but carry no ranking weight: they rank only beside the
+   // context or a specific word. Coverage counts state what is shown.
+   const genericOnly=domainBrief&&termsFound.length>0&&termsFound.every(term=>this.genericTerms.has(term))&&contextCoverage===0&&!relatedDomain&&!contextSimilar;
    // Weighted by rarity; a word met only through equivalents weighs half.
    const termWeight=term=>this.idf(term)*(literalTerms.includes(term)?1:.5);
    const termCoverage=briefWeight?Math.min(1,termsFound.reduce((sum,term)=>sum+termWeight(term),0)/briefWeight):0;
+   const rankTermCoverage=genericOnly?0:termCoverage;
    // A dense layout contradicts a request for something simpler; it ranks last rather than vanishing.
    const dense=intent.lowDensity&&intent.subject_scope==='primary'&&document.denseLayout;
    // Brief evidence (for coverage counts only): on average at least half of the brief's
@@ -669,8 +753,8 @@ export class SearchEngine {
    // Whether a broader reading carries at least half of the requested subject, by rarity: the
    // receipt of "receipt animation" says more than its animation.
    const reading=level==='subject'||level==='contains'?1:level==='broader'?Number(Math.max(...subjects.map(subjectWeight))>=.5*Math.max(1e-9,...askedSubjects.map(subjectWeight))):0;
-   scored.push({row,subjectFacts,subjectStrength,reading,lexical,semantic,coverage,subjects,level,semanticSubject,fallbackReading,subjectMissing,similarOnly,related,broad,
-    contextNear,preferred:preferredTopics.length>0,matchingTopics:[...matchingTopics,...preferredTopics],topicMissing,contextCoverage,contextSimilar,relatedDomain,contextFound,contextAbsent,cueCoverage,styleMatches,colorMatches,appearanceMatches,termsFound,termCoverage,briefEvidence,
+   scored.push({row,subjectFacts,subjectStrength,reading,lexical:genericOnly?matched.filter(term=>!this.genericTerms.has(term)).reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0):lexical,semantic,coverage,subjects,level,semanticSubject,fallbackReading,subjectMissing,similarOnly,related,broad,
+    contextNear,preferred:preferredTopics.length>0,matchingTopics:[...matchingTopics,...preferredTopics],topicMissing,contextCoverage,contextSimilar,relatedDomain,contextFound,contextAbsent,cueCoverage,styleMatches,colorMatches,appearanceMatches,termsFound,termCoverage,rankTermCoverage,genericOnly,briefEvidence,
     subjectShare:subjectPhrases.length>1?subjects.filter(subject=>subjectPhrases.includes(subject)).length/subjectPhrases.length:0,dense,projectEvidence,excluded});
   }
   // Coarse evidence tier, strongest first. The tool states what evidence exists; whether a
@@ -691,7 +775,7 @@ export class SearchEngine {
    const contextFacts=args.context?Math.max(item.contextCoverage,item.relatedDomain||item.contextSimilar||item.contextNear.length?.25:0):0;
    item.contextFacts=contextFacts;
    const topicFacts=intent.topicPreferences.length?(item.preferred?1:0):0;
-   item.facts=Math.round(10*(contextFacts+topicFacts+(cueTotal?item.cueCoverage:0)+(briefTerms.length?item.termCoverage:0)))/10;
+   item.facts=Math.round(10*(contextFacts+topicFacts+(cueTotal?item.cueCoverage:0)+(briefTerms.length?item.rankTermCoverage:0)))/10;
    item.contradicts=Boolean(item.dense||item.excluded.length);
   }
   // A work contradicting a wording cue (an excluded term, a denser layout) follows every
@@ -767,7 +851,9 @@ export class SearchEngine {
   // Every work that passes explicit filters stays returnable: after the evidenced works, the
   // rest of the filtered pool follows by meaning, labelled browse (it meets the filters, not
   // necessarily the brief). Explicit subjects and required terms stay mandatory.
-  const fill=fillWanted?varied(unselected()):filtered&&!mandatory&&!ref?unselected():[];
+  // A request without criteria is dealt varied; one with catalog vocabulary that nothing evidences
+  // ("a logo for a payments brand") continues by meaning, so its nearest works lead.
+  const fill=fillWanted?(criteriaFree?varied(unselected()):unselected()):filtered&&!mandatory&&!ref?unselected():[];
   // A thin evidence pool (at least one evidenced work) for a brief without a subject, role or hard constraint continues with the
   // works closest in meaning, labelled similar: "few show the brief, these are near", never
   // "none exist". With several explicit kinds, a kind that has candidates but no evidence
@@ -789,6 +875,8 @@ export class SearchEngine {
     if(item.contextNear.length)context.related=item.contextNear;
     if(item.contextAbsent.length)context.unverified=item.contextAbsent;
     if(item.relatedDomain&&item.contextCoverage<1)context.related_domain=item.relatedDomain;
+    // Among the closest works to the context's meaning (top 1%), without its words.
+    if(item.contextSimilar&&item.contextCoverage<1)context.close_in_meaning=true;
     evidence.context=context;
    }
    if(cueTotal||appearanceCues.length){
@@ -798,7 +886,7 @@ export class SearchEngine {
    }
    if(briefTerms.length){
     const missing=briefTerms.filter(term=>!item.termsFound.includes(term));
-    evidence.brief_terms={...(item.termsFound.length?{matched:item.termsFound.slice(0,6)}:{}),...(missing.length?{missing:missing.slice(0,6)}:{})};
+    evidence.brief_terms={...(item.termsFound.length?{matched:item.termsFound.slice(0,6)}:{}),...(missing.length?{missing:missing.slice(0,6)}:{}),...(item.genericOnly?{generic:item.termsFound.slice(0,6)}:{})};
    }
    if(intent.project&&!args.context)evidence.role=item.projectEvidence?{matched:clean(item.projectEvidence,60)}:{unverified:intent.project.name};
    const topics=[...intent.topics,...intent.topicPreferences];
@@ -831,6 +919,8 @@ export class SearchEngine {
    coverage.context_matches=count(item=>item.contextCoverage>=1);
    const relatedCount=count(item=>item.contextCoverage<1&&(item.contextCoverage>0||item.relatedDomain||item.contextSimilar||item.contextNear.length));
    if(relatedCount)coverage.context_related=relatedCount;
+   // With a subject asked, how many context matches also show it (they may all be works without it).
+   if(subjectAsk&&coverage.context_matches)coverage.context_with_subject=count(item=>item.contextCoverage>=1&&item.match==='subject');
   }
   if(cueTotal)coverage.style_matches=count(item=>item.cueCoverage===1);
   if(cueTotal>1){const partial=count(item=>item.cueCoverage>0&&item.cueCoverage<1);if(partial)coverage.partial_style_matches=partial;}
@@ -839,6 +929,7 @@ export class SearchEngine {
   if(relatedCount)coverage.related_works=relatedCount;
   for(const item of [...selected,...fill,...nearFill])coverage.matching_by_kind[item.row.kind]=(coverage.matching_by_kind[item.row.kind]??0)+1;
   if(fill.length)coverage.browse_fill=fill.length;
+  if(fill.length&&fillWanted&&!criteriaFree)coverage.browse_order='meaning';
   if(nearFill.length)coverage.similar_fill=nearFill.length;
   // Cues read from free text. Only exclusions and topic constraints are enforced; the
   // rest rank. Explicit filters, exclude_terms or subject_scope override them.
@@ -887,7 +978,7 @@ export class SearchEngine {
   if(weaker.contains)parts.push(weaker.contains+' '+plural(weaker.contains,'contains','contain')+' it as a supporting feature');
   if(weaker.broader)parts.push(weaker.broader+' '+plural(weaker.broader,'shows','show')+' only a broader reading'+(interpreted.subject_fallbacks?' ('+interpreted.subject_fallbacks.join(', ')+')':''));
   if(weaker.semantic)parts.push(weaker.semantic+' '+plural(weaker.semantic,'is','are')+' similar by meaning only');
-  if(coverage.context_matches!==undefined)parts.push(coverage.context_matches+' '+plural(coverage.context_matches,'shows','show')+' the context ('+contextText+')');
+  if(coverage.context_matches!==undefined)parts.push(coverage.context_matches+' '+plural(coverage.context_matches,'shows','show')+' the context ('+contextText+')'+(coverage.context_with_subject!==undefined&&coverage.context_with_subject<coverage.context_matches?', '+coverage.context_with_subject+' of them with the subject as the main subject':''));
   notices.push(works(coverage.subject_matches,'work shows','works show')+' the subject ('+asked.join(', ')+')'+(parts.length?'; '+parts.join(', '):'')+'.');
   if(coverage.partial_style_matches&&coverage.style_matches!==undefined)notices.push(coverage.style_matches+' '+plural(coverage.style_matches,'shows','show')+' every requested style ('+styles.join(', ')+'), '+coverage.partial_style_matches+' some.');
  } else if(result.insufficient_matches&&coverage.brief_matches!==undefined){
@@ -900,10 +991,19 @@ export class SearchEngine {
  // A context barely covered among plentiful subject matches is still worth saying.
  const contextMatches=coverage.context_matches,relatedContext=coverage.context_related??0,relatedLabels=interpreted.related_context_labels??[];
  if(contextMatches!==undefined&&contextMatches<=1&&state.ranked.length>contextMatches&&!result.insufficient_matches)notices.push(works(contextMatches,'matching work shows','matching works show')+' evidence of the requested context ('+contextText+').');
- if(relatedContext&&contextMatches<=1&&state.ranked.length)notices.push(relatedContext+' '+plural(relatedContext,'shows','show')+' related context evidence'+(relatedLabels.length?' (related domains: '+relatedLabels.join(', ')+')':'')+'.');
+ // Related context evidence is described by what the counted works carry: the related domains
+ // tagged on them, and how many are only close to the context's meaning.
+ if(relatedContext&&contextMatches<=1&&state.ranked.length){
+  const shownDomains=[...new Set(state.ranked.map(item=>item.evidence?.context?.related_domain).filter(Boolean))];
+  const byMeaning=state.ranked.filter(item=>{const c=item.evidence?.context;return c?.close_in_meaning&&!c.related_domain&&!c.matched&&!c.related;}).length;
+  const how=[...(shownDomains.length?['related domains: '+shownDomains.join(', ')]:[]),...(byMeaning?[byMeaning+' close in meaning only']:[])];
+  notices.push(relatedContext+' '+plural(relatedContext,'shows','show')+' related context evidence'+(how.length?' ('+how.join('; ')+')':'')+'.');
+ }
+ // A subject search whose context matches all lack the subject says so, since they rank after it.
+ if(!result.insufficient_matches&&coverage.context_with_subject===0&&contextMatches>1)notices.push('None of the main-subject matches shows the context ('+contextText+'); '+contextMatches+' works show it without the subject.');
  if(coverage.similar_fill)notices.push(coverage.similar_fill+' more '+plural(coverage.similar_fill,'work is','works are')+' added as the closest by meaning only (match similar, see meaning_top_pct), not evidence for the brief.');
  if(coverage.browse_fill&&interpreted.filters)notices.push((coverage.matching_works>coverage.browse_fill?'After the first '+(coverage.matching_works-coverage.browse_fill)+' '+plural(coverage.matching_works-coverage.browse_fill,'result','results')+', the next ':'All ')+coverage.browse_fill+' '+plural(coverage.browse_fill,'work passes','works pass')+' the filters (match browse) without further evidence for the brief.');
- else if(coverage.browse_fill){const partial=coverage.matching_works-coverage.browse_fill;notices.push((partial?works(partial,'work shows','works show')+' some part of the brief; ':'')+coverage.browse_fill+' more '+plural(coverage.browse_fill,'is','are')+' a varied browse of the requested kinds (match browse), not evidence for the brief.');}
+ else if(coverage.browse_fill){const partial=coverage.matching_works-coverage.browse_fill;notices.push((partial?works(partial,'work shows','works show')+' some part of the brief; ':'')+coverage.browse_fill+' more '+plural(coverage.browse_fill,'is','are')+(coverage.browse_order==='meaning'?' a browse of the requested kinds, closest in meaning first (match browse)':' a varied browse of the requested kinds (match browse)')+', not evidence for the brief.');}
  if(interpreted.derived_constraints?.browse&&state.ranked.length)notices.push('No specific criteria were applied: works are spread across kinds and categories.');
  if(interpreted.unmatched_terms&&state.ranked.length)notices.push('Not found in any work\'s text (ranking only): '+interpreted.unmatched_terms.join(', ')+'.');
  if(interpreted.derived_constraints?.reference_brands&&state.ranked.length)notices.push('Reference brands ('+interpreted.derived_constraints.reference_brands.join(', ')+') inform meaning only; no catalog field verifies that look.');

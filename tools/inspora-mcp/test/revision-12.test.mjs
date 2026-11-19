@@ -60,6 +60,8 @@ test('a product-role context counts role evidence without repeating the role in 
  assert.equal(result.search_coverage.context_matches,1);
 });
 
+// Revision 19: a compound domain word (fintech) reaches the label its stem begins (Finance) as the
+// domain itself; other close labels (Banking) stay related-domain evidence.
 test('related taxonomy labels are disclosed as related-domain evidence, not context matches',async()=>{
  const keyed=text=>{const t=text.toLowerCase();return t==='fintech'?[.9,.44,0]:/financ/.test(t)?[.8,.6,0]:/bank/.test(t)?[.7,.7,0]:/sport/.test(t)?[0,1,0]:/music/.test(t)?[0,0,1]:[.1,.1,.99];};
  const unit=v=>{const n=Math.hypot(...v);return [...v.map(x=>x/n),...Array(381).fill(0)];};
@@ -68,11 +70,12 @@ test('related taxonomy labels are disclosed as related-domain evidence, not cont
  const works=[{...work(1,'logo'),title:'Coin',description:'A minimal logo.',industries:['Finance']},{...work(2,'logo'),title:'Ball',description:'A minimal logo.',industries:['Sports']},{...work(3,'logo'),title:'Note',description:'A minimal logo.',industries:['Music']},{...work(4,'logo'),title:'Vault',description:'A minimal logo.',industries:['Banking']}];
  const rows=normalizeRows({capturedAt,rows:works}).map(row=>({...row,vector:unit([.3,.3,.9])}));
  const result=await new SearchEngine({snapshotId:'related',capturedAt,rows},{embed:relEmbed}).search({query:'minimal logo',kinds:['logo'],context:'fintech'});
- assert.ok(result.interpreted_query.related_context_labels.includes('Finance'));
- assert.ok(!result.interpreted_query.related_context_labels.includes('Music'));
- assert.equal(result.search_coverage.context_matches,0);
- assert.ok(result.search_coverage.context_related>=1);
- assert.match(result.notice,/related domains/);
+ const related=result.interpreted_query.related_context_labels??[];
+ assert.ok(!related.includes('Finance')&&!related.includes('Music'));
+ assert.equal(result.search_coverage.context_matches,1);
+ assert.equal(result.results[0].title,'Coin');
+ assert.deepEqual(result.results[0].evidence.context,{matched:['fintech']});
+ assert.deepEqual(result.results.find(item=>item.title==='Note').evidence.context,{unverified:['fintech']});
 });
 
 test('a broader concept inside a phrase needs affinity with the full phrase',async()=>{

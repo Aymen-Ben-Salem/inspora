@@ -17,7 +17,7 @@ const bge=works=>new SearchEngine({snapshotId:'r18-bge',capturedAt,model:{name:'
 const filler=(from,n,kind='design')=>Array.from({length:n},(_,i)=>[{...work(from+i,kind),title:'Filler '+i,description:'An unrelated composition.'},.40]);
 const evidence=(document,subject,scope='primary')=>subjectEvidence(document,{subjects:[subject],subject_scope:scope}).length>0;
 
-test('revision 18 is current',()=>assert.equal(SEARCH_REVISION,18));
+test('revision 18 or later is current',()=>assert.ok(SEARCH_REVISION>=18));
 
 test('a requested style tagged on a work admits it at the concrete gate when styles are all the catalog verifies',async()=>{
  const retro={...work(1,'website'),title:'Arcade',description:'An editorial site with oversized headings.',themes:['Retro','Animated']};

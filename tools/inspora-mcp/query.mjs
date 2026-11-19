@@ -87,9 +87,12 @@ export function prepareSearchQuery(args,df) {
   return {query,corrections};
 }
 
+// A descriptive suffix compound ("typography-led", "mobile-first", "data-driven") names its
+// first word; the suffix is no brief word of its own ("led").
+const DESCRIPTIVE_SUFFIX=/(\p{L}[\p{L}\p{N}]*)-(?:led|based|driven|first|focused|centric|oriented|forward|heavy|rich|inspired|style|styled|like|esque|themed)\b/giu;
 export function constraints(text) {
   const negative=[];
-  const positive=String(text??'').replace(/\b(?:no|not|without|excluding|exclude|avoid)\s+([^,.;!?\n]+?)(?=\s+\b(?:but|with|featuring|containing|for)\b|[,.;!?\n]|$)/giu,(_whole,phrase)=>{
+  const positive=String(text??'').replace(DESCRIPTIVE_SUFFIX,'$1').replace(/\b(?:no|not|without|excluding|exclude|avoid)\s+([^,.;!?\n]+?)(?=\s+\b(?:but|with|featuring|containing|for)\b|[,.;!?\n]|$)/giu,(_whole,phrase)=>{
     for(const term of phrase.split(/\s+(?:and|or)\s+|\s*\/\s*/i))if(term.trim())negative.push(term.trim());
     return ' ';
   });

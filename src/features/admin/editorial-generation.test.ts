@@ -76,11 +76,11 @@ describe("editorial generation contract", () => {
 
   it("uses supplied image evidence, bounded output and structured responses", () => {
     const request = editorialRequest(input);
-    expect(request.model).toBe("gpt-6.1-sol");
-    expect(request.reasoning).toEqual({ effort: "medium" });
+    expect(request.model).toBe("gpt-6.2-sol");
+    expect(request.reasoning).toEqual({ effort: "high" });
     expect(request.service_tier).toBe("default");
     expect(request.store).toBe(false);
-    expect(request.max_output_tokens).toBe(2500);
+    expect(request.max_output_tokens).toBe(8000);
     expect(request.text.format.strict).toBe(true);
     expect(request.input[0].content[1]).toMatchObject({ type: "input_image", image_url: input.images[0].dataUrl });
   });
@@ -92,7 +92,7 @@ describe("editorial generation contract", () => {
     })));
     const result = await requestEditorialProposal(input, { apiKey: "test-key", fetcher });
     const sentBody = JSON.parse(fetcher.mock.calls[0][1]?.body as string);
-    expect(sentBody).toMatchObject({ model: "gpt-6.1-sol", reasoning: { effort: "medium" } });
+    expect(sentBody).toMatchObject({ model: "gpt-6.2-sol", reasoning: { effort: "high" } });
     expect(result.cacheKey).toBe(editorialCacheKey(input));
     expect(result.usage).toEqual({ input_tokens: 100, output_tokens: 60 });
     expect(fetcher).toHaveBeenCalledTimes(1);

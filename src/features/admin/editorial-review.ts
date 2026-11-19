@@ -9,6 +9,7 @@ import { editorialHashFromInput } from "./editorial-hash";
 import { editorialSnapshot, stableSnapshot, type EditorialSnapshot } from "./editorial-snapshot";
 import { withEditorialLedger } from "./editorial-ledger";
 import { isAllowedManagedAssetUrl } from "./media-url-validation";
+import { catalogReviewStatus } from "./editorial-catalog-review";
 
 export class EditorialReviewError extends Error {}
 const reviewSchema = z.object({
@@ -19,7 +20,8 @@ const reviewSchema = z.object({
 });
 
 export type PreparedEditorialReview = Awaited<ReturnType<typeof prepareEditorialReview>>;
-export type EditorialNoteStatus = "current" | "stale" | "none";
+/** Button-made notes are current or stale; catalog-review notes come from the bulk review in the private enrichment object. */
+export type EditorialNoteStatus = "current" | "stale" | "review" | "review-stale" | "none";
 
 export async function recordEditorialDecision(raw: unknown, actorId: string) {
   const decision = reviewSchema.extend({ action: z.enum(["applied", "rejected"]) }).parse(raw);
@@ -110,6 +112,6 @@ export async function refreshEditorialNotes(tx: WriteTx, workId: string, kind: E
 export async function editorialNoteStatus(kind: EditorialKind, workId: string, record: Record<string, unknown>): Promise<EditorialNoteStatus> {
   const [existing] = await requireDatabase().select({ kind: workEditorialNotes.kind, contentHash: workEditorialNotes.contentHash })
     .from(workEditorialNotes).where(eq(workEditorialNotes.workId, workId));
-  if (!existing) return "none";
+  if (!existing) return (await catalogReviewStatus(workId)) ?? "none";
   return existing.kind === kind && existing.contentHash === editorialHashFromInput(kind, record) ? "current" : "stale";
 }

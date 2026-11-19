@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { CreatorPicker } from "./creator-picker";
 import { FileDetails, UploadSectionTitle } from "./upload-flow";
 
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
 import type { UploadedAdminMedia } from "@/features/admin/media-upload";
+import { creatorAvatarSoftNotice } from "@/features/creators/avatar-policy";
 import type {
   AdminCreatorAttribution,
   AdminCreatorInput,
@@ -76,6 +78,8 @@ export function AdminCreatorEditor({
     Boolean(creator.id) &&
     creator.recordOrigin !== "preview";
   const isReadOnly = readOnly || isExistingLocked;
+  // Keyed by URL so the notice disappears once another photo replaces it.
+  const [avatarNotice, setAvatarNotice] = useState<{ url: string; message: string }>();
   const hasVerifiedXIdentity = Boolean(
     creator.id && creators.find((item) => item.id === creator.id)?.xProviderId,
   );
@@ -102,6 +106,8 @@ export function AdminCreatorEditor({
 
   function applyUploadedAvatar(uploaded: UploadedAdminMedia) {
     if (uploaded.type !== "image") return;
+    const message = creatorAvatarSoftNotice(uploaded.width);
+    setAvatarNotice(message ? { url: uploaded.url, message } : undefined);
     onChange({
       ...creator,
       avatarUrl: uploaded.url,
@@ -181,7 +187,8 @@ export function AdminCreatorEditor({
                   label="Upload new photo"
                   onUploaded={applyUploadedAvatar}
                 />
-                <p className="text-xs leading-relaxed text-[#777]">Upload a photo or use the image URL below. At least 400 × 400 pixels; cropped to a square. Leave the default photo to use the linked X photo when available.</p>
+                {avatarNotice?.url === creator.avatarUrl ? <p role="status" className="max-w-sm text-xs leading-relaxed text-[#777]">{avatarNotice.message}</p> : null}
+                <p className="text-xs leading-relaxed text-[#777]">Upload a photo or use the image URL below. 400 × 400 pixels or larger looks best (256 minimum); cropped to a square. Leave the default photo to use the linked X photo when available.</p>
               </div>
             ) : null}
             <label className={labelClass}>

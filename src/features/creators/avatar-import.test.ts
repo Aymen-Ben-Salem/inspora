@@ -20,8 +20,8 @@ it("downloads the larger X variant through the bounded public transport and stor
 });
 
 it("reports actual image quality failures instead of trusting a 400x400 URL", async () => {
-  io.store.mockRejectedValue(new CreatorAvatarError("Choose a photo at least 400 × 400 pixels."));
-  await expect(importCreatorAvatarUrl("https://images.example/400x400.jpg")).rejects.toThrow("400 × 400");
+  io.store.mockRejectedValue(new CreatorAvatarError("This photo is too small. Choose one at least 256 × 256 pixels."));
+  await expect(importCreatorAvatarUrl("https://images.example/400x400.jpg")).rejects.toThrow("256 × 256");
 });
 
 it.each(["http://images.example/photo.png", "/other-photo.svg", "https://user:password@images.example/photo.png"])("rejects invalid photo sources before downloading %s", async url => {

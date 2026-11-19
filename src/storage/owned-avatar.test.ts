@@ -93,6 +93,6 @@ it("rejects tiny real pixels before publishing any object", async () => {
     if (command instanceof GetObjectCommand) return { ContentLength: bytes.length, Body: (async function* () { yield bytes; })() };
     throw new Error("Must not publish or delete anything");
   });
-  await expect(freezeOwnedAvatarUpload(userId, { storageKey: key, size: bytes.length })).rejects.toThrow("400 × 400");
+  await expect(freezeOwnedAvatarUpload(userId, { storageKey: key, size: bytes.length })).rejects.toThrow("256 × 256");
   expect(storage.send.mock.calls.some(([command]) => command instanceof PutObjectCommand)).toBe(false);
 });

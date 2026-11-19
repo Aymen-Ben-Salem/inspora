@@ -188,7 +188,7 @@ export function AdminCreatorEditor({
                   onUploaded={applyUploadedAvatar}
                 />
                 {avatarNotice?.url === creator.avatarUrl ? <p role="status" className="max-w-sm text-xs leading-relaxed text-[#777]">{avatarNotice.message}</p> : null}
-                <p className="text-xs leading-relaxed text-[#777]">Upload a photo or use the image URL below. 400 × 400 pixels or larger looks best (256 minimum); cropped to a square. Leave the default photo to use the linked X photo when available.</p>
+                <p className="text-xs leading-relaxed text-[#777]">Upload a photo or use the image URL below. 400 × 400 pixels or larger looks best (256 minimum); you can crop it after choosing. Leave the default photo to use the linked X photo when available.</p>
               </div>
             ) : null}
             <label className={labelClass}>

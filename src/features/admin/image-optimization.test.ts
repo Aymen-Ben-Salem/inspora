@@ -145,6 +145,14 @@ describe("static image preparation", () => {
     await expect(optimizeStaticImage(file, "creator-avatar")).rejects.toThrow("256 × 256");
   });
 
+  it("uses a chosen avatar square and rejects one outside the photo", async () => {
+    mockImageBrowser(new Blob(["webp"], { type: "image/webp" }), 1200, 800, false);
+    const file = new File(["png"], "photo.png", { type: "image/png" });
+    expect(await optimizeStaticImage(file, "creator-avatar", undefined, { x: 100, y: 20, size: 300 })).toMatchObject([{ width: 300, height: 300 }]);
+    await expect(optimizeStaticImage(file, "creator-avatar", undefined, { x: 1000, y: 0, size: 300 })).rejects.toThrow("no longer fits");
+    await expect(optimizeStaticImage(file, "logo-media", undefined, { x: 0, y: 0, size: 300 })).rejects.toThrow("Only profile photos");
+  });
+
   it("uses the fallback when the native canvas export returns no blob", async () => {
     mockImageBrowser(null);
 

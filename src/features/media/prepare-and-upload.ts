@@ -17,6 +17,7 @@ import { createVideoPoster } from "../admin/video-processing";
 import { assertVideoPreviewDimensions } from "../admin/video-preview-validation";
 import { constrainVideoCrop, type VideoCropSelection } from "../admin/video-crop";
 import { VIDEO_CROP_REMUX_OVERHEAD_BYTES } from "../admin/video-crop-lossless";
+import type { AvatarCrop } from "../creators/avatar-crop";
 import {
   createAdminMediaUploadOperations,
   createPreparedMediaUploadBundle,
@@ -55,12 +56,14 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
   setStatus: (status: UploadStatus) => void = () => {},
   onController?: (controller: AbortController) => void,
   videoCrop?: VideoCropSelection,
+  avatarCrop?: AvatarCrop,
 ): Promise<TResult> {
   const contentType = ACCEPTED_MEDIA_MIME_TYPES.find((type) => type === file.type);
   if (!contentType || !isAcceptedUploadForKind(kind, contentType) || file.size > getMediaUploadLimit(contentType)) {
     throw new Error(uploadError(kind));
   }
   if (videoCrop && kind !== "website-recording") throw new Error("Cropping is only available for website recordings.");
+  if (avatarCrop && kind !== "creator-avatar") throw new Error("Square cropping is only available for profile photos.");
   const controller = new AbortController();
   const preparationSignal = controller.signal;
   onController?.(controller);
@@ -68,7 +71,7 @@ export async function prepareAndUploadMedia<TResult = UploadedAdminMedia>(
   let uploadItems: PreparedMediaUpload[];
   if (isOptimizableStaticImage(contentType)) {
     setStatus("optimizing");
-    const images = await optimizeStaticImage(file, kind, preparationSignal);
+    const images = await optimizeStaticImage(file, kind, preparationSignal, avatarCrop);
     uploadItems = images.map((image, index) => ({
       ...image,
       uploadKind: kind,

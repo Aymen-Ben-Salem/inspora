@@ -12,8 +12,10 @@ import {
   discardOwnAvatarUpload,
   updateOwnProfile,
 } from "@/features/profiles/actions";
+import { AvatarCropDialog } from "@/components/avatar-crop-dialog";
 import { optimizeStaticImage } from "@/features/admin/image-optimization";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/features/admin/media-upload";
+import type { AvatarCrop } from "@/features/creators/avatar-crop";
 import { creatorAvatarSoftNotice } from "@/features/creators/avatar-policy";
 import type { CreatorProfile } from "@/features/creators/types";
 
@@ -73,6 +75,7 @@ export function EditProfile({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarNotice, setAvatarNotice] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [connecting, setConnecting] = useState<Provider>();
   const [editing, setEditing] = useState<"name" | "username" | "websiteUrl" | null>(null);
   const [savedValues, setSavedValues] = useState({ name: profile.name, username: profile.username, websiteUrl: profile.websiteUrl ?? "" });
@@ -108,17 +111,23 @@ export function EditProfile({
     }
   }
 
-  async function uploadPhoto(file: File) {
+  function pickPhoto(file: File) {
     setFieldError(undefined);
     setAvatarNotice(null);
+    if (fileRef.current) fileRef.current.value = "";
     if (!(["image/jpeg", "image/png"].includes(file.type)) || file.size > MAX_IMAGE_UPLOAD_BYTES) {
       setFieldError({ field: "avatar", message: "Choose one JPG or PNG image up to 10 MB." });
       return;
     }
+    setCropFile(file);
+  }
+
+  async function uploadPhoto(file: File, crop: AvatarCrop) {
+    setCropFile(null);
     setUploading(true);
     let storageKey: string | undefined;
     try {
-      const [optimized] = await optimizeStaticImage(file, "creator-avatar");
+      const [optimized] = await optimizeStaticImage(file, "creator-avatar", undefined, crop);
       if (!optimized) throw new Error("The photo could not be optimized.");
       const signature = await createOwnAvatarUploadSignature({
         fileName: file.name,
@@ -211,19 +220,25 @@ export function EditProfile({
             </div>
             <div className="grid gap-1">
               <p className="font-medium">Profile photo</p>
-              <p className="text-xs text-[#767676]">JPG or PNG, 400 × 400 pixels or larger looks best (256 minimum). Cropped to a square.</p>
+              <p className="text-xs text-[#767676]">JPG or PNG, 400 × 400 pixels or larger looks best (256 minimum). You can crop it after choosing.</p>
             </div>
           </div>
           <label className={`focus-within:ring-2 focus-within:ring-black ${editActionClass}`}>
             <input aria-label="Edit profile photo" ref={fileRef} type="file" accept="image/jpeg,image/png" disabled={uploading} className="sr-only" onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) void uploadPhoto(file);
+              if (file) pickPhoto(file);
             }} />
             {uploading ? "Uploading…" : "Edit"}
           </label>
         </div>
         {fieldError?.field === "avatar" ? <p role="alert" className="px-4 py-2 text-xs text-red-700">{fieldError.message}</p> : null}
         {avatarNotice && fieldError?.field !== "avatar" ? <p role="status" className="px-4 py-2 text-xs text-[#767676]">{avatarNotice}</p> : null}
+        {cropFile ? <AvatarCropDialog
+          file={cropFile}
+          onApply={(crop) => void uploadPhoto(cropFile, crop)}
+          onCancel={() => setCropFile(null)}
+          onReject={(message) => { setCropFile(null); setFieldError({ field: "avatar", message }); }}
+        /> : null}
         {([
           { field: "name", label: "Name", value: name, set: setName, display: savedValues.name },
           { field: "username", label: "Username", value: username, set: setUsername, display: `@${savedValues.username}` },

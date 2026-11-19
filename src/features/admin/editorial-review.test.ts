@@ -1,8 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const external = vi.hoisted(() => ({ rows: [] as unknown[] }));
+const external = vi.hoisted(() => ({ rows: [] as unknown[], noteRows: [] as unknown[], review: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/db/client", () => ({ requireDatabase: () => ({ select: () => ({ from: () => ({ where: async () => external.noteRows }) }) }) }));
+vi.mock("./editorial-catalog-review", () => ({ catalogReviewStatus: external.review }));
 vi.mock("./editorial-ledger", () => ({ withEditorialLedger: async (fn: (tx: unknown) => unknown) => fn({ select: () => ({ from: () => ({ where: async () => external.rows }) }) }) }));
-import { prepareEditorialReview, refreshEditorialNotes, saveEditorialReview } from "./editorial-review";
+import { editorialNoteStatus, prepareEditorialReview, refreshEditorialNotes, saveEditorialReview } from "./editorial-review";
 import { editorialHashFromInput } from "./editorial-hash";
 import { editorialSnapshot, stableSnapshot } from "./editorial-snapshot";
 import { editorialContentHash } from "../../../tools/inspora-mcp/editorial-notes.mjs";
@@ -103,4 +105,17 @@ it("saves a logo generated before shape suggestions existed with its current sha
 it("hashes an empty poster like a missing one on both sides", () => {
   const row = { kind: "design", title: "Studio", description: "Original", media: [{ type: "video", url: "https://example.com/a.mp4", poster: "", alt: "Studio", width: 1, height: 1 }] };
   expect(editorialContentHash(row)).toBe(editorialContentHash({ ...row, media: [{ ...row.media[0], poster: null }] }));
+});
+
+it("shows button notes first, then catalog-review notes, then none", async () => {
+  external.noteRows = [{ kind: "design", contentHash: editorialHashFromInput("design", source) }];
+  expect(await editorialNoteStatus("design", id, source)).toBe("current");
+  expect(external.review).not.toHaveBeenCalled();
+  external.noteRows = [];
+  external.review.mockResolvedValueOnce("review");
+  expect(await editorialNoteStatus("design", id, source)).toBe("review");
+  external.review.mockResolvedValueOnce("review-stale");
+  expect(await editorialNoteStatus("design", id, source)).toBe("review-stale");
+  external.review.mockResolvedValueOnce(null);
+  expect(await editorialNoteStatus("design", id, source)).toBe("none");
 });

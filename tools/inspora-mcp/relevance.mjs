@@ -8,6 +8,13 @@ const concepts = [
   ['gift card', 'design', []],
   ['business card', 'design', ['visiting card']],
   ['dashboard', 'design', ['admin panel', 'analytics screen', 'analytics overview']],
+  // Common names for the same everyday components; each broader reading is a fallback only.
+  ['metric card', 'design', ['stat card', 'stats card', 'kpi card', 'kpi tile', 'metric tile', 'stat tile', 'metrics card', 'metric widget'], 'card', 'reading'],
+  ['checklist', 'design', ['check list', 'to do list', 'todo list', 'todo', 'task list', 'tasks list', 'task checklist', 'setup checklist', 'progress checklist', 'task progress', 'task tracker'], 'progress', 'reading'],
+  ['tabs', 'design', ['tab', 'tab switcher', 'tab control', 'tab component', 'segmented control', 'segment control', 'segmented picker', 'pill tabs'], 'navigation', 'reading'],
+  ['avatar', 'design', ['profile picture', 'profile photo', 'user avatar', 'avatar group', 'avatar stack']],
+  ['agent trace', 'design', ['trace view', 'trace waterfall', 'execution trace', 'run trace', 'agent trace view', 'agent log', 'agent logs', 'run log', 'tool call log']],
+  ['kanban', 'design', ['kanban board', 'task board']],
   ['navigation', 'design', ['nav', 'navbar', 'navigation bar', 'nav bar', 'navigation menu', 'nav menu', 'menu bar', 'dock', 'app dock']],
   // A fourth entry names the broader concept: a sidebar is navigation, but navigation
   // evidence alone is only partial evidence for a sidebar.
@@ -85,7 +92,11 @@ const concepts = [
 // cool or nice, hedges such as kinda, provenance such as built with) carry no visual evidence.
 const stop = new Set(('i me my a an the for of in on to with and or is are that this find show give want need looking inspiration some please from similar alternatives like can could would should it its using use design designs designing website websites logo logos icon icons app apps work works example examples result results only no not without ui interface ' +
   'but so something anything sth smth stuff thing things kinda sorta kind really very just also maybe vibe vibes vibey feel feeling look style styled aesthetic cool nice awesome amazing great good beautiful lovely best built made created make create based idea ideas inspo inspired').split(' '));
-const wordAliases = new Map([['saas', 'saas'], ['paas', 'paas'], ['iaas', 'iaas'], ['minimalist', 'minimal'], ['minimalism', 'minimal'], ['geometrical', 'geometric']]);
+const wordAliases = new Map([['saas', 'saas'], ['paas', 'paas'], ['iaas', 'iaas'], ['minimalist', 'minimal'], ['minimalism', 'minimal'], ['geometrical', 'geometric'],
+  // British spellings read as the catalog's American ones.
+  ['colour', 'color'], ['colours', 'color'], ['coloured', 'colored'], ['colourful', 'colorful'], ['colourway', 'colorway'], ['colourways', 'colorway'], ['centre', 'center'], ['centred', 'centered'], ['favourite', 'favorite'], ['favourites', 'favorite'],
+  // A nationality adjective reads as its country (Japanese evidence for a Japan context).
+  ['japanese', 'japan'], ['chinese', 'china'], ['korean', 'korea']]);
 
 // A negating prefix forms one word with what it negates, so "sans-serif" or "sans serif"
 // is never read as serif and "non-profit" never as profit.
@@ -186,6 +197,7 @@ export const normalizedPhrase = text => words(text).join(' ');
 const normalized = normalizedPhrase;
 const aliases = new Map(concepts.flatMap(([subject, , alternatives]) => [subject, ...alternatives].map(alias => [normalized(alias), subject])));
 const families = new Map(concepts.map(([subject, family]) => [subject, family]));
+export const subjectFamily = subject => families.get(subject) ?? null;
 // A concept that is another sense of a concept's head word: chosen when a cue word of that
 // sense appears in the request (a restaurant menu), and evidenced in a work when the head
 // word shares a sentence with a cue word (a menu card listing dishes and prices).
@@ -272,7 +284,9 @@ export function subjectFallbacks(subject) {
   const inner = [];
   for (let i = 0; i < parts.length; i++) for (let j = i + 1; j <= parts.length; j++) {
     const concept = j - i < parts.length ? aliases.get(parts.slice(i, j).join(' ')) : undefined;
-    if (concept && concept !== subject && !archiveKinds.includes(concept) && !(families.has(subject) && j === parts.length)) inner.push(concept);
+    // A listed concept that names its broader concept falls back to that one only: a tab
+    // bar is navigation, and the tabs in its name are another component.
+    if (concept && concept !== subject && !archiveKinds.includes(concept) && !(families.has(subject) && j === parts.length) && !(parents.has(subject) && concept !== parents.get(subject))) inner.push(concept);
   }
   // Each remaining specific word ("booking" in "booking form", "animation" in "logo
   // animation") is weaker, generic evidence; the caller confirms it semantically.
@@ -448,7 +462,11 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   let subjects = args.subjects ? [...new Set(args.subjects.map(canonicalSubject))] : undefined;
   let featureOnly = false;
   if (!subjects) {
-    const head = positive.split(/\b(?:with|featuring|containing|for)\b/i, 1)[0];
+    // A relative clause describes the artifact named before it ("a button that morphs into a
+    // loading spinner" is a button), so the head ends there too when it already names one.
+    const beforeClause = positive.split(/\b(?:with|featuring|containing|for)\b/i, 1)[0];
+    const relative = beforeClause.split(/\b(?:that|which|whose|morph(?:s|ing|ed)?|turn(?:s|ing)?|becom(?:es|ing)|chang(?:es|ing)|transform(?:s|ing)?|transition(?:s|ing)?|expand(?:s|ing)?|collaps(?:es|ing)|switch(?:es|ing))\b/i, 1)[0];
+    const head = subjectsIn(relative).length ? relative : beforeClause;
     const all = subjectsIn(positive);
     const specific = all.filter(subject => !['website', 'logo', 'icon'].includes(subject));
     subjects = specific.length ? specific : all;
@@ -458,7 +476,9 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
     const mentions = subjectMentions(head).filter(({to}) => !archiveKinds.includes(to));
     let run = mentions.slice(-1);
     for (let i = mentions.length - 2; i >= 0 && mentions[i].end + 1 === run[0].start; i--) run = [mentions[i], ...run];
-    const compound = run.length > 1 ? run.map(({to}) => to).join(' ') : '';
+    // Synonyms of one concept side by side ("notification toast") name it once.
+    const parts = run.map(({to}) => to).filter((to, i, all) => to !== all[i - 1]);
+    const compound = parts.length > 1 ? parts.join(' ') : '';
     if (compound && !aliases.has(compound) && run.at(-1).to === headSubjects.at(-1)) subjects = [compound];
     else if (headSubjects.length===1 || headSubjects.length && !/\b(?:and|or)\b/i.test(head)) subjects = headSubjects.slice(-1);
     else if (!headSubjects.length && subjects.length) {
@@ -512,11 +532,12 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   const namedWords = new Set(contextPhrases.filter(phrase => termSequence.includes(' ' + phrase + ' ')).flatMap(phrase => phrase.split(' ')));
   // A word naming motion itself ("animation", "bounce") describes the requested work, not its
   // industry, even where Animation is also an industry label.
-  const motionWord = term => motionHeads.has(term) || motionVerbs.includes(term) || /^animat/.test(term);
+  const motionWord = term => motionHeads.has(term) || motionVerbs.includes(term) || /^animat/.test(term) || /^(?:interaction|interactive|microinteraction)$/.test(term);
   const context = args.context ? tokens(args.context) : queryTerms.filter(term => (contextVocabulary.has(term) || namedWords.has(term)) && !motionWord(term) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
-  const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive);
+  const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive) &&
+    !/\b(?:(?:information|data|content)[\s-]+(?:dense|heavy|rich)|dense|high[\s-]+density|packed)\b/i.test(positive.replace(/\b(?:less|low|lower)[\s-]+dens\w*/gi, ' '));
   const subjectAliases = [...new Map([positive,...(args.subjects??[])].flatMap(subjectMentions)
     .filter(({from,to})=>from!==to&&subjects.includes(to)).map(alias=>[alias.from,alias])).values()];
   const [projectLead, ...requestedFeatures] = positive.split(':');

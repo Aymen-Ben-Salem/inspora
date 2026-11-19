@@ -18,7 +18,7 @@ const bge=works=>new SearchEngine({snapshotId:'r20-bge',capturedAt,model:{name:'
 const filler=(from,n,similarity,kind='design')=>Array.from({length:n},(_,i)=>[{...work(from+i,kind),title:'Filler '+i,description:'An unrelated composition.'},similarity]);
 const video=row=>({...row,media:[{type:'video',url:'https://media.inspora.design/sample.mp4',poster:'https://media.inspora.design/sample.webp'}]});
 
-test('revision 20 is current',()=>assert.equal(SEARCH_REVISION,20));
+test('revision 20 or later is current',()=>assert.ok(SEARCH_REVISION>=20));
 
 test('a taxonomy label equal to a compound stem is its domain (climate tech)',async()=>{
  const climate={...work(1,'website'),title:'Tide',description:'A waste-management website with industrial photographs.',categories:['Climate']};

@@ -24,7 +24,7 @@ const jpeg = fill => Buffer.concat([Buffer.from([255, 216, 255, 224]), Buffer.al
 // A container reply for the row: one still, built exactly as prepare-visuals.mjs keys it.
 function reply(row, {bytes = jpeg(1), tamper} = {}) {
   const item = {role:'still', width:800, height:600, bytes:bytes.length, sha256:visualSha(bytes)};
-  const payload = {key:visualManifestKey(row), manifest:{version:1, workId:row.id, mediaFingerprint:mediaFingerprint(row), assets:[item]},
+  const payload = {key:visualManifestKey(row), manifest:{version:2, workId:row.id, mediaFingerprint:mediaFingerprint(row), assets:[item]},
     assets:[{key:visualAssetKey(row, item), role:'still', data:bytes.toString('base64')}]};
   tamper?.(payload);
   return payload;
@@ -114,7 +114,17 @@ test('the consumer drops stale or already-packed jobs and parks rejected or inva
 test('validatePack accepts the exact keys prepare-visuals.mjs produces', () => {
   const row = work(8), pack = validatePack(row, reply(row));
   assert.equal(pack.key, visualManifestKey(row)); assert.equal(pack.assets.length, 1);
-  assert.match(pack.assets[0].key, /^mcp\/visuals\/v1\/[0-9a-f-]+\/[0-9a-f]{64}\/still-[0-9a-f]{64}\.jpg$/);
+  assert.match(pack.assets[0].key, /^mcp\/visuals\/v2\/[0-9a-f-]+\/[0-9a-f]{64}\/still-[0-9a-f]{64}\.jpg$/);
+  // A version 1 reply (an older container image) is never stored as a current pack.
+  assert.throws(() => validatePack(row, reply(row, {tamper:payload => {payload.manifest.version = 1;}})));
+});
+
+test('a work with only a version 1 pack is queued for a version 2 pack', async () => {
+  const bucket = new ObjectBucket(), queue = new Queue(), storage = new Storage(), row = work(40);
+  bucket.values.set(visualManifestKey(row, 1), '{}');
+  const result = await enqueueVisualJobs({bucket, queue, storage, rows:[row]});
+  assert.deepEqual(queue.sent.map(job => job.workId), [row.id]);
+  assert.equal(result.packed, 0);
 });
 
 test('the queue handler acks finished and malformed jobs and retries transient failures with backoff', async () => {

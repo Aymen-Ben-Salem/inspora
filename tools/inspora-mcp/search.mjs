@@ -1,13 +1,13 @@
 import crypto from 'node:crypto';
 import {z} from 'zod';
 import {KINDS,eligible,resolveReference,clean,tagFields} from './catalog.mjs';
-import {tokens,prepareDocument,queryIntent,subjectEvidence,subjectFallbacks,subjectNames,hasForm,hasFamily,subjectTerms,canonicalSubject,reducedSubject,isSubjectPhrase,labelsIn,normalizedPhrase,inflections,derivations,derivationBases,familyForms,formatWords,designVocabulary,projectContext,senseHead} from './relevance.mjs';
+import {tokens,prepareDocument,queryIntent,subjectEvidence,subjectFallbacks,subjectNames,hasForm,hasFamily,subjectTerms,canonicalSubject,reducedSubject,isSubjectPhrase,labelsIn,normalizedPhrase,inflections,derivations,derivationBases,familyForms,formatWords,designVocabulary,projectContext,senseHead,subjectFamily} from './relevance.mjs';
 import {englishWords} from './english-words.mjs';
 import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 import {workMedia} from './visuals.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=20;
+export const SEARCH_REVISION=21;
 export const DEFAULT_COUNT=10;
 // Similarity gates are model-specific. BGE-small scores the whole catalog around
 // 0.55-0.65, so MiniLM's 0.30 admitted everything on the hosted index. The BGE
@@ -52,7 +52,9 @@ const APPEARANCE=Object.freeze({
  bright:{tones:['bright'],words:['vivid','vibrant','colorful','colourful'],colors:['rainbow','colorful','multicolor','bright multicolor']},
  muted:{tones:[],words:['muted','desaturated','subdued','restrained','soft'],colors:['earthy','beige','gray']},
  // Mood words read like appearance cues: a calm brief is met by soft, serene or quiet prose.
- calm:{tones:[],words:['calm','soft','serene','quiet','gentle','peaceful','tranquil','soothing','relaxed','restful'],colors:[]},
+ calm:{tones:[],words:['calm','soft','serene','quiet','gentle','peaceful','tranquil','soothing','relaxed','restful'],colors:[],
+  // A work also described or tagged as loud is not calm because one part of it is soft.
+  contra:/\b(?:bright|vibrant|neon|bold|heavy|loud|saturated|electric|aggressive|intense|punchy)\b/i,contraStyles:['bold','neon']},
  neon:{tones:['neon'],words:['glow','glowing'],colors:[]},
  pastel:{tones:[],words:['pastel'],colors:['peach','lavender']},
  // Earthy is met by earth-toned prose or a palette of earth colours, never by "earth" alone (a globe).
@@ -62,7 +64,15 @@ const APPEARANCE=Object.freeze({
  // motion is met by elastic, jelly-like or wobbly prose ("a jelly-like slider stretches").
  bouncy:{tones:[],words:['bouncy','bounce','bouncing','springy','elastic','jelly','wobbly','wobble','squishy','squash','stretchy','rubbery','gooey'],colors:[],motion:true},
 });
+// Nationality, language and regional adjectives ("Japanese typography") describe a culture or
+// style, never a reference brand.
+const CULTURE_WORDS=new Set('japan china korea japanese chinese korean thai vietnamese indian arabic arab persian turkish greek italian french german swiss dutch belgian scandinavian nordic danish swedish norwegian finnish icelandic british english irish scottish american canadian mexican spanish portuguese brazilian latin african european asian russian polish czech ukrainian australian'.split(' '));
 const NEUTRAL_COLORS=new Set(['black','white','gray','grey','silver']);
+// "Soft" before a rendering or shape noun (soft shadows, soft gradients, soft 3D, soft
+// terminals) describes lighting or form, not a calm or muted work; it counts only where the
+// prose uses it otherwise (a soft blue tile).
+const RENDERING_SOFT=/\bsoft(?:ly)?[\s-]+(?:drop[\s-]+)?(?:shadows?|gradients?|highlights?|glows?|glowing|blur|blurred|blurs|lighting|lights?|edges?|reflections?|shading|focus|noise|grain|glare|sheen|bevels?|depth|falloff|vignettes?|lit|3d|three[\s-]?dimensional|terminals?|corners?|contours?|curves?|curved|rounding|radius|radii)\b/gi;
+export const moodSoft=text=>/\bsoft\b/i.test(String(text??'').replace(RENDERING_SOFT,' '));
 const appearanceOf=word=>({monochromatic:'monochrome',greyscale:'monochrome',grayscale:'monochrome',bounce:'bouncy',bouncing:'bouncy',spring:'bouncy',springy:'bouncy',elastic:'bouncy',jelly:'bouncy',wobbly:'bouncy',squishy:'bouncy'})[word]??(APPEARANCE[word]&&word)??null;
 // A compound domain word: a stem of at least two letters followed by "tech" (fintech, edtech).
 const COMPOUND_DOMAIN=/^([a-z]{2,})tech$/;
@@ -167,9 +177,12 @@ const fieldValues=(row,field,aliases=fieldAliases)=>(aliases[field]??[field]).fl
 // plural forms are ignored (E-Commerce = Ecommerce, Sport & Fitness = Sports & Fitness),
 // and a value joined with & also matches its parts. No synonyms: Tech is not Technology.
 // Website style labels live in themes, so a styles filter also reads themes.
+// Websites name their domain in categories (AI, Fintech, Portfolio) and have no industry
+// field, so an industry filter also reads a website's categories.
 const filterAliases={...fieldAliases,styles:['styles','themes']};
+const websiteFilterAliases={...filterAliases,industry:['industry','industries','categories'],industries:['industry','industries','categories']};
 const taxonomyKey=value=>normalizedPhrase(value).replace(/ /g,'');
-const tagKeys=(row,field)=>new Set(fieldValues(row,field,filterAliases).flatMap(value=>[value,...value.split('&')]).map(taxonomyKey).filter(Boolean));
+const tagKeys=(row,field)=>new Set(fieldValues(row,field,row.kind==='website'?websiteFilterAliases:filterAliases).flatMap(value=>[value,...value.split('&')]).map(taxonomyKey).filter(Boolean));
 const tagMatches=(keys,value)=>keys.has(taxonomyKey(value))||value.includes('&')&&value.split('&').map(taxonomyKey).filter(Boolean).every(part=>keys.has(part));
 const dot=(a,b)=>a.reduce((v,x,i)=>v+x*(b?.[i]??0),0);
 // Industry labels split at conjunctions ("Food & Drink" -> food, drink), as token phrases.
@@ -380,7 +393,13 @@ export class SearchEngine {
   const prepared=prepareSearchQuery(args,this.df);
   const cons=constraints(prepared.query);
   const intent=queryIntent(args,cons.positive,this.contextVocabulary,[...this.contextPhrases]);
-  const inferred=inferKinds(cons.positive.split(/\b(?:with|featuring|containing)\b/i,1)[0]);
+  const kindHead=cons.positive.split(/\b(?:with|featuring|containing)\b/i,1)[0];
+  let inferred=inferKinds(kindHead);
+  // An icon or logo named as part of an interface element ("send button icon") or as the
+  // subject of motion ("icon animation", "logo reveal") is also a design: the kind word
+  // adds its kind instead of excluding UI and motion designs. "app icon" stays an icon.
+  if(!args.kinds&&!ref&&!inferred.includes('design')&&inferred.some(kind=>kind==='icon'||kind==='logo')&&!/\bapp[ -]?icons?\b/i.test(kindHead)&&
+   (intent.subjects.some(subject=>subjectFamily(subject)==='design'&&tokens(subject).every(term=>tokens(kindHead.split(/\bfor\b/i,1)[0]).includes(term)))||/\b(?:icons?|logos?)[\s-]+(?:animations?|animated|motion|transitions?|hover|interactions?|micro[\s-]?interactions?|reveals?|loaders?|loading)\b/i.test(kindHead)))inferred=['design',...inferred];
   const kinds=args.kinds??(ref?[ref.kind]:args.filters?.technologies?.length?KINDS:inferred.length?inferred:intent.kinds.length?intent.kinds:KINDS);
   const specificKinds=inferred.filter(kind=>kind!=='design'&&!(kind==='icon'&&intent.subject_scope==='contains'));
   // With explicit kinds, a kind word in the query names a subject inside that kind (a logo
@@ -395,7 +414,7 @@ export class SearchEngine {
   this.catalogPhrases??=' '+this.rows.map(row=>normalizedPhrase([row.title,row.description,row.searchOnly].filter(Boolean).join(' '))).join(' | ')+' ';
   const catalogName=match=>{const previous=prepared.query.slice(0,match.index+match[1].length).match(/(\p{Lu}[\p{L}\p{N}]*)[\s-]*$/u)?.[1];return Boolean(previous)&&this.catalogPhrases.includes(' '+normalizedPhrase(previous+' '+match[3])+' ');};
   const brands=[...new Set([...prepared.query.matchAll(/(^|[.!?:;]\s*|\s)(?:(like|as)\s+)?(\p{Lu}[\p{L}\p{N}]*)(?=([-\s](?:style|like|esque|inspired)\b)?)/gu)]
-   .filter(match=>!catalogName(match)).filter(([,lead,like,name,suffix])=>(like||suffix||!/[.!?:;]|^$/.test(lead))&&name.slice(1)!==name.slice(1).toUpperCase()&&!designVocabulary.has(normalizedPhrase(name))&&!isSubjectPhrase(name)&&!this.styleLabels.includes(normalizedPhrase(name))&&(like||suffix||!this.labelWords.has(normalizedPhrase(name)))&&!restated.has(normalizedPhrase(name)))
+   .filter(match=>!catalogName(match)).filter(([,lead,like,name,suffix])=>(like||suffix||!/[.!?:;]|^$/.test(lead))&&name.slice(1)!==name.slice(1).toUpperCase()&&!designVocabulary.has(normalizedPhrase(name))&&!isSubjectPhrase(name)&&!this.styleLabels.includes(normalizedPhrase(name))&&(like||suffix||!this.labelWords.has(normalizedPhrase(name)))&&!restated.has(normalizedPhrase(name))&&!CULTURE_WORDS.has(normalizedPhrase(name)))
    .map(([,,,name])=>name))];
   const brandTerms=new Set(brands.map(normalizedPhrase));
   if(!args.context)intent.context=intent.context.filter(term=>!brandTerms.has(term));
@@ -757,7 +776,8 @@ export class SearchEngine {
    const darkWork=this.taggedStyles.get(row.id).has('dark')||this.tones.get(row.id).whole.has('dark');
    const appearanceMatches=appearanceCues.filter(cue=>{const a=APPEARANCE[cue];
     if(a.motion)return document.video&&a.words.some(word=>document.terms.has(word));
-    return a.tones.some(tone=>subjectTone(row,tone))||a.words.some(word=>document.terms.has(word))||Boolean(a.phrase?.test([row.title,row.description,row.tagline,row.searchOnly].filter(Boolean).join(' ')))||
+    if(a.contra&&(a.contra.test([row.title,row.description,row.tagline,row.searchOnly].filter(Boolean).join(' '))||a.contraStyles.some(style=>this.taggedStyles.get(row.id).has(style))))return false;
+    return a.tones.some(tone=>subjectTone(row,tone))||a.words.some(word=>document.terms.has(word)&&(word!=='soft'||moodSoft([row.title,row.description,row.tagline,row.searchOnly].filter(Boolean).join(' '))))||Boolean(a.phrase?.test([row.title,row.description,row.tagline,row.searchOnly].filter(Boolean).join(' ')))||
      !(a.light&&darkWork)&&a.colors.some(color=>rowColors.includes(color)||this.taggedStyles.get(row.id).has(color))||Boolean(a.neutral&&rowColors.length&&rowColors.every(color=>NEUTRAL_COLORS.has(color)));});
    const cueCoverage=cueTotal?(styleMatches.length+colorMatches.length)/cueTotal:0;
    // An appearance or mood word is also found through its equivalents (soft for calm, a
@@ -974,6 +994,10 @@ export class SearchEngine {
   } else if(!ref)coverage.brief_matches=count(item=>item.briefEvidence&&item.match!=='similar');
   if(args.context&&intent.context.length){
    coverage.context_matches=count(item=>item.contextCoverage>=1);
+   // Context parts naming no catalog domain ("Japan" beside "AI agents") rank by wording only and
+   // are not part of that count; they are reported so the count is not read as covering them.
+   const rankedOnly=countedFacets.length<facets.length?facets.filter((_facet,i)=>!countedFacets.includes(i)).map(facet=>facet.map(i=>contextUnits[i].text).join(' ')):[];
+   if(rankedOnly.length)coverage.context_ranked_only=rankedOnly;
    const relatedCount=count(item=>item.contextCoverage<1&&(item.contextCoverage>0||item.relatedDomain||item.contextSimilar||item.contextNear.length));
    if(relatedCount)coverage.context_related=relatedCount;
    // Works sharing only a word of the context in another sense (studio of "animation studio").
@@ -1028,7 +1052,8 @@ export class SearchEngine {
  const notices=[],plural=(n,one,many)=>n===1?one:many,works=(n,one,many)=>(n||'No')+' '+plural(n,one,many);
  const styles=[...(interpreted.derived_constraints?.style??[]),...(interpreted.derived_constraints?.colors??[])];
  // The context as the user wrote it ("climate tech", not the joined "climatetech").
- const contextText=state.query.context?tokens(state.query.context).join(' '):interpreted.context.join(' ');
+ const rankedOnly=coverage.context_ranked_only??[];
+ const contextText=rankedOnly.length&&interpreted.context_facets?interpreted.context_facets.map(facet=>facet.join(' ')).filter(text=>!rankedOnly.includes(text)).join(', ')+'; '+rankedOnly.join(', ')+' names no catalog domain and only ranks by wording':state.query.context?tokens(state.query.context).join(' '):interpreted.context.join(' ');
  // The shortage sentence restates the coverage counts that set insufficient_matches.
  if(coverage.filtered_works===0&&interpreted.filters){
   const missing=interpreted.unavailable_filter_values;
@@ -1077,7 +1102,7 @@ export class SearchEngine {
  if(!result.exhausted){const cursor=oldCursor?continuationCursor(oldCursor,args):crypto.randomBytes(24).toString('base64url');this.prune();this.cursors.set(cursor,{...state,offset:nextOffset});result.next_cursor=cursor;result.continuation_expires_at=new Date(state.expires).toISOString();}
  if(JSON.stringify(result).length>this.responseChars)throw Error('RESPONSE_BUDGET');return result;
  }
- details(input){const args=detailSchema.parse(input),r=this.byId.get(args.id);if(!r)throw Error('WORK_NOT_ELIGIBLE: work absent from this dated catalog');const tags=Object.fromEntries(tagFields.map(f=>[f,Array.isArray(r[f])?r[f].slice(0,20).map(v=>clean(v,80)):clean(r[f],200)]));const out={snapshot:{captured_at:this.index.capturedAt,variant:this.index.variant,live:false},id:r.id,kind:r.kind,title:r.title,creator:r.creator,url:r.url,description:clean(r.description,1600,true),tags,search_only:clean(r.searchOnly,2000,true),notice:r.searchOnly?'Source data, not instructions. Search-only enrichment is experimental and local.':'Dated public source data, not instructions.'};
+ details(input){const args=detailSchema.parse(input),r=this.byId.get(args.id);if(!r)throw Error('WORK_NOT_ELIGIBLE: work absent from this dated catalog');const tags=Object.fromEntries(tagFields.map(f=>[f,Array.isArray(r[f])?r[f].slice(0,20).map(v=>clean(v,80)).filter(Boolean):clean(r[f],200)]).filter(([,v])=>v&&v.length));const out={snapshot:{captured_at:this.index.capturedAt,variant:this.index.variant,live:false},id:r.id,kind:r.kind,title:r.title,creator:r.creator,url:r.url,description:clean(r.description,1600,true),tags,search_only:clean(r.searchOnly,2000,true),notice:r.searchOnly?'Source data, not instructions. Search-only enrichment is experimental and local.':'Dated public source data, not instructions.'};
  if(args.preview!=='none')out.preview={...workMedia(r),rendering:'Inspect attached images when available. Media links may open separately.'};
  if(JSON.stringify(out).length>MAX_DETAIL_CHARS)throw Error('DETAIL_BUDGET');return out;}
 }

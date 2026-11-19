@@ -6,7 +6,7 @@ import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,S
 import {createEmbed} from './embeddings.mjs';
 import {createCatalogReader} from './catalog.mjs';
 import {accessStore,packContinuation,unpackContinuation,continuationCursor,CONTINUATION_MAX_WORKS,TOOL_LIMITS} from './access-state.mjs';
-import {coordinator} from './synchronization.mjs';
+import {coordinator,shortageEntry} from './synchronization.mjs';
 import {hostedVisuals} from './previews.mjs';
 import {workReply,detailTools,VISUAL_RESPONSE_BYTES} from '../visuals.mjs';
 import {searchInstructions} from '../instructions.mjs';
@@ -106,7 +106,18 @@ function principal(request,env) {
   return entry?.id??null;
 }
 
+export const ENGINE_TTL_MS=10*60*1000;
 export function createWorker({catalog=readCatalog,embedding=createEmbed,authenticate=principal,accountingFetch=fetch}={}) {
+  // One search engine per Worker isolate and catalog snapshot: building it (document
+  // preparation for every work) costs most of a request's CPU budget, so it is reused across
+  // requests and rebuilt when the snapshot changes or after ENGINE_TTL_MS (time-based eligibility).
+  let shared=null;
+  const sharedEngine=(current,env)=>{
+    if(!shared||shared.engine.index.snapshotId!==current.snapshotId||Date.now()-shared.at>ENGINE_TTL_MS)shared={engine:new SearchEngine(current,{embed:embedding(env.AI)}),at:Date.now()};
+    // Same rows; the capture time and delivery state come from the current pointer read.
+    else shared.engine.index=current;
+    return shared.engine;
+  };
   return {async fetch(request,env,ctx) {
     const url=new URL(request.url);
     // Exact configured origin; never derive trust from arbitrary Host/Origin values.
@@ -162,7 +173,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         const current=await getIndex(),delivery=current.delivery?.state;
         if(delivery==='stale')throw Error('CATALOG_STALE');
         if(delivery==='updating')throw Object.assign(Error('CATALOG_UPDATING'),{retryAfter:current.delivery.retry_after_seconds});
-        return engine??=new SearchEngine(current,{embed:embedding(env.AI)});
+        return engine??=sharedEngine(current,env);
       };
       const server=new McpServer({name:'inspora-hosted-pilot',version:'0.2.0'},{instructions:searchInstructions});
       const handleResponse=(name,fn)=>async(args,extra)=>{
@@ -207,6 +218,8 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
           const engine=await getEngine();
           if(parsed.cursor){saved=unpackContinuation(await state('take',{args:parsed,snapshotId:engine.index.snapshotId}));engine.cursors.set(parsed.cursor,saved);}
           result=await engine.search(parsed);
+          // Identity-free record of a search that found too few works (maintainer status only).
+          if(result.insufficient_matches&&!parsed.cursor&&env.CATALOG_SYNC&&ctx?.waitUntil)ctx.waitUntil(coordinator(env).fetch('https://sync.internal/',{method:'POST',body:JSON.stringify({action:'shortage',entry:shortageEntry(parsed,result,SEARCH_REVISION)})}).catch(()=>{}));
           if(result.next_cursor){
             const value=engine.cursors.get(result.next_cursor);engine.cursors.delete(result.next_cursor);
             if(parsed.cursor)result.next_cursor=continuationCursor(parsed.cursor,parsed);
@@ -256,7 +269,7 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         const account=accounting?accountView(await currentAccess()):undefined;
         let current;
         try{current=await getIndex();}catch(error){return {...(account?{account}:{}),search_revision:SEARCH_REVISION,catalog_state:'unavailable',live:false,error:toolError(error)};}
-        const catalogState=current.delivery?.state??'ready',rows=(engine??=new SearchEngine(current,{embed:embedding(env.AI)})).rows;
+        const catalogState=current.delivery?.state??'ready',rows=(engine??=sharedEngine(current,env)).rows;
         return {...(account?{account}:{}),search_revision:SEARCH_REVISION,catalog_state:catalogState,...(catalogState==='updating'?{retry_after_seconds:current.delivery.retry_after_seconds}:{}),
           captured_at:current.capturedAt,variant:current.variant,live:catalogState==='ready',delivery:current.delivery,
           counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,rows.filter(row=>row.kind===kind).length])),

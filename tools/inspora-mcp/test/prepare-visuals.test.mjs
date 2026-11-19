@@ -106,12 +106,17 @@ test('buildVisualPack is deterministic, keyed like the MCP reads it, and rejects
     for (const asset of first.assets) {assert.equal(asset.key,visualAssetKey(row,asset.item)); assert.equal(visualSha(asset.bytes),asset.item.sha256);}
     await assert.rejects(buildVisualPack(row,{file:image,source:'https://example.com/a.png'},directory),VisualPackRejected);
 
-    // A short generated clip exercises the motion path: still, overview and detail sheets.
+    assert.ok(first.manifest.palette?.length,'a still records its sampled palette');
+    // A short generated clip exercises the motion path: still, overview and dense sheets.
     const clip = path.join(directory,'clip.mp4');
     await new Promise((resolve,reject)=>execFile('ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc=size=640x360:rate=24:duration=3','-pix_fmt','yuv420p',clip],error=>error?reject(error):resolve()));
     const video = {id:'00000000-0000-4000-8000-000000000102',kind:'design',media:[{type:'video',url:'https://media.inspora.design/posts/b.mp4',poster:'https://media.inspora.design/posts/b.webp',width:640,height:360}]};
     const motion = await buildVisualPack(video,{file:clip,source:video.media[0].url},path.join(directory,'three'));
-    assert.deepEqual(motion.manifest.assets.map(item=>item.role),['still','overview','detail-1','detail-2','detail-3']);
+    // testsrc changes every frame (its counter), so all 24 frames at 8 fps are kept: 16 + 8.
+    assert.deepEqual(motion.manifest.assets.map(item=>item.role),['still','overview','dense-1','dense-2']);
     assert.equal(motion.manifest.duration,3);
+    assert.deepEqual(motion.manifest.motion,{fps:8,decoded:24,kept:24});
+    assert.deepEqual(motion.manifest.assets[2].timecodes.slice(0,3),[0,0.125,0.25]);
+    assert.ok(motion.manifest.palette.length>=3,'the colour bars yield several colours');
   } finally { await fs.rm(directory,{recursive:true,force:true}); }
 });

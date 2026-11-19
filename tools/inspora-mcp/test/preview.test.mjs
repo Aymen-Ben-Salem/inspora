@@ -39,10 +39,10 @@ test('a valid local pack stopped by the encoded image budget is reported, never 
   const assets=['still','overview'].map(role=>{
     const bytes=Buffer.alloc(150_000);bytes[0]=255;bytes[1]=216;bytes[2]=role.length;
     const item={role,width:800,height:600,bytes:bytes.length,sha256:visualSha(bytes),timecodes:[0.5,1.25]};
-    const file=path.join(directory,'visuals',...visualAssetKey(row,item).split('/'));fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);
+    const file=path.join(directory,'visuals',...visualAssetKey(row,item,1).split('/'));fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);
     return item;
   });
-  const manifestFile=path.join(directory,'visuals',...visualManifestKey(row).split('/'));
+  const manifestFile=path.join(directory,'visuals',...visualManifestKey(row,1).split('/'));
   fs.writeFileSync(manifestFile,JSON.stringify({version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),duration:4,assets}));
   fs.mkdirSync(path.join(directory,'media'));fs.writeFileSync(path.join(directory,'media','E01-thumb-0.png'),Buffer.from([137,80,78,71,13,10,26,10,0]));
   fs.writeFileSync(path.join(directory,'preview-manifest.json'),JSON.stringify({version:2,drafts:[{id:row.id,label:'E01',sourceVersion:{mediaMetadataSha256:mediaFingerprint(row)}}]}));
@@ -75,9 +75,9 @@ test('study replies under budget prefer the still and detail sheets, dropping th
   const files=new Map(),sizes={still:150_000,overview:100_000,'detail-1':150_000,'detail-2':150_000,'detail-3':150_000};
   const assets=Object.entries(sizes).map(([role,size])=>{
     const bytes=Buffer.alloc(size);bytes[0]=255;bytes[1]=216;bytes[2]=role.length;bytes[3]=role.at(-1).charCodeAt(0);
-    const item={role,width:800,height:600,bytes:size,sha256:visualSha(bytes),timecodes:[1]};files.set(visualAssetKey(row,item),bytes);return item;
+    const item={role,width:800,height:600,bytes:size,sha256:visualSha(bytes),timecodes:[1]};files.set(visualAssetKey(row,item,1),bytes);return item;
   });
-  files.set(visualManifestKey(row),Buffer.from(JSON.stringify({version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),duration:30,assets})));
+  files.set(visualManifestKey(row,1),Buffer.from(JSON.stringify({version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),duration:30,assets})));
   const read=key=>files.get(key)??null,roles=pack=>pack.images.map(image=>image.item.role);
   // Encoded: still 200,000 + overview 133,336 + details 600,000 = 933,336 > 900,000; without the overview 800,000 fits.
   const sharp=await preparedVisuals(row,read,{detail:'study'});

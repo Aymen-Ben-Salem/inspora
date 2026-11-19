@@ -27,9 +27,12 @@ try{
   await bucket.put(previewKey(index.rows[0]),thumbnail);
   const visualRow=index.rows[1],packed=Uint8Array.of(255,216,255,217);
   const asset={role:'still',width:1,height:1,bytes:packed.length,sha256:visualSha(packed)};
+  const sheetBytes=Uint8Array.of(255,216,1,255,217),sheet={role:'dense-1',width:2,height:2,bytes:sheetBytes.length,sha256:visualSha(sheetBytes),timecodes:[0,0.125,0.5]};
   await bucket.put(visualAssetKey(visualRow,asset),packed);
+  await bucket.put(visualAssetKey(visualRow,sheet),sheetBytes);
   await bucket.put(visualManifestKey(visualRow),JSON.stringify({
-    version:1,workId:visualRow.id,mediaFingerprint:mediaFingerprint(visualRow),assets:[asset],
+    version:2,workId:visualRow.id,mediaFingerprint:mediaFingerprint(visualRow),duration:1,palette:[{hex:'#112233',share:0.7}],
+    motion:{fps:8,decoded:8,kept:3},assets:[asset,sheet],
   }));
   client=new Client({name:'workerd-verification',version:'1'});
   const transport=new StreamableHTTPClientTransport(new URL(origin+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token}},fetch:(url,init)=>mf.dispatchFetch(url,init)});
@@ -43,6 +46,11 @@ try{
   const batch=await client.callTool({name:'get_works',arguments:{ids:[visualRow.id]}});
   assert.equal(batch.content[2].mimeType,'image/jpeg');
   assert.equal(batch.content[2].data,Buffer.from(packed).toString('base64'));
+  assert.deepEqual(JSON.parse(batch.content[0].text).works[0].preview.palette.colors,[{hex:'#112233',share:0.7}]);
+  const paged=await client.callTool({name:'get_work',arguments:{id:visualRow.id,sheets:'1'}});
+  const pagedText=JSON.parse(paged.content[0].text);
+  assert.equal(paged.content[2].data,Buffer.from(sheetBytes).toString('base64'));
+  assert.deepEqual(pagedText.preview.study.dense_sheets.attached,[1]);assert.match(paged.content[1].text,/dense-1 of 1 · t=0s–0.5s \(3 samples\)/);
   const next=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});
   assert.equal(next.isError,undefined);assert.equal(JSON.parse(next.content[0].text).results.length,10);
   const replay=await client.callTool({name:'search_inspiration',arguments:{cursor:first.next_cursor}});

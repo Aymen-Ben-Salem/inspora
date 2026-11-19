@@ -48,10 +48,10 @@ test('HTTP serves bounded prepared stills and motion sheets for current eligible
       const assets=roles.map(role=>{
         const bytes=new Uint8Array(230_000);bytes[0]=255;bytes[1]=216;
         const item={role,width:1234,height:1000,bytes:bytes.length,sha256:visualSha(bytes),timecodes:[1,2]};
-        stored.set(visualAssetKey(row,item),bytes);
+        stored.set(visualAssetKey(row,item,1),bytes);
         return item;
       });
-      stored.set(visualManifestKey(row),new TextEncoder().encode(JSON.stringify({
+      stored.set(visualManifestKey(row,1),new TextEncoder().encode(JSON.stringify({
         version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),duration:5,assets,
       })));
     }
@@ -98,7 +98,7 @@ test('HTTP serves bounded prepared stills and motion sheets for current eligible
     assert.equal(textOnly.preview,undefined);assert.equal(textOnly.study.available,false);assert.match(textOnly.study.reason,/preview=image/);
     const links=await client.callTool({name:'get_work',arguments:{id:first.id,preview:'link'}});
     assert.equal(links.content.length,1);
-    stored.set(visualManifestKey(first),stored.get(visualManifestKey(rows[1])));
+    stored.set(visualManifestKey(first,1),stored.get(visualManifestKey(rows[1],1)));
     const stale=await client.callTool({name:'get_work',arguments:{id:first.id}});
     assert.equal(stale.content.length,1);
   }finally{await client.close();}
@@ -273,4 +273,20 @@ test('HTTP preserves query-repair errors and accepts the translated retry and or
       assert.ok(result.results.length);assert.ok(result.results.every(r=>r.kind==='website'));
     }
   } finally { await client.close(); }
+});
+
+test('one worker reuses its search engine across requests until the snapshot changes',async()=>{
+  const fixture=await fixtureSetup();let built=0;
+  const worker=createWorker({embedding:ai=>{built++;return async texts=>(await ai.run('model',{text:texts})).data;}});
+  const transport=new StreamableHTTPClientTransport(new URL(origin+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+token}},fetch:(url,init)=>worker.fetch(new Request(url,init),fixture.env)});
+  const client=new Client({name:'engine-reuse-test',version:'1'});await client.connect(transport);
+  try{
+    for(const query of ['blue glass','geometric grid','blue panels'])assert.ok(decoded(await client.callTool({name:'search_inspiration',arguments:{query}})).results.length);
+    assert.equal(built,1,'three searches built one engine');
+    const rows=[...fixture.input.catalog.rows,{...work(40,'design'),title:'Green glass',description:'Green glass panels'}];
+    await publishCatalog(fixture.bucket,await buildCatalog({...fixture.input,catalog:{capturedAt:new Date().toISOString(),rows}},{embed}));
+    const after=decoded(await client.callTool({name:'search_inspiration',arguments:{query:'green glass'}}));
+    assert.equal(built,2,'a new snapshot builds a new engine');
+    assert.equal(after.results[0].title,'Green glass');
+  }finally{await client.close();}
 });

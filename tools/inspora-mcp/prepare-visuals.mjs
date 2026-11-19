@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import {mediaFingerprint} from './enrichment.mjs';
 import {
   publicMediaUrl, visualAssetKey, visualManifest, visualManifestKey, visualSha, VISUAL_MAX_EDGE,
+  DENSE_SHEETS_MAX, DENSE_FRAMES_PER_SHEET,
 } from './visuals.mjs';
 
 const run = promisify(execFile);
@@ -201,6 +202,229 @@ export async function sheet(frames,columns) {
   return sharp({create:{width:width*columns,height:height*rows,channels:3,background}}).composite(tiles).png().toBuffer();
 }
 
+// Dense motion sheets: decode up to 8 frames per second, collapse static holds, then page
+// the kept frames 16 to a sheet. A sheet stays within about 1.15 megapixels, the size a
+// Claude client keeps without downscaling, so each tile is shown at its prepared size.
+export const DENSE_FPS = 8;
+const DENSE_DECODE_MAX = 240;
+const DENSE_EDGE = 720;
+const SHEET_PIXELS = 1_150_000;
+// A frame repeats the last kept one when no 8x8 cell of a 128x128 grey copy changes by more
+// than this mean grey level (0-255). The largest cell change, not the frame mean, so a moving
+// cursor or a small badge counts; encoder noise on a held frame stays around 1-2.
+export const HOLD_THRESHOLD = 5;
+const CELL = 8, GRID = 128/CELL;
+export function cellChange(a, b) {
+  let most = 0;
+  for (let cy = 0; cy < GRID; cy++) for (let cx = 0; cx < GRID; cx++) {
+    let total = 0;
+    for (let y = cy*CELL; y < (cy+1)*CELL; y++) for (let x = cx*CELL; x < (cx+1)*CELL; x++) total += Math.abs(a[y*128+x]-b[y*128+x]);
+    if (total > most) most = total;
+  }
+  return most/(CELL*CELL);
+}
+
+async function greyThumb(file) {
+  const {data} = await sharp(file).removeAlpha().greyscale()
+    .resize({width:128,height:128,fit:'fill'}).raw().toBuffer({resolveWithObject:true});
+  return data;
+}
+
+/**
+ * Keep frames that change from the last kept frame, so a hold collapses to its first frame.
+ * The frame just before a change is also kept (the end of the hold, where motion starts),
+ * as is the last frame. Returns the kept frames in order.
+ */
+export async function collapseHolds(frames, threshold = HOLD_THRESHOLD) {
+  if (frames.length <= 2) return frames;
+  const grey = [];
+  for (const frame of frames) grey.push(await greyThumb(frame.file));
+  const keep = new Set([0]);
+  let last = 0;
+  for (let i = 1; i < frames.length; i++) {
+    if (cellChange(grey[last],grey[i]) <= threshold) continue;
+    if (i - 1 > last) keep.add(i - 1);
+    keep.add(i);
+    last = i;
+  }
+  keep.add(frames.length - 1);
+  return [...keep].sort((a,b) => a - b).map(i => frames[i]);
+}
+
+/** Thin an over-long kept sequence evenly in time, keeping both ends, so the timeline is never truncated. */
+export function thinFrames(frames, limit) {
+  if (frames.length <= limit) return frames;
+  const step = (frames.length - 1) / (limit - 1);
+  return Array.from({length:limit},(_,i) => frames[Math.round(i*step)]);
+}
+
+/** Columns for a sheet of n tiles of the given aspect: the layout with the largest tiles within the edge and pixel limits. */
+export function denseLayout(n, aspect, labels = 22) {
+  let best;
+  for (let columns = 1; columns <= n; columns++) {
+    const rows = Math.ceil(n/columns);
+    // Largest tile picture (w x h, h = w/aspect) such that the sheet fits every limit.
+    let w = Math.min(VISUAL_MAX_EDGE/columns - 4, (VISUAL_MAX_EDGE/rows - labels - 4)*aspect);
+    const pixels = (w + 4)*columns*((w/aspect) + labels + 4)*rows;
+    if (pixels > SHEET_PIXELS) w *= Math.sqrt(SHEET_PIXELS/pixels) * 0.98;
+    w = Math.floor(w);
+    if (!best || w > best.w) best = {columns, rows, w, h:Math.floor(w/aspect)};
+  }
+  return best;
+}
+
+export async function denseSheet(frames, labels = 22) {
+  const {width:frameWidth,height:frameHeight} = await sharp(frames[0].file).metadata();
+  const {columns,rows,w,h} = denseLayout(DENSE_FRAMES_PER_SHEET, frameWidth/frameHeight, labels);
+  const tileW = w + 4, tileH = h + labels + 4;
+  const tiles = [];
+  for (const [i,frame] of frames.entries()) {
+    const picture = await sharp(frame.file).resize({width:w,height:h,fit:'contain',background}).png().toBuffer();
+    const left = (i%columns)*tileW, top = Math.floor(i/columns)*tileH;
+    const caption = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${tileW}" height="${labels}"><text x="6" y="17" fill="white" font-size="15" font-family="sans-serif">${frame.time.toFixed(2)} s</text></svg>`);
+    tiles.push({input:picture,left:left+2,top:top+2},{input:caption,left,top:top+h+4});
+  }
+  // Only the rows in use, so a short last sheet is not padded with empty rows.
+  const used = Math.ceil(frames.length/columns);
+  return sharp({create:{width:tileW*Math.min(columns,frames.length),height:tileH*Math.min(rows,used),channels:3,background}}).composite(tiles).png().toBuffer();
+}
+
+// A website recording is a page scroll: its sections, not micro-timing, so fewer sheets suffice.
+const denseLimit = row => (row.kind === 'website' ? 6 : DENSE_SHEETS_MAX)*DENSE_FRAMES_PER_SHEET;
+// A clip that plays one cycle several times (an idle shimmer, a looping loader) is reported
+// with its period, and its dense sheets cover one cycle. The period is the first lag of at least
+// one second, seen at least twice, where frames match their counterpart one lag later as
+// closely as consecutive frames match each other (0.75x the usual step) and far more closely
+// than at other lags (0.3x the mean). Nearly static clips are left to collapseHolds.
+export async function loopFrames(frames, fps) {
+  const min = Math.ceil(fps);
+  if (frames.length < 2*min + 1) return null;
+  const grey = [];
+  for (const frame of frames) grey.push(await sharp(frame.file).greyscale().resize({width:64,height:64,fit:'inside'}).raw().toBuffer());
+  if (grey.some(item => item.length !== grey[0].length)) return null;
+  const diff = (a,b) => {let total=0; for (let i=0;i<a.length;i++) total+=Math.abs(a[i]-b[i]); return total/a.length;};
+  const step = grey.slice(1).reduce((sum,item,i) => sum + diff(grey[i],item),0)/(grey.length-1);
+  if (step < 0.1) return null;
+  const lags = [];
+  for (let lag = min; lag <= Math.floor(grey.length/2); lag++) {
+    let total = 0;
+    for (let i = 0; i + lag < grey.length; i++) total += diff(grey[i],grey[i+lag]);
+    lags.push(total/(grey.length-lag));
+  }
+  if (lags.length < 2) return null;
+  const mean = lags.reduce((a,b) => a + b,0)/lags.length;
+  // A true repeat matches nearly pixel for pixel: under 0.2% of pixels may change by more than
+  // 20 grey levels, so a cycle that differs in small details (another selected option) is no loop.
+  const repeats = lag => {let changed=0, total=0; for (let i = 0; i + lag < grey.length; i++) for (let p = 0; p < grey[i].length; p++) {if (Math.abs(grey[i][p]-grey[i+lag][p]) > 20) changed++; total++;} return changed/total < 0.002;};
+  const k = lags.findIndex((d,i) => d <= 0.75*step && d <= 0.3*mean && (i === 0 || d <= lags[i-1]) && (i === lags.length-1 || d <= lags[i+1]) && repeats(i + min));
+  return k < 0 ? null : k + min;
+}
+
+async function denseFrames(file, duration, temp, limit) {
+  const fps = Number(Math.min(DENSE_FPS, DENSE_DECODE_MAX/duration).toFixed(3));
+  const directory = path.join(temp,'dense');
+  await fs.mkdir(directory);
+  await ffmpeg(['-protocol_whitelist','file,pipe','-i',file,'-map','0:v:0','-an',
+    '-vf',`fps=${fps}:start_time=0,scale=w=${DENSE_EDGE}:h=${DENSE_EDGE}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
+    '-frames:v',String(DENSE_DECODE_MAX),'-q:v','3','-threads','2',path.join(directory,'d-%04d.jpg')]);
+  const decoded = (await fs.readdir(directory)).filter(name => /^d-\d{4}\.jpg$/.test(name)).sort().map((name,i) => ({
+    file:path.join(directory,name), time:Number((i/fps).toFixed(3)),
+  }));
+  const loop = await loopFrames(decoded, fps);
+  const kept = thinFrames(await collapseHolds(loop ? decoded.slice(0, loop + 1) : decoded), limit);
+  return {fps, decoded:decoded.length, kept, ...(loop ? {loopSeconds:Number((loop/fps).toFixed(2))} : {})};
+}
+
+// Dominant colours: pixels of 96 px copies (transparent ones excluded; for motion, evenly
+// spaced frames) are binned at 4 bits per channel. Seeds are chosen greedily by pixel count
+// times distance from earlier seeds (so a small but distinct accent gets its own seed), refined
+// by weighted k-means in CIELAB, and clusters within a just-noticeable difference are merged.
+// Deterministic for the same input.
+const srgbLinear = c => {c /= 255; return c <= 0.04045 ? c/12.92 : ((c+0.055)/1.055)**2.4;};
+const labF = t => t > 216/24389 ? Math.cbrt(t) : (24389/27*t + 16)/116;
+function lab([r,g,b]) {
+  const [R,G,B] = [r,g,b].map(srgbLinear);
+  const x = (0.4124*R + 0.3576*G + 0.1805*B)/0.95047, y = 0.2126*R + 0.7152*G + 0.0722*B, z = (0.0193*R + 0.1192*G + 0.9505*B)/1.08883;
+  const [fx,fy,fz] = [x,y,z].map(labF);
+  return [116*fy - 16, 500*(fx - fy), 200*(fy - fz)];
+}
+const distance2 = (a,b) => (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2;
+const hex = rgb => '#' + rgb.map(v => Math.round(Math.min(255,Math.max(0,v))).toString(16).padStart(2,'0')).join('');
+// A strongly coloured accent (CIELAB chroma 30+) is kept from a 0.3% share: a red badge or an
+// orange button is small but defines the scheme.
+const PALETTE_SEEDS = 12, PALETTE_MIN_SHARE = 0.015, PALETTE_ACCENT_SHARE = 0.003, PALETTE_ACCENT_CHROMA = 30, PALETTE_MERGE = 15**2;
+const chroma = rgb => {const [,a,b] = lab(rgb); return Math.hypot(a,b);};
+
+export async function samplePalette(inputs) {
+  const bins = new Map();
+  let total = 0;
+  for (const input of [inputs].flat()) {
+    const {data,info} = await sharp(input,{limitInputPixels:sourcePixels}).autoOrient().ensureAlpha()
+      .resize({width:96,height:96,fit:'inside'}).raw().toBuffer({resolveWithObject:true});
+    for (let i = 0; i < data.length; i += info.channels) {
+      if (data[i+3] < 128) continue;
+      const key = (data[i]>>4)<<8 | (data[i+1]>>4)<<4 | data[i+2]>>4;
+      const bin = bins.get(key) ?? {key,count:0,sum:[0,0,0]};
+      bin.count++; bin.sum[0] += data[i]; bin.sum[1] += data[i+1]; bin.sum[2] += data[i+2];
+      bins.set(key,bin); total++;
+    }
+  }
+  if (total < 16) return undefined;
+  const points = [...bins.values()].sort((a,b) => a.key - b.key).map(bin => {
+    const rgb = bin.sum.map(v => v/bin.count);
+    return {rgb,lab:lab(rgb),count:bin.count};
+  });
+  const seeds = [points.reduce((best,p) => p.count > best.count ? p : best).lab];
+  while (seeds.length < Math.min(PALETTE_SEEDS,points.length)) {
+    let pick = null, score = 0;
+    for (const p of points) {
+      const value = p.count*Math.min(40**2,Math.min(...seeds.map(seed => distance2(p.lab,seed))));
+      if (value > score) {score = value; pick = p;}
+    }
+    if (!pick) break;
+    seeds.push(pick.lab);
+  }
+  let centres = seeds, assignment = [];
+  for (let pass = 0; pass < 8; pass++) {
+    assignment = points.map(p => centres.reduce((best,c,i) => distance2(p.lab,c) < distance2(p.lab,centres[best]) ? i : best,0));
+    centres = centres.map((c,i) => {
+      let weight = 0; const sum = [0,0,0];
+      points.forEach((p,j) => {if (assignment[j] === i) {weight += p.count; for (let k = 0; k < 3; k++) sum[k] += p.lab[k]*p.count;}});
+      return weight ? sum.map(v => v/weight) : c;
+    });
+  }
+  const clusters = centres.map((_,i) => {
+    let count = 0; const sum = [0,0,0];
+    points.forEach((p,j) => {if (assignment[j] === i) {count += p.count; for (let k = 0; k < 3; k++) sum[k] += p.rgb[k]*p.count;}});
+    return {rgb:count ? sum.map(v => v/count) : [0,0,0], count};
+  }).filter(cluster => cluster.count).sort((a,b) => b.count - a.count);
+  const merged = [];
+  for (const cluster of clusters) {
+    const near = merged.find(other => distance2(lab(other.rgb),lab(cluster.rgb)) < PALETTE_MERGE);
+    if (!near) {merged.push({...cluster}); continue;}
+    const sum = near.count + cluster.count;
+    near.rgb = near.rgb.map((v,c) => (v*near.count + cluster.rgb[c]*cluster.count)/sum);
+    near.count = sum;
+  }
+  // Merging can raise a later cluster's count, so the order is settled after it.
+  const main = merged.filter(cluster => cluster.count/total >= PALETTE_MIN_SHARE).sort((a,b) => b.count - a.count);
+  // An edge blend between two main colours (anti-aliasing around a mark) is not an accent.
+  const blend = rgb => {
+    const c = lab(rgb), labs = main.map(cluster => lab(cluster.rgb));
+    return labs.some((p,i) => labs.slice(i+1).some(q => {
+      const d = [0,1,2].map(k => q[k]-p[k]), length2 = d.reduce((sum,v) => sum + v*v,0) || 1;
+      const t = Math.min(1,Math.max(0,[0,1,2].reduce((sum,k) => sum + (c[k]-p[k])*d[k],0)/length2));
+      return distance2(c,[0,1,2].map(k => p[k] + t*d[k])) < 10**2;
+    }));
+  };
+  const accents = merged.filter(cluster => cluster.count/total < PALETTE_MIN_SHARE && cluster.count/total >= PALETTE_ACCENT_SHARE &&
+    chroma(cluster.rgb) >= PALETTE_ACCENT_CHROMA && !blend(cluster.rgb));
+  // Accents take the last places, so the top of the palette always reflects coverage.
+  const colours = [...main.slice(0,6-Math.min(2,accents.length)),...accents.slice(0,2)].slice(0,6)
+    .map(cluster => ({hex:hex(cluster.rgb), share:Number((cluster.count/total).toFixed(3))}));
+  return colours.length ? colours : undefined;
+}
+
 async function motionAssets(row,file,temp) {
   const {stdout} = await run('ffprobe', [
     '-v','error','-protocol_whitelist','file,pipe','-select_streams','v:0',
@@ -223,17 +447,19 @@ async function motionAssets(row,file,temp) {
   }));
   if (frames.length<2) throw Error('Too few decoded frames');
 
-  // The sheets below keep every sample in chronological order; only the still is chosen.
+  // The overview keeps every even sample in chronological order; only the still is chosen.
   const best = await chooseStill(frames,{hero:row.kind==='website'});
   const assets = [
     await renderAsset(row,'still',await assetStill(row,best.file),220_000,[best.time]),
     await renderAsset(row,'overview',await sheet(frames,6),140_000,frames.map(frame=>frame.time)),
   ];
-  for (let offset=0;offset<frames.length;offset+=12) {
-    const page = frames.slice(offset,offset+12);
-    assets.push(await renderAsset(row,'detail-'+(offset/12+1),await sheet(page,3),180_000,page.map(frame=>frame.time)));
+  const dense = await denseFrames(file,duration,temp,denseLimit(row));
+  for (let offset=0;offset<dense.kept.length;offset+=DENSE_FRAMES_PER_SHEET) {
+    const page = dense.kept.slice(offset,offset+DENSE_FRAMES_PER_SHEET);
+    assets.push(await renderAsset(row,'dense-'+(offset/DENSE_FRAMES_PER_SHEET+1),await denseSheet(page),200_000,page.map(frame=>frame.time)));
   }
-  return {assets,duration:Number(duration.toFixed(3))};
+  return {assets,duration:Number(duration.toFixed(3)),palette:await samplePalette(frames.map(frame=>frame.file)),
+    motion:{fps:dense.fps,decoded:dense.decoded,kept:dense.kept.length,...(dense.loopSeconds ? {loop_seconds:dense.loopSeconds} : {})}};
 }
 
 /** Thrown for media that can never be prepared (wrong type, over the limits); retrying cannot help. */
@@ -260,7 +486,7 @@ export async function buildVisualPack(row,input,workDir) {
   let built;
   try {
     built = isVideo ? await withFrames(workDir,temp=>motionAssets(row,input.file,temp)) :
-      {assets:[await renderAsset(row,'still',await assetStill(row,input.file),220_000)]};
+      {assets:[await renderAsset(row,'still',await assetStill(row,input.file),220_000)],palette:await samplePalette(input.file)};
   } catch (error) {
     // Limits, missing streams and undecodable media are properties of the media itself.
     if (/exceeds|limits|no video stream|Too few decoded frames|Input file|unsupported image format|Invalid data/i.test(error.message ?? '') && !error.killed) {
@@ -268,8 +494,9 @@ export async function buildVisualPack(row,input,workDir) {
     }
     throw error;
   }
-  const manifest = visualManifest.parse({version:1,workId:row.id,mediaFingerprint:mediaFingerprint(row),
-    ...(built.duration!==undefined?{duration:built.duration}:{}),assets:built.assets.map(asset=>asset.item)});
+  const manifest = visualManifest.parse({version:2,workId:row.id,mediaFingerprint:mediaFingerprint(row),
+    ...(built.duration!==undefined?{duration:built.duration}:{}),...(built.palette?{palette:built.palette}:{}),
+    ...(built.motion?{motion:built.motion}:{}),assets:built.assets.map(asset=>asset.item)});
   return {key:visualManifestKey(row),manifest,assets:built.assets};
 }
 

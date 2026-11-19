@@ -3,12 +3,14 @@
 // container to build one, validates it and stores it through the CATALOG binding: assets
 // first, the manifest last, so a manifest never points at missing images. Nothing here can
 // fail a catalog refresh, and packs are keyed by media fingerprint, so reruns are idempotent.
+// Only a version 2 pack (dense motion sheets and a palette) counts as packed: works with only a
+// version 1 pack are queued again and keep serving it until the new one is stored.
 import {z} from 'zod';
 import {mediaFingerprint} from '../enrichment.mjs';
 import {visualManifest, visualManifestKey, visualAssetKey, visualSha, visualSource, VISUAL_MAX_BYTES} from '../visuals.mjs';
 import {createCatalogReader} from './catalog.mjs';
 
-export const VISUAL_PREFIX = 'mcp/visuals/v1/';
+export const VISUAL_PREFIX = 'mcp/visuals/v2/';
 export const RECORD_PREFIX = 'visual:';
 // A job still unconfirmed after this long (lost message, dead-lettered) is queued again.
 export const REQUEUE_AFTER_MS = 6 * 60 * 60 * 1000;

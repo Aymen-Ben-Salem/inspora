@@ -18,7 +18,7 @@ const at=s=>[s,Math.sqrt(1-s*s),...Array(382).fill(0)];
 const bge=works=>new SearchEngine({snapshotId:'r19-bge',capturedAt,model:{name:'@cf/baai/bge-small-en-v1.5'},rows:normalizeRows({capturedAt,rows:works.map(([row])=>row)}).map((row,i)=>({...row,vector:at(works[i][1])}))},{embed});
 const filler=(from,n,similarity,kind='design')=>Array.from({length:n},(_,i)=>[{...work(from+i,kind),title:'Filler '+i,description:'An unrelated composition.'},similarity]);
 
-test('revision 19 is current',()=>assert.equal(SEARCH_REVISION,19));
+test('revision 19 or later is current',()=>assert.ok(SEARCH_REVISION>=19));
 
 test('a compound domain word in the brief reaches the label its stem begins',async()=>{
  const keyed=text=>{const t=text.toLowerCase();return t==='fintech'?[.9,.44,0]:/financ/.test(t)?[.85,.5,0]:/sport/.test(t)?[0,1,0]:/music/.test(t)?[0,0,1]:/fine art/.test(t)?[.1,.2,.97]:[.2,.2,.96];};

@@ -1,13 +1,13 @@
 import crypto from 'node:crypto';
 import {z} from 'zod';
 import {KINDS,eligible,resolveReference,clean,tagFields} from './catalog.mjs';
-import {tokens,prepareDocument,queryIntent,subjectEvidence,subjectFallbacks,subjectNames,hasForm,hasFamily,subjectTerms,canonicalSubject,reducedSubject,isSubjectPhrase,labelsIn,normalizedPhrase,inflections,derivations,derivationBases,familyForms,formatWords,designVocabulary,projectContext} from './relevance.mjs';
+import {tokens,prepareDocument,queryIntent,subjectEvidence,subjectFallbacks,subjectNames,hasForm,hasFamily,subjectTerms,canonicalSubject,reducedSubject,isSubjectPhrase,labelsIn,normalizedPhrase,inflections,derivations,derivationBases,familyForms,formatWords,designVocabulary,projectContext,senseHead} from './relevance.mjs';
 import {englishWords} from './english-words.mjs';
 import {prepareSearchQuery,constraints,inferKinds} from './query.mjs';
 import {workMedia} from './visuals.mjs';
 export {tokens} from './relevance.mjs';
 export const MAX_RESPONSE_CHARS=12000,MAX_DETAIL_CHARS=10000,CURSOR_TTL_MS=15*60*1000;
-export const SEARCH_REVISION=19;
+export const SEARCH_REVISION=20;
 export const DEFAULT_COUNT=10;
 // Similarity gates are model-specific. BGE-small scores the whole catalog around
 // 0.55-0.65, so MiniLM's 0.30 admitted everything on the hosted index. The BGE
@@ -58,9 +58,12 @@ const APPEARANCE=Object.freeze({
  // Earthy is met by earth-toned prose or a palette of earth colours, never by "earth" alone (a globe).
  earthy:{tones:[],words:['earthy','terracotta','ochre','clay'],phrase:/\bearth(?:[- ]?ton(?:e|ed|es)|y)\b/i,colors:['earthy','brown','beige','olive','terracotta','sand','tan','ochre']},
  monochrome:{tones:[],words:['monochrome','monochromatic','grayscale','greyscale'],phrase:/\bblack(?:\s*(?:and|&)\s*|-and-)white\b/i,colors:['monochrome'],neutral:true},
+ // A motion quality, only for motion requests and only on video works: springy, bouncing
+ // motion is met by elastic, jelly-like or wobbly prose ("a jelly-like slider stretches").
+ bouncy:{tones:[],words:['bouncy','bounce','bouncing','springy','elastic','jelly','wobbly','wobble','squishy','squash','stretchy','rubbery','gooey'],colors:[],motion:true},
 });
 const NEUTRAL_COLORS=new Set(['black','white','gray','grey','silver']);
-const appearanceOf=word=>({monochromatic:'monochrome',greyscale:'monochrome',grayscale:'monochrome'})[word]??(APPEARANCE[word]&&word)??null;
+const appearanceOf=word=>({monochromatic:'monochrome',greyscale:'monochrome',grayscale:'monochrome',bounce:'bouncy',bouncing:'bouncy',spring:'bouncy',springy:'bouncy',elastic:'bouncy',jelly:'bouncy',wobbly:'bouncy',squishy:'bouncy'})[word]??(APPEARANCE[word]&&word)??null;
 // A compound domain word: a stem of at least two letters followed by "tech" (fintech, edtech).
 const COMPOUND_DOMAIN=/^([a-z]{2,})tech$/;
 // A form is one word or a phrase whose every word must be present ("real estate").
@@ -101,8 +104,8 @@ export function evidenceReason({match,evidence:e={}},interpreted){
   else if(s.matched_as==='semantic')parts.push('Similar to '+named+' by meaning; not named in its text');
   else parts.push(asked+' not shown');
  }
- const pair=(label,{matched,related:near,unverified,missing,related_domain:related}={},absent='unverified')=>{
-  const parts=[...(matched?.length?[listed(matched)+' matched']:[]),...(near?.length?[listed(near)+' related']:[]),...((unverified??missing)?.length?[listed(unverified??missing)+' '+absent]:[])];
+ const pair=(label,{matched,related:near,unverified,missing,word_only:wordOnly,related_domain:related}={},absent='unverified')=>{
+  const parts=[...(matched?.length?[listed(matched)+' matched']:[]),...(near?.length?[listed(near)+' related']:[]),...((unverified??missing)?.length?[listed(unverified??missing)+' '+absent]:[]),...(wordOnly?.length?[listed(wordOnly)+' as a word only, without the rest of the context']:[])];
   return [...(parts.length?[label+' '+parts.join(', ')]:[]),...(related?['related domain '+related]:[])].join(', ');
  };
  if(e.topic&&match!=='related')parts.push(pair('Topic',e.topic));
@@ -214,6 +217,12 @@ export class SearchEngine {
    for (const term of new Set(tokens([row.title,row.description,row.tagline].filter(Boolean).join(' ')))) {const set=spread.get(term)??new Set();labels.forEach(label=>set.add(label));spread.set(term,set);}
   }
   this.genericTerms=new Set([...spread].filter(([,labels])=>domains.size>=12&&labels.size>=domains.size/6).map(([term])=>term));
+  // Form words: the head of two or more multi-word taxonomy labels with different modifiers
+  // (Design studio, Branding studio). They name a kind of business or medium that combines
+  // with domains (studio, tools, app), not a domain of their own.
+  const headModifiers=new Map();
+  for(const label of domains){if(/[&/]|\band\b/i.test(label))continue;const words=normalizedPhrase(label).split(' ').filter(Boolean);if(words.length<2)continue;const set=headModifiers.get(words.at(-1))??new Set();set.add(words.slice(0,-1).join(' '));headModifiers.set(words.at(-1),set);}
+  this.formHeads=new Set([...headModifiers].filter(([,modifiers])=>modifiers.size>=2).map(([head])=>head));
   // Style vocabulary is the catalog's own styles/themes taxonomy (values used at least
   // twice), excluding labels that name a subject such as Dashboard or Illustration.
   const styleCounts=new Map();
@@ -298,6 +307,8 @@ export class SearchEngine {
    }
    const techLabel=this.labelVectors?.find(item=>normalizedPhrase(item.label)===stem+' tech');
    if(techLabel)forms.add(tokens(techLabel.label).join(' '));
+   // A taxonomy label that is the stem itself (Climate for climatetech) is that domain.
+   if(this.labelWords.has(stem))forms.add(stem);
    forms.delete(term);
   }
   this.compoundCache.set(term,forms);
@@ -308,7 +319,7 @@ export class SearchEngine {
  // or a single word. Each part keeps the user's spelling for embedding.
  contextUnits(text){
   const units=[];
-  for(const segment of String(text).split(/[,;/&+]|\band\b/i)){
+  for(const [segmentIndex,segment] of String(text).split(/[,;/&+]|\band\b/i).entries()){
    const raw=segment.trim().split(/\s+/).filter(Boolean);
    let run=[];
    const flush=()=>{
@@ -317,14 +328,14 @@ export class SearchEngine {
      const phrase=[3,2].map(n=>terms.slice(i,i+n)).find(part=>part.length>1&&this.contextPhrases.has(part.join(' ')));
      const part=phrase??[terms[i]];
      const words=run.filter(({terms:own})=>own.some(term=>part.includes(term))).map(({word})=>word);
-     units.push({text:words.join(' ')||part.join(' '),terms:part});i+=part.length;
+     units.push({text:words.join(' ')||part.join(' '),terms:part,segment:segmentIndex});i+=part.length;
     }
     run=[];
    };
    for(const word of raw){
     const terms=tokens(word);
     if(!terms.length)continue;
-    if(/[\p{L}\p{N}]-[\p{L}\p{N}]/u.test(word)){flush();units.push({text:word,terms});continue;}
+    if(/[\p{L}\p{N}]-[\p{L}\p{N}]/u.test(word)){flush();units.push({text:word,terms,segment:segmentIndex});continue;}
     run.push({word,terms});
    }
    flush();
@@ -421,7 +432,12 @@ export class SearchEngine {
   // Tone words that are neither a style label nor a colour name (light, pale, monochrome) are
   // appearance cues like colours; a whole-work noun right after one ("dark mode", "light
   // theme") is part of that cue, not a brief term.
-  const appearanceCues=[...new Set(queryTokens.map(appearanceOf).filter(cue=>cue&&!askedStyles.some(label=>normalizedPhrase(label)===cue)&&!cons.colors.includes(cue)&&!restated.has(cue)))];
+  // A motion word inside the explicit context describes the client ("an animation studio"),
+  // not motion the work must show.
+  const contextWordSet=new Set(tokens(args.context??''));
+  const motionText=[cons.positive.split(/\s+/).filter(word=>!contextWordSet.has(tokens(word)[0])).join(' '),...(args.subjects??[])].join(' ');
+  const motionWording=!ref&&MOTION.test(motionText);
+  const appearanceCues=[...new Set(queryTokens.map(appearanceOf).filter(cue=>cue&&(!APPEARANCE[cue].motion||motionWording)&&!askedStyles.some(label=>normalizedPhrase(label)===cue)&&!cons.colors.includes(cue)&&!restated.has(cue)))];
   const colorCues=cons.colors.filter(color=>!restated.has(color));
   const toneNouns=queryTokens.filter((term,i)=>i>0&&toneOf(queryTokens[i-1])&&WHOLE_WORK.has(term));
   // A tone applied in a work's prose to the subject this search asks for counts too.
@@ -469,12 +485,15 @@ export class SearchEngine {
   // it is reported but carries no evidence weight.
   const commonStyles=askedStyles.filter(label=>candidates.length>=20&&candidates.filter(row=>this.taggedStyles.get(row.id).has(label)).length>candidates.length*.75);
   const styleCues=askedStyles.filter(label=>!commonStyles.includes(label)),cueTotal=styleCues.length+colorCues.length;
-  const motionAsk=!ref&&(MOTION.test([cons.positive,...(args.subjects??[])].join(' '))||askedStyles.some(label=>MOTION.test(label)));
+  const motionAsk=!ref&&(MOTION.test(motionText)||askedStyles.some(label=>MOTION.test(label)));
   const queryWords=ref?tokens(ref.text):words;
   const forms=new Map(ref?[]:queryWords.map(term=>[term,[...inflections(term),...expandedForms(term)]]));
   // Absence is claimed only when no relative of the word is in the catalog (printing is
   // not absent when Print Receipt exists).
-  const inCatalog=term=>familyForms(term).some(form=>this.df.has(form))||expansions.has(term);
+  // A motion-quality word (spring) the catalog never uses is still known through its
+  // equivalents (jelly, bouncing) when the request is about motion.
+  const motionCue=term=>{const cue=appearanceOf(term);return Boolean(cue&&APPEARANCE[cue].motion&&appearanceCues.includes(cue)&&APPEARANCE[cue].words.some(word=>this.df.has(word)));};
+  const inCatalog=term=>familyForms(term).some(form=>this.df.has(form))||expansions.has(term)||motionCue(term);
   // A context word also reaches its bare base when the request itself uses that base
   // ("invoicing" context, "invoice" subject).
   const attested=new Set([...tokens(cons.positive),...(args.subjects??[]).flatMap(tokens)]);
@@ -540,6 +559,11 @@ export class SearchEngine {
    const core=unitVecs.map((vector,i)=>[dot(vector,contextVec),i]).sort((a,b)=>b[0]-a[0])[0][1];
    for(const label of await this.relatedLabels(unitVecs[core],contextOwnTerms))relatedLabels.add(label);
   }
+  // The core part of a multi-part context: the part closest in meaning to the whole phrase.
+  // A form word (studio of "music studio") is never the core while another part remains.
+  const formUnit=unit=>unit.terms.every(term=>this.formHeads.has(term));
+  const coreCandidates=unitVecs.map((vector,i)=>[contextVec?dot(vector,contextVec):0,i]).filter(([,i])=>!formUnit(contextUnits[i]));
+  const coreUnit=contextVec&&unitVecs.length>1?(coreCandidates.length?coreCandidates:unitVecs.map((vector,i)=>[dot(vector,contextVec),i])).sort((a,b)=>b[0]-a[0])[0][1]:-1;
   const facets=contextUnits.map((_unit,i)=>[i]);
   if(unitVecs.length>1&&this.facetGate!==undefined)for(let i=0;i<contextUnits.length;i++)for(let j=i+1;j<contextUnits.length;j++){
    if(dot(unitVecs[i],unitVecs[j])<this.facetGate)continue;
@@ -616,7 +640,14 @@ export class SearchEngine {
     // (the streak of "habit tracker streak"; a heart-rate tracker for a fitness dashboard).
     const corroborated=briefTerms.some(term=>(forms.get(term)??[term]).some(form=>inSet(document.terms,form)))||contextHit(document);
     const titled=briefTerms.some(term=>(forms.get(term)??[term]).some(form=>inSet(document.titleTerms,form)));
-    const nearby=meaning.length?meaning:corroborated&&affinity.length?affinity:(titled||contextHit(document))&&queryAffine(row)?subjectPhrases:[];
+    // A work showing a sense concept's head word in its other sense (a navigation menu for
+    // "food menu") is that other thing, never meaning-only evidence for the sense.
+    const otherSense=subject=>{const head=senseHead(subject);return Boolean(head)&&document.mentionedSubjects.has(head)&&!document.mentionedSubjects.has(subject);};
+    // A work sharing only a modifier word of the phrase ("skeleton" of "skeleton loader") and
+    // none of its broader concepts (progress) is close through that word, not the subject.
+    const modifierEcho=subject=>{const parts=normalizedPhrase(subject).split(' '),broader=subjectFallbacks(subject).filter(isSubjectPhrase);
+     return parts.length>1&&broader.length>0&&parts.slice(0,-1).some(word=>inSet(document.terms,word))&&!broader.some(concept=>document.mentionedSubjects.has(concept));};
+    const nearby=(meaning.length?meaning:corroborated&&affinity.length?affinity:(titled||contextHit(document))&&queryAffine(row)?subjectPhrases:[]).filter(subject=>!otherSense(subject)&&!modifierEcho(subject));
     if(!subjects.length&&nearby.length){subjects=nearby;level='semantic';semanticSubject=true;}
     // A subject read from the wording (no explicit subjects) ranks: works without it stay
     // available after subject evidence. Explicit subjects remain mandatory.
@@ -626,9 +657,13 @@ export class SearchEngine {
    const projectEvidence = intent.project?.evidence.exec(row.text)?.[0] ??
      (intent.project?.name==='developer tool'&&!serviceStudio(row)&&fieldValues(row,'categories').some(tag=>norm(tag.trim())==='development')?'Development category':'');
    const roleEvidence=contextRole&&(contextRole.evidence.exec(row.text)?.[0]??(contextRole.name==='developer tool'&&!serviceStudio(row)&&fieldValues(row,'categories').some(tag=>norm(tag.trim())==='development')?'Development category':''));
-   const matched=queryWords.filter(term=>(forms.get(term)??[term]).some(form=>inSet(document.terms,form)));
+   const literalMatched=queryWords.filter(term=>(forms.get(term)??[term]).some(form=>inSet(document.terms,form)));
+   // A motion-quality word (spring, bounce) met on a video work through its equivalents
+   // (jelly-like, elastic) admits like a shared word; it adds no lexical weight.
+   const motionQuality=term=>{const cue=appearanceOf(term);return Boolean(cue&&APPEARANCE[cue].motion&&appearanceCues.includes(cue)&&document.video&&APPEARANCE[cue].words.some(word=>document.terms.has(word)));};
+   const matched=[...literalMatched,...queryWords.filter(term=>!literalMatched.includes(term)&&motionQuality(term))];
    const coverage=matched.length/Math.max(1,queryWords.length);
-   const lexical=matched.reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0);
+   const lexical=literalMatched.reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0);
    const semantic=queryVec?dot(queryVec,row.vector):0;
    const broad=!ref&&!words.length;
    // A page type sets the format, not the topic: when the brief names a topic
@@ -654,9 +689,16 @@ export class SearchEngine {
    // ("retro brutalist website": no work names brutalist); with other brief words, the work
    // must share them.
    const taxonomyHit=!ref&&!subjectAsk&&(matched.some(term=>!formatWords.has(term)&&!common(term)&&(forms.get(term)??[term]).some(form=>inSet(labels,form)))||!briefTerms.length&&styleCues.some(label=>this.taggedStyles.get(row.id).has(label)));
-   const concreteEvidence=concreteSubject||contextShown||taxonomyHit;
+   // A work its own taxonomy calls a motion piece (Motion category, Animated style) whose prose
+   // shows the requested motion quality through its equivalents is curated motion evidence.
+   const motionLabel=['motion','animated','animation'].some(term=>labels.has(term));
+   const motionMatch=!ref&&motionLabel&&queryWords.some(motionQuality);
+   // A work naming every distinctive brief word (booking and appointment of "patient appointment
+   // booking app") shows the whole brief literally, not a coincidence of one shared word.
+   const fullBrief=!ref&&!subjectAsk&&briefTerms.length>=2&&briefTerms.every(term=>literalMatched.includes(term));
+   const concreteEvidence=concreteSubject||contextShown||taxonomyHit||motionMatch||fullBrief;
    const titleSubject=level==='subject'&&subjects.length>0&&subjects.every(subject=>concrete(subject)&&subjectTerms(subject).every(term=>hasForm(document.titleTerms,term)));
-   const curated=taxonomyHit||titleSubject;
+   const curated=taxonomyHit||titleSubject||motionMatch;
    const relevant=broad||contextualBrowse||filteredPool||contextOnly||(ref
     ? (this.ranking==='lexical'?matched.length>=3:semantic>=this.gate.reference)
     : (concreteEvidence||(matched.length>0&&coverage>=minimumCoverage))&&(this.ranking==='lexical'||(concreteEvidence?(curated?curatedPass(semantic):semantic>=concreteGate):semantic>=this.gate.query)||projectEvidence||topicFallback));
@@ -675,10 +717,21 @@ export class SearchEngine {
    // In a context of several parts, a part naming no catalog domain ("services" of "funeral
    // services") stands alone only when the work is also close to the whole context's meaning
    // or tagged with a related domain; otherwise the shared word is another sense of it.
+   // Parts whose words appear but, standing alone, are another sense of them (reported apart).
+   const wordOnly=contextUnits.map(()=>false);
    if(contextUnits.length>1&&!unitFound.every(Boolean)){
     const tagged=[row.industry,...(row.industries??[]),...(row.categories??[])].flatMap(value=>String(value??'').split(',')).map(value=>value.trim()).some(label=>relatedLabels.has(label));
     const corroborated=tagged||contextTail!==null&&dot(contextVec,row.vector)>=contextTail;
-    if(!corroborated)unitFound.forEach((found,i)=>{if(found&&!domainPart(contextUnits[i]))unitFound[i]=false;});
+    // Within one compound phrase ("property management"), a shared word other than the phrase's
+    // core (its part closest in meaning to the whole) with the rest absent is another sense even
+    // when it is a domain word elsewhere (Project management). It stands when the work carries
+    // that word as a whole label of its own (Fashion) or a related domain tag; closeness in
+    // meaning cannot corroborate it, since the shared word itself pulls the meaning close.
+    const ownLabels=new Set([...industryUnits(row),...(row.categories??[]).flatMap(value=>String(value??'').split(/,|&|\/|\band\b/i)).map(label=>tokens(label).join(' ')).filter(Boolean)]);
+    const incomplete=contextUnits.map((unit,i)=>i!==coreUnit&&contextUnits.some((other,j)=>j!==i&&other.segment===unit.segment&&!unitFound[j]));
+    // A form word (studio) is no domain of its own: its own label (a Studio tag on a design
+    // studio) does not make the work an animation studio.
+    unitFound.forEach((found,i)=>{if(found&&(!corroborated&&!domainPart(contextUnits[i])||!tagged&&incomplete[i]&&(formUnit(contextUnits[i])||!ownLabels.has(contextUnits[i].terms.join(' '))))){unitFound[i]=false;wordOnly[i]=true;}});
    }
    // Within a facet naming a catalog domain, only a domain part counts: "brand" of "food and
    // beverage consumer brand" does not make a design studio a food work.
@@ -688,8 +741,9 @@ export class SearchEngine {
    // A part whose words each begin a word of one of the work's taxonomy labels (tech of
    // Technology) is related evidence, not absent.
    const labelWords=rowLabels.flatMap(label=>tokens(label));
-   const unitRelated=contextUnits.map((unit,i)=>!unitFound[i]&&unit.terms.every(term=>term.length>=3&&labelWords.some(word=>word!==term&&(word.startsWith(term)||word.length>=4&&term.startsWith(word)))));
-   const contextFound=contextUnits.filter((_unit,i)=>unitFound[i]).map(unit=>unit.text),contextAbsent=contextUnits.filter((_unit,i)=>!unitFound[i]&&!unitRelated[i]).map(unit=>unit.text);
+   const unitRelated=contextUnits.map((unit,i)=>!unitFound[i]&&!wordOnly[i]&&unit.terms.every(term=>term.length>=3&&labelWords.some(word=>word!==term&&(word.startsWith(term)||word.length>=4&&term.startsWith(word)))));
+   const contextFound=contextUnits.filter((_unit,i)=>unitFound[i]).map(unit=>unit.text),contextAbsent=contextUnits.filter((_unit,i)=>!unitFound[i]&&!unitRelated[i]&&!wordOnly[i]).map(unit=>unit.text);
+   const contextWordOnly=contextUnits.filter((_unit,i)=>wordOnly[i]).map(unit=>unit.text);
    const contextNear=contextUnits.filter((_unit,i)=>unitRelated[i]).map(unit=>unit.text);
    const relatedDomain=rowLabels.find(label=>relatedLabels.has(label));
    const contextCoverage=contextUnits.length?countedFacets.filter(i=>facetFound[i]).length/countedFacets.length:intent.context.length?1-missingContext.length/intent.context.length:0;
@@ -702,6 +756,7 @@ export class SearchEngine {
    // alone; its own prose can still say so.
    const darkWork=this.taggedStyles.get(row.id).has('dark')||this.tones.get(row.id).whole.has('dark');
    const appearanceMatches=appearanceCues.filter(cue=>{const a=APPEARANCE[cue];
+    if(a.motion)return document.video&&a.words.some(word=>document.terms.has(word));
     return a.tones.some(tone=>subjectTone(row,tone))||a.words.some(word=>document.terms.has(word))||Boolean(a.phrase?.test([row.title,row.description,row.tagline,row.searchOnly].filter(Boolean).join(' ')))||
      !(a.light&&darkWork)&&a.colors.some(color=>rowColors.includes(color)||this.taggedStyles.get(row.id).has(color))||Boolean(a.neutral&&rowColors.length&&rowColors.every(color=>NEUTRAL_COLORS.has(color)));});
    const cueCoverage=cueTotal?(styleMatches.length+colorMatches.length)/cueTotal:0;
@@ -753,8 +808,8 @@ export class SearchEngine {
    // Whether a broader reading carries at least half of the requested subject, by rarity: the
    // receipt of "receipt animation" says more than its animation.
    const reading=level==='subject'||level==='contains'?1:level==='broader'?Number(Math.max(...subjects.map(subjectWeight))>=.5*Math.max(1e-9,...askedSubjects.map(subjectWeight))):0;
-   scored.push({row,subjectFacts,subjectStrength,reading,lexical:genericOnly?matched.filter(term=>!this.genericTerms.has(term)).reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0):lexical,semantic,coverage,subjects,level,semanticSubject,fallbackReading,subjectMissing,similarOnly,related,broad,
-    contextNear,preferred:preferredTopics.length>0,matchingTopics:[...matchingTopics,...preferredTopics],topicMissing,contextCoverage,contextSimilar,relatedDomain,contextFound,contextAbsent,cueCoverage,styleMatches,colorMatches,appearanceMatches,termsFound,termCoverage,rankTermCoverage,genericOnly,briefEvidence,
+   scored.push({row,subjectFacts,subjectStrength,reading,lexical:genericOnly?literalMatched.filter(term=>!this.genericTerms.has(term)).reduce((score,term)=>score+this.idf(term)*(document.titleTerms.has(term)?2:1),0):lexical,semantic,coverage,subjects,level,semanticSubject,fallbackReading,subjectMissing,similarOnly,related,broad,
+    contextNear,contextWordOnly,preferred:preferredTopics.length>0,matchingTopics:[...matchingTopics,...preferredTopics],topicMissing,contextCoverage,contextSimilar,relatedDomain,contextFound,contextAbsent,cueCoverage,styleMatches,colorMatches,appearanceMatches,termsFound,termCoverage,rankTermCoverage,genericOnly,briefEvidence,
     subjectShare:subjectPhrases.length>1?subjects.filter(subject=>subjectPhrases.includes(subject)).length/subjectPhrases.length:0,dense,projectEvidence,excluded});
   }
   // Coarse evidence tier, strongest first. The tool states what evidence exists; whether a
@@ -874,6 +929,8 @@ export class SearchEngine {
     if(item.contextFound.length)context.matched=item.contextFound;
     if(item.contextNear.length)context.related=item.contextNear;
     if(item.contextAbsent.length)context.unverified=item.contextAbsent;
+    // The word appears, but without the rest of the context it is another sense of it.
+    if(item.contextWordOnly?.length)context.word_only=item.contextWordOnly;
     if(item.relatedDomain&&item.contextCoverage<1)context.related_domain=item.relatedDomain;
     // Among the closest works to the context's meaning (top 1%), without its words.
     if(item.contextSimilar&&item.contextCoverage<1)context.close_in_meaning=true;
@@ -919,6 +976,9 @@ export class SearchEngine {
    coverage.context_matches=count(item=>item.contextCoverage>=1);
    const relatedCount=count(item=>item.contextCoverage<1&&(item.contextCoverage>0||item.relatedDomain||item.contextSimilar||item.contextNear.length));
    if(relatedCount)coverage.context_related=relatedCount;
+   // Works sharing only a word of the context in another sense (studio of "animation studio").
+   const wordOnlyCount=count(item=>item.contextCoverage<1&&item.contextWordOnly.length>0);
+   if(wordOnlyCount)coverage.context_word_only=wordOnlyCount;
    // With a subject asked, how many context matches also show it (they may all be works without it).
    if(subjectAsk&&coverage.context_matches)coverage.context_with_subject=count(item=>item.contextCoverage>=1&&item.match==='subject');
   }
@@ -967,7 +1027,8 @@ export class SearchEngine {
  result.insufficient_matches=evidenced<args.count;
  const notices=[],plural=(n,one,many)=>n===1?one:many,works=(n,one,many)=>(n||'No')+' '+plural(n,one,many);
  const styles=[...(interpreted.derived_constraints?.style??[]),...(interpreted.derived_constraints?.colors??[])];
- const contextText=interpreted.context.join(' ');
+ // The context as the user wrote it ("climate tech", not the joined "climatetech").
+ const contextText=state.query.context?tokens(state.query.context).join(' '):interpreted.context.join(' ');
  // The shortage sentence restates the coverage counts that set insufficient_matches.
  if(coverage.filtered_works===0&&interpreted.filters){
   const missing=interpreted.unavailable_filter_values;
@@ -998,6 +1059,10 @@ export class SearchEngine {
   const byMeaning=state.ranked.filter(item=>{const c=item.evidence?.context;return c?.close_in_meaning&&!c.related_domain&&!c.matched&&!c.related;}).length;
   const how=[...(shownDomains.length?['related domains: '+shownDomains.join(', ')]:[]),...(byMeaning?[byMeaning+' close in meaning only']:[])];
   notices.push(relatedContext+' '+plural(relatedContext,'shows','show')+' related context evidence'+(how.length?' ('+how.join('; ')+')':'')+'.');
+ }
+ if(coverage.context_word_only&&(contextMatches??0)<=1){
+  const shared=[...new Set(state.ranked.flatMap(item=>item.evidence?.context?.word_only??[]))];
+  notices.push(coverage.context_word_only+' '+plural(coverage.context_word_only,'shares','share')+' only the word '+(shared.join(', ')||'of it')+' with the context ('+contextText+'), not the rest; not counted as showing it.');
  }
  // A subject search whose context matches all lack the subject says so, since they rank after it.
  if(!result.insufficient_matches&&coverage.context_with_subject===0&&contextMatches>1)notices.push('None of the main-subject matches shows the context ('+contextText+'); '+contextMatches+' works show it without the subject.');

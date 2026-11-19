@@ -43,10 +43,19 @@ const concepts = [
   ['music player', 'design', ['music interface', 'music streaming interface', 'track list', 'tracklist', 'now playing'], 'player'],
   ['timeline', 'design', []],
   ['progress', 'design', ['progress indicator', 'progress bar', 'status control', 'loading indicator', 'loader', 'loading animation', 'loading spinner', 'spinner']],
+  // A skeleton screen is a loading state shaped like the content it stands in for; its broader
+  // reading is progress, never the bare word "skeleton" (an anatomical skeleton).
+  ['skeleton loader', 'design', ['skeleton screen', 'skeleton state', 'skeleton loading', 'loading skeleton', 'skeleton placeholder', 'content placeholder', 'loading placeholder', 'shimmer placeholder'], 'progress', 'reading'],
+  // A stepper shows progress through ordered stages; a delivery or data pipeline drawn as
+  // connected stages is one (a bare "pipeline", as in a sales pipeline, is not).
+  ['stepper', 'design', ['step indicator', 'step tracker', 'steps indicator', 'step progress', 'progress steps', 'progress stepper', 'multi step', 'multi step form', 'step by step', 'stage tracker', 'stage indicator', 'pipeline stages', 'workflow stages', 'deploy pipeline', 'deployment pipeline', 'build pipeline', 'ci pipeline', 'data pipeline', 'rag pipeline'], 'progress', 'reading'],
   // An AI thinking state is a kind of loading state: it evidences progress, not the reverse.
   ['thinking', 'design', ['thinking state', 'thinking indicator', 'thinking animation', 'typing indicator'], 'progress'],
   ['cursor', 'design', []],
   ['chat', 'design', ['conversation interface', 'messaging interface']],
+  // A spoken AI interface (a voice orb, a listening/speaking status, a voice panel); a voice
+  // message inside a chat is not one.
+  ['voice assistant', 'design', ['voice agent', 'voice interface', 'voice ui', 'voice user interface', 'voice mode', 'voice panel', 'voice status', 'voice chat', 'voice orb', 'ai voice', 'talking to ai', 'talk to ai']],
   ['upload', 'design', ['file uploader', 'file upload']],
   // Standard gesture vocabulary: a drop zone or drop target is drag-and-drop evidence; dragging
   // alone (a slider handle) is the broader drag gesture.
@@ -183,6 +192,8 @@ const families = new Map(concepts.map(([subject, family]) => [subject, family]))
 const senses = [
   {concept: 'food menu', head: 'menu', cues: new Set('food restaurant cafe coffee drink beverage dining dish meal cuisine bakery bistro eatery brunch dinner lunch breakfast cocktail wine pizza burger sushi'.split(' '))},
 ];
+// The head concept a sense concept is another reading of (food menu -> menu), or null.
+export const senseHead = concept => senses.find(sense => sense.concept === concept)?.head ?? null;
 // A head word inside these compounds names a different thing than the bare word: a folder
 // tab is no interface tab, a visual language no spoken language. Literal subject evidence
 // skips the head word there (see unitsNear).
@@ -206,7 +217,10 @@ const maskSenses = text => senseMasks.reduce((value, [pattern, replacement]) => 
 const motionHeads = new Set(['animation', 'motion']);
 const motionVerbs = 'animate scale fade reveal slide morph expand collapse scroll rotate bounce zoom spin flip warp ripple typewriter unfold'.split(' ');
 const parents = new Map(concepts.filter(([, , , parent]) => parent).map(([subject, , , parent]) => [subject, parent]));
-const withParents = set => { for (const subject of [...set]) if (parents.has(subject)) set.add(parents.get(subject)); return set; };
+// A fifth entry marks a parent that is only a broader reading of the concept (progress for a
+// stepper): searched when the concept is missing, but the concept's works are not evidence for it.
+const readingOnly = new Set(concepts.filter(([, , , parent, reading]) => parent && reading).map(([subject]) => subject));
+const withParents = set => { for (const subject of [...set]) if (parents.has(subject) && !readingOnly.has(subject)) set.add(parents.get(subject)); return set; };
 const pattern = new RegExp('(?:^| )(' + [...aliases.keys()].sort((a, b) => b.length - a.length).join('|') + ')(?= |$)', 'g');
 export const designVocabulary = new Set([...stop, ...aliases.keys(), ...wordAliases.values(), 'red orange yellow green blue purple pink black white gray grey brown glass clean simple spacious uncluttered dark light modern'.split(' ')].flatMap(value => words(value)));
 
@@ -496,7 +510,10 @@ export function queryIntent(args, positive, contextVocabulary, contextPhrases=[]
   // Inferred context: single-word domain labels, or every word of a multi-word domain
   // label the query names whole ("real estate"; "personal" alone is no domain).
   const namedWords = new Set(contextPhrases.filter(phrase => termSequence.includes(' ' + phrase + ' ')).flatMap(phrase => phrase.split(' ')));
-  const context = args.context ? tokens(args.context) : queryTerms.filter(term => (contextVocabulary.has(term) || namedWords.has(term)) && !subjects.some(subject => tokens(subject).includes(term)));
+  // A word naming motion itself ("animation", "bounce") describes the requested work, not its
+  // industry, even where Animation is also an industry label.
+  const motionWord = term => motionHeads.has(term) || motionVerbs.includes(term) || /^animat/.test(term);
+  const context = args.context ? tokens(args.context) : queryTerms.filter(term => (contextVocabulary.has(term) || namedWords.has(term)) && !motionWord(term) && !subjects.some(subject => tokens(subject).includes(term)));
   const inferredFamilies = [...new Set(subjects.map(subject => families.get(subject)).filter(Boolean))];
   const kinds = [...new Set(inferredFamilies.flatMap(family => family === 'web' ? ['design', 'website'] : family))];
   const lowDensity = /\b(?:simple|simpler|sparse|spacious|uncluttered|minimal(?:ist)?|less dense|lower density|low density)\b/i.test(positive);

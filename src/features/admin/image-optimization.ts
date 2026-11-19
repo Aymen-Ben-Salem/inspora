@@ -1,5 +1,6 @@
 import type { MediaUploadKind } from "./media-upload";
 import { assertCreatorAvatarDimensions, MAX_CREATOR_AVATAR_SIZE } from "../creators/avatar-policy";
+import { centeredAvatarCrop, isValidAvatarCrop, type AvatarCrop } from "../creators/avatar-crop";
 
 export const RESPONSIVE_IMAGE_WIDTHS = [640, 960, 1600, 2560] as const;
 export const WEBP_QUALITY = 0.84;
@@ -42,7 +43,9 @@ export async function canvasToWebp(canvas: HTMLCanvasElement, context: CanvasRen
   return new Blob([bytes], { type: "image/webp" });
 }
 
-export async function optimizeStaticImage(file: File, kind: MediaUploadKind, signal?: AbortSignal) {
+/** `avatarCrop` picks the square for creator avatars; without it the largest centred square is used. */
+export async function optimizeStaticImage(file: File, kind: MediaUploadKind, signal?: AbortSignal, avatarCrop?: AvatarCrop) {
+  if (avatarCrop && kind !== "creator-avatar") throw new Error("Only profile photos can be cropped to a square here.");
   signal?.throwIfAborted();
   let bitmap: ImageBitmap;
   try {
@@ -54,8 +57,13 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind, sig
   try {
     const avatar = kind === "creator-avatar";
     if (avatar) assertCreatorAvatarDimensions(bitmap.width, bitmap.height);
-    const sourceSize = Math.min(bitmap.width, bitmap.height);
-    const widths = getOptimizedImageWidths(avatar ? sourceSize : bitmap.width, kind);
+    const source = { width: bitmap.width, height: bitmap.height };
+    const square = avatar ? avatarCrop ?? centeredAvatarCrop(source) : undefined;
+    if (square) {
+      if (!isValidAvatarCrop(source, square)) throw new Error("The selected crop no longer fits this photo. Choose the photo again.");
+      assertCreatorAvatarDimensions(square.size, square.size);
+    }
+    const widths = getOptimizedImageWidths(square ? square.size : bitmap.width, kind);
     const outputs: OptimizedImage[] = [];
     for (const width of widths) {
       signal?.throwIfAborted();
@@ -67,7 +75,7 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind, sig
         const context = canvas.getContext("2d", { alpha: true });
         if (!context) throw new Error("The image optimizer could not start.");
 
-        if (avatar) context.drawImage(bitmap, (bitmap.width - sourceSize) / 2, (bitmap.height - sourceSize) / 2, sourceSize, sourceSize, 0, 0, width, height);
+        if (square) context.drawImage(bitmap, square.x, square.y, square.size, square.size, 0, 0, width, height);
         else context.drawImage(bitmap, 0, 0, width, height);
         const blob = await canvasToWebp(canvas, context);
         signal?.throwIfAborted();

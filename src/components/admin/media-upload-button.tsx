@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { AvatarCropDialog } from "@/components/avatar-crop-dialog";
 import type { MediaUploadKind, UploadedAdminMedia } from "@/features/admin/media-upload";
+import type { AvatarCrop } from "@/features/creators/avatar-crop";
 import type { MediaUploadOperations } from "@/features/media/prepare-upload";
 import { defaultUploadOperations, prepareAndUploadMedia, type UploadStatus } from "@/features/media/prepare-and-upload";
 
@@ -35,6 +37,8 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
   const conversionControllerRef = useRef<AbortController>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
+  // Profile photos are positioned in a crop dialog before they are optimized.
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const isPending = status !== "idle";
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -45,7 +49,8 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
     };
   }, []);
 
-  async function upload(file: File) {
+  async function upload(file: File, avatarCrop?: AvatarCrop) {
+    setCropFile(null);
     setError("");
     try {
       const result = await prepareAndUploadMedia(file, kind, activeOperations, (next) => {
@@ -53,7 +58,7 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
       }, (controller) => {
         conversionControllerRef.current = controller;
         if (!mountedRef.current) controller.abort();
-      });
+      }, undefined, avatarCrop);
       if (mountedRef.current) onUploaded(result);
     } catch (cause) {
       if (mountedRef.current) setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
@@ -75,7 +80,12 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
           className="sr-only"
           onChange={(event) => {
             const file = event.target.files?.[0];
-            if (file) void upload(file);
+            if (!file) return;
+            if (kind === "creator-avatar") {
+              setError("");
+              event.target.value = "";
+              setCropFile(file);
+            } else void upload(file);
           }}
         />
         {status === "loading-converter"
@@ -114,6 +124,12 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
         </button>
       ) : null}
       {error ? <p role="alert" className="max-w-sm text-xs leading-relaxed text-red-700">{error}</p> : null}
+      {cropFile ? <AvatarCropDialog
+        file={cropFile}
+        onApply={(crop) => void upload(cropFile, crop)}
+        onCancel={() => setCropFile(null)}
+        onReject={(message) => { setCropFile(null); setError(message); }}
+      /> : null}
     </div>
   );
 }

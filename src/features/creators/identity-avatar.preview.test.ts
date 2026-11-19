@@ -60,7 +60,7 @@ describe.skipIf(process.env.RUN_CREATOR_IDENTITY_INTEGRATION !== "1" || process.
     expect((await read(created.id))!.avatarStorageKey).toBe(saved.avatarStorageKey);
     expect(external.fetch).toHaveBeenCalledTimes(1);
     external.fetch.mockResolvedValue({ url: new URL("https://photo.example/small.webp"), bytes: await photo(48) });
-    await expect(updateAdminCreator(created.id, { name: "Renamed fixture", username: saved.username!, avatarUrl: "https://photo.example/small.webp" })).rejects.toThrow("400");
+    await expect(updateAdminCreator(created.id, { name: "Renamed fixture", username: saved.username!, avatarUrl: "https://photo.example/small.webp" })).rejects.toThrow("256");
     expect((await read(created.id))!.avatarStorageKey).toBe(saved.avatarStorageKey);
   }, 60000);
 
@@ -69,7 +69,7 @@ describe.skipIf(process.env.RUN_CREATOR_IDENTITY_INTEGRATION !== "1" || process.
     const admin = await createR2PresignedUpload({ kind: "creator-avatar", contentType: "image/webp" });
     keys.push(admin.storageKey);
     expect((await fetch(admin.uploadUrl, { method: "PUT", headers: admin.headers, body: new Uint8Array(bytes) })).ok).toBe(true);
-    await expect(createAdminCreator({ name: "Tiny fixture", username: `tiny_avatar_${suffix}`, avatarUrl: getR2PublicUrl(admin.storageKey), avatarStorageProvider: "r2", avatarStorageKey: admin.storageKey })).rejects.toThrow("400");
+    await expect(createAdminCreator({ name: "Tiny fixture", username: `tiny_avatar_${suffix}`, avatarUrl: getR2PublicUrl(admin.storageKey), avatarStorageProvider: "r2", avatarStorageKey: admin.storageKey })).rejects.toThrow("256");
     const owner = user();
     for (const size of [48, 600]) {
       const source = await photo(size);
@@ -77,7 +77,7 @@ describe.skipIf(process.env.RUN_CREATOR_IDENTITY_INTEGRATION !== "1" || process.
       keys.push(upload.storageKey);
       expect((await fetch(upload.uploadUrl, { method: "PUT", headers: upload.headers, body: new Uint8Array(source) })).ok).toBe(true);
       const result = freezeOwnedAvatarUpload(owner.userId, { storageKey: upload.storageKey, size: source.length });
-      if (size === 48) await expect(result).rejects.toThrow("400");
+      if (size === 48) await expect(result).rejects.toThrow("256");
       else {
         const stored = await result;
         keys.push(stored.storageKey);

@@ -5,11 +5,11 @@ import { prepareCreatorAvatar } from "./avatar-processing";
 
 const photo = (width: number, height: number) => sharp({ create: { width, height, channels: 4, background: "#ee4433" } }).png().toBuffer();
 
-it.each([[48, 48], [256, 256], [1200, 399], [399, 1200]])("rejects actual undersized pixels %sx%s", async (width, height) => {
-  await expect(prepareCreatorAvatar(await photo(width, height))).rejects.toThrow("400 × 400");
+it.each([[48, 48], [255, 255], [1200, 255], [255, 1200]])("rejects actual undersized pixels %sx%s", async (width, height) => {
+  await expect(prepareCreatorAvatar(await photo(width, height))).rejects.toThrow("256 × 256");
 });
 
-it.each([[1200, 800, 512], [400, 900, 400], [600, 450, 450]])("stores a real square WebP without enlargement (%sx%s)", async (width, height, output) => {
+it.each([[1200, 800, 512], [400, 900, 400], [600, 450, 450], [256, 256, 256], [900, 300, 300]])("stores a real square WebP without enlargement (%sx%s)", async (width, height, output) => {
   const bytes = await prepareCreatorAvatar(await photo(width, height));
   expect(await sharp(bytes).metadata()).toMatchObject({ width: output, height: output, format: "webp" });
 });

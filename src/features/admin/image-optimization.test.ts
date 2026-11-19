@@ -130,7 +130,7 @@ describe("static image preparation", () => {
         format: "webp", width: output.width, height: output.height,
       });
     }
-    await expect(optimizeStaticImage(source, "creator-avatar")).rejects.toThrow("400 × 400");
+    await expect(optimizeStaticImage(source, "creator-avatar")).rejects.toThrow("256 × 256");
   });
 
   it("crops avatar uploads to a square without enlarging them", async () => {
@@ -139,6 +139,10 @@ describe("static image preparation", () => {
     expect(await optimizeStaticImage(file, "creator-avatar")).toMatchObject([{ width: 512, height: 512 }]);
     mockImageBrowser(new Blob(["webp"], { type: "image/webp" }), 400, 900, false);
     expect(await optimizeStaticImage(file, "creator-avatar")).toMatchObject([{ width: 400, height: 400 }]);
+    mockImageBrowser(new Blob(["webp"], { type: "image/webp" }), 300, 300, false);
+    expect(await optimizeStaticImage(file, "creator-avatar")).toMatchObject([{ width: 300, height: 300 }]);
+    mockImageBrowser(new Blob(["webp"], { type: "image/webp" }), 255, 600, false);
+    await expect(optimizeStaticImage(file, "creator-avatar")).rejects.toThrow("256 × 256");
   });
 
   it("uses the fallback when the native canvas export returns no blob", async () => {

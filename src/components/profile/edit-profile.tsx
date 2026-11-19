@@ -14,6 +14,7 @@ import {
 } from "@/features/profiles/actions";
 import { optimizeStaticImage } from "@/features/admin/image-optimization";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/features/admin/media-upload";
+import { creatorAvatarSoftNotice } from "@/features/creators/avatar-policy";
 import type { CreatorProfile } from "@/features/creators/types";
 
 import { refreshViewerProfile } from "./use-viewer-profile";
@@ -71,6 +72,7 @@ export function EditProfile({
   const [fieldError, setFieldError] = useState<{ field?: string; message: string }>();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [avatarNotice, setAvatarNotice] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<Provider>();
   const [editing, setEditing] = useState<"name" | "username" | "websiteUrl" | null>(null);
   const [savedValues, setSavedValues] = useState({ name: profile.name, username: profile.username, websiteUrl: profile.websiteUrl ?? "" });
@@ -108,6 +110,7 @@ export function EditProfile({
 
   async function uploadPhoto(file: File) {
     setFieldError(undefined);
+    setAvatarNotice(null);
     if (!(["image/jpeg", "image/png"].includes(file.type)) || file.size > MAX_IMAGE_UPLOAD_BYTES) {
       setFieldError({ field: "avatar", message: "Choose one JPG or PNG image up to 10 MB." });
       return;
@@ -141,6 +144,7 @@ export function EditProfile({
       if (!completed.ok) throw new Error(completed.message);
       storageKey = undefined;
       setAvatarUrl(completed.avatarUrl);
+      setAvatarNotice(creatorAvatarSoftNotice(optimized.width));
       refreshViewerProfile();
       router.refresh();
     } catch (error) {
@@ -207,7 +211,7 @@ export function EditProfile({
             </div>
             <div className="grid gap-1">
               <p className="font-medium">Profile photo</p>
-              <p className="text-xs text-[#767676]">JPG or PNG, at least 400 × 400 pixels. Cropped to a square.</p>
+              <p className="text-xs text-[#767676]">JPG or PNG, 400 × 400 pixels or larger looks best (256 minimum). Cropped to a square.</p>
             </div>
           </div>
           <label className={`focus-within:ring-2 focus-within:ring-black ${editActionClass}`}>
@@ -219,6 +223,7 @@ export function EditProfile({
           </label>
         </div>
         {fieldError?.field === "avatar" ? <p role="alert" className="px-4 py-2 text-xs text-red-700">{fieldError.message}</p> : null}
+        {avatarNotice && fieldError?.field !== "avatar" ? <p role="status" className="px-4 py-2 text-xs text-[#767676]">{avatarNotice}</p> : null}
         {([
           { field: "name", label: "Name", value: name, set: setName, display: savedValues.name },
           { field: "username", label: "Username", value: username, set: setUsername, display: `@${savedValues.username}` },

@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { simd } from "wasm-feature-detect";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { getOptimizedImageWidths, optimizeStaticImage } from "./image-optimization";
+import { getOptimizedImageWidths, optimizeStaticImage, prefersLosslessLogo } from "./image-optimization";
 
 const require = createRequire(import.meta.url);
 
@@ -113,7 +113,7 @@ describe("static image preparation", () => {
     const native = new Blob([new Uint8Array(bytes)], { type: "image/webp" });
     mockImageBrowser(native, 2, 2, false);
 
-    const [output] = await optimizeStaticImage(new File(["png"], "logo.png", { type: "image/png" }), "logo-media");
+    const [output] = await optimizeStaticImage(new File(["png"], "photo.png", { type: "image/png" }), "post-media");
 
     expect(Buffer.from(await output.file.arrayBuffer())).toEqual(bytes);
   });
@@ -151,6 +151,22 @@ describe("static image preparation", () => {
     expect(await optimizeStaticImage(file, "creator-avatar", undefined, { x: 100, y: 20, size: 300 })).toMatchObject([{ width: 300, height: 300 }]);
     await expect(optimizeStaticImage(file, "creator-avatar", undefined, { x: 1000, y: 0, size: 300 })).rejects.toThrow("no longer fits");
     await expect(optimizeStaticImage(file, "logo-media", undefined, { x: 0, y: 0, size: 300 })).rejects.toThrow("Only profile photos");
+  });
+
+  it("encodes flat logos losslessly instead of using the lossy canvas export", async () => {
+    mockImageBrowser(new Blob(["lossy"], { type: "image/webp" }), 64, 32);
+    const [output] = await optimizeStaticImage(new File(["png"], "flat.png", { type: "image/png" }), "logo-media");
+    const bytes = Buffer.from(await output.file.arrayBuffer());
+    expect(bytes.subarray(12, 16).toString("ascii")).toBe("VP8L");
+    expect(await sharp(bytes).metadata()).toMatchObject({ format: "webp", width: 64, height: 32 });
+  });
+
+  it("keeps lossy logos only when lossless would cost much more", () => {
+    expect(prefersLosslessLogo(19_000, 14_000)).toBe(true);
+    expect(prefersLosslessLogo(60_000, 30_000)).toBe(true);
+    expect(prefersLosslessLogo(60_000, 13_000)).toBe(true);
+    expect(prefersLosslessLogo(90_000, 13_000)).toBe(false);
+    expect(prefersLosslessLogo(17_800_000, 3_400_000)).toBe(false);
   });
 
   it("uses the fallback when the native canvas export returns no blob", async () => {

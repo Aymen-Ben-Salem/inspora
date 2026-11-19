@@ -43,6 +43,24 @@ export async function canvasToWebp(canvas: HTMLCanvasElement, context: CanvasRen
   return new Blob([bytes], { type: "image/webp" });
 }
 
+/**
+ * Lossless keeps flat logo edges exact. Use it unless it costs more than double
+ * the lossy size and more than ~48 KB extra, which happens with photographic
+ * artwork or noise from an already-compressed source.
+ */
+export function prefersLosslessLogo(losslessBytes: number, lossyBytes: number) {
+  return losslessBytes <= Math.max(lossyBytes * 2, lossyBytes + 48 * 1024);
+}
+
+async function logoToWebp(context: CanvasRenderingContext2D, width: number, height: number) {
+  const { default: encode } = await import("@jsquash/webp/encode.js");
+  const pixels = context.getImageData(0, 0, width, height);
+  const lossless = await encode(pixels, { lossless: 1, method: 4 });
+  // Sharp YUV keeps coloured edges from bleeding when lossy is the better trade.
+  const lossy = await encode(pixels, { quality: WEBP_QUALITY * 100, use_sharp_yuv: 1, method: 4 });
+  return new Blob([prefersLosslessLogo(lossless.byteLength, lossy.byteLength) ? lossless : lossy], { type: "image/webp" });
+}
+
 /** `avatarCrop` picks the square for creator avatars; without it the largest centred square is used. */
 export async function optimizeStaticImage(file: File, kind: MediaUploadKind, signal?: AbortSignal, avatarCrop?: AvatarCrop) {
   if (avatarCrop && kind !== "creator-avatar") throw new Error("Only profile photos can be cropped to a square here.");
@@ -77,7 +95,7 @@ export async function optimizeStaticImage(file: File, kind: MediaUploadKind, sig
 
         if (square) context.drawImage(bitmap, square.x, square.y, square.size, square.size, 0, 0, width, height);
         else context.drawImage(bitmap, 0, 0, width, height);
-        const blob = await canvasToWebp(canvas, context);
+        const blob = kind === "logo-media" ? await logoToWebp(context, width, height) : await canvasToWebp(canvas, context);
         signal?.throwIfAborted();
         outputs.push({
           file: new File([blob], outputFileName(file.name, width), {

@@ -26,17 +26,21 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
   label = "Upload file",
   onUploaded,
   operations,
+  qualityNotice,
 }: {
   kind?: MediaUploadKind;
   label?: string;
   onUploaded: (media: TResult) => void;
   operations?: MediaUploadOperations<TResult>;
+  /** Advisory note shown after a successful upload, e.g. "this logo is small". */
+  qualityNotice?: (input: { file: File; media: TResult }) => string | null | Promise<string | null>;
 }) {
   const activeOperations = (operations ?? defaultUploadOperations) as MediaUploadOperations<TResult>;
   const inputRef = useRef<HTMLInputElement>(null);
   const conversionControllerRef = useRef<AbortController>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   // Profile photos are positioned in a crop dialog before they are optimized.
   const [cropFile, setCropFile] = useState<File | null>(null);
   const isPending = status !== "idle";
@@ -52,6 +56,7 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
   async function upload(file: File, avatarCrop?: AvatarCrop) {
     setCropFile(null);
     setError("");
+    setNotice(null);
     try {
       const result = await prepareAndUploadMedia(file, kind, activeOperations, (next) => {
         if (mountedRef.current) setStatus(next);
@@ -60,6 +65,9 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
         if (!mountedRef.current) controller.abort();
       }, undefined, avatarCrop);
       if (mountedRef.current) onUploaded(result);
+      // A failed advisory check must never look like a failed upload.
+      const advisory = await Promise.resolve(qualityNotice?.({ file, media: result })).catch(() => null);
+      if (mountedRef.current) setNotice(advisory ?? null);
     } catch (cause) {
       if (mountedRef.current) setError(cause instanceof Error ? cause.message : "The file could not be uploaded.");
     } finally {
@@ -124,6 +132,7 @@ export function MediaUploadButton<TResult = UploadedAdminMedia>({
         </button>
       ) : null}
       {error ? <p role="alert" className="max-w-sm text-xs leading-relaxed text-red-700">{error}</p> : null}
+      {notice && !error ? <p role="status" className="max-w-sm text-xs leading-relaxed text-[#8a5a00]">{notice}</p> : null}
       {cropFile ? <AvatarCropDialog
         file={cropFile}
         onApply={(crop) => void upload(cropFile, crop)}

@@ -10,6 +10,7 @@ import {
   toAdminCreatorDraft,
 } from "@/components/admin/admin-creator-editor";
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
+import { readVideoDuration, RECORDING_UPLOAD_GUIDANCE, recordingQualityNotice } from "@/features/media/upload-quality";
 import { WebsiteVideoCrop } from "@/components/admin/website-video-crop";
 import { WebsiteFaviconCrop } from "@/components/admin/website-favicon-crop";
 import { EditorialAssistant, type EditorialNoteState } from "./editorial-assistant";
@@ -162,7 +163,14 @@ export function WebsiteEditor({
               </div>
               <div className="grid gap-3">
                 <h3 className="font-medium">{title}</h3>
-                <MediaUploadButton kind={role === "recording" ? "website-recording" : "website-favicon"} label={`Upload ${role}`} onUploaded={(uploaded) => applyUpload(role, uploaded)} />
+                <MediaUploadButton kind={role === "recording" ? "website-recording" : "website-favicon"} label={`Upload ${role}`} onUploaded={(uploaded) => applyUpload(role, uploaded)}
+                  qualityNotice={role === "recording" ? async ({ file, media: uploaded }) => recordingQualityNotice({
+                    width: uploaded.width,
+                    height: uploaded.height,
+                    sizeBytes: uploaded.sizeBytes ?? file.size,
+                    durationSeconds: await readVideoDuration(file),
+                  }) : undefined} />
+                {role === "recording" ? <p className="text-xs leading-relaxed text-[#777]">{RECORDING_UPLOAD_GUIDANCE}</p> : null}
                 {role === "recording" && item.url ? <WebsiteVideoCrop key={item.url} url={item.url} onBusyChange={setIsCropping} onUploaded={(uploaded) => applyUpload("recording", { ...uploaded, alt: recording.alt || uploaded.alt })} /> : null}
                 {role === "favicon" && item.url ? <WebsiteFaviconCrop key={item.url} url={item.url} onBusyChange={setIsCroppingFavicon} onUploaded={(uploaded) => applyUpload("favicon", { ...uploaded, alt: favicon.alt || uploaded.alt })} /> : null}
                 <label className={labelClass}>{role === "recording" ? "Original video URL" : "Image URL"}<input className={inputClass} required value={item.url} onChange={(event) => updateMedia(role, "url", event.target.value)} /></label>

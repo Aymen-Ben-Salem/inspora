@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { MediaUploadButton } from "@/components/admin/media-upload-button";
+import { ICON_UPLOAD_GUIDANCE, LOGO_UPLOAD_GUIDANCE, logoQualityNotice } from "@/features/media/upload-quality";
 import {
   AdminCreatorEditor,
   blankAdminCreator,
@@ -154,7 +155,14 @@ export function LogoEditor({
                 kind="logo-media"
                 label="Upload logo"
                 onUploaded={applyUploadedLogo}
+                qualityNotice={({ media: uploaded }) => logoQualityNotice({
+                  logoKind: kind,
+                  width: uploaded.width,
+                  height: uploaded.height,
+                  sourceMimeType: uploaded.sourceMimeType,
+                })}
               />
+              <p className="-mt-2 text-xs leading-relaxed text-[#777]">{kind === "icon" ? ICON_UPLOAD_GUIDANCE : LOGO_UPLOAD_GUIDANCE}</p>
               <label className={labelClass}>
                 Image URL
                 <input

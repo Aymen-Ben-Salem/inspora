@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { SponsoredPostCard } from "@/components/sponsored-post-card";
 import type { CampaignDisplayAsset } from "./campaign-display-asset";
+import { SponsorNavbarIcon } from "./sponsor-icons";
 export type PreviewFields = {
   title: string;
   url: string;
@@ -45,14 +46,7 @@ export function CampaignPreview({
         <h3 className={`${campaignType.caption} mb-3 text-[#767676]`}>Navbar · compact icon</h3>
         <div className="flex h-12 items-center justify-end gap-2">
           {icon ? (
-            <Image
-              src={icon.url}
-              alt={title}
-              width={35}
-              height={35}
-              unoptimized
-              className="size-[35px] rounded-md border border-[#e6e6e6] object-contain p-1"
-            />
+            <SponsorNavbarIcon src={icon.url} alt={title} />
           ) : (
             <span className={`${campaignType.caption} flex size-[35px] items-center justify-center rounded-md bg-[#f0f0f0]`}>
               Icon

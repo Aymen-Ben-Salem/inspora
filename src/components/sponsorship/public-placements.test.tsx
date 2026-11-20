@@ -95,6 +95,12 @@ it.each([0, 1, 2, 3, 4, 5])(
     expect(
       container.querySelectorAll('[data-sponsor-placement="header"]'),
     ).toHaveLength(count);
+    for (const link of container.querySelectorAll('[data-sponsor-placement="header"]')) {
+      const icon = link.querySelector("img");
+      expect(icon?.width).toBe(35);
+      expect(icon?.height).toBe(35);
+      expect(link.classList.contains("border")).toBe(false);
+    }
     expect(
       container.querySelectorAll('[data-sponsor-placement="feed"]'),
     ).toHaveLength(count);

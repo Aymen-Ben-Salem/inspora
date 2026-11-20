@@ -1,6 +1,20 @@
 "use client";
 import Image from "next/image";
 import { usePublicSponsors } from "./public-sponsors";
+
+export function SponsorNavbarIcon({ src, alt = "" }: { src: string; alt?: string }) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={35}
+      height={35}
+      unoptimized
+      className="block size-[35px] shrink-0 rounded-md object-contain"
+    />
+  );
+}
+
 export function SponsorIcons() {
   const { sponsors } = usePublicSponsors();
   return (
@@ -17,16 +31,9 @@ export function SponsorIcons() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Sponsored: ${s.title}`}
-            className="focus-ring flex size-[35px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#e6e6e6] p-1"
+            className="focus-ring block size-[35px] shrink-0 rounded-md"
           >
-            <Image
-              src={s.iconUrl!}
-              alt=""
-              width={28}
-              height={28}
-              unoptimized
-              className="size-full object-contain"
-            />
+            <SponsorNavbarIcon src={s.iconUrl!} />
           </a>
         ))}
     </div>

@@ -2,25 +2,19 @@ import {
   readOwnAnalyticsCatalog,
   readOwnSponsorMetrics,
 } from "@/features/sponsorship/analytics";
+import { sponsorReportRequest } from "@/features/sponsorship/analytics-service";
 const headers = {
   "Cache-Control": "private, no-store",
   "X-Robots-Tag": "noindex",
 };
 export async function GET(request: Request) {
   try {
-    const params = new URL(request.url).searchParams,
-      filter = Object.fromEntries(
-        [...params].filter(([key]) => key !== "refresh" && key !== "catalog"),
-      );
-    if (!filter.range) filter.range = "30d";
-    const data = await readOwnSponsorMetrics(
-      filter,
-      params.get("refresh") === "1",
-    );
+    const { filter, refresh, catalog } = sponsorReportRequest(request);
+    const data = await readOwnSponsorMetrics(filter, refresh);
     return Response.json(
       {
         data,
-        ...(params.get("catalog") === "1"
+        ...(catalog
           ? { catalog: await readOwnAnalyticsCatalog() }
           : {}),
       },

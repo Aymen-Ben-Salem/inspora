@@ -5,13 +5,16 @@ import { withWriteTransaction } from "@/db/write-client";
 import { sponsorAccounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { readMetricsReport } from "./reports";
-import type { SponsorRange } from "./types";
-export async function readAdminSponsorMetrics(
+import { accountOwnsReportFilters, readAccountAnalyticsCatalog } from "@/features/sponsorship/analytics";
+import { metricsFilterSchema, type sponsorReportRequest } from "@/features/sponsorship/analytics-service";
+
+export async function readAdminSponsorReport(
   accountId: string,
-  range: SponsorRange,
+  request: ReturnType<typeof sponsorReportRequest>,
 ) {
   await requireAdmin();
   z.uuid().parse(accountId);
+  const filter = metricsFilterSchema.parse(request.filter);
   const account = await withWriteTransaction(
     async (tx) =>
       (
@@ -21,6 +24,10 @@ export async function readAdminSponsorMetrics(
           .where(eq(sponsorAccounts.id, accountId))
       )[0],
   );
-  if (!account) throw new Error("Sponsor report unavailable.");
-  return readMetricsReport(accountId, { range });
+  if (!account || !await accountOwnsReportFilters(account.id, filter)) throw new Error("Sponsor report unavailable.");
+  const [data, catalog] = await Promise.all([
+    readMetricsReport(account.id, filter, request.refresh),
+    request.catalog ? readAccountAnalyticsCatalog(account.id) : undefined,
+  ]);
+  return { data, catalog };
 }

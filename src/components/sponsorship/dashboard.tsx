@@ -9,7 +9,7 @@ import { SPONSOR_AMOUNTS, isSponsorCurrency, type SponsorCurrency } from "@/feat
 import { CampaignsPanel } from "./campaign-list";
 import { AnalyticsOverview } from "./analytics-overview";
 import { DashboardIcon } from "./dashboard-icon";
-import { DashboardNavigation, dashboardSections as sections } from "./dashboard-navigation";
+import { DashboardNavigation, DashboardSidebar, dashboardSections as sections } from "./dashboard-navigation";
 import styles from "./dashboard.module.css";
 import {
   isSponsorBillingMode,
@@ -215,19 +215,9 @@ export function SponsorDashboard({
   }
   return (
     <main className={`${styles.shell} archive-frame grid min-h-[80dvh] items-start gap-6 pb-16 pt-8 lg:grid-cols-[184px_minmax(0,1fr)] lg:gap-8`}>
-      <aside className="min-w-0 lg:min-h-[calc(100dvh-140px)] lg:self-stretch lg:border-r lg:border-[#f0f0f0] lg:pr-5">
-        <div className="lg:sticky lg:top-28">
+      <DashboardSidebar showReportLinks={section === "overview" && Boolean(account)}>
         <DashboardNavigation section={section} onChange={changeSection} />
-        {section === "overview" && account ? (
-          <nav aria-label="On this report" className="mt-10 hidden border-t border-[#f0f0f0] pt-5 lg:block">
-            <p className="mb-2 px-3 text-xs text-[#66758c]">On this report</p>
-            {[["performance", "Performance"], ["reach-video", "Reach, cost & video"], ["audience", "Audience & delivery"]].map(([id, label]) => (
-              <a key={id} href={`#report-${id}`} className="focus-ring flex min-h-11 items-center rounded-md px-3 text-xs text-[#66758c] transition-colors hover:bg-[#fafafa] hover:text-[#262626]">{label}</a>
-            ))}
-          </nav>
-        ) : null}
-        </div>
-      </aside>
+      </DashboardSidebar>
       <div className="min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

@@ -279,7 +279,7 @@ export function DeliveryChart({ rows: observedRows, start, end, plain = false }:
   );
 }
 type Catalog = Awaited<ReturnType<typeof readOwnAnalyticsCatalog>>;
-export function AnalyticsOverview() {
+export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string } = {}) {
   const [filter, setFilter] = useState<MetricsFilter>({ range: "30d" }),
     [loadedFilter, setLoadedFilter] = useState<MetricsFilter | null>(null),
     [data, setData] = useState<ReportResult | null>(null),
@@ -312,7 +312,8 @@ export function AnalyticsOverview() {
     );
     params.set("catalog", "1");
     if (force) params.set("refresh", "1");
-    fetch(`/api/sponsorship/analytics?${params}`, {
+    const endpoint = adminAccountId ? `/api/admin/sponsorship/${adminAccountId}/analytics` : "/api/sponsorship/analytics";
+    fetch(`${endpoint}?${params}`, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -339,7 +340,7 @@ export function AnalyticsOverview() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [filter, refresh]);
+  }, [adminAccountId, filter, refresh]);
   const campaigns = Object.fromEntries(
     catalog?.campaigns.map((c) => [c.id, c.title]) ?? [],
   );
@@ -563,7 +564,7 @@ export function AnalyticsOverview() {
                   </div>
                   <Link
                     prefetch
-                    href={`/sponsor/campaigns/${current.id}` as Route}
+                    href={(adminAccountId ? `/admin/sponsorship?account=${adminAccountId}&section=campaigns#campaign-${current.id}` : `/sponsor/campaigns/${current.id}`) as Route}
                     className="focus-ring mt-5 inline-flex min-h-11 items-center text-sm text-[#767676] underline decoration-[#d4d4d4] underline-offset-4 hover:text-[#262626]"
                   >
                     View campaign

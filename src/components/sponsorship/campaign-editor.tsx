@@ -585,7 +585,7 @@ function CampaignEditorContent({
             />
           </label>
           <label className={`${campaignType.label} block`}>
-            Short feed description
+            Short description for the Websites tab
             <textarea
               name="feedDescription"
               className={`${fieldClass} mt-2 resize-y`}

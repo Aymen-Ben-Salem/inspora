@@ -98,7 +98,7 @@ export function SponsorEditor({ action, sponsor, deleteAction }: {
           <legend className="mb-6 text-xl font-medium tracking-tight">Campaign details</legend>
           <label className={labelClass}>Public name<input className={inputClass} name="title" required maxLength={160} placeholder="Your product" value={values.title} onChange={(event) => update("title", event.target.value)} /></label>
           <label className={labelClass}>Website destination<input className={inputClass} type="url" name="url" required placeholder="https://your-product.com" value={values.url} onChange={(event) => update("url", event.target.value)} /></label>
-          <label className={labelClass}>Short feed description<textarea className={`${inputClass} min-h-24 resize-y`} name="tagline" maxLength={300} placeholder="A short sentence about your product" value={values.tagline ?? ""} onChange={(event) => update("tagline", event.target.value)} /></label>
+          <label className={labelClass}>Short description for the Websites tab<textarea className={`${inputClass} min-h-24 resize-y`} name="tagline" maxLength={300} placeholder="A short sentence about your product" value={values.tagline ?? ""} onChange={(event) => update("tagline", event.target.value)} /></label>
           <div className="grid justify-items-start gap-2">
             <button type="button" onClick={() => { void suggest(); }} disabled={!values.url || fetching || uploading}
               className="focus-ring rounded-md border border-black/10 px-4 py-3 text-sm hover:bg-[#f5f5f2] disabled:opacity-50">{fetching ? "Reading website…" : "Suggest from website"}</button>

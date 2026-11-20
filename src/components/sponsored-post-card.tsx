@@ -122,7 +122,6 @@ export function SponsoredPostCard({
         <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
       </a>
 
-      {/* Optional small text under the sponsored post */}
       {variant === "website" ? (
         <a
           href={sponsor.url}
@@ -133,17 +132,6 @@ export function SponsoredPostCard({
         >
           <WebsiteFeedCaption title={sponsor.title} description={sponsor.feedDescription || sponsor.tagline} iconUrl={sponsor.iconUrl} insetIcon />
         </a>
-      ) : sponsor.tagline ? (
-        <div className="pt-2 px-0.5">
-          <a
-            href={sponsor.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="focus-ring block text-[13px] font-medium leading-snug text-[#262626] transition-colors hover:text-black sm:text-[14px]"
-          >
-            {sponsor.tagline}
-          </a>
-        </div>
       ) : null}
     </article>
     </SponsorDeadline>

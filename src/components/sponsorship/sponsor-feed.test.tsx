@@ -80,5 +80,5 @@ it("adds the existing icon, public name and short description only to website fe
   expect(card.querySelector('a[aria-label="Visit Sponsor website"]')).toBeNull();
   expect(card.querySelector('img[src="/compact-icon.png"]')).toBeNull();
   expect(card.textContent).not.toContain(sponsor.feedDescription);
-  expect(card.textContent).toContain(sponsor.tagline);
+  expect(card.textContent).not.toContain(sponsor.tagline);
 });

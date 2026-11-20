@@ -5,6 +5,17 @@ import type {
   MetricsFilter,
   ReportResult,
 } from "@/analytics/first-party/query";
+export function sponsorReportRequest(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const filter = Object.fromEntries(params);
+  delete filter.refresh;
+  delete filter.catalog;
+  return {
+    filter: { ...filter, range: filter.range || "30d" },
+    refresh: params.get("refresh") === "1",
+    catalog: params.get("catalog") === "1",
+  };
+}
 export const metricsFilterSchema = z
   .object({
     range: z.enum(["1d", "7d", "30d"]),

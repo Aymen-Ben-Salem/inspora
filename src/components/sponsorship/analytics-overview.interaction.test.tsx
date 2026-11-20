@@ -28,6 +28,16 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 const button = (label: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === label)!;
 const selectedDate = () => container.querySelector("time")?.dateTime;
 
+it("loads the selected admin account and keeps campaign navigation in the admin dashboard", async () => {
+  fetcher.mockResolvedValue(Response.json({ data: report, catalog: {
+    campaigns: [], versions: [], periods: [], publicCreative: { id: "creative-a", title: "affectUI" },
+  } }));
+  await act(async () => root.render(<AnalyticsOverview adminAccountId="account-a" />));
+  expect(fetcher.mock.lastCall?.[0]).toContain("/api/admin/sponsorship/account-a/analytics?");
+  expect(container.querySelector('a[href$="#campaign-creative-a"]')?.getAttribute("href")).toBe("/admin/sponsorship?account=account-a&section=campaigns#campaign-creative-a");
+  expect(container.querySelector('a[href^="/sponsor/"]')).toBeNull();
+});
+
 it("opens filters only on click and keeps them open after the pointer leaves", async () => {
   await act(async () => root.render(<AnalyticsOverview />));
   const trigger = button("Filters");

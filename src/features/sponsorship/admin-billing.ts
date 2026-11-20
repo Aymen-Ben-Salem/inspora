@@ -1,7 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
+import { z } from "zod";
 import { requireAdmin } from "@/auth/require-admin";
 import { requireDatabase } from "@/db/client";
 import { ADMIN_LIBRARY_PAGE_SIZE, adminPageBounds } from "@/features/admin/library-pagination";
@@ -12,13 +13,37 @@ import {
   sponsorIdentities,
   sponsorJobs,
   sponsorSeats,
+  sponsors,
 } from "@/db/schema";
 import { SPONSOR_CACHE_TAG } from "@/data/sponsor-repository";
 import { withSponsorWrite } from "./repository";
 import { queueSponsorJob } from "./jobs-store";
 import { sponsorBillingProvider, type BillingProvider } from "./stripe-client";
 import { assertStripeObjectMode } from "./payment-environment";
-export async function readSponsorBillingAdministration({ page = 1, exceptionsPage = 1, jobsPage = 1 }: { page?: number; exceptionsPage?: number; jobsPage?: number } = {}) {
+const accountFields = {
+  id: sponsorAccounts.id,
+  state: sponsorAccounts.state,
+  paidThrough: sponsorAccounts.paidThrough,
+  cancelAtPeriodEnd: sponsorAccounts.cancelAtPeriodEnd,
+  billingMode: sponsorAccounts.billingMode,
+  campaignTitle: sql<string | null>`(select s.title from sponsors s
+    where s.account_id = ${sponsorAccounts}.id and s.deleted_at is null
+    order by (s.campaign_state = 'published') desc, s.updated_at desc limit 1)`,
+  invoiceInviteId: sql<string | null>`(select c.id from sponsor_checkouts c
+    where c.owner_user_id = ${sponsorAccounts}.owner_user_id and c.state = 'completed'
+    and c.snapshot->>'offlineInvoice' = 'true' and ${sponsorAccounts}.state in ('active','inactive')
+    order by c.created_at desc limit 1)`,
+  periodStart: sponsorAccounts.periodStart,
+};
+export async function readAdminSponsorCampaigns(accountId: string) {
+  await requireAdmin();
+  return requireDatabase().select({
+    id: sponsors.id, title: sponsors.title, state: sponsors.campaignState,
+    revision: sponsors.revision, url: sponsors.url, updatedAt: sponsors.updatedAt,
+  }).from(sponsors).where(and(eq(sponsors.accountId, accountId), isNull(sponsors.deletedAt)))
+    .orderBy(desc(sql`(${sponsors.campaignState} = 'published')`), desc(sponsors.updatedAt));
+}
+export async function readSponsorBillingAdministration({ page = 1, exceptionsPage = 1, jobsPage = 1, accountId }: { page?: number; exceptionsPage?: number; jobsPage?: number; accountId?: string } = {}) {
   await requireAdmin();
   const db = requireDatabase();
   const totalsResult = await db.execute<{ accounts: number; exceptions: number; jobs: number }>(sql`
@@ -31,21 +56,17 @@ export async function readSponsorBillingAdministration({ page = 1, exceptionsPag
   const exceptionPagination = adminPageBounds(totals?.exceptions ?? 0, exceptionsPage);
   const jobPagination = adminPageBounds(totals?.jobs ?? 0, jobsPage);
   const [seats, accounts, exceptions, jobs] = await db.batch([
-    db.select().from(sponsorSeats).orderBy(sponsorSeats.slot),
     db.select({
-      id: sponsorAccounts.id,
-      state: sponsorAccounts.state,
+      ...getTableColumns(sponsorSeats),
+      campaignTitle: sql<string | null>`coalesce(${accountFields.campaignTitle}, ${sponsors.title})`,
+      published: sql<boolean>`exists (select 1 from sponsors s where s.account_id = ${sponsorSeats.accountId} and s.campaign_state = 'published' and s.deleted_at is null)`,
       paidThrough: sponsorAccounts.paidThrough,
-      cancelAtPeriodEnd: sponsorAccounts.cancelAtPeriodEnd,
-      billingMode: sponsorAccounts.billingMode,
-      campaignTitle: sql<string | null>`(select s.title from sponsors s
-        where s.account_id = ${sponsorAccounts.id} and s.deleted_at is null
-        order by (s.campaign_state = 'published') desc, s.updated_at desc limit 1)`,
-      invoiceInviteId: sql<string | null>`(select c.id from sponsor_checkouts c
-        where c.owner_user_id = ${sponsorAccounts.ownerUserId} and c.state = 'completed'
-        and c.snapshot->>'offlineInvoice' = 'true' and ${sponsorAccounts.state} in ('active','inactive')
-        order by c.created_at desc limit 1)`,
-    })
+    }).from(sponsorSeats)
+      .leftJoin(sponsorAccounts, eq(sponsorAccounts.id, sponsorSeats.accountId))
+      .leftJoin(sponsorCheckouts, eq(sponsorCheckouts.id, sponsorSeats.checkoutId))
+      .leftJoin(sponsors, eq(sponsors.id, sponsorCheckouts.campaignId))
+      .orderBy(sponsorSeats.slot),
+    db.select(accountFields)
       .from(sponsorAccounts).orderBy(sponsorAccounts.createdAt, sponsorAccounts.id)
       .limit(ADMIN_LIBRARY_PAGE_SIZE).offset((accountPagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE),
     db.select({ id: sponsorCheckouts.id, exceptionCode: sponsorCheckouts.exceptionCode })
@@ -59,7 +80,13 @@ export async function readSponsorBillingAdministration({ page = 1, exceptionsPag
       .orderBy(sponsorJobs.createdAt, sponsorJobs.id)
       .limit(ADMIN_LIBRARY_PAGE_SIZE).offset((jobPagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE),
   ]);
-  return { seats, accounts, exceptions, jobs, accountPagination, exceptionPagination, jobPagination };
+  const selectedId = accountId ?? seats.find(seat => seat.published)?.accountId
+    ?? seats.find(seat => seat.accountId)?.accountId ?? accounts[0]?.id;
+  let selectedAccount = accounts.find(account => account.id === selectedId);
+  if (!selectedAccount && z.uuid().safeParse(selectedId).success && selectedId) {
+    [selectedAccount] = await db.select(accountFields).from(sponsorAccounts).where(eq(sponsorAccounts.id, selectedId));
+  }
+  return { seats, accounts, selectedAccount, exceptions, jobs, accountPagination, exceptionPagination, jobPagination };
 }
 export async function administerSponsorBilling(
   action: "retry" | "revoke" | "resolve_exception",

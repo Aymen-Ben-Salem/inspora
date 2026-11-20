@@ -10,63 +10,73 @@ import {
 import { requireSponsorActor } from "./authorization";
 import { createSponsorAnalyticsService } from "./analytics-service";
 import { readMetricsReport } from "@/analytics/first-party/reports";
+import type { MetricsFilter } from "@/analytics/first-party/query";
+
+export function accountOwnsReportFilters(accountId: string, filter: MetricsFilter) {
+  if (!filter.campaignId && !filter.versionId && !filter.periodId) return true;
+  return withWriteTransaction(async (tx) => {
+    if (filter.campaignId) {
+      const [c] = await tx
+        .select({ id: sponsors.id })
+        .from(sponsors)
+        .where(
+          and(
+            eq(sponsors.id, filter.campaignId),
+            eq(sponsors.accountId, accountId),
+          ),
+        );
+      if (!c) return false;
+    }
+    if (filter.versionId) {
+      const [v] = await tx
+        .select({ campaignId: sponsorCampaignVersions.campaignId })
+        .from(sponsorCampaignVersions)
+        .innerJoin(
+          sponsors,
+          eq(sponsors.id, sponsorCampaignVersions.campaignId),
+        )
+        .where(
+          and(
+            eq(sponsorCampaignVersions.id, filter.versionId),
+            eq(sponsors.accountId, accountId),
+          ),
+        );
+      if (!v || (filter.campaignId && v.campaignId !== filter.campaignId))
+        return false;
+    }
+    if (filter.periodId) {
+      const [p] = await tx
+        .select({ id: sponsorDeliveryPeriods.id })
+        .from(sponsorDeliveryPeriods)
+        .where(
+          and(
+            eq(sponsorDeliveryPeriods.id, filter.periodId),
+            eq(sponsorDeliveryPeriods.accountId, accountId),
+          ),
+        );
+      if (!p) return false;
+    }
+    return true;
+  });
+}
+
 export const readOwnSponsorMetrics = createSponsorAnalyticsService({
   actor: () => requireSponsorActor("read"),
-  owns: async (actor, filter) =>
-    withWriteTransaction(async (tx) => {
-      if (filter.campaignId) {
-        const [c] = await tx
-          .select({ id: sponsors.id })
-          .from(sponsors)
-          .where(
-            and(
-              eq(sponsors.id, filter.campaignId),
-              eq(sponsors.accountId, actor.accountId),
-            ),
-          );
-        if (!c) return false;
-      }
-      if (filter.versionId) {
-        const [v] = await tx
-          .select({ campaignId: sponsorCampaignVersions.campaignId })
-          .from(sponsorCampaignVersions)
-          .innerJoin(
-            sponsors,
-            eq(sponsors.id, sponsorCampaignVersions.campaignId),
-          )
-          .where(
-            and(
-              eq(sponsorCampaignVersions.id, filter.versionId),
-              eq(sponsors.accountId, actor.accountId),
-            ),
-          );
-        if (!v || (filter.campaignId && v.campaignId !== filter.campaignId))
-          return false;
-      }
-      if (filter.periodId) {
-        const [p] = await tx
-          .select({ id: sponsorDeliveryPeriods.id })
-          .from(sponsorDeliveryPeriods)
-          .where(
-            and(
-              eq(sponsorDeliveryPeriods.id, filter.periodId),
-              eq(sponsorDeliveryPeriods.accountId, actor.accountId),
-            ),
-          );
-        if (!p) return false;
-      }
-      return true;
-    }),
+  owns: async (actor, filter) => accountOwnsReportFilters(actor.accountId, filter),
   read: (actor, filter, refresh) =>
     readMetricsReport(actor.accountId, filter, refresh),
 });
 export async function readOwnAnalyticsCatalog() {
   const actor = await requireSponsorActor("read");
+  return readAccountAnalyticsCatalog(actor.accountId);
+}
+
+export function readAccountAnalyticsCatalog(accountId: string) {
   return withWriteTransaction(async (tx) => ({
     campaigns: await tx
       .select({ id: sponsors.id, title: sponsors.title })
       .from(sponsors)
-      .where(eq(sponsors.accountId, actor.accountId)),
+      .where(eq(sponsors.accountId, accountId)),
     versions: await tx
       .select({
         id: sponsorCampaignVersions.id,
@@ -75,7 +85,7 @@ export async function readOwnAnalyticsCatalog() {
       })
       .from(sponsorCampaignVersions)
       .innerJoin(sponsors, eq(sponsors.id, sponsorCampaignVersions.campaignId))
-      .where(eq(sponsors.accountId, actor.accountId)),
+      .where(eq(sponsors.accountId, accountId)),
     periods: (
       await tx
         .select({
@@ -93,8 +103,8 @@ export async function readOwnAnalyticsCatalog() {
         )
         .where(
           and(
-            eq(sponsorDeliveryPeriods.accountId, actor.accountId),
-            eq(analyticsReports.scope, actor.accountId),
+            eq(sponsorDeliveryPeriods.accountId, accountId),
+            eq(analyticsReports.scope, accountId),
             gt(analyticsReports.expiresAt, new Date()),
           ),
         )
@@ -123,7 +133,7 @@ export async function readOwnAnalyticsCatalog() {
           .from(sponsors)
           .where(
             and(
-              eq(sponsors.accountId, actor.accountId),
+              eq(sponsors.accountId, accountId),
               eq(sponsors.campaignState, "published"),
             ),
           )

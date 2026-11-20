@@ -17,6 +17,7 @@ import { ReportDateRange } from "./report-date-range";
 import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
 import { CountryLabel, countryName } from "./country-label";
+import { SponsorNavbarIcon } from "./sponsor-icons";
 const number = new Intl.NumberFormat("en");
 function reportMoney(amount: number, currency?: string) {
   return currency ? new Intl.NumberFormat("en-US", { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(amount) : "—";
@@ -535,14 +536,7 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
                       <div>
                         <p className="mb-2 text-xs text-[#767676]">Navbar</p>
                         {current.iconUrl ? (
-                          <Image
-                            src={current.iconUrl}
-                            width={35}
-                            height={35}
-                            unoptimized
-                            alt={`${current.title} icon`}
-                            className="size-[35px] rounded-md border border-[#e6e6e6] object-contain p-1"
-                          />
+                          <SponsorNavbarIcon src={current.iconUrl} alt={`${current.title} icon`} />
                         ) : null}
                       </div>
                       <div>

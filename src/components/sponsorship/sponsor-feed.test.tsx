@@ -7,7 +7,8 @@ import type { ActiveSponsor } from "@/domain/sponsor";
 const sponsor: ActiveSponsor = { id: "sponsor", title: "Sponsor", url: "https://example.com", mediaType: "image", mediaUrl: "/artwork.png", mediaWidth: 1200, mediaHeight: 800, mediaAlt: "Sponsor", iconUrl: "/compact-icon.png", feedDescription: "Made for focused work.", tagline: "Existing tagline" };
 vi.mock("./public-sponsors", () => ({ usePublicSponsors: () => ({ sponsors: [sponsor] }) }));
 vi.mock("../feed-motion", () => ({ FeedMotion: ({ children }: { children: ReactNode }) => children }));
-vi.mock("../row-first-masonry", () => ({ RowFirstMasonry: ({ children }: { children: ReactNode }) => <div className="feed-grid">{children}</div> }));
+vi.mock("../row-first-masonry", () => ({ RowFirstMasonry: ({ children, fixedColumns }: { children: ReactNode; fixedColumns: boolean }) =>
+  <div className="feed-grid" data-fixed-columns={fixedColumns ? "" : undefined}>{children}</div> }));
 import { SponsorFeed } from "./sponsor-feed";
 
 let container: HTMLDivElement, root: Root;
@@ -25,7 +26,7 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 
-const ordinary = (ratio: number) => Array.from({ length: 12 }, (_, index) => ({
+const ordinary = (ratio: number, count = 12) => Array.from({ length: count }, (_, index) => ({
   id: String(index), mediaAspectRatio: ratio, node: <article key={index} data-website={index} />,
 }));
 const frame = () => container.querySelector<HTMLAnchorElement>('[aria-label="Sponsored: Sponsor"]')!;
@@ -45,6 +46,19 @@ it.each([1, 2, 4])("matches the recording proportions in a %i-column website fee
   columns = count === 1 ? 4 : 1;
   await act(async () => resize());
   expect(ratio(), frame().style.aspectRatio).toBeCloseTo(4 / 3);
+});
+
+it.each(["masonry", "websites"] as const)("renders repeated %s placements in their fixed slots with separate nodes", async layout => {
+  const mount = (count: number) => root.render(<SponsorFeed ordinary={ordinary(16 / 9, count)} layout={layout} hasMore />);
+  await act(async () => mount(12));
+  const grid = container.querySelector(".feed-grid, [data-sponsor-grid]")!;
+  const firstCard = grid.children[3];
+  expect(firstCard.getAttribute("data-campaign-id")).toBe("sponsor");
+  if (layout === "masonry") expect(grid.hasAttribute("data-fixed-columns")).toBe(true);
+  await act(async () => mount(36));
+  const cards = Array.from(grid.children);
+  expect(cards.flatMap((card, index) => card.hasAttribute("data-campaign-id") ? [index] : [])).toEqual([3, 17, 32]);
+  expect(cards[3]).toBe(firstCard);
 });
 
 it("matches a recording in the sponsor's row when recordings have different crops", async () => {

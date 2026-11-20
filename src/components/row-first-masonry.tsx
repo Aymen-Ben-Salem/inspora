@@ -11,7 +11,9 @@ const GRID_ROW_HEIGHT = 1;
 export function RowFirstMasonry({
   children,
   itemCount,
-}: PropsWithChildren<{ itemCount: number }>) {
+  fixedColumns = false,
+  layoutKey,
+}: PropsWithChildren<{ itemCount: number; fixedColumns?: boolean; layoutKey?: string }>) {
   const gridRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -47,13 +49,14 @@ export function RowFirstMasonry({
     return () => {
       observer.disconnect();
     };
-  }, [itemCount]);
+  }, [itemCount, layoutKey]);
 
   return (
     <div
       ref={gridRef}
       className="feed-grid"
       data-masonry-state="pending"
+      data-fixed-columns={fixedColumns ? "" : undefined}
     >
       {children}
     </div>

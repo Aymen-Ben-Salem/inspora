@@ -244,10 +244,21 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   grid-auto-rows: 1px;
 }
 
+/* Sponsored feeds keep each logical column while cards still stack tightly
+   within that column. Without a pinned column, masonry fills the next gap. */
+.feed-grid[data-fixed-columns] {
+  grid-auto-flow: row dense;
+}
+
 @media (min-width: 460px) {
   .feed-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+@media (460px <= width < 760px) {
+  .feed-grid[data-fixed-columns] > :nth-child(2n + 1) { grid-column-start: 1; }
+  .feed-grid[data-fixed-columns] > :nth-child(2n + 2) { grid-column-start: 2; }
 }
 
 @media (min-width: 760px) {
@@ -256,10 +267,20 @@ video[data-looping-video]::-webkit-media-controls-start-playback-button {
   }
 }
 
+@media (760px <= width < 1120px) {
+  .feed-grid[data-fixed-columns] > :nth-child(3n + 1) { grid-column-start: 1; }
+  .feed-grid[data-fixed-columns] > :nth-child(3n + 2) { grid-column-start: 2; }
+  .feed-grid[data-fixed-columns] > :nth-child(3n + 3) { grid-column-start: 3; }
+}
+
 @media (min-width: 1120px) {
   .feed-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+  .feed-grid[data-fixed-columns] > :nth-child(4n + 1) { grid-column-start: 1; }
+  .feed-grid[data-fixed-columns] > :nth-child(4n + 2) { grid-column-start: 2; }
+  .feed-grid[data-fixed-columns] > :nth-child(4n + 3) { grid-column-start: 3; }
+  .feed-grid[data-fixed-columns] > :nth-child(4n + 4) { grid-column-start: 4; }
 }
 
 .detail-fit-footer input.focus-ring:focus-visible {

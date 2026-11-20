@@ -1,61 +1,47 @@
-export type SponsorPosition = { id: string; before: number };
-type Item = { kind: "ordinary" | "sponsor"; id: string };
-function randomFor(seed: string) {
-  let state = 2166136261;
-  for (const c of seed) state = Math.imul(state ^ c.charCodeAt(0), 16777619);
-  return () => {
-    state += 0x6d2b79f5;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-export function buildPlacementSequence(input: {
+type FeedItem =
+  | { kind: "ordinary"; id: string }
+  | { kind: "sponsor"; id: string; round: number };
+
+export function buildPlacementSequence({
+  ordinaryIds,
+  sponsors,
+  columns,
+  hasMore = false,
+}: {
   ordinaryIds: string[];
   sponsors: string[];
   columns: number;
-  seed: string;
   hasMore?: boolean;
-  previous?: SponsorPosition[];
-}) {
-  const columns = Math.max(1, input.columns),
-    random = randomFor(input.seed);
-  // Public eligibility already limits paid seats; manual placements are extra.
-  const sponsors = [...new Set(input.sponsors)];
-  const firstRow = random() < 0.5 ? 1 : 2;
-  const rows = sponsors.map((_, i) => firstRow + i);
-  const columnOrder = Array.from({ length: columns }, (_, i) => i);
-  for (let i = columns - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [columnOrder[i], columnOrder[j]] = [columnOrder[j], columnOrder[i]];
+}): FeedItem[] {
+  const campaigns = [...new Set(sponsors)];
+  // Start at the right edge at every width, then use the remaining columns.
+  const columnOrder = [columns - 1, ...[1, 0, 2].filter(column => column < columns - 1)];
+  const items: FeedItem[] = [];
+  let ordinaryIndex = 0;
+  let row = 0;
+
+  for (let index = 0; campaigns.length > 0; index++) {
+    const campaignIndex = index % campaigns.length;
+    const round = Math.floor(index / campaigns.length);
+    const column = columnOrder[(campaignIndex + round) % columnOrder.length];
+    const rowStart = row * columns;
+    const position = rowStart + column;
+    const end = items.length + ordinaryIds.length - ordinaryIndex;
+
+    // Strongly filtered feeds can still show each sponsor once. Repeat only
+    // when the scheduled row exists and its slot can be reached.
+    if (round > 0 && rowStart >= end) break;
+    if (position > end && (hasMore || round > 0)) break;
+
+    while (items.length < position && ordinaryIndex < ordinaryIds.length) {
+      items.push({ kind: "ordinary", id: ordinaryIds[ordinaryIndex++] });
+    }
+    items.push({ kind: "sponsor", id: campaigns[campaignIndex], round });
+    row += campaignIndex === campaigns.length - 1 ? 4 : 2;
   }
-  const previous = (input.previous ?? []).filter((p) =>
-    sponsors.includes(p.id),
-  );
-  const placements: SponsorPosition[] = [...previous];
-  let mobileBefore = 0;
-  sponsors.forEach((id, i) => {
-    mobileBefore += random() < 0.5 ? 2 : 3;
-    if (previous.some((p) => p.id === id)) return;
-    const desktopBefore =
-      (rows[i] - 1) * columns + columnOrder[i % columns] - i;
-    let before = columns === 1 ? mobileBefore : desktopBefore;
-    if (previous.length)
-      before = Math.max(
-        before,
-        previous[previous.length - 1].before + (columns === 1 ? 2 : 1),
-      );
-    if (input.hasMore && before > input.ordinaryIds.length) return;
-    before = Math.min(before, input.ordinaryIds.length);
-    placements.push({ id, before });
-  });
-  placements.sort((a, b) => a.before - b.before);
-  const items: Item[] = [];
-  for (let i = 0; i <= input.ordinaryIds.length; i++) {
-    for (const p of placements.filter((p) => p.before === i))
-      items.push({ kind: "sponsor", id: p.id });
-    if (i < input.ordinaryIds.length)
-      items.push({ kind: "ordinary", id: input.ordinaryIds[i] });
+
+  for (; ordinaryIndex < ordinaryIds.length; ordinaryIndex++) {
+    items.push({ kind: "ordinary", id: ordinaryIds[ordinaryIndex] });
   }
-  return { items, placements };
+  return items;
 }

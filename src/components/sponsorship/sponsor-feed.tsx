@@ -1,6 +1,5 @@
 "use client";
 import {
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -11,10 +10,7 @@ import type { ActiveSponsor } from "@/domain/sponsor";
 import { FeedMotion } from "../feed-motion";
 import { RowFirstMasonry } from "../row-first-masonry";
 import { SponsoredPostCard } from "../sponsored-post-card";
-import {
-  buildPlacementSequence,
-  type SponsorPosition,
-} from "./placement-sequence";
+import { buildPlacementSequence } from "./placement-sequence";
 import { usePublicSponsors } from "./public-sponsors";
 export function SponsorFeed({
   ordinary,
@@ -30,70 +26,52 @@ export function SponsorFeed({
   emptyLabel?: string;
 }) {
   const { sponsors } = usePublicSponsors(initialSponsors);
-  const id = useId(),
-    ref = useRef<HTMLDivElement>(null);
-  const [schedule, setSchedule] = useState<{
-    columns: number;
-    seed: string;
-    placements: SponsorPosition[];
-    measured: boolean;
-  }>({ columns: 1, seed: id, placements: [], measured: false });
-  const result = useMemo(
+  const ref = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(1);
+  const placements = useMemo(
     () =>
       buildPlacementSequence({
         ordinaryIds: ordinary.map((o) => o.id),
         sponsors: sponsors.map((s) => s.id),
-        columns: schedule.columns,
-        seed: schedule.seed,
+        columns,
         hasMore,
-        previous: schedule.placements,
       }),
-    [ordinary, sponsors, schedule, hasMore],
+    [ordinary, sponsors, columns, hasMore],
   );
   useLayoutEffect(() => {
     const container = ref.current;
     if (!container) return;
     const grid = container.querySelector(".feed-grid, [data-sponsor-grid]");
     if (!grid) return;
-    const seed = crypto.randomUUID();
     const measure = () => {
-      const columns =
-        getComputedStyle(grid).gridTemplateColumns.split(/\s+/).filter(Boolean)
-          .length || 1;
-      setSchedule((s) =>
-        s.columns === columns && s.measured
-          ? s
-          : { ...s, columns, seed: s.measured ? s.seed : seed, measured: true },
-      );
+      const columns = getComputedStyle(grid).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+      setColumns(columns || 1);
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(grid);
     return () => observer.disconnect();
-  }, []);
-  if (
-    schedule.measured &&
-    JSON.stringify(result.placements) !== JSON.stringify(schedule.placements)
-  ) {
-    setSchedule({ ...schedule, placements: result.placements });
-  }
-  const items = result.items.map((item, index) => {
-    if (item.kind === "ordinary") return ordinary.find((o) => o.id === item.id)?.node;
+  }, [layout]);
+  const ordinaryById = new Map(ordinary.map(item => [item.id, item]));
+  const sponsorsById = new Map(sponsors.map(sponsor => [sponsor.id, sponsor]));
+  const items = placements.map((item, index) => {
+    if (item.kind === "ordinary") return ordinaryById.get(item.id)?.node;
 
     // Website recordings can have different crops. Match a recording in this
     // row, or the nearest following/preceding recording on a single column.
-    const rowStart = index - (index % schedule.columns);
-    const referenceId = layout === "websites"
-      ? (result.items.slice(rowStart, rowStart + schedule.columns).find((entry) => entry.kind === "ordinary")
-        ?? result.items.slice(index + 1).find((entry) => entry.kind === "ordinary")
-        ?? result.items.findLast((entry) => entry.kind === "ordinary"))?.id
-      : undefined;
+    let referenceId: string | undefined;
+    if (layout === "websites") {
+      const rowStart = index - (index % columns);
+      const next = placements[index + 1];
+      referenceId = placements.slice(rowStart, rowStart + columns).find(entry => entry.kind === "ordinary")?.id
+        ?? (next?.kind === "ordinary" ? next.id : ordinary.at(-1)?.id);
+    }
     return (
       <SponsoredPostCard
-        key={`sponsor-${item.id}`}
-        sponsor={sponsors.find((s) => s.id === item.id)!}
+        key={`sponsor-${item.id}-${item.round}`}
+        sponsor={sponsorsById.get(item.id)!}
         variant={layout === "websites" ? "website" : "default"}
-        mediaAspectRatio={ordinary.find((entry) => entry.id === referenceId)?.mediaAspectRatio}
+        mediaAspectRatio={referenceId === undefined ? undefined : ordinaryById.get(referenceId)?.mediaAspectRatio}
       />
     );
   });
@@ -106,7 +84,9 @@ export function SponsorFeed({
       )}
       <FeedMotion itemCount={items.length}>
         {layout === "masonry" ? (
-          <RowFirstMasonry itemCount={items.length}>{items}</RowFirstMasonry>
+          <RowFirstMasonry itemCount={items.length} fixedColumns={sponsors.length > 0} layoutKey={sponsors.map(sponsor => sponsor.id).join(",")}>
+            {items}
+          </RowFirstMasonry>
         ) : (
           <div
             data-sponsor-grid

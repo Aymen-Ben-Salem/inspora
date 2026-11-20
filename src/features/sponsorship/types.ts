@@ -75,6 +75,8 @@ export type SponsorContact = { company: string; contactName?: string; email: str
 // Currency is pinned alongside the campaign when its seat is reserved. Older
 // reservations omit it and keep their existing Stripe localization behavior.
 export type SponsorCheckoutSnapshot = OwnedCampaign & {
+  /** Admin-recorded one-time invoice settlement. Stripe never reconciles it. */
+  offlineInvoice?: true;
   /** Private contact details; never part of public campaign creative. */
   contact?: SponsorContact;
   /** Verified primary email pinned by the server when reserving checkout. */

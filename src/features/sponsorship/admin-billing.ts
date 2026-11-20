@@ -32,7 +32,20 @@ export async function readSponsorBillingAdministration({ page = 1, exceptionsPag
   const jobPagination = adminPageBounds(totals?.jobs ?? 0, jobsPage);
   const [seats, accounts, exceptions, jobs] = await db.batch([
     db.select().from(sponsorSeats).orderBy(sponsorSeats.slot),
-    db.select({ id: sponsorAccounts.id, state: sponsorAccounts.state, paidThrough: sponsorAccounts.paidThrough, cancelAtPeriodEnd: sponsorAccounts.cancelAtPeriodEnd })
+    db.select({
+      id: sponsorAccounts.id,
+      state: sponsorAccounts.state,
+      paidThrough: sponsorAccounts.paidThrough,
+      cancelAtPeriodEnd: sponsorAccounts.cancelAtPeriodEnd,
+      billingMode: sponsorAccounts.billingMode,
+      campaignTitle: sql<string | null>`(select s.title from sponsors s
+        where s.account_id = ${sponsorAccounts.id} and s.deleted_at is null
+        order by (s.campaign_state = 'published') desc, s.updated_at desc limit 1)`,
+      invoiceInviteId: sql<string | null>`(select c.id from sponsor_checkouts c
+        where c.owner_user_id = ${sponsorAccounts.ownerUserId} and c.state = 'completed'
+        and c.snapshot->>'offlineInvoice' = 'true' and ${sponsorAccounts.state} in ('active','inactive')
+        order by c.created_at desc limit 1)`,
+    })
       .from(sponsorAccounts).orderBy(sponsorAccounts.createdAt, sponsorAccounts.id)
       .limit(ADMIN_LIBRARY_PAGE_SIZE).offset((accountPagination.page - 1) * ADMIN_LIBRARY_PAGE_SIZE),
     db.select({ id: sponsorCheckouts.id, exceptionCode: sponsorCheckouts.exceptionCode })

@@ -88,6 +88,8 @@ export async function startSponsorCheckout(
       code: "forbidden",
       message: "Owned preparation not found.",
     };
+  if (own.snapshot?.offlineInvoice)
+    return { ok: false, code: "conflict", message: "This sponsorship is managed by invoice." };
   // Only the provider-verified account email can seed a new checkout.
   // Existing reserved sessions keep their original immutable receipt address.
   const checkoutEmail = own.state === "reserved" ? undefined : await verifiedCheckoutEmail(owner, own.snapshot?.contact);
@@ -167,6 +169,7 @@ export async function readOwnSponsorDashboard() {
       .where(eq(sponsorCheckouts.ownerUserId, owner))
       .orderBy(sql`${sponsorCheckouts.createdAt} desc`)
       .limit(1);
+    const invoicePaid = checkout?.snapshot?.offlineInvoice === true;
     const campaigns = await tx
       .select({
         id: sponsors.id,
@@ -198,11 +201,12 @@ export async function readOwnSponsorDashboard() {
             recoveryDeadline: account.recoveryDeadline?.toISOString() ?? null,
             cancelAtPeriodEnd: account.cancelAtPeriodEnd,
             billingAvailable: Boolean(account.stripeCustomerId),
+            ...(invoicePaid ? { invoicePaid: true as const } : {}),
             billingCurrency: account.billingCurrency,
             billingMode: account.billingMode,
             billingInterval: account.billingInterval,
             billingIntervalCount: account.billingIntervalCount,
-            ...(account.billingMode === "one_time" && account.state === "active" && sponsorCheckoutEnabled("subscription") &&
+            ...(!invoicePaid && account.billingMode === "one_time" && account.state === "active" && sponsorCheckoutEnabled("subscription") &&
               account.paidThrough && (account.paidThrough.getTime() > Date.now() + 1810000 ||
                 (checkout?.state === "reserved" && checkout.snapshot?.renewal?.accountId === account.id && !checkout.releasedAt &&
                   checkout.expiresAt && checkout.expiresAt > new Date())) ? { monthlyAvailable: true } : {}),

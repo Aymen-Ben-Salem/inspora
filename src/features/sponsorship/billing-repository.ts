@@ -178,6 +178,20 @@ export async function reconcileSponsorCheckout(
         ? or(eq(sponsorSeats.checkoutId, p.id), eq(sponsorSeats.checkoutId, p.snapshot.renewal.sourceCheckoutId))
         : eq(sponsorSeats.checkoutId, p.id))
       .for("update");
+    if (p.snapshot?.offlineInvoice) {
+      if (p.releasedAt || !seat || !account || seat.accountId !== account.id) return true;
+      if (identity?.state === "allowed" && account.state === "active" && account.paidThrough && account.paidThrough > now)
+        return true;
+      if (account.state === "active" || account.state === "recovery") {
+        await tx.update(sponsorAccounts).set({ state: "inactive", updatedAt: now })
+          .where(eq(sponsorAccounts.id, account.id));
+      }
+      await tx.update(sponsorSeats).set({ state: "free", accountId: null, checkoutId: null, reservedUntil: null })
+        .where(eq(sponsorSeats.slot, seat.slot));
+      await tx.update(sponsorCheckouts).set({ releasedAt: now }).where(eq(sponsorCheckouts.id, p.id));
+      invalidated = true;
+      return true;
+    }
     if (!p.priceId || !p.snapshot) return true;
     const renewal = p.snapshot.renewal;
     const denied = identity?.state !== "allowed" || ["revoked", "deleting"].includes(account?.state ?? "");

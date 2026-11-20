@@ -303,7 +303,8 @@ export function SponsorDashboard({
           className="scroll-mt-8 space-y-6"
         >
           <p className={`text-sm leading-6 ${styles.muted}`}>
-            {account
+            {account?.invoicePaid ? "One-time payment by invoice. Your sponsorship runs for the dates below."
+              : account
               ? `Billed in ${account.billingCurrency === "eur" ? "€" : account.billingCurrency === "usd" ? "$" : account.billingCurrency.toUpperCase()} · ${account.billingMode === "one_time" ? "one calendar month, paid once" : account.billingInterval === "month" ? "monthly" : "every 30 days"}. View your exact charges in Manage billing.`
               : "Choose how you’d like to pay."}
           </p>
@@ -311,7 +312,7 @@ export function SponsorDashboard({
             <>
               <dl className={styles.billingSummary}>
                 <div className={styles.metric}>
-                <dt className={styles.metricHeader}>Subscription<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
+                <dt className={styles.metricHeader}>{account.invoicePaid ? "Sponsorship period" : "Subscription"}<span className={styles.metricIcon}><DashboardIcon name="calendar" /></span></dt>
                 <dd className="mt-4">
                   <dl className={styles.billingPeriod}>
                     <div><dt>Start date</dt><dd><BillingDate value={account.periodStart} /></dd></div>
@@ -323,7 +324,7 @@ export function SponsorDashboard({
               </dl>
               {account.recoveryDeadline ? <div className={styles.notice}><p className="text-sm font-medium">Recovery deadline</p><p className={`mt-1 text-sm ${styles.muted}`}>{date(account.recoveryDeadline)}</p></div> : null}
               {account.monthlyStartsAt && !account.cancelAtPeriodEnd ? <div className={styles.notice}><p className="text-sm font-medium">Monthly billing scheduled</p><p className={`mt-1 text-sm leading-6 ${styles.muted}`}>Your first monthly charge is on {date(account.monthlyStartsAt)}. Your current paid period stays covered. You can cancel future renewal in Manage billing.</p></div> : null}
-              <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="payment-details-title">
+              {account.invoicePaid ? null : <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="payment-details-title">
                 <div>
                   <h2 id="payment-details-title" className="flex items-center gap-3 text-lg font-medium"><span className={styles.metricIcon}><DashboardIcon name="receipt" /></span>Payment details</h2>
                   <p className={`mt-4 max-w-2xl text-sm leading-6 ${styles.muted}`}>
@@ -342,8 +343,8 @@ export function SponsorDashboard({
               >
                 Manage billing<DashboardIcon name="external" />
               </button>
-              </section>
-              {account.billingMode === "one_time" && account.state === "active" && <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="monthly-plan-title">
+              </section>}
+              {!account.invoicePaid && account.billingMode === "one_time" && account.state === "active" && <section className={`${styles.surface} ${styles.billingDetails}`} aria-labelledby="monthly-plan-title">
                 <div>
                   <h2 id="monthly-plan-title" className="flex items-center gap-3 text-lg font-medium"><span className={styles.metricIcon}><DashboardIcon name="renewal" /></span>Continue with monthly billing</h2>
                   <p className={`mt-4 max-w-2xl text-sm leading-6 ${styles.muted}`}>Keep your sponsorship running after this paid month. {monthlyAmount} per month, before applicable tax. Your first charge will be on {date(account.paidThrough)}.</p>

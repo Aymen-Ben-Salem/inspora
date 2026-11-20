@@ -30,7 +30,7 @@ it("includes the legacy singleton with exactly three ordinary designs", () => {
   const html = renderToStaticMarkup(<PostFeed posts={posts} sponsor={sponsor} />);
   expect(html.match(/aria-label="Sponsored: Sponsor A"/g)).toHaveLength(1);
 });
-it.each([0, 3, 8])(
+it.each([0, 2, 6])(
   "shows each paid campaign once with %i ordinary designs while preserving their order",
   (count) => {
     const posts = Array.from(

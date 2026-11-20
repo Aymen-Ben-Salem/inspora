@@ -68,10 +68,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       <ul className="mt-4 space-y-2 text-sm">
         {data.accounts.map((a) => (
           <li key={a.id} className="break-all">
-            {a.id} · {a.state} · paid through{" "}
+            {a.campaignTitle ?? a.id} · {a.state} · paid through{" "}
             {a.paidThrough?.toISOString() ?? "—"} ·{" "}
-            {a.cancelAtPeriodEnd ? "canceling" : "renewing"}{" "}
+            {a.invoiceInviteId ? "one-time invoice" : a.billingMode === "one_time" ? "one-time payment" : a.cancelAtPeriodEnd ? "canceling" : "renewing"}{" "}
             <Link href={`/admin/sponsorship?${new URLSearchParams({ ...paginationQuery, account: a.id })}` as Route} prefetch={false} className="underline">View performance</Link>
+            {a.invoiceInviteId ? <a className="ml-3 underline" href={`/sponsor/dashboard/invite/${a.invoiceInviteId}`}>Sponsor invite</a> : null}
           </li>
         ))}
       </ul>

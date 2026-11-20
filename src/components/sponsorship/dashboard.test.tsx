@@ -131,3 +131,27 @@ it("disables purchase entry for a prepared owner when all four seats are held", 
   expect(html).toContain("All four seats are occupied or reserved");
   expect(html).toMatch(/disabled=""[^>]*>Continue to checkout/);
 });
+
+it("shows the normal campaign dashboard with a one-time invoice period and no Stripe controls", () => {
+  const html = renderToStaticMarkup(<SponsorDashboard initial={{
+    ...initial,
+    account: {
+      state: "active",
+      paidThrough: "2026-12-20T10:00:00Z",
+      periodStart: "2026-11-20T10:00:00Z",
+      recoveryDeadline: null,
+      cancelAtPeriodEnd: false,
+      billingAvailable: false,
+      billingCurrency: "usd",
+      billingMode: "one_time",
+      billingInterval: "month",
+      billingIntervalCount: 1,
+      invoicePaid: true,
+    },
+  }} />);
+  expect(html).toContain("Campaigns");
+  expect(html).toContain("One-time payment by invoice");
+  expect(html).toContain("No automatic renewal");
+  expect(html).not.toContain("Manage billing");
+  expect(html).not.toContain("Switch to monthly");
+});

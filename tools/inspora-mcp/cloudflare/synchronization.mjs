@@ -23,16 +23,12 @@ export class CatalogSync {
   async fetch(request){
     const input=await request.json();
     if(input.action==='status'){
-      // Maintainer-only (sync token): includes the last visual-pack scheduling summary when enabled
-      // and the recent searches that found too few works (what the catalog is missing).
+      // Maintainer-only (sync token): includes the last visual-pack scheduling summary when enabled.
       const status=await this.state.storage.get('status')??{state:'not_started'},visuals=await this.state.storage.get('visuals');
-      const shortages=[...(await this.state.storage.list({prefix:SHORTAGE_PREFIX,reverse:true,limit:SHORTAGE_REPORT})).values()];
-      return Response.json({...status,...(visuals?{visuals}:{}),shortages:{retention_days:SHORTAGE_RETENTION_MS/86400000,recent:shortages}});
-    }
-    if(input.action==='shortage'){
-      try{await recordShortage(this.state.storage,input.entry);}
-      catch{return Response.json({error:'INVALID_SHORTAGE'},{status:400});}
-      return Response.json({recorded:true});
+      // Searches are not recorded. Remove the search records an earlier revision kept.
+      const legacy=[...(await this.state.storage.list({prefix:LEGACY_SEARCH_PREFIX})).keys()];
+      for(let i=0;i<legacy.length;i+=128)await this.state.storage.delete(legacy.slice(i,i+128));
+      return Response.json(visuals?{...status,visuals}:status);
     }
     if(input.action==='visual-result'){
       try{await recordVisualResult(this.state.storage,{workId:input.workId,mediaFingerprint:input.mediaFingerprint,state:input.state,...(input.reason?{reason:input.reason}:{})});}
@@ -116,32 +112,5 @@ export class CatalogSync {
   }
 }
 
-// Searches that found too few works, kept identity-free and briefly so maintainers can see which
-// subjects the catalog lacks: query wording, interpreted kinds/subjects and counts only.
-export const SHORTAGE_PREFIX='shortage:';
-export const SHORTAGE_RETENTION_MS=30*86400000;
-export const SHORTAGE_MAX=500;
-const SHORTAGE_REPORT=100;
-const text=(value,max)=>typeof value==='string'?value.slice(0,max):undefined;
-const names=value=>Array.isArray(value)?value.filter(item=>typeof item==='string').slice(0,8).map(item=>item.slice(0,60)):undefined;
-const count=value=>Number.isInteger(value)&&value>=0?value:undefined;
-export function shortageEntry(args,result,revision){
-  const coverage=result?.search_coverage??{},interpreted=result?.interpreted_query??{};
-  return {query:text(args.query,200),reference:args.reference_url?true:undefined,kinds:names(interpreted.kinds),subjects:names(interpreted.subjects),
-    context:names(interpreted.context),filters:args.filters?Object.fromEntries(Object.entries(args.filters).map(([key,value])=>[key,names(value)])):undefined,
-    subject_matches:count(coverage.subject_matches),brief_matches:count(coverage.brief_matches),context_matches:count(coverage.context_matches),
-    returned:count(result?.results?.length),revision:count(revision)};
-}
-export async function recordShortage(storage,entry,now=Date.now()){
-  if(!entry||typeof entry!=='object'||!(typeof entry.query==='string'||entry.reference===true))throw Error('INVALID_SHORTAGE');
-  const clean=JSON.parse(JSON.stringify(entry));
-  if(JSON.stringify(clean).length>2000)throw Error('INVALID_SHORTAGE');
-  await storage.put(SHORTAGE_PREFIX+new Date(now).toISOString()+':'+crypto.randomUUID().slice(0,8),{...clean,at:new Date(now).toISOString()});
-  // Bounded: drop entries past retention, then the oldest beyond the cap.
-  const keys=[...(await storage.list({prefix:SHORTAGE_PREFIX})).keys()];
-  const cutoff=SHORTAGE_PREFIX+new Date(now-SHORTAGE_RETENTION_MS).toISOString();
-  const expired=keys.filter(key=>key<cutoff),kept=keys.filter(key=>key>=cutoff);
-  const drop=[...expired,...kept.slice(0,Math.max(0,kept.length-SHORTAGE_MAX))];
-  for(let i=0;i<drop.length;i+=128)await storage.delete(drop.slice(i,i+128));
-}
+export const LEGACY_SEARCH_PREFIX='shortage:';
 export function coordinator(env){return env.CATALOG_SYNC.get(env.CATALOG_SYNC.idFromName('catalog-publisher-v1'));}

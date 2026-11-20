@@ -6,7 +6,7 @@ import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,S
 import {createEmbed} from './embeddings.mjs';
 import {createCatalogReader} from './catalog.mjs';
 import {accessStore,packContinuation,unpackContinuation,continuationCursor,CONTINUATION_MAX_WORKS,TOOL_LIMITS} from './access-state.mjs';
-import {coordinator,shortageEntry} from './synchronization.mjs';
+import {coordinator} from './synchronization.mjs';
 import {hostedVisuals} from './previews.mjs';
 import {workReply,detailTools,VISUAL_RESPONSE_BYTES} from '../visuals.mjs';
 import {searchInstructions} from '../instructions.mjs';
@@ -218,8 +218,6 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
           const engine=await getEngine();
           if(parsed.cursor){saved=unpackContinuation(await state('take',{args:parsed,snapshotId:engine.index.snapshotId}));engine.cursors.set(parsed.cursor,saved);}
           result=await engine.search(parsed);
-          // Identity-free record of a search that found too few works (maintainer status only).
-          if(result.insufficient_matches&&!parsed.cursor&&env.CATALOG_SYNC&&ctx?.waitUntil)ctx.waitUntil(coordinator(env).fetch('https://sync.internal/',{method:'POST',body:JSON.stringify({action:'shortage',entry:shortageEntry(parsed,result,SEARCH_REVISION)})}).catch(()=>{}));
           if(result.next_cursor){
             const value=engine.cursors.get(result.next_cursor);engine.cursors.delete(result.next_cursor);
             if(parsed.cursor)result.next_cursor=continuationCursor(parsed.cursor,parsed);

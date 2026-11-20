@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {SearchEngine,SEARCH_REVISION} from '../search.mjs';
 import {normalizeRows} from '../catalog.mjs';
 import {queryIntent} from '../relevance.mjs';
-import {shortageEntry,recordShortage,SHORTAGE_PREFIX,SHORTAGE_MAX,SHORTAGE_RETENTION_MS} from '../cloudflare/synchronization.mjs';
+import {CatalogSync,LEGACY_SEARCH_PREFIX} from '../cloudflare/synchronization.mjs';
 import {work,embed,vector} from './fixtures.mjs';
 
 const capturedAt=new Date().toISOString();
@@ -74,22 +74,15 @@ test('everyday component synonyms are concepts with broader fallbacks',async()=>
  assert.equal(plain.results[0].id,bar.id);
 });
 
-test('shortage records are identity-free, bounded and expire',async()=>{
- const entry=shortageEntry({query:'wellness logo '+'x'.repeat(400),filters:{industries:['Health']}},{interpreted_query:{kinds:['logo'],subjects:['logo'],context:['wellness']},search_coverage:{subject_matches:0,context_matches:0},results:[],user:'user_secret'},21);
- assert.equal(entry.query.length,200);
- assert.deepEqual(entry.kinds,['logo']);
- assert.equal(entry.revision,21);
- assert.ok(!JSON.stringify(entry).includes('user_secret'));
- const store=new Map();
- const storage={put:async(k,v)=>{store.set(k,v);},delete:async keys=>{for(const k of [keys].flat())store.delete(k);},list:async({prefix})=>new Map([...store].filter(([k])=>k.startsWith(prefix)).sort(([a],[b])=>a<b?-1:1))};
- const start=Date.parse('2026-11-01T00:00:00Z');
- await recordShortage(storage,entry,start);
- await recordShortage(storage,entry,start+SHORTAGE_RETENTION_MS+1000);
- assert.equal(store.size,1,'entries past retention are dropped');
- for(let i=0;i<SHORTAGE_MAX+5;i++)await recordShortage(storage,{query:'q'+i},start+SHORTAGE_RETENTION_MS+2000+i);
- assert.equal(store.size,SHORTAGE_MAX);
- assert.ok([...store.keys()].every(k=>k.startsWith(SHORTAGE_PREFIX)));
- await assert.rejects(recordShortage(storage,{subjects:['x']}),/INVALID_SHORTAGE/);
+test('searches are not recorded and status removes records kept by an earlier revision',async()=>{
+ const store=new Map([[LEGACY_SEARCH_PREFIX+'2026-11-19T00:00:00.000Z:abc',{query:'wellness logo'}],['status',{state:'ready'}]]);
+ const storage={get:async k=>store.get(k),put:async(k,v)=>{store.set(k,v);},delete:async keys=>{for(const k of [keys].flat())store.delete(k);},list:async({prefix})=>new Map([...store].filter(([k])=>k.startsWith(prefix)))};
+ const sync=new CatalogSync({storage},{},{readSource:async()=>{throw Error('unused');},embed:async()=>[]});
+ const reply=await (await sync.fetch(new Request('https://sync.internal/',{method:'POST',body:JSON.stringify({action:'status'})}))).json();
+ assert.deepEqual(reply,{state:'ready'});
+ assert.deepEqual([...store.keys()],['status']);
+ assert.equal((await sync.fetch(new Request('https://sync.internal/',{method:'POST',body:JSON.stringify({action:'shortage',entry:{query:'x'}})}))).status,400);
+ assert.deepEqual([...store.keys()],['status']);
 });
 
 test('soft shadows and gradients are rendering, not a calm work',async()=>{

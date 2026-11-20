@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminLibraryPagination } from "@/components/admin/library-pagination";
 import { AdminBillingControls } from "@/components/sponsorship/admin-billing-controls";
 import { AnalyticsOverview } from "@/components/sponsorship/analytics-overview";
+import { CopySponsorInvite } from "@/components/sponsorship/copy-sponsor-invite";
 import { DashboardIcon } from "@/components/sponsorship/dashboard-icon";
 import { DashboardSidebar, dashboardNavClass } from "@/components/sponsorship/dashboard-navigation";
 import styles from "@/components/sponsorship/dashboard.module.css";
@@ -57,7 +58,7 @@ function SponsorDirectory({ data }: { data: AdminData }) {
       <ul className="mt-3 divide-y divide-[#e7ebf2]">{data.accounts.map(account => <li key={account.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
         <div><Link href={linkTo("overview", account.id)} className="focus-ring break-all font-medium underline">{account.campaignTitle ?? account.id}</Link>
           <p className={`mt-1 text-sm ${styles.muted}`}>{paymentType(account)} · {account.state}</p></div>
-        {account.invoiceInviteId && <a className="focus-ring text-sm underline" href={`/sponsor/dashboard/invite/${account.invoiceInviteId}`}>Sponsor invite</a>}
+        {account.invoiceInviteId && <CopySponsorInvite key={account.invoiceInviteId} inviteId={account.invoiceInviteId} />}
       </li>)}</ul>
       {!data.accounts.length && <p className={styles.empty}>No sponsor accounts yet.</p>}
       <AdminLibraryPagination path={path} {...data.accountPagination} query={{ section: "sponsors", account: data.selectedAccount?.id }} />

@@ -14,7 +14,7 @@ beforeEach(() => {
   mocks.read.mockImplementation(async ({ accountId }) => ({
     selectedAccount: accountId === "missing" ? undefined : { id: accountId ?? "account-a", campaignTitle: "affectUI", state: "active", billingMode: "one_time" },
     seats: [{ slot: 1, state: "occupied", accountId: "account-a", campaignTitle: "affectUI", published: true }, { slot: 2, state: "free" }], jobs: [], exceptions: [],
-    accounts: [{ id: "account-a", state: "active", paidThrough: null, cancelAtPeriodEnd: false }, { id: "account-b", state: "active", paidThrough: null, cancelAtPeriodEnd: false }],
+    accounts: [{ id: "account-a", state: "active", paidThrough: null, cancelAtPeriodEnd: false, invoiceInviteId: "invoice-a" }, { id: "account-b", state: "active", paidThrough: null, cancelAtPeriodEnd: false }],
     accountPagination: { page: 1, totalPages: 2 }, exceptionPagination: { page: 1, totalPages: 1 }, jobPagination: { page: 1, totalPages: 1 },
   }));
 });
@@ -23,6 +23,8 @@ it("links to individual sponsor dashboards and shows occupied seat owners withou
   expect(html).toContain("affectUI");
   expect(html).toContain("1 of 2 occupied");
   expect(html).toContain("section=overview&amp;account=account-b");
+  expect(html.match(/Copy sponsor invite/g)).toHaveLength(1);
+  expect(html).not.toContain('href="/sponsor/dashboard/invite/');
   expect(mocks.report).not.toHaveBeenCalled();
 });
 it.each([undefined, "account-b"])("loads just the default or selected account in Overview", async account => {

@@ -1,20 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { sponsorButton } from "./button-styles";
 
 export function CopySponsorInvite({ inviteId }: { inviteId: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedAt, setCopiedAt] = useState<number | null>(null);
   const [manualUrl, setManualUrl] = useState("");
+
+  useEffect(() => {
+    if (copiedAt === null) return;
+    const timer = setTimeout(() => setCopiedAt(null), 3_000);
+    return () => clearTimeout(timer);
+  }, [copiedAt]);
 
   async function copyInvite() {
     const url = new URL(`/sponsor/dashboard/invite/${inviteId}`, window.location.origin).href;
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
+      setCopiedAt(Date.now());
       setManualUrl("");
     } catch {
-      setCopied(false);
+      setCopiedAt(null);
       setManualUrl(url);
     }
   }
@@ -25,7 +31,7 @@ export function CopySponsorInvite({ inviteId }: { inviteId: string }) {
         Copy sponsor invite
       </button>
       <span role="status" className="text-xs text-[#66758c]">
-        {copied ? "Copied to clipboard" : manualUrl ? "Copy the link below." : ""}
+        {copiedAt !== null ? "Copied to clipboard" : manualUrl ? "Copy the link below." : ""}
       </span>
       {manualUrl && (
         <input

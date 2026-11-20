@@ -18,6 +18,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -31,6 +32,22 @@ it("copies the complete invite for the current site without navigating", async (
   expect(write).toHaveBeenCalledExactlyOnceWith(`${location.origin}/sponsor/dashboard/invite/${inviteId}`);
   expect(location.href).toBe(page);
   expect(container.querySelector('[role="status"]')?.textContent).toBe("Copied to clipboard");
+});
+
+it("clears the confirmation three seconds after the most recent copy", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+  await act(async () => root.render(<CopySponsorInvite inviteId={inviteId} />));
+  const button = container.querySelector("button")!;
+  const status = container.querySelector('[role="status"]')!;
+  await act(async () => button.click());
+  await act(async () => { vi.advanceTimersByTime(2_000); });
+  await act(async () => button.click());
+  await act(async () => { vi.advanceTimersByTime(2_999); });
+  expect(status.textContent).toBe("Copied to clipboard");
+  await act(async () => { vi.advanceTimersByTime(1); });
+  expect(status.textContent).toBe("");
+  expect(button.textContent).toBe("Copy sponsor invite");
 });
 
 it("offers the full URL for manual copying when clipboard access fails", async () => {

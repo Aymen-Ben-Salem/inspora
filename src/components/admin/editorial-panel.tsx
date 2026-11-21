@@ -7,6 +7,10 @@ import { prepareEditorialEvidence } from "@/features/admin/editorial-evidence";
 type Result = { id: string; proposal: EditorialProposal; before: EditorialSnapshot; costUsd: number; cached: boolean };
 const button = "focus-ring min-h-11 rounded-lg border border-black/15 bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-[#eeefeb] active:bg-[#e4e7e0] disabled:cursor-not-allowed disabled:opacity-45";
 const primary = `${button} !border-[#262626] !bg-[#262626] text-white hover:!bg-[#41413e]`;
+const retryableGenerationErrors = new Set([
+  "Generation failed. Review API access and usage before retrying.",
+  "That attempt did not complete. Choose Regenerate to try again.",
+]);
 const label = (field: string) => ({ industries: "Industry", industry: "Industry", shape: "Shape", styles: "Style", colors: "Color", categories: "Categories", themes: "Theme", tagline: "Feed description", category: "Category", description: "Description" }[field] ?? field);
 const mediaLabel = (kind: EditorialKind, index: number) => kind === "website" ? (index === 0 ? "Recording alt text" : "Favicon alt text") : kind === "design" ? `Alt text, media ${index + 1}` : "Alt text";
 
@@ -92,6 +96,7 @@ export default function EditorialPanel({ kind, onCategory, onMediaAlt, autoStart
     finally { setBusy(false); }
   }
   const applied = !!review;
+  const retryFailedGeneration = failed && retryableGenerationErrors.has(message);
   return <div ref={root} className="min-w-0 space-y-4" aria-busy={busy}>
     <input type="hidden" name="editorialReview" value={review} />
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -151,6 +156,8 @@ export default function EditorialPanel({ kind, onCategory, onMediaAlt, autoStart
       </div>}
     </div>}
     {applied && <p className="text-xs leading-relaxed text-[#62625d]">Editing the title, media or these details needs a new AI review to save search notes. You can clear the AI review and keep editing manually.</p>}
-    {!result && !busy && <button type="button" className={primary} onClick={() => generate()}>Generate details</button>}
+    {!result && !busy && <button type="button" className={primary} onClick={() => generate(retryFailedGeneration)}>
+      {retryFailedGeneration ? "Try again (paid)" : "Generate details"}
+    </button>}
   </div>;
 }

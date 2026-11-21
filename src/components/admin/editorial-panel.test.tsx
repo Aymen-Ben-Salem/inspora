@@ -39,6 +39,26 @@ it("starts only one request when opened by the Generate button, including Strict
   expect(host.textContent).toContain("Choose what to use");
   await act(async () => root.unmount());
 });
+it.each([
+  "Generation failed. Review API access and usage before retrying.",
+  "That attempt did not complete. Choose Regenerate to try again.",
+])("starts a fresh generation when an admin retries after %s", async (error) => {
+  const { root, host, fetcher, click } = await setup();
+  fetcher.mockResolvedValueOnce(Response.json({ error }, { status: 400 }));
+
+  await click("Generate details");
+  expect(host.querySelector('[role="alert"]')?.textContent).toBe(error);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  const firstRequest = JSON.parse(fetcher.mock.calls[0][1].body);
+  expect(firstRequest).not.toHaveProperty("regeneration");
+
+  await click("Try again (paid)");
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  const retryRequest = JSON.parse(fetcher.mock.calls[1][1].body);
+  expect(retryRequest).toEqual({ ...firstRequest, regeneration: expect.stringMatching(/^[0-9a-f-]{36}$/i) });
+  expect(host.textContent).toContain("Choose what to use");
+  await act(async () => root.unmount());
+});
 it("clears the AI binding without erasing applied text or charging again", async () => {
   const { root, host, fetcher, click } = await setup();
   await click("Generate details"); await click("Use selected details"); await click("Clear AI review");

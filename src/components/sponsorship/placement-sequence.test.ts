@@ -27,7 +27,7 @@ it.each([
 ] as const)("repeats one sponsor every four rows at %i columns", (columns, positions) => {
   const items = buildPlacementSequence({ ordinaryIds, sponsors: ["a"], columns });
   expect(sponsorSlots(items, columns).slice(0, 4)).toEqual(
-    positions.map((column, index) => ["a", index * 4 + 1, column]),
+    positions.map((column, index) => ["a", index * 4 + (columns === 1 ? 3 : 1), column]),
   );
 });
 
@@ -51,8 +51,15 @@ it.each([0, 1, 3])("shows each sponsor once when a complete feed has only %i ord
 });
 
 it("does not add a repeat row after the last ordinary card", () => {
-  const items = buildPlacementSequence({ ordinaryIds: ordinaryIds.slice(0, 3), sponsors: ["a"], columns: 1 });
-  expect(sponsorSlots(items, 1)).toEqual([["a", 1, 1]]);
+  const items = buildPlacementSequence({ ordinaryIds: ordinaryIds.slice(0, 5), sponsors: ["a"], columns: 1 });
+  expect(sponsorSlots(items, 1)).toEqual([["a", 3, 1]]);
+});
+
+it("waits for the first two ordinary cards while loading a single-column feed", () => {
+  const firstPage = buildPlacementSequence({ ordinaryIds: ["0"], sponsors, columns: 1, hasMore: true });
+  expect(firstPage).toEqual([{ kind: "ordinary", id: "0" }]);
+  const nextPage = buildPlacementSequence({ ordinaryIds: ["0", "1", "2"], sponsors, columns: 1, hasMore: true });
+  expect(sponsorSlots(nextPage, 1)).toEqual([["a", 3, 1], ["b", 5, 1]]);
 });
 
 it("keeps loaded cards in place as more pages make the next sponsor slots available", () => {

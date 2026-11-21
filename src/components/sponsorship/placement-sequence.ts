@@ -18,7 +18,7 @@ export function buildPlacementSequence({
   const columnOrder = [columns - 1, ...[1, 0, 2].filter(column => column < columns - 1)];
   const items: FeedItem[] = [];
   let ordinaryIndex = 0;
-  let row = 0;
+  let row = columns === 1 ? 2 : 0;
 
   for (let index = 0; campaigns.length > 0; index++) {
     const campaignIndex = index % campaigns.length;

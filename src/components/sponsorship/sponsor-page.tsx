@@ -39,7 +39,7 @@ const benefits = [
 // Owner-selected fixed figures.
 const audienceStatistics = [
   ["visitors / month", "100k"],
-  ["page views / month", "~230k"],
+  ["page views / month", "250k"],
   ["average time on site", "3m 35s"],
 ] as const;
 

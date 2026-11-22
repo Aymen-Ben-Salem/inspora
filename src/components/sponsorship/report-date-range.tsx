@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { reportWindow, rollingWindow, type MetricsFilter } from "@/analytics/first-party/query";
 import type { CampaignRun } from "@/features/sponsorship/campaign-runs";
+import { NavbarMenu } from "@/components/navbar-menu";
 import { DashboardIcon } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
 
@@ -60,6 +61,8 @@ export function ReportDateRange({ filter, onChange, runs = [] }: { filter: Metri
 
 function RangeCalendar({ start, end, today, runs, onClose, onApply }: { start: string; end: string; today: string; runs: ReportCampaignRun[]; onClose(): void; onApply(start: string, end: string): void }) {
   const dialog = useRef<HTMLDialogElement>(null), titleId = useId(), hintId = useId();
+  // Escape inside the open campaign menu closes only that menu, not the picker.
+  const menuEscape = useRef(false);
   const [draftStart, setStart] = useState(start), [draftEnd, setEnd] = useState(end);
   const [selectingEnd, setSelectingEnd] = useState(false);
   const [month, setMonth] = useState(monthStart(end));
@@ -69,6 +72,11 @@ function RangeCalendar({ start, end, today, runs, onClose, onApply }: { start: s
   const runId = useId();
   const [runIndex, setRunIndex] = useState(0);
   const run = runs[runIndex];
+  // Menu items are keyed by label, so number any repeated run label.
+  const runLabels = runs.map(option => {
+    const days = runDays(option, today);
+    return `${option.title} · ${shortDate(days.start)} – ${option.end ? shortDate(days.end) : "live now"}`;
+  }).map((label, index, all) => all.indexOf(label) === index ? label : `${label} (${all.slice(0, index + 1).filter(item => item === label).length})`);
   const runRange = run ? runDays(run, today) : null;
   const clamp = (day: string) => day < min ? min : day > today ? today : day;
   const runRetained = Boolean(runRange && runRange.end >= min);
@@ -121,7 +129,7 @@ function RangeCalendar({ start, end, today, runs, onClose, onApply }: { start: s
       </div>
     </section>;
   }
-  return <dialog ref={dialog} className={styles.calendarDialog} aria-labelledby={titleId} aria-describedby={hintId} onCancel={event => { event.preventDefault(); close(); }} onClick={event => { if (event.target === event.currentTarget) close(); }}>
+  return <dialog ref={dialog} className={styles.calendarDialog} aria-labelledby={titleId} aria-describedby={hintId} onKeyDown={event => { if (event.key === "Escape") menuEscape.current = Boolean(dialog.current?.querySelector('[data-navbar-menu] > button[aria-expanded="true"]')); }} onCancel={event => { event.preventDefault(); if (menuEscape.current) { menuEscape.current = false; return; } close(); }} onClick={event => { if (event.target === event.currentTarget) close(); }}>
     <div className={styles.calendarContent}>
       <header className={styles.calendarHeader}><div><h2 id={titleId}>Select a period</h2><p id={hintId}>Choose a start and end date · UTC</p></div><button type="button" className={styles.iconButton} onClick={close} aria-label="Close date picker"><DashboardIcon name="close" /></button></header>
       <div className={styles.dateInputs}>
@@ -130,14 +138,16 @@ function RangeCalendar({ start, end, today, runs, onClose, onApply }: { start: s
         <label>End date<input type="date" aria-label="End date" min={draftStart || min} max={today} value={draftEnd} onChange={event => { setEnd(event.target.value); setSelectingEnd(false); }} /></label>
       </div>
       {runs.length ? <div className={styles.campaignDates}>
-        <label htmlFor={runId}>Campaign dates</label>
+        <p id={runId}>Campaign dates</p>
         <div className={styles.campaignDatesRow}>
-          <select id={runId} value={runIndex} onChange={event => setRunIndex(Number(event.target.value))}>
-            {runs.map((option, index) => {
-              const days = runDays(option, today);
-              return <option key={`${option.campaignId}-${option.start}`} value={index}>{`${option.title} · ${shortDate(days.start)} – ${option.end ? shortDate(days.end) : "live now"}`}</option>;
-            })}
-          </select>
+          <div className={styles.campaignRunMenu}>
+            <NavbarMenu label={`Campaign dates: ${runLabels[runIndex]}`} keepInViewport
+              trigger={<><span className={styles.filterValue}>{runLabels[runIndex]}</span><DashboardIcon name="chevron" /></>}
+              triggerClassName={styles.filterOptionTrigger}
+              menuClassName="w-[min(22rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100dvh-2rem))] overflow-y-auto"
+              items={runs.map((_, index) => ({ label: runLabels[index], selected: index === runIndex, onSelect: () => setRunIndex(index) }))}
+            />
+          </div>
           <div role="group" aria-label="Use campaign dates" className={styles.campaignDateButtons}>
             <button type="button" disabled={!runRetained} onClick={() => pickRunDates("start")}>Use start</button>
             <button type="button" disabled={!runRetained} onClick={() => pickRunDates("end")}>Use end</button>

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true, userId: "owner" }),
+  useUser: () => ({ user: { primaryEmailAddress: { emailAddress: "owner@example.com" } } }),
   SignOutButton: ({ children }: { children: React.ReactNode }) => children,
 }));
 const uploads = vi.hoisted(() => ({ prepare: vi.fn() }));
@@ -245,6 +246,34 @@ it("keeps another upload's progress and a failed field's error independent", asy
   } finally {
     await act(async () => root.unmount());
     uploads.prepare.mockReset();
+    vi.unstubAllGlobals();
+  }
+});
+it("adds, previews and saves a promotional label, and keeps its settings when turned off", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, value: { ...campaign, revision: 6 } }) }));
+  vi.stubGlobal("fetch", fetch);
+  const container = document.createElement("div"), root = createRoot(container);
+  const body = () => JSON.parse((fetch.mock.lastCall as unknown as [string, { body: string }])[1].body);
+  const submit = () => act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  try {
+    await act(async () => root.render(<CampaignEditor paid={{ campaign, readonly: false }} />));
+    const toggle = container.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Show promotional label"]')!;
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(container.querySelector('aside [data-sponsor-promo-label]')).toBeNull();
+    await act(async () => toggle.click());
+    const badge = container.querySelector<HTMLElement>('aside [data-sponsor-promo-label]')!;
+    expect(badge.textContent).toBe("20% OFF Black Friday");
+    expect(badge.style.color).toBeTruthy();
+    await submit();
+    expect(body().promoLabel).toEqual({ enabled: true, text: "20% OFF Black Friday", textColor: "#be185d", backgroundColor: "#fcecf6", borderColor: "#f6cfe3" });
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[aria-label="Label style presets"] button')).find(b => b.textContent?.includes("Dark media"))!.click());
+    await act(async () => toggle.click());
+    expect(container.querySelector('aside [data-sponsor-promo-label]')).toBeNull();
+    await submit();
+    expect(body().promoLabel).toEqual({ enabled: false, text: "20% OFF Black Friday", textColor: "#f38bbb", backgroundColor: "#2e081d", borderColor: "#5c1f3d" });
+  } finally {
+    await act(async () => root.unmount());
     vi.unstubAllGlobals();
   }
 });

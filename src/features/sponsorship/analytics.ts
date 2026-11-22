@@ -4,9 +4,11 @@ import { withWriteTransaction } from "@/db/write-client";
 import {
   analyticsReports,
   sponsorCampaignVersions,
+  sponsorDeliveryIntervals,
   sponsorDeliveryPeriods,
   sponsors,
 } from "@/db/schema";
+import { campaignRuns } from "./campaign-runs";
 import { requireSponsorActor } from "./authorization";
 import { createSponsorAnalyticsService } from "./analytics-service";
 import { readMetricsReport } from "@/analytics/first-party/reports";
@@ -86,6 +88,17 @@ export function readAccountAnalyticsCatalog(accountId: string) {
       .from(sponsorCampaignVersions)
       .innerJoin(sponsors, eq(sponsors.id, sponsorCampaignVersions.campaignId))
       .where(eq(sponsors.accountId, accountId)),
+    // When each campaign was public, for choosing report dates by campaign.
+    runs: campaignRuns(
+      await tx
+        .select({
+          campaignId: sponsorDeliveryIntervals.campaignId,
+          startAt: sponsorDeliveryIntervals.startAt,
+          endAt: sponsorDeliveryIntervals.endAt,
+        })
+        .from(sponsorDeliveryIntervals)
+        .where(eq(sponsorDeliveryIntervals.accountId, accountId)),
+    ),
     periods: (
       await tx
         .select({

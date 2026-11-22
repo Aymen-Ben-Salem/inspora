@@ -47,6 +47,8 @@ export type CampaignInput = {
   posterId?: string;
   videoPreviewId?: string;
   variantIds: string[];
+  /** Optional sale label; versions saved before labels existed omit it. */
+  promoLabel?: import("./promo-label").PromoLabel;
 };
 export type CreativeSnapshot = Omit<CampaignInput, "expectedRevision" | "feedDescription"> & {
   // Older saved campaign versions predate the websites-only caption.

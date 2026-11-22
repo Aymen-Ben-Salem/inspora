@@ -13,6 +13,7 @@ import {
   sponsors,
 } from "@/db/schema";
 import { sponsorshipEnabled } from "@/features/sponsorship/config";
+import { publicPromoLabel } from "@/features/sponsorship/promo-label";
 import type { ActiveSponsor } from "@/domain/sponsor";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
@@ -111,6 +112,7 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
       paidThrough: sponsorAccounts.paidThrough,
       versionId: sponsorCampaignVersions.id,
       feedDescription: sql<string | null>`${sponsorCampaignVersions.creative}->>'feedDescription'`,
+      promoLabel: sql<unknown>`${sponsorCampaignVersions.creative}->'promoLabel'`,
     })
     .from(sponsors)
     .innerJoin(sponsorAccounts, eq(sponsors.accountId, sponsorAccounts.id))
@@ -146,13 +148,14 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
     )
     .orderBy(sponsorSeats.slot)
     .limit(4);
-  const paid: ActiveSponsor[] = rows.map(({ campaign: row, paidThrough, versionId, feedDescription }) => ({
+  const paid: ActiveSponsor[] = rows.map(({ campaign: row, paidThrough, versionId, feedDescription, promoLabel }) => ({
     id: row.id,
     versionId,
     title: row.title,
     url: row.url,
     tagline: row.tagline ?? undefined,
     feedDescription: feedDescription ?? undefined,
+    promoLabel: publicPromoLabel(promoLabel),
     mediaType: row.mediaType as "image" | "video",
     mediaUrl: row.mediaUrl ?? undefined,
     mediaPosterUrl: row.mediaPosterUrl ?? undefined,

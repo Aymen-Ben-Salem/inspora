@@ -47,4 +47,12 @@ export type ActiveSponsor = Pick<
   | "mediaAlt"
   | "iconUrl"
   | "iconStorageProvider"
-> & { paidThrough?: string; serverTime?: string; versionId?: string; wordmarkUrl?: string };
+> & { paidThrough?: string; serverTime?: string; versionId?: string; wordmarkUrl?: string; promoLabel?: SponsorPromoLabel };
+
+/** A short promotional pill on the sponsor feed card, such as a sale. */
+export type SponsorPromoLabel = {
+  text: string;
+  textColor: string;
+  backgroundColor: string;
+  borderColor: string;
+};

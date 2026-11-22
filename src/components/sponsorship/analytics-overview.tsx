@@ -350,7 +350,7 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
   return (
     <section aria-label="Sponsorship performance" className={`${styles.report} space-y-6`}>
       <div className={`${styles.filters} flex flex-wrap items-center justify-between gap-3`}>
-        <ReportDateRange filter={filter} onChange={setFilter} />
+        <ReportDateRange filter={filter} onChange={setFilter} runs={catalog?.runs?.map(run => ({ ...run, title: campaigns[run.campaignId] ?? "Campaign" }))} />
         <ReportFilterMenu filter={filter} onApply={draft => setFilter(previous => {
           const keys: ReportFilterKey[] = ["campaignId", "placement", "country", "periodId"];
           if (keys.every(key => previous[key] === draft[key])) return previous;

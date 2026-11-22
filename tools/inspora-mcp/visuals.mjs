@@ -46,10 +46,17 @@ export const visualManifest = z.object({
   mediaFingerprint: hash,
   duration: timestamp.optional(),
   palette: paletteSchema.optional(),
+  // A component on a plain canvas: the canvas colour (share of the image) and the colours of
+  // everything else (share of that content area), so text and accents are not lost to the canvas.
+  palette_background: z.object({hex: z.string().regex(/^#[0-9a-f]{6}$/), share: z.number().min(0).max(1)}).strict().optional(),
+  palette_content: paletteSchema.optional(),
   // Decode rate of the dense sheets and how many decoded frames were kept after collapsing holds.
   motion: z.object({fps: z.number().positive().max(8), decoded: z.number().int().positive().max(400), kept: z.number().int().positive().max(DENSE_SHEETS_MAX*DENSE_FRAMES_PER_SHEET),
     // A clip that repeats one cycle: its period, and the dense sheets cover that one cycle.
-    loop_seconds: z.number().positive().max(60).optional()}).strict().optional(),
+    loop_seconds: z.number().positive().max(60).optional(),
+    // The part of the frame the dense sheets show (fractions of the frame) when the content
+    // occupies only part of a plain canvas.
+    crop: z.object({x: z.number().min(0).max(1), y: z.number().min(0).max(1), width: z.number().positive().max(1), height: z.number().positive().max(1)}).strict().optional()}).strict().optional(),
   assets: z.array(z.object({role: z.union([z.enum(['still','overview']), denseRole]),...assetFields}).strict()).min(1).max(2 + DENSE_SHEETS_MAX),
 }).strict().refine(roleSet(value => value.assets.filter(item => item.role.startsWith('dense-'))
   .every((item, i) => item.role === 'dense-' + (i + 1) && item.timecodes?.length && item.timecodes.length <= DENSE_FRAMES_PER_SHEET)));
@@ -184,9 +191,10 @@ async function denseVisuals(row, read, manifest, {detail, budget, sheets}) {
     motion_sheets:manifest.assets.filter(item => item.role !== 'still').length,
     // Largest share first (packs built before the generator sorted after merging kept merge order).
     ...(manifest.palette ? {palette:[...manifest.palette].sort((a,b) => b.share - a.share)} : {}),
+    ...(manifest.palette_background && manifest.palette_content ? {paletteBackground:manifest.palette_background,paletteContent:manifest.palette_content} : {}),
     ...(dense.length ? {dense:{
       total:dense.length,
-      ...(manifest.motion ? {fps:manifest.motion.fps,frames:manifest.motion.kept,...(manifest.motion.loop_seconds ? {loop_seconds:manifest.motion.loop_seconds} : {})} : {}),
+      ...(manifest.motion ? {fps:manifest.motion.fps,frames:manifest.motion.kept,...(manifest.motion.loop_seconds ? {loop_seconds:manifest.motion.loop_seconds} : {}),...(manifest.motion.crop ? {crop:manifest.motion.crop} : {})} : {}),
       ranges:dense.map((item,i) => ({sheet:i+1,from_seconds:item.timecodes[0],to_seconds:item.timecodes.at(-1),frames:item.timecodes.length})),
       attached:attachedDense,
       ...(remaining.length ? {remaining:sheetRange(remaining)} : {}),
@@ -230,6 +238,7 @@ export async function preparedVisuals(row, read, {detail='glance', budget=VISUAL
 export const LEGACY_STATUS = 'legacy_low_resolution_thumbnail';
 const LEGACY_NOTE = 'Small legacy thumbnail only. Fine text and controls may be unreadable; use the description or media links for details.';
 const PALETTE_NOTE = 'Dominant colours sampled from the prepared image (for motion, 30 evenly spaced frames), with approximate share. Approximate: compression and video frames shift values; not confirmed brand colours.';
+const PALETTE_CONTENT_NOTE = 'Sampled colours (for motion, 30 evenly spaced frames). background is the canvas colour with its share of the image; content lists the colours of the design itself with their share of the non-background area. Each is an actual colour from the image (its most common pixel colour, not an average). A small saturated entry may be an accent, an icon or a third-party logo: confirm in the image. Compression and video frames can shift values slightly; not confirmed brand colours.';
 const pngSize = bytes => bytes.length >= 24 && bytes[0] === 137 && bytes[1] === 80 ?
   {width:(bytes[16]<<24|bytes[17]<<16|bytes[18]<<8|bytes[19])>>>0,height:(bytes[20]<<24|bytes[21]<<16|bytes[22]<<8|bytes[23])>>>0} : {};
 const imageContent = image => ({type:'image',mimeType:image.mimeType,data:Buffer.from(image.bytes).toString('base64')});
@@ -247,9 +256,9 @@ function studyAvailability(work, pack) {
       available:sheets > 0,
       sheets,
       dense_sheets:{total:dense.total,attached:dense.attached,...(dense.remaining ? {not_attached:dense.remaining} : {}),
-        ...(dense.fps ? {frames_per_second:dense.fps} : {}),...(dense.loop_seconds ? {loop_seconds:dense.loop_seconds} : {}),ranges:dense.ranges},
+        ...(dense.fps ? {frames_per_second:dense.fps} : {}),...(dense.loop_seconds ? {loop_seconds:dense.loop_seconds} : {}),...(dense.crop ? {cropped_to:dense.crop} : {}),ranges:dense.ranges},
       ...(first ? {next_request:{id:work.id,detail:'study',sheets:first}} : {}),
-      note:DENSE_NOTE + (dense.loop_seconds ? ' The clip repeats one '+dense.loop_seconds+' s cycle; the dense sheets cover that cycle once.' : '') + (first ? ` Request more with get_work sheets (for example "${first}"); "overview" adds the 30-frame whole-clip sheet.` : ''),
+      note:DENSE_NOTE + (dense.loop_seconds ? ' The clip repeats one '+dense.loop_seconds+' s cycle; the dense sheets cover that cycle once.' : '') + (dense.crop ? ' The dense sheets are cropped to the part of the frame where the design appears (cropped_to, fractions of the frame); the still and overview show the whole frame.' : '') + (first ? ` Request more with get_work sheets (for example "${first}"); "overview" adds the 30-frame whole-clip sheet.` : ''),
       ...(dense.invalid ? {invalid_sheets:dense.invalid} : {}),
       ...(omitted.length ? {partial:true,omitted_roles:omitted,reason:'Image response budget reached; request the remaining sheets with the sheets argument.'} : {}),
     };
@@ -323,7 +332,8 @@ export async function workReply(engine, ids, input, {loadVisuals, live=false, ba
       if (pack.duration !== undefined) work.preview.duration_seconds = pack.duration;
       if (pack.motion_sheets !== undefined) work.preview.motion_sheets = pack.motion_sheets;
       if (pack.dense?.loop_seconds) work.preview.loop_seconds = pack.dense.loop_seconds;
-      if (pack.palette) work.preview.palette = {colors:pack.palette,note:PALETTE_NOTE};
+      if (pack.paletteContent) work.preview.palette = {background:pack.paletteBackground,content:pack.paletteContent,note:PALETTE_CONTENT_NOTE};
+      else if (pack.palette) work.preview.palette = {colors:pack.palette,note:PALETTE_NOTE};
       if (pack.images.length) work.preview.images = [];
       const denseTotal = pack.dense?.total;
       for (const image of pack.images) {

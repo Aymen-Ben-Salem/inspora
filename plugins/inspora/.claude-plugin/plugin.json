@@ -1,7 +1,7 @@
 {
   "name": "inspora",
   "displayName": "Inspora",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Inspora design-inspiration search for the Inspora team: the hosted Inspora MCP (team OAuth sign-in required) plus the inspora-discovery and inspora-design-direction skills.",
   "author": {
     "name": "Inspora",

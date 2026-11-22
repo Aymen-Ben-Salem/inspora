@@ -320,26 +320,73 @@ export async function loopFrames(frames, fps) {
   return k < 0 ? null : k + min;
 }
 
-async function denseFrames(file, duration, temp, limit) {
-  const fps = Number(Math.min(DENSE_FPS, DENSE_DECODE_MAX/duration).toFixed(3));
-  const directory = path.join(temp,'dense');
-  await fs.mkdir(directory);
-  await ffmpeg(['-protocol_whitelist','file,pipe','-i',file,'-map','0:v:0','-an',
-    '-vf',`fps=${fps}:start_time=0,scale=w=${DENSE_EDGE}:h=${DENSE_EDGE}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
-    '-frames:v',String(DENSE_DECODE_MAX),'-q:v','3','-threads','2',path.join(directory,'d-%04d.jpg')]);
-  const decoded = (await fs.readdir(directory)).filter(name => /^d-\d{4}\.jpg$/.test(name)).sort().map((name,i) => ({
-    file:path.join(directory,name), time:Number((i/fps).toFixed(3)),
-  }));
-  const loop = await loopFrames(decoded, fps);
-  const kept = thinFrames(await collapseHolds(loop ? decoded.slice(0, loop + 1) : decoded), limit);
-  return {fps, decoded:decoded.length, kept, ...(loop ? {loopSeconds:Number((loop/fps).toFixed(2))} : {})};
+// The part of the frame where the design appears, when it sits on a plain canvas: the union,
+// over every decoded frame (so a brief pop-up is kept), of pixels that differ clearly from the canvas colour (the
+// median of the frame borders), plus a margin. Returns fractions of the frame, or null when the
+// borders are not one plain colour (a full-bleed UI) or the content already fills most of it.
+const CROP_EDGE = 160, CROP_TOLERANCE = 36, CROP_MARGIN = 0.04, CROP_MAX_AREA = 0.8;
+export async function contentCrop(frames) {
+  if (!frames.length) return null;
+  const pictures = [];
+  for (const frame of frames) pictures.push(await sharp(frame.file).removeAlpha().resize({width:CROP_EDGE,height:CROP_EDGE,fit:'inside'}).raw().toBuffer({resolveWithObject:true}));
+  const {width,height} = pictures[0].info;
+  if (pictures.some(p => p.info.width !== width || p.info.height !== height) || width < 16 || height < 16) return null;
+  const border = [[],[],[]];
+  const onBorder = (x,y) => x < 2 || y < 2 || x >= width-2 || y >= height-2;
+  for (const {data} of pictures) for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    if (!onBorder(x,y)) continue;
+    const i = (y*width + x)*3; for (let c = 0; c < 3; c++) border[c].push(data[i+c]);
+  }
+  const canvas = border.map(values => values.sort((a,b) => a-b)[values.length>>1]);
+  const differs = (data,i) => Math.abs(data[i]-canvas[0]) + Math.abs(data[i+1]-canvas[1]) + Math.abs(data[i+2]-canvas[2]) > CROP_TOLERANCE;
+  let plain = 0, ring = 0;
+  for (const {data} of pictures) for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    if (!onBorder(x,y)) continue; ring++; if (!differs(data,(y*width + x)*3)) plain++;
+  }
+  if (plain/ring < 0.85) return null;
+  const mask = new Uint8Array(width*height);
+  for (const {data} of pictures) for (let p = 0; p < width*height; p++) if (!mask[p] && differs(data,p*3)) mask[p] = 1;
+  // A row or column counts once it holds a few content pixels, so compression specks do not.
+  const columns = Array(width).fill(0), rows = Array(height).fill(0);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (mask[y*width + x]) {columns[x]++; rows[y]++;}
+  const xs = columns.map((n,x) => n >= 2 ? x : -1).filter(x => x >= 0), ys = rows.map((n,y) => n >= 2 ? y : -1).filter(y => y >= 0);
+  if (!xs.length || !ys.length) return null;
+  const x0 = Math.max(0, xs[0]/width - CROP_MARGIN), x1 = Math.min(1, (xs.at(-1)+1)/width + CROP_MARGIN);
+  const y0 = Math.max(0, ys[0]/height - CROP_MARGIN), y1 = Math.min(1, (ys.at(-1)+1)/height + CROP_MARGIN);
+  if ((x1-x0)*(y1-y0) > CROP_MAX_AREA) return null;
+  const round = v => Math.round(v*1000)/1000;
+  return {x:round(x0), y:round(y0), width:round(x1-x0), height:round(y1-y0)};
 }
 
-// Dominant colours: pixels of 96 px copies (transparent ones excluded; for motion, evenly
-// spaced frames) are binned at 4 bits per channel. Seeds are chosen greedily by pixel count
+async function denseFrames(file, duration, temp, limit) {
+  const fps = Number(Math.min(DENSE_FPS, DENSE_DECODE_MAX/duration).toFixed(3));
+  const decode = async (name, crop) => {
+    const directory = path.join(temp,name);
+    await fs.mkdir(directory);
+    const cropFilter = crop ? `crop=iw*${crop.width}:ih*${crop.height}:iw*${crop.x}:ih*${crop.y},` : '';
+    await ffmpeg(['-protocol_whitelist','file,pipe','-i',file,'-map','0:v:0','-an',
+      '-vf',`fps=${fps}:start_time=0,${cropFilter}scale=w=${DENSE_EDGE}:h=${DENSE_EDGE}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
+      '-frames:v',String(DENSE_DECODE_MAX),'-q:v','3','-threads','2',path.join(directory,'d-%04d.jpg')]);
+    return (await fs.readdir(directory)).filter(item => /^d-\d{4}\.jpg$/.test(item)).sort().map((item,i) => ({
+      file:path.join(directory,item), time:Number((i/fps).toFixed(3)),
+    }));
+  };
+  let decoded = await decode('dense');
+  // Re-decoded from the source so the cropped area keeps its full resolution.
+  const crop = await contentCrop(decoded);
+  if (crop) decoded = await decode('dense-crop', crop);
+  const loop = await loopFrames(decoded, fps);
+  const kept = thinFrames(await collapseHolds(loop ? decoded.slice(0, loop + 1) : decoded), limit);
+  return {fps, decoded:decoded.length, kept, ...(loop ? {loopSeconds:Number((loop/fps).toFixed(2))} : {}), ...(crop ? {crop} : {})};
+}
+
+// Dominant colours: pixels of 256 px nearest-neighbour copies (so every pixel is a real one; transparent ones excluded; for motion, evenly
+// spaced frames) are binned at 5 bits per channel. Seeds are chosen greedily by pixel count
 // times distance from earlier seeds (so a small but distinct accent gets its own seed), refined
 // by weighted k-means in CIELAB, and clusters within a just-noticeable difference are merged.
-// Deterministic for the same input.
+// When one colour covers most of the image (a component on a plain canvas), it is reported as
+// the background and the remaining pixels are clustered again as the content's own colours, so
+// text and accents are not lost to the canvas. Deterministic for the same input.
 const srgbLinear = c => {c /= 255; return c <= 0.04045 ? c/12.92 : ((c+0.055)/1.055)**2.4;};
 const labF = t => t > 216/24389 ? Math.cbrt(t) : (24389/27*t + 16)/116;
 function lab([r,g,b]) {
@@ -353,27 +400,12 @@ const hex = rgb => '#' + rgb.map(v => Math.round(Math.min(255,Math.max(0,v))).to
 // A strongly coloured accent (CIELAB chroma 30+) is kept from a 0.3% share: a red badge or an
 // orange button is small but defines the scheme.
 const PALETTE_SEEDS = 12, PALETTE_MIN_SHARE = 0.015, PALETTE_ACCENT_SHARE = 0.003, PALETTE_ACCENT_CHROMA = 30, PALETTE_MERGE = 15**2;
+// A background covers at least 60% of the image; content is what differs from it by more than
+// a clear difference (deltaE 12) and needs at least 0.2% of the image to be described.
+const PALETTE_SOLID_SHARE = 0.002, PALETTE_BACKGROUND_SHARE = 0.6, PALETTE_CONTENT_DISTANCE = 12**2, PALETTE_CONTENT_MIN = 0.002;
 const chroma = rgb => {const [,a,b] = lab(rgb); return Math.hypot(a,b);};
 
-export async function samplePalette(inputs) {
-  const bins = new Map();
-  let total = 0;
-  for (const input of [inputs].flat()) {
-    const {data,info} = await sharp(input,{limitInputPixels:sourcePixels}).autoOrient().ensureAlpha()
-      .resize({width:96,height:96,fit:'inside'}).raw().toBuffer({resolveWithObject:true});
-    for (let i = 0; i < data.length; i += info.channels) {
-      if (data[i+3] < 128) continue;
-      const key = (data[i]>>4)<<8 | (data[i+1]>>4)<<4 | data[i+2]>>4;
-      const bin = bins.get(key) ?? {key,count:0,sum:[0,0,0]};
-      bin.count++; bin.sum[0] += data[i]; bin.sum[1] += data[i+1]; bin.sum[2] += data[i+2];
-      bins.set(key,bin); total++;
-    }
-  }
-  if (total < 16) return undefined;
-  const points = [...bins.values()].sort((a,b) => a.key - b.key).map(bin => {
-    const rgb = bin.sum.map(v => v/bin.count);
-    return {rgb,lab:lab(rgb),count:bin.count};
-  });
+function clusterColours(points, total) {
   const seeds = [points.reduce((best,p) => p.count > best.count ? p : best).lab];
   while (seeds.length < Math.min(PALETTE_SEEDS,points.length)) {
     let pick = null, score = 0;
@@ -394,9 +426,11 @@ export async function samplePalette(inputs) {
     });
   }
   const clusters = centres.map((_,i) => {
-    let count = 0; const sum = [0,0,0];
-    points.forEach((p,j) => {if (assignment[j] === i) {count += p.count; for (let k = 0; k < 3; k++) sum[k] += p.rgb[k]*p.count;}});
-    return {rgb:count ? sum.map(v => v/count) : [0,0,0], count};
+    let count = 0, mode = null; const sum = [0,0,0];
+    points.forEach((p,j) => {if (assignment[j] === i) {count += p.count; if (!mode || p.count > mode.count) mode = p; for (let k = 0; k < 3; k++) sum[k] += p.rgb[k]*p.count;}});
+    // The reported colour is the cluster's most common actual colour, never an average that may
+    // not occur in the image (a red badge averaged with its pink glow).
+    return {rgb:count ? sum.map(v => v/count) : [0,0,0], count, real:mode?.rgb, realCount:mode?.count ?? 0};
   }).filter(cluster => cluster.count).sort((a,b) => b.count - a.count);
   const merged = [];
   for (const cluster of clusters) {
@@ -405,9 +439,13 @@ export async function samplePalette(inputs) {
     const sum = near.count + cluster.count;
     near.rgb = near.rgb.map((v,c) => (v*near.count + cluster.rgb[c]*cluster.count)/sum);
     near.count = sum;
+    if (cluster.realCount > near.realCount) {near.real = cluster.real; near.realCount = cluster.realCount;}
   }
   // Merging can raise a later cluster's count, so the order is settled after it.
-  const main = merged.filter(cluster => cluster.count/total >= PALETTE_MIN_SHARE).sort((a,b) => b.count - a.count);
+  // A colour is listed only when that exact colour is common (0.2% of the pixels on its own): a
+  // gradient or noise spreads over many colours and has no single colour to report.
+  const solid = merged.filter(cluster => cluster.realCount/total >= PALETTE_SOLID_SHARE);
+  const main = solid.filter(cluster => cluster.count/total >= PALETTE_MIN_SHARE).sort((a,b) => b.count - a.count);
   // An edge blend between two main colours (anti-aliasing around a mark) is not an accent.
   const blend = rgb => {
     const c = lab(rgb), labs = main.map(cluster => lab(cluster.rgb));
@@ -417,12 +455,56 @@ export async function samplePalette(inputs) {
       return distance2(c,[0,1,2].map(k => p[k] + t*d[k])) < 10**2;
     }));
   };
-  const accents = merged.filter(cluster => cluster.count/total < PALETTE_MIN_SHARE && cluster.count/total >= PALETTE_ACCENT_SHARE &&
-    chroma(cluster.rgb) >= PALETTE_ACCENT_CHROMA && !blend(cluster.rgb));
+  const accents = solid.filter(cluster => cluster.count/total < PALETTE_MIN_SHARE && cluster.count/total >= PALETTE_ACCENT_SHARE &&
+    chroma(cluster.rgb) >= PALETTE_ACCENT_CHROMA && !blend(cluster.rgb)).sort((a,b) => b.count - a.count);
   // Accents take the last places, so the top of the palette always reflects coverage.
-  const colours = [...main.slice(0,6-Math.min(2,accents.length)),...accents.slice(0,2)].slice(0,6)
-    .map(cluster => ({hex:hex(cluster.rgb), share:Number((cluster.count/total).toFixed(3))}));
-  return colours.length ? colours : undefined;
+  return [...main.slice(0,6-Math.min(2,accents.length)),...accents.slice(0,2)].slice(0,6)
+    .map(cluster => ({hex:hex(cluster.real), share:Number((cluster.count/total).toFixed(3))}));
+}
+
+/** {colors} for the whole image, plus {background, content} when one colour covers most of it. */
+export async function samplePalette(inputs) {
+  const bins = new Map();
+  let total = 0;
+  for (const input of [inputs].flat()) {
+    const {data,info} = await sharp(input,{limitInputPixels:sourcePixels}).autoOrient().ensureAlpha()
+      .resize({width:256,height:256,fit:'inside',withoutEnlargement:true,kernel:'nearest'}).raw().toBuffer({resolveWithObject:true});
+    for (let i = 0; i < data.length; i += info.channels) {
+      if (data[i+3] < 128) continue;
+      const key = (data[i]>>3)<<10 | (data[i+1]>>3)<<5 | data[i+2]>>3;
+      const bin = bins.get(key) ?? {key,count:0,sum:[0,0,0]};
+      bin.count++; bin.sum[0] += data[i]; bin.sum[1] += data[i+1]; bin.sum[2] += data[i+2];
+      bins.set(key,bin); total++;
+    }
+  }
+  if (total < 16) return undefined;
+  const points = [...bins.values()].sort((a,b) => a.key - b.key).map(bin => {
+    const rgb = bin.sum.map(v => v/bin.count);
+    return {rgb,lab:lab(rgb),count:bin.count};
+  });
+  const colors = clusterColours(points,total);
+  if (!colors.length) return undefined;
+  const top = colors[0];
+  if (top.share < PALETTE_BACKGROUND_SHARE) return {colors};
+  // The background's exact extent: every pixel within a clear difference of its colour.
+  const backgroundLab = lab([1,3,5].map(i => parseInt(top.hex.slice(i,i+2),16)));
+  const content = points.filter(p => distance2(p.lab,backgroundLab) > PALETTE_CONTENT_DISTANCE);
+  const contentTotal = content.reduce((sum,p) => sum + p.count,0);
+  const background = {hex:top.hex, share:Number(((total - contentTotal)/total).toFixed(3))};
+  if (contentTotal/total < PALETTE_CONTENT_MIN) return {colors,background};
+  // An edge where content meets the canvas (anti-aliasing, a soft shadow) is not a colour of the
+  // design: a minor entry lying between the background and a larger content colour is dropped
+  // and the remaining shares are taken over the rest.
+  const labOf = colour => lab([1,3,5].map(i => parseInt(colour.hex.slice(i,i+2),16)));
+  const between = (c,p,q) => {
+    const d = [0,1,2].map(k => q[k]-p[k]), length2 = d.reduce((sum,v) => sum + v*v,0) || 1;
+    const t = Math.min(1,Math.max(0,[0,1,2].reduce((sum,k) => sum + (c[k]-p[k])*d[k],0)/length2));
+    return distance2(c,[0,1,2].map(k => p[k] + t*d[k])) < 10**2;
+  };
+  const found = clusterColours(content,contentTotal);
+  const kept = found.filter((colour,i) => colour.share >= 0.15 || !found.some((other,j) => j !== i && other.share > colour.share && between(labOf(colour),backgroundLab,labOf(other))));
+  const keptShare = kept.reduce((sum,colour) => sum + colour.share,0) || 1;
+  return {colors,background,content:kept.map(colour => ({hex:colour.hex,share:Number((colour.share/keptShare).toFixed(3))}))};
 }
 
 async function motionAssets(row,file,temp) {
@@ -459,7 +541,7 @@ async function motionAssets(row,file,temp) {
     assets.push(await renderAsset(row,'dense-'+(offset/DENSE_FRAMES_PER_SHEET+1),await denseSheet(page),200_000,page.map(frame=>frame.time)));
   }
   return {assets,duration:Number(duration.toFixed(3)),palette:await samplePalette(frames.map(frame=>frame.file)),
-    motion:{fps:dense.fps,decoded:dense.decoded,kept:dense.kept.length,...(dense.loopSeconds ? {loop_seconds:dense.loopSeconds} : {})}};
+    motion:{fps:dense.fps,decoded:dense.decoded,kept:dense.kept.length,...(dense.loopSeconds ? {loop_seconds:dense.loopSeconds} : {}),...(dense.crop ? {crop:dense.crop} : {})}};
 }
 
 /** Thrown for media that can never be prepared (wrong type, over the limits); retrying cannot help. */
@@ -495,7 +577,7 @@ export async function buildVisualPack(row,input,workDir) {
     throw error;
   }
   const manifest = visualManifest.parse({version:2,workId:row.id,mediaFingerprint:mediaFingerprint(row),
-    ...(built.duration!==undefined?{duration:built.duration}:{}),...(built.palette?{palette:built.palette}:{}),
+    ...(built.duration!==undefined?{duration:built.duration}:{}),...(built.palette?{palette:built.palette.colors,...(built.palette.background?{palette_background:built.palette.background}:{}),...(built.palette.content?.length?{palette_content:built.palette.content}:{})}:{}),
     ...(built.motion?{motion:built.motion}:{}),assets:built.assets.map(asset=>asset.item)});
   return {key:visualManifestKey(row),manifest,assets:built.assets};
 }

@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import {mediaFingerprint} from '../enrichment.mjs';
-import {collapseHolds,thinFrames,denseLayout,samplePalette} from '../prepare-visuals.mjs';
+import {collapseHolds,thinFrames,denseLayout,samplePalette,contentCrop} from '../prepare-visuals.mjs';
 import {
   preparedVisuals,workReply,parseSheetSelection,visualManifest,visualManifestV1,visualAssetKey,visualManifestKey,visualSha,
   encodedBytes,VISUAL_MAX_EDGE,VISUAL_RESPONSE_BYTES,
@@ -77,13 +77,14 @@ test('dense sheet layouts stay within the edge and the client pixel limits for w
 test('the palette is deterministic, keeps a small saturated accent and ignores transparent pixels', async () => {
   const picture = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#dddddd"/>
     <rect x="40" y="140" width="320" height="120" rx="60" fill="#0b0b0b"/><circle cx="90" cy="200" r="16" fill="#f21c11"/></svg>`);
-  const first = await samplePalette(picture), second = await samplePalette(picture);
-  assert.deepEqual(first,second);
+  const firstPalette = await samplePalette(picture), second = await samplePalette(picture);
+  assert.deepEqual(firstPalette,second);
+  const first = firstPalette.colors;
   assert.equal(first[0].hex,'#dddddd');
   assert.ok(first.some(colour => colour.hex === '#0b0b0b'));
   assert.ok(first.some(colour => /^#f[0-9a-f]1/.test(colour.hex)),'red accent: '+JSON.stringify(first));
   const mark = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><circle cx="100" cy="100" r="60" fill="#062df1"/></svg>`);
-  const transparent = await samplePalette(mark);
+  const transparent = (await samplePalette(mark)).colors;
   assert.equal(transparent.length,1);assert.equal(transparent[0].share,1);assert.equal(transparent[0].hex,'#062df1');
 });
 
@@ -95,7 +96,7 @@ test('sheet selections parse ranges, overview and report unknown sheets', () => 
 });
 
 // An in-memory v2 (and optionally v1) pack: a 60 KB still, a 120 KB overview and n dense sheets.
-function store({dense = 5, denseSize = 150_000, v1 = false, v2 = true} = {}) {
+function store({dense = 5, denseSize = 150_000, v1 = false, v2 = true, extra = {}, motion = {}} = {}) {
   const files = new Map();
   const asset = (role, size, timecodes, version) => {
     const bytes = jpeg(size, role.length), item = {role,width:800,height:600,bytes:size,sha256:visualSha(bytes),...(timecodes ? {timecodes} : {})};
@@ -106,7 +107,7 @@ function store({dense = 5, denseSize = 150_000, v1 = false, v2 = true} = {}) {
     const assets = [asset('still',60_000,[4],2),asset('overview',120_000,Array.from({length:30},(_,i) => i*0.5),2)];
     for (let n = 1; n <= dense; n++) assets.push(asset('dense-'+n,denseSize,Array.from({length:16},(_,i) => Number(((n-1)*2+i*0.125).toFixed(3))),2));
     files.set(visualManifestKey(row),Buffer.from(JSON.stringify({version:2,workId:row.id,mediaFingerprint:mediaFingerprint(row),duration:15,
-      palette:[{hex:'#dedede',share:0.9},{hex:'#0b0c0a',share:0.07},{hex:'#f21c11',share:0.005}],motion:{fps:8,decoded:120,kept:dense*16},assets})));
+      palette:[{hex:'#dedede',share:0.9},{hex:'#0b0c0a',share:0.07},{hex:'#f21c11',share:0.005}],motion:{fps:8,decoded:120,kept:dense*16,...motion},assets,...extra})));
   }
   if (v1) {
     const assets = [asset('still',50_000,[1],1),asset('overview',50_000,[0,1],1),asset('detail-1',50_000,[0,1],1)];
@@ -177,4 +178,59 @@ test('a clip repeating one cycle reports its period; a clip that moves on does n
     assert.equal(await loopFrames(looping,8),10);
     assert.equal(await loopFrames(moving,8),null);
   }finally{await fsp.rm(dir,{recursive:true,force:true});}
+});
+
+test('a component on a plain canvas reports the canvas as background and its own colours as content', async () => {
+  // A small card with dark text and a red button on a large off-white canvas: under 3% of the image.
+  const picture = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200"><rect width="1200" height="1200" fill="#f8f7f6"/>
+    <rect x="500" y="560" width="200" height="16" fill="#111111"/><rect x="500" y="590" width="120" height="40" rx="8" fill="#e5232f"/></svg>`);
+  const palette = await samplePalette(picture);
+  assert.equal(palette.background.hex,'#f8f7f6');
+  assert.ok(palette.background.share > 0.95);
+  assert.ok(palette.content.some(colour => [1,3,5].every(i => parseInt(colour.hex.slice(i,i+2),16) < 0x30)),'dark text: '+JSON.stringify(palette.content));
+  assert.ok(!palette.content.some(colour => colour.hex.startsWith('#f')),'no pink edge blends: '+JSON.stringify(palette.content));
+  assert.ok(palette.content.some(colour => /^#e[0-9a-f]2/.test(colour.hex)),'red button: '+JSON.stringify(palette.content));
+  assert.ok(Math.abs(palette.content.reduce((sum,colour) => sum + colour.share,0) - 1) < 0.02,'content shares are of the content area');
+  // A busy image has no background split.
+  const busy = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="200" height="400" fill="#1144aa"/><rect x="200" width="200" height="400" fill="#eeeeee"/></svg>`);
+  const split = await samplePalette(busy);
+  assert.equal(split.background,undefined);assert.equal(split.content,undefined);
+});
+
+test('dense sheets crop to where the design moves on a plain canvas, and leave full-bleed frames alone', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(),'crop-'));
+  try {
+    const frames = [];
+    for (let i = 0; i < 6; i++) {
+      const file = path.join(dir,'c'+i+'.png');
+      await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="800"><rect width="1000" height="800" fill="#fafafa"/>
+        <rect x="${400+i*20}" y="300" width="150" height="120" fill="#222222"/></svg>`)).png().toFile(file);
+      frames.push({file,time:i/8});
+    }
+    const crop = await contentCrop(frames);
+    assert.ok(crop,'cropped');
+    assert.ok(crop.x > 0.3 && crop.x < 0.4 && crop.x + crop.width > 0.65 && crop.x + crop.width < 0.75,JSON.stringify(crop));
+    assert.ok(crop.y > 0.3 && crop.y < 0.38 && crop.y + crop.height > 0.52 && crop.y + crop.height < 0.6,JSON.stringify(crop));
+    const bleed = [];
+    for (let i = 0; i < 3; i++) {
+      const file = path.join(dir,'b'+i+'.png');
+      await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="800"><rect width="500" height="800" fill="#123456"/><rect x="500" width="500" height="800" fill="#fafafa"/></svg>`)).png().toFile(file);
+      bleed.push({file,time:i/8});
+    }
+    assert.equal(await contentCrop(bleed),null,'borders that are not one plain colour');
+  } finally {await fs.rm(dir,{recursive:true,force:true});}
+});
+
+test('replies carry the background and content palette and say when dense sheets are cropped', async () => {
+  const read = store({dense:2,extra:{palette_background:{hex:'#f8f7f6',share:0.99},palette_content:[{hex:'#111111',share:0.6},{hex:'#e5232f',share:0.4}]},
+    motion:{crop:{x:0.3,y:0.3,width:0.4,height:0.3}}});
+  const engine = {byId:new Map([[row.id,row]]),details:({id,detail}) => ({snapshot:{},id,title:row.title,creator:row.creator,preview:{video_url:row.media[0].url},detail})};
+  const reply = await workReply(engine,[row.id],{preview:'image',detail:'study'},{loadVisuals:(selected,options) => preparedVisuals(selected,read,options)});
+  const data = JSON.parse(reply.content[0].text);
+  assert.deepEqual(data.preview.palette.background,{hex:'#f8f7f6',share:0.99});
+  assert.equal(data.preview.palette.content[1].hex,'#e5232f');
+  assert.equal(data.preview.palette.colors,undefined);
+  assert.match(data.preview.palette.note,/share of the non-background area/);
+  assert.deepEqual(data.preview.study.dense_sheets.cropped_to,{x:0.3,y:0.3,width:0.4,height:0.3});
+  assert.match(data.preview.study.note,/cropped to the part of the frame/);
 });

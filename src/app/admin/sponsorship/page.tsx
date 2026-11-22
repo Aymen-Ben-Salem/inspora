@@ -4,6 +4,7 @@ import { AdminLibraryPagination } from "@/components/admin/library-pagination";
 import { AdminBillingControls } from "@/components/sponsorship/admin-billing-controls";
 import { AnalyticsOverview } from "@/components/sponsorship/analytics-overview";
 import { CopySponsorInvite } from "@/components/sponsorship/copy-sponsor-invite";
+import { PromotionsPanel } from "@/components/sponsorship/promotions-panel";
 import { DashboardIcon } from "@/components/sponsorship/dashboard-icon";
 import { DashboardSidebar, dashboardNavClass } from "@/components/sponsorship/dashboard-navigation";
 import styles from "@/components/sponsorship/dashboard.module.css";
@@ -14,6 +15,7 @@ const path = "/admin/sponsorship";
 const tabs = [
   { id: "overview", label: "Overview", icon: "overview" },
   { id: "campaigns", label: "Campaigns", icon: "campaigns" },
+  { id: "promotions", label: "Promotions", icon: "promotions" },
   { id: "billing", label: "Billing", icon: "billing" },
   { id: "sponsors", label: "Sponsors & seats", icon: "people" },
 ] as const;
@@ -133,6 +135,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
       {tab.id === "billing" && <Billing data={data} />}
       {tab.id === "overview" && account && <AnalyticsOverview key={account.id} adminAccountId={account.id} />}
       {tab.id === "campaigns" && account && <Campaigns campaigns={await readAdminSponsorCampaigns(account.id)} />}
+      {tab.id === "promotions" && account && <PromotionsPanel key={account.id} admin endpoint={`/api/admin/sponsorship/${account.id}/promotions`} />}
       {!account && !directory && <p className={styles.empty}>{params.account ? "Sponsor account unavailable." : "No sponsor selected."}</p>}
     </div>
   </div>;

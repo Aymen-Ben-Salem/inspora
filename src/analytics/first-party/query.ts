@@ -28,6 +28,10 @@ export type MetricsFilter = {
   periodId?: string;
   endDate?: string;
   startDate?: string;
+  /** Another campaign whose live period replaces "previous period" in comparisons. */
+  compareCampaignId?: string;
+  compareStartDate?: string;
+  compareEndDate?: string;
 };
 export type Breakdown = Metrics & { label: string };
 export type MetricsReport = {
@@ -48,7 +52,7 @@ export type MetricsReport = {
   spend: { amount: number; currency: string } | null;
   cpc: number | null;
   cpm: number | null;
-  comparison?: { start: string; end: string; summary: Metrics } | null;
+  comparison?: { start: string; end: string; summary: Metrics; campaignId?: string } | null;
 };
 export type ReportResult =
   MetricsReport | { status: "unavailable"; source: "Inspora accepted events" };

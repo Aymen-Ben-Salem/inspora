@@ -27,6 +27,7 @@ export function reportKey(scope: string, filter: MetricsFilter) {
         filter.periodId ?? null,
         ...(filter.endDate ? [filter.endDate] : []),
         ...(filter.startDate ? [filter.startDate] : []),
+        ...(filter.compareCampaignId ? ["compare", filter.compareCampaignId, filter.compareStartDate, filter.compareEndDate] : []),
       ]),
     )
     .digest("hex");
@@ -41,6 +42,9 @@ export async function readMetricsReport(
     key = reportKey(scope, filter);
   try {
     const requestedWindow = reportWindow(filter, now);
+    const campaignWindow = filter.compareCampaignId
+      ? reportWindow({ range: filter.range, startDate: filter.compareStartDate, endDate: filter.compareEndDate }, now)
+      : null;
     return await withWriteTransaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${`report:${scope}`},0))`,
@@ -113,11 +117,21 @@ export async function readMetricsReport(
       }
       const data = await queryMetrics(tx, accountId, filter, requestedWindow, now);
       if (accountId) {
-        const previousWindow = comparisonWindow(requestedWindow, now);
-        data.comparison = previousWindow ? {
-          ...previousWindow,
-          summary: (await queryMetrics(tx, accountId, filter, previousWindow, now, true)).summary,
-        } : null;
+        if (campaignWindow && filter.compareCampaignId) {
+          // Same placement and country filters, but the other campaign over its own live dates.
+          const other = { ...filter, campaignId: filter.compareCampaignId, versionId: undefined };
+          data.comparison = {
+            ...campaignWindow,
+            campaignId: filter.compareCampaignId,
+            summary: (await queryMetrics(tx, accountId, other, campaignWindow, now, true)).summary,
+          };
+        } else {
+          const previousWindow = comparisonWindow(requestedWindow, now);
+          data.comparison = previousWindow ? {
+            ...previousWindow,
+            summary: (await queryMetrics(tx, accountId, filter, previousWindow, now, true)).summary,
+          } : null;
+        }
       }
       const values = {
         scope,

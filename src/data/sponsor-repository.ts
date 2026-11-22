@@ -9,10 +9,12 @@ import {
   sponsorAccounts,
   sponsorCampaignVersions,
   sponsorIdentities,
+  sponsorPromotions,
   sponsorSeats,
   sponsors,
 } from "@/db/schema";
 import { sponsorshipEnabled } from "@/features/sponsorship/config";
+import { publicPromoLabel } from "@/features/sponsorship/promo-label";
 import type { ActiveSponsor } from "@/domain/sponsor";
 import { MEDIA_STORAGE_PROVIDERS } from "@/storage/types";
 
@@ -111,9 +113,12 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
       paidThrough: sponsorAccounts.paidThrough,
       versionId: sponsorCampaignVersions.id,
       feedDescription: sql<string | null>`${sponsorCampaignVersions.creative}->>'feedDescription'`,
+      // Promotions belong to the account and show on whichever campaign is public.
+      promoLabel: sponsorPromotions.label,
     })
     .from(sponsors)
     .innerJoin(sponsorAccounts, eq(sponsors.accountId, sponsorAccounts.id))
+    .leftJoin(sponsorPromotions, eq(sponsorPromotions.accountId, sponsorAccounts.id))
     .innerJoin(
       sponsorIdentities,
       eq(sponsorAccounts.ownerUserId, sponsorIdentities.userId),
@@ -146,13 +151,14 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
     )
     .orderBy(sponsorSeats.slot)
     .limit(4);
-  const paid: ActiveSponsor[] = rows.map(({ campaign: row, paidThrough, versionId, feedDescription }) => ({
+  const paid: ActiveSponsor[] = rows.map(({ campaign: row, paidThrough, versionId, feedDescription, promoLabel }) => ({
     id: row.id,
     versionId,
     title: row.title,
     url: row.url,
     tagline: row.tagline ?? undefined,
     feedDescription: feedDescription ?? undefined,
+    promoLabel: publicPromoLabel(promoLabel),
     mediaType: row.mediaType as "image" | "video",
     mediaUrl: row.mediaUrl ?? undefined,
     mediaPosterUrl: row.mediaPosterUrl ?? undefined,

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true, userId: "owner" }),
+  useUser: () => ({ user: { primaryEmailAddress: { emailAddress: "owner@example.com" } } }),
   SignOutButton: ({ children }: { children: React.ReactNode }) => children,
 }));
 const uploads = vi.hoisted(() => ({ prepare: vi.fn() }));

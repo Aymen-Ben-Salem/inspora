@@ -131,3 +131,17 @@
 @media (max-width: 700px) { .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .surface { padding: 1.125rem; } .dateToolbar { gap: .5rem; } .presets button { padding-inline: .7rem; } .metricValue { font-size: 2rem; } }
 @media (max-width: 540px) { .previousMonth { display: none; } .months { grid-template-columns: 1fr; } .calendarContent { padding: 1rem; } .calendarFooter { align-items: flex-start; flex-direction: column; } .calendarFooter > div { width: 100%; justify-content: flex-end; } .days button { min-height: 2.6rem; } .dateInputs { gap: .4rem; } .dateInputs input { padding: .4rem; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+.dateTriggerText { min-width: 0; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.campaignPicker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: .75rem; padding: 1rem 0 1.15rem; border-bottom: 1px solid #e5ebf4; }
+.campaignPicker > span { padding-top: 2.1rem; font-size: .75rem; color: #96a5bd; }
+.campaignField { min-width: 0; margin: 0; padding: 0; border: 0; }
+.campaignField > p { margin-bottom: .4rem; font-size: .6875rem; color: #6b7e98; }
+.campaignField > p span { color: #96a5bd; }
+.campaignField > small { display: block; margin-top: .4rem; font-size: .6875rem; color: #6f8098; }
+.campaignField:disabled { opacity: .5; }
+.campaignField:disabled button { cursor: not-allowed; }
+.compareBanner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1.25rem; padding: .9rem 1.1rem; border: 1px solid #dce5f2; border-radius: .75rem; background: #f7f9fd; font-size: .8125rem; color: #344f76; }
+.compareBanner p + p { margin-top: .2rem; font-size: .75rem; color: #6f8098; }
+.compareBanner button { min-height: 2.5rem; padding: .5rem .8rem; border: 1px solid #dce5f2; border-radius: .5rem; background: #fff; font-size: .75rem; color: #315da5; cursor: pointer; white-space: nowrap; }
+.compareBanner button:hover { background: #edf3fc; }
+@media (max-width: 540px) { .campaignPicker { grid-template-columns: minmax(0, 1fr); } .campaignPicker > span { display: none; } .dateTriggerText { max-width: 13rem; } }

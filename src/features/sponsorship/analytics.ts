@@ -4,17 +4,26 @@ import { withWriteTransaction } from "@/db/write-client";
 import {
   analyticsReports,
   sponsorCampaignVersions,
+  sponsorDeliveryIntervals,
   sponsorDeliveryPeriods,
   sponsors,
 } from "@/db/schema";
+import { campaignRuns } from "./campaign-runs";
 import { requireSponsorActor } from "./authorization";
 import { createSponsorAnalyticsService } from "./analytics-service";
 import { readMetricsReport } from "@/analytics/first-party/reports";
 import type { MetricsFilter } from "@/analytics/first-party/query";
 
 export function accountOwnsReportFilters(accountId: string, filter: MetricsFilter) {
-  if (!filter.campaignId && !filter.versionId && !filter.periodId) return true;
+  if (!filter.campaignId && !filter.versionId && !filter.periodId && !filter.compareCampaignId) return true;
   return withWriteTransaction(async (tx) => {
+    if (filter.compareCampaignId) {
+      const [c] = await tx
+        .select({ id: sponsors.id })
+        .from(sponsors)
+        .where(and(eq(sponsors.id, filter.compareCampaignId), eq(sponsors.accountId, accountId)));
+      if (!c) return false;
+    }
     if (filter.campaignId) {
       const [c] = await tx
         .select({ id: sponsors.id })
@@ -86,6 +95,17 @@ export function readAccountAnalyticsCatalog(accountId: string) {
       .from(sponsorCampaignVersions)
       .innerJoin(sponsors, eq(sponsors.id, sponsorCampaignVersions.campaignId))
       .where(eq(sponsors.accountId, accountId)),
+    // When each campaign was public, for choosing report dates by campaign.
+    runs: campaignRuns(
+      await tx
+        .select({
+          campaignId: sponsorDeliveryIntervals.campaignId,
+          startAt: sponsorDeliveryIntervals.startAt,
+          endAt: sponsorDeliveryIntervals.endAt,
+        })
+        .from(sponsorDeliveryIntervals)
+        .where(eq(sponsorDeliveryIntervals.accountId, accountId)),
+    ),
     periods: (
       await tx
         .select({

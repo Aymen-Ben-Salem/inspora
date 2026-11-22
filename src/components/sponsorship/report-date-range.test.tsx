@@ -2,7 +2,7 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReportDateRange } from "./report-date-range";
+import { ReportDateRange, type ReportCampaignRun } from "./report-date-range";
 import type { MetricsFilter } from "@/analytics/first-party/query";
 let container: HTMLDivElement, root: Root;
 const changed = vi.fn();
@@ -18,10 +18,63 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 const button = (label: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === label)!;
 const day = (value: string) => container.querySelector<HTMLButtonElement>(`[data-day="${value}"]`)!;
-function Fixture({ initial = { range: "30d" } }: { initial?: MetricsFilter }) {
+function Fixture({ initial = { range: "30d" }, runs }: { initial?: MetricsFilter; runs?: ReportCampaignRun[] }) {
   const [filter, setFilter] = useState(initial);
-  return <ReportDateRange filter={filter} onChange={next => { changed(next); setFilter(next); }} />;
+  return <ReportDateRange filter={filter} runs={runs} onChange={next => { changed(next); setFilter(next); }} />;
 }
+const runs: ReportCampaignRun[] = [
+  { campaignId: "dark", title: "Dark launch", start: "2026-10-12T14:00:00.000Z", end: null },
+  { campaignId: "light", title: "Light launch", start: "2026-10-02T09:30:00.000Z", end: "2026-10-12T14:00:00.000Z" },
+  { campaignId: "old", title: "Summer", start: "2026-06-01T00:00:00.000Z", end: "2026-07-01T00:00:00.000Z" },
+];
+const menu = (name: string) => container.querySelector<HTMLButtonElement>(`button[aria-label^="${name}:"]`)!;
+const choose = async (name: string, option: string) => {
+  await act(async () => menu(name).click());
+  const item = Array.from(menu(name).parentElement!.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')).find(entry => entry.querySelector("span")!.textContent === option)!;
+  await act(async () => item.click());
+};
+const value = (label: string) => container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!.value;
+it("views one campaign over its live dates, or compares it with another campaign", async () => {
+  await act(async () => root.render(<Fixture runs={runs} initial={{ range: "30d", placement: "feed" }} />));
+  await open();
+  const options = async (name: string) => {
+    await act(async () => menu(name).click());
+    const labels = Array.from(menu(name).parentElement!.querySelectorAll('[role="menuitemradio"] span:first-child'), item => item.textContent);
+    await act(async () => menu(name).click());
+    return labels;
+  };
+  // Campaigns older than retention are not offered; the live one comes first.
+  expect(await options("Campaign")).toEqual(["All campaigns", "Dark launch", "Light launch"]);
+  expect(menu("Compare with").closest("fieldset")!.disabled).toBe(true);
+  await choose("Campaign", "Light launch");
+  expect([value("Start date"), value("End date")]).toEqual(["2026-10-02", "2026-10-12"]);
+  expect(container.textContent).toContain("2 Oct – 12 Oct · 11 days");
+  expect(menu("Compare with").closest("fieldset")!.disabled).toBe(false);
+  expect(await options("Compare with")).toEqual(["No comparison", "Dark launch"]);
+  await act(async () => button("Apply range").click());
+  expect(changed).toHaveBeenLastCalledWith({ range: "30d", placement: "feed", campaignId: "light", versionId: undefined, startDate: "2026-10-02", endDate: "2026-10-12", periodId: undefined, compareCampaignId: undefined, compareStartDate: undefined, compareEndDate: undefined });
+  expect(container.querySelector('[aria-haspopup="dialog"]')?.textContent).toContain("Light launch · 2 Oct – 12 Oct, 2026");
+  await open();
+  await choose("Campaign", "Dark launch");
+  await choose("Compare with", "Light launch");
+  expect(container.querySelector("footer")?.textContent).toContain("Dark launch vs Light launch");
+  await act(async () => button("Apply range").click());
+  expect(changed.mock.lastCall![0]).toMatchObject({ campaignId: "dark", startDate: "2026-10-12", endDate: "2026-10-17", compareCampaignId: "light", compareStartDate: "2026-10-02", compareEndDate: "2026-10-12" });
+  expect(container.querySelector('[aria-haspopup="dialog"]')?.textContent).toContain("Dark launch vs Light launch");
+  // Picking the compared campaign to view, or All campaigns, drops the comparison.
+  await open();
+  await choose("Campaign", "Light launch");
+  expect(menu("Compare with").textContent).toContain("No comparison");
+  await choose("Campaign", "All campaigns");
+  expect(menu("Compare with").closest("fieldset")!.disabled).toBe(true);
+  await act(async () => button("Apply range").click());
+  expect(changed.mock.lastCall![0]).toMatchObject({ campaignId: undefined, compareCampaignId: undefined, startDate: "2026-10-02", endDate: "2026-10-12" });
+});
+it("drops a campaign comparison when choosing a quick preset", async () => {
+  await act(async () => root.render(<Fixture runs={runs} initial={{ range: "30d", campaignId: "dark", startDate: "2026-10-12", endDate: "2026-10-17", compareCampaignId: "light", compareStartDate: "2026-10-02", compareEndDate: "2026-10-12" }} />));
+  await act(async () => button("7 days").click());
+  expect(changed.mock.lastCall![0]).toEqual({ range: "7d", campaignId: "dark", startDate: undefined, endDate: undefined, periodId: undefined, compareCampaignId: undefined, compareStartDate: undefined, compareEndDate: undefined });
+});
 async function open() { await act(async () => container.querySelector<HTMLButtonElement>('[aria-haspopup="dialog"]')!.click()); }
 it("applies an inclusive custom range only after Apply, preserving other filters", async () => {
   await act(async () => root.render(<Fixture initial={{ range: "7d", placement: "feed", country: "TN", campaignId: "campaign", periodId: "closed" }} />));
@@ -67,4 +120,19 @@ it("lets an overnight tab replace a range that has just expired from retention",
   await act(async () => button("Apply range").click());
   expect(changed.mock.lastCall![0].startDate).toBe("2026-10-05");
   expect(document.activeElement).toBe(container.querySelector('[aria-haspopup="dialog"]'));
+});
+it("closes only the campaign menu on Escape, keeping the picker open", async () => {
+  await act(async () => root.render(<Fixture runs={runs} />));
+  await open();
+  const trigger = container.querySelector<HTMLButtonElement>('button[aria-label^="Campaign:"]')!;
+  await act(async () => trigger.click());
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  await act(async () => {
+    trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    container.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
+  });
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  expect(container.querySelector("dialog")).not.toBeNull();
+  await act(async () => { container.querySelector("dialog")!.dispatchEvent(new Event("cancel", { cancelable: true })); });
+  expect(container.querySelector("dialog")).toBeNull();
 });

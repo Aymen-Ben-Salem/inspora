@@ -27,6 +27,9 @@ export const metricsFilterSchema = z
       .regex(/^(?:[A-Z]{2}|Unknown)$/)
       .optional(),
     periodId: z.uuid().optional(),
+    compareCampaignId: z.uuid().optional(),
+    compareStartDate: z.iso.date().optional(),
+    compareEndDate: z.iso.date().optional(),
     startDate: z.iso.date().optional(),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
       const day = Date.parse(`${value}T00:00:00Z`);
@@ -35,7 +38,13 @@ export const metricsFilterSchema = z
   })
   .strict()
   .refine(filter => !(filter.startDate || filter.endDate) || !filter.periodId, "Choose dates or a closed paid period.")
-  .refine(filter => !filter.startDate || (!!filter.endDate && filter.startDate <= filter.endDate), "Choose an end date on or after the start date.");
+  .refine(filter => !filter.startDate || (!!filter.endDate && filter.startDate <= filter.endDate), "Choose an end date on or after the start date.")
+  .refine(filter => {
+    const compare = [filter.compareCampaignId, filter.compareStartDate, filter.compareEndDate];
+    if (compare.every(value => value === undefined)) return true;
+    return compare.every(Boolean) && !!filter.campaignId && filter.compareCampaignId !== filter.campaignId &&
+      !filter.periodId && filter.compareStartDate! <= filter.compareEndDate!;
+  }, "Choose a campaign to view and a different campaign with its dates to compare.");
 export function createSponsorAnalyticsService(deps: {
   actor(): Promise<SponsorActor>;
   owns(actor: SponsorActor, filter: MetricsFilter): Promise<boolean>;

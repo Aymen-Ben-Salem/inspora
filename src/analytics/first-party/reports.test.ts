@@ -47,6 +47,19 @@ it("loads the comparison summary with identical ownership and dimensions", async
   expect(queryMetrics).toHaveBeenNthCalledWith(2, tx, "owner", filter, { start: "2026-10-02T12:00:00.000Z", end: "2026-10-09T12:00:00.000Z" }, now, true);
   expect(result.status !== "unavailable" && result.comparison?.summary.impressions).toBe(2);
 });
+it("compares against another campaign over that campaign's own dates, keeping the other filters", async () => {
+  const tx = { execute: vi.fn(), select: () => ({ from: () => ({ where: async () => [] }) }), insert: () => ({ values: () => ({ onConflictDoUpdate: vi.fn() }) }) };
+  vi.mocked(withWriteTransaction).mockImplementation(async work => work(tx as never));
+  vi.mocked(queryMetrics).mockResolvedValueOnce({ ...data }).mockResolvedValueOnce({ ...data, summary: metricsFromCounts({ ...EMPTY_COUNTS, impressions: 7 }) });
+  const filter = { range: "30d" as const, campaignId: "dark", versionId: "dark-v2", placement: "feed" as const, startDate: "2026-10-05", endDate: "2026-10-14", compareCampaignId: "autumn", compareStartDate: "2026-09-01", compareEndDate: "2026-09-20" };
+  const result = await readMetricsReport("owner", filter, false, now);
+  expect(queryMetrics).toHaveBeenNthCalledWith(2, tx, "owner", { ...filter, campaignId: "autumn", versionId: undefined }, { start: "2026-09-01T00:00:00.000Z", end: "2026-09-21T00:00:00.000Z" }, now, true);
+  expect(result.status !== "unavailable" && result.comparison).toMatchObject({ campaignId: "autumn", start: "2026-09-01T00:00:00.000Z", summary: { impressions: 7 } });
+  expect(reportKey("owner", filter)).not.toBe(reportKey("owner", { ...filter, compareCampaignId: "light" }));
+  const { compareCampaignId: _c, compareStartDate: _s, compareEndDate: _e, ...withoutCompare } = filter;
+  void _c; void _s; void _e;
+  expect(reportKey("owner", withoutCompare)).toBe(createHash("sha256").update(JSON.stringify(["accepted-v2-comparison", "owner", "30d", "dark", "dark-v2", "feed", null, null, "2026-10-14", "2026-10-05"])).digest("hex"));
+});
 it("does not query a truncated comparison outside retention", async () => {
   vi.mocked(withWriteTransaction).mockImplementation(async work => work({ execute: vi.fn(), select: () => ({ from: () => ({ where: async () => [] }) }), insert: () => ({ values: () => ({ onConflictDoUpdate: vi.fn() }) }) } as never));
   vi.mocked(queryMetrics).mockResolvedValueOnce({ ...data });

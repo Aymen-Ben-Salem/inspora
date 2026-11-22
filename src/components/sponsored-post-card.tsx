@@ -4,6 +4,7 @@ import type { ActiveSponsor } from "@/domain/sponsor";
 
 import { LoopingVideo } from "./looping-video";
 import { ResponsiveR2Image } from "./responsive-r2-image";
+import { PromoLabelBadge } from "./sponsorship/promo-label-badge";
 import { SponsorDeadline } from "./sponsorship/sponsor-deadline";
 import { WebsiteFeedCaption } from "./websites/website-feed-caption";
 
@@ -118,6 +119,8 @@ export function SponsoredPostCard({
         <span className="absolute right-[10px] top-[10px] z-10 rounded-full bg-[#262626]/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white min-[1800px]:right-3 min-[1800px]:top-3 min-[1800px]:text-[11px]">
           SPONSOR
         </span>
+
+        {sponsor.promoLabel ? <PromoLabelBadge label={sponsor.promoLabel} /> : null}
 
         <span className="pointer-events-none absolute inset-0 border border-black/[0.06]" />
       </a>

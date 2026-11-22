@@ -11,6 +11,7 @@ import { AnalyticsOverview } from "./analytics-overview";
 import { DashboardIcon } from "./dashboard-icon";
 import { DashboardNavigation, DashboardSidebar, dashboardSections as sections } from "./dashboard-navigation";
 import styles from "./dashboard.module.css";
+import { PromotionsPanel } from "./promotions-panel";
 import {
   isSponsorBillingMode,
   type SponsorBillingMode,
@@ -257,7 +258,7 @@ export function SponsorDashboard({
               : account?.state === "recovery"
                 ? "Your paid period has ended. Promotion is paused while payment recovers."
                 : account
-                  ? section === "campaigns" ? "Your campaigns, from first draft to publication." : section === "billing" ? "Your plan, payment details and renewal." : "Your delivery, audience and billing."
+                  ? section === "campaigns" ? "Your campaigns, from first draft to publication." : section === "promotions" ? "Offers shown on whichever campaign is live. Saved changes go live immediately." : section === "billing" ? "Your plan, payment details and renewal." : "Your delivery, audience and billing."
                   : "Your preparation is private until payment is verified."}
       </p>
       <div className="mt-6">
@@ -284,6 +285,11 @@ export function SponsorDashboard({
               </ul>}
               {data.checkout?.state !== "reserved" && <Link href={"/sponsor/start" as Route} className={`${sponsorButton.primary} ${styles.primaryButton} mt-6 inline-flex items-center`}><DashboardIcon name="plus" />Prepare campaign</Link>}
             </div>
+          )}
+        </section>
+        <section id="promotions" aria-label="Promotions" hidden={section !== "promotions"}>
+          {account ? <PromotionsPanel key={data.ownerUserId} endpoint="/api/sponsorship/promotions" active={section === "promotions"} /> : (
+            <p className={styles.empty}>Promotions are available once your sponsorship is active.</p>
           )}
         </section>
         <section

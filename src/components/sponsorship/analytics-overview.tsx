@@ -14,6 +14,8 @@ import { dailyReportRows, metricChange } from "@/analytics/first-party/query";
 import { sponsorReportCsv } from "@/analytics/first-party/csv";
 import { sponsorButton } from "./button-styles";
 import { ReportDateRange } from "./report-date-range";
+import { CampaignComparison } from "./campaign-comparison";
+import type { CampaignComparisonRow } from "@/features/sponsorship/campaign-comparison-model";
 import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
 import { CountryLabel, countryName } from "./country-label";
@@ -285,6 +287,7 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
     [loadedFilter, setLoadedFilter] = useState<MetricsFilter | null>(null),
     [data, setData] = useState<ReportResult | null>(null),
     [catalog, setCatalog] = useState<Catalog | null>(null),
+    [comparison, setComparison] = useState<CampaignComparisonRow[]>([]),
     [busy, setBusy] = useState(false),
     [refresh, setRefresh] = useState(0),
     [nextRefresh, setNextRefresh] = useState(0);
@@ -342,6 +345,26 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
       controller.abort();
     };
   }, [adminAccountId, filter, refresh]);
+  // Campaign comparison ignores the report filters, so load it once per refresh.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(adminAccountId ? `/api/admin/sponsorship/${adminAccountId}/analytics/campaigns` : "/api/sponsorship/analytics/campaigns", { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        const body = await response.json();
+        if (response.ok && Array.isArray(body.campaigns)) setComparison(body.campaigns);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [adminAccountId, refresh]);
+  function viewCampaign(row: CampaignComparisonRow) {
+    const today = new Date().toISOString().slice(0, 10);
+    const oldest = new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10);
+    const first = row.runs.at(-1)!, last = row.runs[0];
+    const startDate = [first.start.slice(0, 10), oldest].sort()[1];
+    const endDate = last.end ? new Date(Math.max(Date.parse(last.end) - 1, Date.parse(first.start))).toISOString().slice(0, 10) : today;
+    setFilter(previous => ({ range: previous.range, campaignId: row.campaignId, startDate, endDate: endDate < startDate ? startDate : endDate }));
+    document.getElementById("report-performance")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   const campaigns = Object.fromEntries(
     catalog?.campaigns.map((c) => [c.id, c.title]) ?? [],
   );
@@ -350,7 +373,7 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
   return (
     <section aria-label="Sponsorship performance" className={`${styles.report} space-y-6`}>
       <div className={`${styles.filters} flex flex-wrap items-center justify-between gap-3`}>
-        <ReportDateRange filter={filter} onChange={setFilter} runs={catalog?.runs?.map(run => ({ ...run, title: campaigns[run.campaignId] ?? "Campaign" }))} />
+        <ReportDateRange filter={filter} onChange={setFilter} />
         <ReportFilterMenu filter={filter} onApply={draft => setFilter(previous => {
           const keys: ReportFilterKey[] = ["campaignId", "placement", "country", "periodId"];
           if (keys.every(key => previous[key] === draft[key])) return previous;
@@ -416,8 +439,9 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
           ) : null}
           <div id="report-performance" className={`${surface} scroll-mt-28`}>
             <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain />
-            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>{filter.startDate ? `${filter.startDate} – ` : "Through "}{filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, startDate: undefined, endDate: undefined }))}>Back to recent activity</button></div> : null}
+            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>{filter.campaignId ? `${campaigns[filter.campaignId] ?? "Campaign"} · ` : ""}{filter.startDate ? `${filter.startDate} – ` : "Through "}{filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, startDate: undefined, endDate: undefined, ...(previous.campaignId ? { campaignId: undefined, versionId: undefined } : {}) }))}>{filter.campaignId ? "Back to all campaigns" : "Back to recent activity"}</button></div> : null}
           </div>
+          {comparison.length >= 2 ? <CampaignComparison rows={comparison} onView={viewCampaign} /> : null}
           <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
             <h2 id="report-reach-title" className={`${styles.sectionHeading} text-lg font-medium`}>Reach, cost and video</h2>
             <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-2">

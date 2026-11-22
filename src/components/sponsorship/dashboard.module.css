@@ -105,16 +105,6 @@
 .dateInputs label { min-width: 0; font-size: .6875rem; color: #6b7e98; }
 .dateInputs input { display: block; margin-top: .4rem; min-width: 0; width: 100%; min-height: 2.5rem; border: 1px solid #dce5f2; border-radius: .5rem; padding: .5rem .7rem; font-size: .8125rem; color: #344f76; background: #fafbfd; color-scheme: light; }
 .dateInputs > span { align-self: center; padding-top: 1rem; color: #96a5bd; }
-.campaignDates { padding: 1rem 0; border-bottom: 1px solid #e5ebf4; }
-.campaignDates > p:first-child { margin-top: 0; font-size: .6875rem; color: #6b7e98; }
-.campaignRunMenu { flex: 1 1 12rem; min-width: 0; }
-.campaignDates > p { margin-top: .5rem; font-size: .6875rem; color: #6f8098; }
-.campaignDatesRow { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; }
-.campaignDateButtons { display: flex; gap: .35rem; }
-.campaignDateButtons button { min-height: 2.75rem; padding: .5rem .75rem; border: 1px solid #dce5f2; border-radius: .5rem; font-size: .75rem; color: #315da5; background: #fff; cursor: pointer; white-space: nowrap; }
-.campaignDateButtons button:hover:not(:disabled) { background: #edf3fc; }
-.campaignDateButtons button:disabled { opacity: .45; cursor: not-allowed; }
-.days button[data-campaign-mark]::before { content: ""; position: absolute; inset: 2px; border: 1.5px dashed #e0457b; border-radius: .4rem; pointer-events: none; }
 .calendarNavigation { display: flex; justify-content: space-between; margin: .75rem 0 -2.5rem; position: relative; pointer-events: none; }
 .calendarNavigation button { pointer-events: auto; }
 .months { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
@@ -141,3 +131,11 @@
 @media (max-width: 700px) { .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .surface { padding: 1.125rem; } .dateToolbar { gap: .5rem; } .presets button { padding-inline: .7rem; } .metricValue { font-size: 2rem; } }
 @media (max-width: 540px) { .previousMonth { display: none; } .months { grid-template-columns: 1fr; } .calendarContent { padding: 1rem; } .calendarFooter { align-items: flex-start; flex-direction: column; } .calendarFooter > div { width: 100%; justify-content: flex-end; } .days button { min-height: 2.6rem; } .dateInputs { gap: .4rem; } .dateInputs input { padding: .4rem; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+.liveTag, .endedTag, .earlyTag, .bestTag { display: inline-flex; align-items: center; height: 1.25rem; padding: 0 .45rem; border-radius: 999px; font-size: .6875rem; font-weight: 500; white-space: nowrap; }
+.liveTag { background: #e7f6ec; color: #1d7a3f; }
+.endedTag { background: #f0f2f5; color: #66758a; }
+.earlyTag { background: #fff4e5; color: #9a5b00; cursor: help; }
+.bestTag { margin-left: .4rem; background: #eaf1fd; color: #315da5; }
+.viewReport { min-height: 2.5rem; padding: .5rem .75rem; border: 1px solid #dce5f2; border-radius: .5rem; font-size: .75rem; color: #315da5; background: #fff; cursor: pointer; white-space: nowrap; }
+.viewReport:hover { background: #edf3fc; }
+.viewReport:focus-visible { outline: 2px solid #4275ce; outline-offset: 3px; }

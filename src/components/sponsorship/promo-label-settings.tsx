@@ -100,13 +100,13 @@ export function PromoLabelSettings({
     <fieldset
       disabled={disabled}
       aria-labelledby={headingId}
-      className="space-y-5 border-t border-[#e6e6e6] pt-8 disabled:opacity-50"
+      className="space-y-5 disabled:opacity-50"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id={headingId} className={campaignType.heading}>Promotional label</h2>
+          <h2 id={headingId} className={campaignType.heading}>Sale label</h2>
           <p id={hintId} className={`${campaignType.body} mt-1 text-[#767676]`}>
-            A short sale or offer label in the corner of your feed card.
+            A short offer, like a sale or discount, in the corner of your live campaign’s feed card.
           </p>
         </div>
         <button

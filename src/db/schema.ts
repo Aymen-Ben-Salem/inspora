@@ -1094,6 +1094,18 @@ export const sponsorAccounts = pgTable("sponsor_accounts", {
   check("sponsor_accounts_billing_terms_valid", sql`(${t.billingCurrency} in ('usd','eur') and ${t.billingInterval} = 'month' and ${t.billingIntervalCount} = 1) or (${t.billingCurrency} = 'usd' and ${t.billingInterval} = 'day' and ${t.billingIntervalCount} = 30)`),
 ]);
 
+// Account-level promotions shown over whichever campaign is public, edited by
+// the sponsor or an admin. Separate from billing state; one row per account.
+export const sponsorPromotions = pgTable("sponsor_promotions", {
+  accountId: uuid("account_id").primaryKey().references(() => sponsorAccounts.id),
+  label: jsonb("label").$type<import("@/features/sponsorship/promo-label").PromoLabel>(),
+  revision: integer("revision").default(0).notNull(),
+  updatedBy: text("updated_by"),
+  ...timestamps,
+}, t => [
+  check("sponsor_promotions_revision_valid", sql`${t.revision} >= 0`),
+]);
+
 export const sponsorCheckouts = pgTable("sponsor_checkouts", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerUserId: text("owner_user_id").notNull().references(() => sponsorIdentities.userId),

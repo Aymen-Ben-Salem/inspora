@@ -5,6 +5,7 @@ import styles from "./dashboard.module.css";
 export const dashboardSections = [
   { id: "overview", label: "Overview" },
   { id: "campaigns", label: "Campaigns" },
+  { id: "promotions", label: "Promotions" },
   { id: "billing", label: "Billing" },
   { id: "settings", label: "Settings" },
 ] as const;

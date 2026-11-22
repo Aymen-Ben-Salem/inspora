@@ -1,32 +1,21 @@
 import { expect, it } from "vitest";
 import { campaignRuns } from "./campaign-runs";
-import { DEFAULT_PROMO_LABEL, publicPromoLabel } from "./promo-label";
-import { campaignInputSchema } from "./validation";
+import { DEFAULT_PROMO_LABEL, promoLabelSchema, publicPromoLabel } from "./promo-label";
 
-const input = {
-  title: "affectUI",
-  url: "https://www.affectui.com",
-  feedDescription: "Agents that work in your accounts.",
-  expectedRevision: 1,
-  iconId: "6f1c4b8e-2c55-4b8e-9f3a-1d2e3f4a5b6c",
-  wordmarkId: "7f1c4b8e-2c55-4b8e-9f3a-1d2e3f4a5b6c",
-};
-
-it("freezes a normalized promotional label with the campaign input", () => {
-  const parsed = campaignInputSchema.parse({ ...input, promoLabel: { ...DEFAULT_PROMO_LABEL, text: "  20% OFF Black Friday ", textColor: "#BE185D" } });
-  expect(parsed.promoLabel).toEqual({ ...DEFAULT_PROMO_LABEL, text: "20% OFF Black Friday", textColor: "#be185d" });
-  expect(campaignInputSchema.parse(input).promoLabel).toBeUndefined();
+it("normalizes a promotional label", () => {
+  expect(promoLabelSchema.parse({ ...DEFAULT_PROMO_LABEL, text: "  20% OFF Black Friday ", textColor: "#BE185D" }))
+    .toEqual({ ...DEFAULT_PROMO_LABEL, text: "20% OFF Black Friday", textColor: "#be185d" });
 });
 
 it("rejects unsafe colours, long text and an enabled label without text", () => {
-  for (const promoLabel of [
+  for (const label of [
     { ...DEFAULT_PROMO_LABEL, backgroundColor: "red; display:none" },
     { ...DEFAULT_PROMO_LABEL, text: "x".repeat(33) },
     { ...DEFAULT_PROMO_LABEL, text: "   " },
     { ...DEFAULT_PROMO_LABEL, icon: "zap" },
-  ]) expect(campaignInputSchema.safeParse({ ...input, promoLabel }).success).toBe(false);
+  ]) expect(promoLabelSchema.safeParse(label).success).toBe(false);
   // A switched-off label keeps its settings, even blank text, for later.
-  expect(campaignInputSchema.safeParse({ ...input, promoLabel: { ...DEFAULT_PROMO_LABEL, enabled: false, text: "" } }).success).toBe(true);
+  expect(promoLabelSchema.safeParse({ ...DEFAULT_PROMO_LABEL, enabled: false, text: "" }).success).toBe(true);
 });
 
 it("publishes only enabled, valid labels", () => {

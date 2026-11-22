@@ -17,8 +17,6 @@ import type {
   SponsorContact,
 } from "@/features/sponsorship/types";
 import { CampaignPreview, type PreviewFields } from "./campaign-preview";
-import { PromoLabelSettings, visiblePromoLabel } from "./promo-label-settings";
-import type { PromoLabel } from "@/features/sponsorship/promo-label";
 import { sponsorRequest, sponsorUploadOperations } from "./upload-operations";
 import { CampaignUpload } from "./campaign-upload";
 import { SponsorLoading, SponsorSpinner } from "./sponsor-loading";
@@ -120,7 +118,6 @@ function CampaignEditorContent({
     [assets, setAssets] = useState<VerifiedSponsorAsset[]>(initial?.assets ?? []),
     [variants, setVariants] = useState<string[]>(initial?.variantIds ?? []),
     [campaignId, setCampaignId] = useState(paid?.campaign?.id);
-  const [promoLabel, setPromoLabel] = useState<PromoLabel | null>(initial?.promoLabel ?? null);
   const [replaceWebsiteAssets, setReplaceWebsiteAssets] = useState(false);
   const [revision, setRevision] = useState(paid?.campaign?.revision ?? 0),
     [expiresAt, setExpiresAt] = useState<string>(),
@@ -464,7 +461,6 @@ function CampaignEditorContent({
           posterId: currentFields.posterId || undefined,
           videoPreviewId: currentFields.videoPreviewId || undefined,
           variantIds: currentVariants,
-          ...(paid && promoLabel ? { promoLabel } : {}),
           ...(parsedContact?.success ? { contact: parsedContact.data } : {}),
           expectedRevision: revision,
         },
@@ -737,13 +733,6 @@ function CampaignEditorContent({
               </button>
             ) : null}
           </fieldset>
-          {paid ? (
-            <PromoLabelSettings
-              value={promoLabel}
-              disabled={Boolean(busy) || paid.readonly}
-              onChange={(next) => { setPromoLabel(next); setMessage(""); }}
-            />
-          ) : null}
           {ready && !paid?.readonly ? (
             <button
               disabled={!ready || Boolean(busy) || uploading}
@@ -774,7 +763,7 @@ function CampaignEditorContent({
           ) : null}
           {paid ? <Link href={"/sponsor/campaigns" as Route} prefetch={true} className={`${campaignType.body} focus-ring inline-flex min-h-11 items-center px-3 underline`}>{paid.readonly ? "Back to Campaigns" : "Cancel"}</Link> : null}
         </form>
-        <CampaignPreview fields={fields} assets={assets} paid={Boolean(paid)} promoLabel={paid ? visiblePromoLabel(promoLabel) : undefined} />
+        <CampaignPreview fields={fields} assets={assets} paid={Boolean(paid)} />
       </div>
     </main>
   );

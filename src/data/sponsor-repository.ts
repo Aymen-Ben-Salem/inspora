@@ -9,6 +9,7 @@ import {
   sponsorAccounts,
   sponsorCampaignVersions,
   sponsorIdentities,
+  sponsorPromotions,
   sponsorSeats,
   sponsors,
 } from "@/db/schema";
@@ -112,10 +113,12 @@ export async function getActiveSponsors(): Promise<ActiveSponsor[]> {
       paidThrough: sponsorAccounts.paidThrough,
       versionId: sponsorCampaignVersions.id,
       feedDescription: sql<string | null>`${sponsorCampaignVersions.creative}->>'feedDescription'`,
-      promoLabel: sql<unknown>`${sponsorCampaignVersions.creative}->'promoLabel'`,
+      // Promotions belong to the account and show on whichever campaign is public.
+      promoLabel: sponsorPromotions.label,
     })
     .from(sponsors)
     .innerJoin(sponsorAccounts, eq(sponsors.accountId, sponsorAccounts.id))
+    .leftJoin(sponsorPromotions, eq(sponsorPromotions.accountId, sponsorAccounts.id))
     .innerJoin(
       sponsorIdentities,
       eq(sponsorAccounts.ownerUserId, sponsorIdentities.userId),

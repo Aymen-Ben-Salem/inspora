@@ -5,7 +5,6 @@ import { useState } from "react";
 import { SponsoredPostCard } from "@/components/sponsored-post-card";
 import type { CampaignDisplayAsset } from "./campaign-display-asset";
 import { SponsorNavbarIcon } from "./sponsor-icons";
-import type { SponsorPromoLabel } from "@/domain/sponsor";
 export type PreviewFields = {
   title: string;
   url: string;
@@ -20,12 +19,10 @@ export function CampaignPreview({
   fields,
   assets,
   paid = false,
-  promoLabel,
 }: {
   fields: PreviewFields;
   assets: CampaignDisplayAsset[];
   paid?: boolean;
-  promoLabel?: SponsorPromoLabel;
 }) {
   const [feedVariant, setFeedVariant] = useState<"website" | "default">("website");
   const asset = (id: string) => assets.find((a) => a.id === id);
@@ -94,7 +91,6 @@ export function CampaignPreview({
             mediaHeight: media?.height ?? 800,
             mediaAlt: `${title} preview`,
             iconUrl: icon?.url,
-            promoLabel,
             mediaVideoPreview: video
               ? {
                   url: video.url,

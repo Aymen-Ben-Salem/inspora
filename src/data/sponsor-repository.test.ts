@@ -15,6 +15,7 @@ it.each(["Made for focused work.", null])("reads the website description from th
   const query = {
     from: vi.fn().mockReturnThis(),
     innerJoin: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     orderBy: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue([{
@@ -24,6 +25,7 @@ it.each(["Made for focused work.", null])("reads the website description from th
         mediaType: "image", mediaWidth: 1200, mediaHeight: 800, mediaAlt: "Product",
       },
       versionId: "current-version", paidThrough: new Date("2099-01-01"), feedDescription,
+      promoLabel: { enabled: true, text: "20% OFF Black Friday", textColor: "#be185d", backgroundColor: "#fcecf6", borderColor: "#f6cfe3" },
     }]),
   };
   database.select.mockReturnValueOnce(query).mockReturnValue({from: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue([])});
@@ -32,7 +34,10 @@ it.each(["Made for focused work.", null])("reads the website description from th
   expect(sponsor).toMatchObject({
     versionId: "current-version", tagline: "Existing tagline", feedDescription: feedDescription ?? undefined,
     iconUrl: "https://media.example.com/icon.webp",
+    // Account promotions travel with whichever campaign is public.
+    promoLabel: { text: "20% OFF Black Friday", textColor: "#be185d", backgroundColor: "#fcecf6", borderColor: "#f6cfe3" },
   });
+  expect(query.leftJoin).toHaveBeenCalledOnce();
   const selection = database.select.mock.calls[0][0];
   const selectedDescription = new PgDialect().sqlToQuery(selection.feedDescription).sql;
   expect(selectedDescription).toBe('"sponsor_campaign_versions"."creative"->>\'feedDescription\'');
@@ -41,7 +46,7 @@ it.each(["Made for focused work.", null])("reads the website description from th
 
 it.each([0, 3, 4])("adds the separate manual placement alongside %i paid campaigns without consuming a paid seat", async (count) => {
   const rows = Array.from({ length: count }, (_, index) => ({ campaign: { id: `paid-${index}`, title: "Paid", url: "https://example.com", mediaType: "image", mediaWidth: 1, mediaHeight: 1, mediaAlt: "" }, paidThrough: new Date("2099-01-01"), versionId: `version-${index}`, feedDescription: null }));
-  const paid = { from: vi.fn().mockReturnThis(), innerJoin: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), orderBy: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue(rows) };
+  const paid = { from: vi.fn().mockReturnThis(), innerJoin: vi.fn().mockReturnThis(), leftJoin: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), orderBy: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue(rows) };
   const manual = { from: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), limit: vi.fn().mockResolvedValue([{ id: "manual", title: "Editorial", url: "https://example.org", mediaType: "image", tagline: "Manual description", wordmarkUrl: "/wordmark.webp" }]) };
   database.select.mockReturnValueOnce(paid).mockReturnValueOnce(manual);
   const result = await getActiveSponsors();

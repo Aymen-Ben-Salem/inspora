@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { promoLabelSchema } from "./promo-label";
 export const sponsorContactSchema = z.object({
   company: z.string().trim().min(1, "Company is required.").max(160),
   // Retain compatibility with older private preparations; new forms omit this.
@@ -36,7 +35,6 @@ export const campaignInputSchema = z
     posterId: z.uuid().optional(),
     videoPreviewId: z.uuid().optional(),
     variantIds: z.array(z.uuid()).max(4).default([]),
-    promoLabel: promoLabelSchema.optional(),
   })
   .strict();
 export const preparationInputSchema = campaignInputSchema.extend({

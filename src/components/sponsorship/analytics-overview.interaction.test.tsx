@@ -33,9 +33,7 @@ it("loads the selected admin account and keeps campaign navigation in the admin 
     campaigns: [], versions: [], periods: [], publicCreative: { id: "creative-a", title: "affectUI" },
   } }));
   await act(async () => root.render(<AnalyticsOverview adminAccountId="account-a" />));
-  const urls = fetcher.mock.calls.map(call => String(call[0]));
-  expect(urls.some(url => url.startsWith("/api/admin/sponsorship/account-a/analytics?"))).toBe(true);
-  expect(urls).toContain("/api/admin/sponsorship/account-a/analytics/campaigns");
+  expect(fetcher.mock.lastCall?.[0]).toContain("/api/admin/sponsorship/account-a/analytics?");
   expect(container.querySelector('a[href$="#campaign-creative-a"]')?.getAttribute("href")).toBe("/admin/sponsorship?account=account-a&section=campaigns#campaign-creative-a");
   expect(container.querySelector('a[href^="/sponsor/"]')).toBeNull();
 });

@@ -14,8 +14,7 @@ import { dailyReportRows, metricChange } from "@/analytics/first-party/query";
 import { sponsorReportCsv } from "@/analytics/first-party/csv";
 import { sponsorButton } from "./button-styles";
 import { ReportDateRange } from "./report-date-range";
-import { CampaignComparison } from "./campaign-comparison";
-import type { CampaignComparisonRow } from "@/features/sponsorship/campaign-comparison-model";
+import { liveTimeWithin } from "./campaign-periods";
 import { DashboardIcon, type DashboardIconName } from "./dashboard-icon";
 import styles from "./dashboard.module.css";
 import { CountryLabel, countryName } from "./country-label";
@@ -287,7 +286,6 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
     [loadedFilter, setLoadedFilter] = useState<MetricsFilter | null>(null),
     [data, setData] = useState<ReportResult | null>(null),
     [catalog, setCatalog] = useState<Catalog | null>(null),
-    [comparison, setComparison] = useState<CampaignComparisonRow[]>([]),
     [busy, setBusy] = useState(false),
     [refresh, setRefresh] = useState(0),
     [nextRefresh, setNextRefresh] = useState(0);
@@ -345,41 +343,38 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
       controller.abort();
     };
   }, [adminAccountId, filter, refresh]);
-  // Campaign comparison ignores the report filters, so load it once per refresh.
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(adminAccountId ? `/api/admin/sponsorship/${adminAccountId}/analytics/campaigns` : "/api/sponsorship/analytics/campaigns", { cache: "no-store", signal: controller.signal })
-      .then(async response => {
-        const body = await response.json();
-        if (response.ok && Array.isArray(body.campaigns)) setComparison(body.campaigns);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [adminAccountId, refresh]);
-  function viewCampaign(row: CampaignComparisonRow) {
-    const today = new Date().toISOString().slice(0, 10);
-    const oldest = new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10);
-    const first = row.runs.at(-1)!, last = row.runs[0];
-    const startDate = [first.start.slice(0, 10), oldest].sort()[1];
-    const endDate = last.end ? new Date(Math.max(Date.parse(last.end) - 1, Date.parse(first.start))).toISOString().slice(0, 10) : today;
-    setFilter(previous => ({ range: previous.range, campaignId: row.campaignId, startDate, endDate: endDate < startDate ? startDate : endDate }));
-    document.getElementById("report-performance")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
   const campaigns = Object.fromEntries(
     catalog?.campaigns.map((c) => [c.id, c.title]) ?? [],
   );
   const available = data && loadedFilter === filter && data.status !== "unavailable" ? data : null,
     current = catalog?.publicCreative;
+  // Comparing two campaigns: counts are scaled to the viewed campaign's live
+  // time, so a 10-day campaign is not "worse" than a 30-day one just for length.
+  const otherId = available?.comparison?.campaignId;
+  const comparing = Boolean(filter.campaignId && otherId && available?.comparison);
+  const viewedLive = comparing ? liveTimeWithin(catalog?.runs ?? [], filter.campaignId!, available!) : 0;
+  const otherLive = comparing ? liveTimeWithin(catalog?.runs ?? [], otherId!, available!.comparison!) : 0;
+  const lengthScale = viewedLive > 0 && otherLive > 0 ? viewedLive / otherLive : 1;
+  const previousValue = (key: "impressions" | "clicks" | "ctr" | "uniqueVisitors") => {
+    const value = available?.comparison?.summary[key];
+    return value == null || key === "ctr" || !comparing ? value : value * lengthScale;
+  };
+  const liveDays = (ms: number) => { const days = ms / 86400000; return days < 10 ? `${Math.round(days * 10) / 10} days` : `${Math.round(days)} days`; };
+  const shortRange = (window: { start: string; end: string }) => [window.start, new Date(Date.parse(window.end) - 1).toISOString()]
+    .map(value => new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })).join(" – ");
+  const stopComparing = () => setFilter(previous => ({ ...previous, compareCampaignId: undefined, compareStartDate: undefined, compareEndDate: undefined }));
   return (
     <section aria-label="Sponsorship performance" className={`${styles.report} space-y-6`}>
       <div className={`${styles.filters} flex flex-wrap items-center justify-between gap-3`}>
-        <ReportDateRange filter={filter} onChange={setFilter} />
+        <ReportDateRange filter={filter} onChange={setFilter} runs={catalog?.runs?.map(run => ({ ...run, title: campaigns[run.campaignId] ?? "Campaign" }))} />
         <ReportFilterMenu filter={filter} onApply={draft => setFilter(previous => {
           const keys: ReportFilterKey[] = ["campaignId", "placement", "country", "periodId"];
           if (keys.every(key => previous[key] === draft[key])) return previous;
           const next = { ...previous, ...Object.fromEntries(keys.map(key => [key, draft[key]])) };
           if (draft.campaignId !== previous.campaignId) delete next.versionId;
           if (draft.periodId !== previous.periodId) { delete next.startDate; delete next.endDate; }
+          // A campaign comparison belongs to the viewed campaign and its dates.
+          if (draft.campaignId !== previous.campaignId || draft.periodId !== previous.periodId) { delete next.compareCampaignId; delete next.compareStartDate; delete next.compareEndDate; }
           return next;
         })} exportButton={
         <button type="button" disabled={busy || !available} className={`${sponsorButton.primary} ${styles.primaryButton}`} onClick={() => {
@@ -423,13 +418,22 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
         </p>
       ) : (
         <>
+          {comparing ? (
+            <div className={styles.compareBanner}>
+              <div>
+                <p>Comparing <strong>{campaigns[filter.campaignId!] ?? "this campaign"}</strong> ({shortRange(available)} · {liveDays(viewedLive)} live) with <strong>{campaigns[otherId!] ?? "the other campaign"}</strong> ({shortRange(available.comparison!)} · {liveDays(otherLive)} live)</p>
+                <p>Impressions, clicks and visitors are compared per live day, so campaigns of different lengths compare fairly. CTR is compared as is.</p>
+              </div>
+              <button type="button" onClick={stopComparing}>Stop comparing</button>
+            </div>
+          ) : null}
           <div className={styles.metricGrid}>
             {([
               { key: "impressions", label: "Impressions", icon: "eye" },
               { key: "clicks", label: "Clicks", icon: "click" },
               { key: "ctr", label: "CTR", icon: "chart" },
               { key: "uniqueVisitors", label: "Unique visitors", icon: "people" },
-            ] as const).map(({ key, label, icon }) => <MetricCard key={key} label={label} icon={icon} value={available.summary[key]} previous={available.comparison?.summary[key]} percent={key === "ctr"} comparisonLabel={filter.startDate || filter.endDate || filter.periodId ? "vs. previous period" : `vs. previous ${filter.range === "1d" ? "day" : filter.range === "7d" ? "7 days" : "30 days"}`} comparisonTitle={available.comparison ? `${available.comparison.start} – ${available.comparison.end} (UTC)` : undefined} />)}
+            ] as const).map(({ key, label, icon }) => <MetricCard key={key} label={label} icon={icon} value={available.summary[key]} previous={previousValue(key)} percent={key === "ctr"} comparisonLabel={comparing ? `vs. ${campaigns[otherId!] ?? "other campaign"}` : filter.startDate || filter.endDate || filter.periodId ? "vs. previous period" : `vs. previous ${filter.range === "1d" ? "day" : filter.range === "7d" ? "7 days" : "30 days"}`} comparisonTitle={available.comparison ? `${comparing ? `${campaigns[otherId!] ?? "Other campaign"}, per live day: ` : ""}${available.comparison.start} – ${available.comparison.end} (UTC)` : undefined} />)}
           </div>
           {!available.summary.impressions && !available.summary.clicks ? (
             <p className={styles.empty}>
@@ -439,9 +443,8 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
           ) : null}
           <div id="report-performance" className={`${surface} scroll-mt-28`}>
             <DeliveryChart rows={available.daily} start={available.start} end={available.end} plain />
-            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>{filter.campaignId ? `${campaigns[filter.campaignId] ?? "Campaign"} · ` : ""}{filter.startDate ? `${filter.startDate} – ` : "Through "}{filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, startDate: undefined, endDate: undefined, ...(previous.campaignId ? { campaignId: undefined, versionId: undefined } : {}) }))}>{filter.campaignId ? "Back to all campaigns" : "Back to recent activity"}</button></div> : null}
+            {filter.endDate ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#767676]"><span>{filter.campaignId ? `${campaigns[filter.campaignId] ?? "Campaign"} · ` : ""}{filter.startDate ? `${filter.startDate} – ` : "Through "}{filter.endDate} · UTC</span><button type="button" className="focus-ring min-h-11 cursor-pointer underline underline-offset-4" onClick={() => setFilter(previous => ({ ...previous, startDate: undefined, endDate: undefined, compareCampaignId: undefined, compareStartDate: undefined, compareEndDate: undefined, ...(previous.campaignId ? { campaignId: undefined, versionId: undefined } : {}) }))}>{filter.campaignId ? "Back to all campaigns" : "Back to recent activity"}</button></div> : null}
           </div>
-          {comparison.length >= 2 ? <CampaignComparison rows={comparison} onView={viewCampaign} /> : null}
           <section id="report-reach-video" aria-labelledby="report-reach-title" className="scroll-mt-28">
             <h2 id="report-reach-title" className={`${styles.sectionHeading} text-lg font-medium`}>Reach, cost and video</h2>
             <div className="mt-4 grid items-stretch gap-4 xl:grid-cols-2">
@@ -610,7 +613,7 @@ export function AnalyticsOverview({ adminAccountId }: { adminAccountId?: string 
               limitations. Unknown means no trustworthy country was available.
             </p>
             <p className="mt-2">
-              Presets use rolling 24 hours, 7 days or 30 days. Yesterday and custom ranges use UTC calendar dates, including the selected end date up to the current time. Changes compare the preceding period of equal length with the same filters; a zero baseline or unavailable history has no percentage. Closed paid periods have no comparison. Impressions require at least 50% visibility continuously
+              Presets use rolling 24 hours, 7 days or 30 days. Yesterday and custom ranges use UTC calendar dates, including the selected end date up to the current time. Changes compare the preceding period of equal length with the same filters; a zero baseline or unavailable history has no percentage. When you compare with another campaign, changes compare against that campaign’s own live dates with the same placement and country filters, and impressions, clicks and visitors are scaled per live day. Closed paid periods have no comparison. Impressions require at least 50% visibility continuously
               for one foreground second. CTR is unavailable with no impressions
               and can exceed 100% when activations outnumber qualifying
               exposures.

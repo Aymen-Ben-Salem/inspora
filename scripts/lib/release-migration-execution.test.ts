@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertReleasePlan, captureReleaseDatabase, runReleaseTransaction } from './release-migration-execution';
+import { assertReleasePlan, captureReleaseDatabase, releaseDataHashes, runReleaseTransaction } from './release-migration-execution';
 
 describe('release execution safety', () => {
   it('reports a manually migrated disposable schema without fabricating a Drizzle migration ledger', async () => {
@@ -13,6 +13,13 @@ describe('release execution safety', () => {
     expect(snapshot.migrationLedgerPresent).toBe(false);
     expect(snapshot.ledger).toEqual([]);
     await expect(captureReleaseDatabase(client)).rejects.toThrow('Missing ledger');
+  });
+  it('fingerprints content and billing tables but not live-traffic analytics and view caches', async () => {
+    const queried: string[] = [];
+    const client = { query: async (statement: string) => { queried.push(statement); return { rows: [{ count: 1, sha256: 'x' }], rowCount: 1 }; } };
+    const hashes = await releaseDataHashes(client, { posts: ['id'], sponsors: ['id'], sponsor_accounts: ['id'], analytics_events: ['id'], analytics_reports: ['key'], creator_view_snapshots: ['key'] });
+    expect(Object.keys(hashes)).toEqual(['posts', 'sponsors', 'sponsor_accounts']);
+    expect(queried.some(statement => /analytics|creator_view_snapshots/.test(statement))).toBe(false);
   });
   it('rejects drift in code, target, ledger and data before writes', () => {
     const pinned = { target: 'rehearsal', code: 'a', ledger: [1], data: 'a' };

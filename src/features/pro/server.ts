@@ -14,8 +14,8 @@ import { readAccess } from "./repository";
 export const withProTransaction: WithProTransaction = (work) => withWriteTransaction((tx) => work(tx as never));
 
 /**
- * Pro buyers delete their identity through Inspora's balance warning and billing
- * closure flow. Clerk's Backend API can still complete that confirmed deletion.
+ * Pro buyers delete their identity through Inspora's subscription warning and
+ * billing closure flow. Clerk's Backend API can still complete that confirmed deletion.
  */
 export async function prepareProIdentity(userId: string) {
   if (!proFeatureEnabled()) throw new Error("Inspora Pro is unavailable.");

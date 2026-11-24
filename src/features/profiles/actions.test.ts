@@ -58,13 +58,13 @@ it("does not let sponsor deletion downgrade to email-only authentication after M
   expect(await requestOwnAccountDeletion()).toMatchObject({ ok: false, code: "forbidden" });
   expect(mocks.deletion).not.toHaveBeenCalled();
 });
-it("requires the owner to acknowledge Inspora Pro credit loss before permanent deletion", async () => {
+it("requires the owner to acknowledge Inspora Pro cancellation before permanent deletion", async () => {
   mocks.auth.mockResolvedValue({ userId: "trusted-owner", has: () => true });
-  pro.warning.mockResolvedValue({ credits: 640, purchasedCredits: 500, subscribed: true });
+  pro.warning.mockResolvedValue({ subscribed: true });
   mocks.deletion.mockResolvedValue({ ok: true });
   expect(await requestOwnAccountDeletion()).toMatchObject({ ok: false, code: "forbidden" });
   expect(mocks.deletion).not.toHaveBeenCalled();
-  expect(await requestOwnAccountDeletion({ acknowledgeProCreditLoss: true })).toEqual({ ok: true });
+  expect(await requestOwnAccountDeletion({ acknowledgeProCancellation: true })).toEqual({ ok: true });
   expect(mocks.deletion).toHaveBeenCalledWith("trusted-owner");
 });
 it("retains normal deletion for a sponsor with verified MFA", async () => {

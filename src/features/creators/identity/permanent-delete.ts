@@ -34,7 +34,7 @@ export async function permanentlyDeleteCreator(id: string, input: PermanentCreat
     if (creator.ownerUserId && process.env.DATA_ENVIRONMENT === "preview" && !process.env.CLERK_SECRET_KEY?.startsWith("sk_test_")) throw new AdminCreatorMutationError("environment_restricted", "Preview cannot delete an account from a live Clerk instance.");
     const cleanupKeys: string[] = [];
     if (creator.ownerUserId) {
-      if (await proAccountBlocksAdminDeletion(tx as never, creator.ownerUserId)) throw new AdminCreatorMutationError("conflict", "This account has Inspora Pro billing or credits. Resolve them with the account owner before permanent deletion.");
+      if (await proAccountBlocksAdminDeletion(tx as never, creator.ownerUserId)) throw new AdminCreatorMutationError("conflict", "This account has an Inspora Pro subscription. Resolve it with the account owner before permanent deletion.");
       const account = await queueAccountDeletion(tx, creator.ownerUserId);
       if (!account) throw new AdminCreatorMutationError("conflict", "The linked account record is missing. Resolve its account status before permanent deletion.");
       cleanupKeys.push(`account:${creator.ownerUserId}`);

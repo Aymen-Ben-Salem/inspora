@@ -12,9 +12,7 @@ vi.mock("@/features/profiles/actions", () => ({ requestOwnAccountDeletion: exter
 
 const view: ProAccountView = {
   active: true, reason: null, closed: false, paidThrough: "2027-04-01Z", cancelAtPeriodEnd: false,
-  hasCustomer: true, includedResetsAt: "2027-04-01Z", balances: { included: 40, purchased: 500, available: 540 },
-  autoRecharge: { enabled: false, capCents: null, spentCents: 0, notice: null, consentForCurrent: true },
-  usage: [], purchases: [], checkout: null,
+  hasCustomer: true, subscribed: true, checkout: null,
 };
 let container: HTMLDivElement, root: Root;
 beforeEach(() => {
@@ -26,41 +24,38 @@ beforeEach(() => {
 afterEach(async () => { await act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const button = (text: string) => [...container.querySelectorAll("button")].find(node => node.textContent === text)!;
 
-it("requires explicit consent before enabling automatic top-up with the chosen cap", async () => {
+it("shows the plan, plugin setup and fair-use limits without any credits", async () => {
   await act(() => root.render(<ProAccountPanel view={view} />));
-  expect(button("Turn on automatic top-up").disabled).toBe(true);
-  const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-  await act(() => checkbox.click());
-  const select = container.querySelector("select")!;
-  await act(() => { select.value = "2000"; select.dispatchEvent(new Event("change", { bubbles: true })); });
-  expect(button("Turn on automatic top-up").disabled).toBe(false);
-  await act(() => button("Turn on automatic top-up").click());
-  expect(external.fetch).toHaveBeenCalledWith("/api/account/pro/recharge", expect.objectContaining({ body: JSON.stringify({ enabled: true, capCents: 2000, acknowledged: true }) }));
-  expect(external.refresh).toHaveBeenCalledOnce();
-});
-
-it("keeps preserved purchased credits visible while inactive and offers no credit purchase", async () => {
-  await act(() => root.render(<ProAccountPanel view={{ ...view, active: false, reason: "no_active_subscription" }} />));
-  expect(button("Subscribe")).toBeDefined();
-  expect(container.textContent).toContain("500");
-  expect([...container.querySelectorAll("button")].some(node => node.textContent?.startsWith("Buy "))).toBe(false);
+  expect(container.textContent).toContain("US$7 per month");
+  expect(container.textContent).toContain("claude plugin install inspora@inspora-team");
+  expect(container.textContent).toContain("codex plugin add inspora@inspora-team");
+  expect(container.textContent).toContain("30 tool calls a minute, 500 a day and 3,000 searches a month");
+  expect(container.textContent?.toLowerCase()).not.toContain("credits");
   expect(container.querySelector('input[type="checkbox"]')).toBeNull();
 });
 
-it("shows the balance-loss warning and requires typed confirmation before personal deletion", async () => {
+it("cancels renewal through the account action and refreshes", async () => {
   await act(() => root.render(<ProAccountPanel view={view} />));
-  expect(container.textContent).toContain("540 credits, including 500 purchased credits");
-  expect(button("Permanently delete account").disabled).toBe(true);
-  expect(external.deletion).not.toHaveBeenCalled();
+  await act(() => button("Cancel renewal").click());
+  expect(external.fetch).toHaveBeenCalledWith("/api/account/pro/cancel-renewal", { method: "POST" });
+  expect(external.refresh).toHaveBeenCalledOnce();
 });
 
-it("keeps the account visible when a pack purchase is refused by the server", async () => {
-  external.fetch.mockResolvedValueOnce(Response.json({ message: "An active Inspora Pro subscription is required." }, { status: 409 }));
-  await act(() => root.render(<ProAccountPanel view={view} />));
-  const pack = [...container.querySelectorAll("button")].find(node => node.textContent?.startsWith("Buy 500 credits"))!;
-  await act(() => pack.click());
-  expect(container.querySelector('[role="alert"]')?.textContent).toContain("An active Inspora Pro subscription is required.");
+it("offers subscription when inactive and keeps a refused action visible", async () => {
+  external.fetch.mockResolvedValueOnce(Response.json({ message: "Billing is temporarily unavailable. Try again." }, { status: 503 }));
+  await act(() => root.render(<ProAccountPanel view={{ ...view, active: false, reason: "no_active_subscription", subscribed: false }} />));
+  await act(() => button("Subscribe").click());
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Billing is temporarily unavailable");
   expect(external.refresh).not.toHaveBeenCalled();
+  expect(container.textContent).toContain("The plugin works while your Pro subscription is active.");
+});
+
+it("warns that deletion cancels Pro and requires typed confirmation", async () => {
+  await act(() => root.render(<ProAccountPanel view={view} />));
+  expect(container.textContent).toContain("cancels Pro immediately");
+  expect(container.textContent).toContain("cancel your renewal instead");
+  expect(button("Permanently delete account").disabled).toBe(true);
+  expect(external.deletion).not.toHaveBeenCalled();
 });
 
 it("refreshes a pending Checkout return and stops once payment activates Pro", async () => {

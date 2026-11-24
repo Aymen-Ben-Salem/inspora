@@ -1,6 +1,6 @@
 # Set up Inspora
 
-Find design references in your AI agent. The hosted team trial is available to approved Inspora team/admin accounts. Customer access will follow the Inspora Pro plans and credits work.
+Find design references in your AI agent. The hosted team trial is available to approved Inspora team/admin accounts. Customer access will be included with an Inspora Pro subscription, under fair-use limits and with no free tier.
 
 Choose **agent-assisted setup** or **manual setup**. The same instructions are available at [mcp.inspora.design/setup](https://mcp.inspora.design/setup).
 

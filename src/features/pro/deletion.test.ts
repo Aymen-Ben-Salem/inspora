@@ -3,7 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "@/db/schema";
 import { createProTestDatabase } from "./test-database";
-import { closeProAccountForDeletion, createProIdentityDeletionGuard, proAccountBlocksAdminDeletion, readProIdentityClosure } from "./deletion";
+import { closeProAccountForDeletion, createProIdentityDeletionGuard, proAccountBlocksAdminDeletion, readProDeletionWarning, readProIdentityClosure } from "./deletion";
 import { applyPaidSubscriptionInvoice, proRecoverySchemaInstalled, recordSubscription, type ProTx } from "./repository";
 
 vi.mock("server-only", () => ({}));
@@ -18,21 +18,24 @@ it("is a no-op before the Pro migration is applied", async () => {
   const bare = new PGlite();
   const tx = drizzle(bare, { schema }) as unknown as ProTx;
   expect(await closeProAccountForDeletion(tx, user, now)).toBe(false);
-  expect(await proAccountBlocksAdminDeletion(tx, user, now)).toBe(false);
+  expect(await proAccountBlocksAdminDeletion(tx, user)).toBe(false);
   expect(await readProIdentityClosure(tx, user)).toBeNull();
   expect(await proRecoverySchemaInstalled(tx)).toBe(false);
   await bare.close();
 }, 60_000);
 
-it("blocks admin-initiated removal while Pro value exists and forfeits on the owner's confirmed deletion", async () => {
-  expect(await db.transaction((tx) => proAccountBlocksAdminDeletion(tx, user, now))).toBe(false);
+it("blocks admin-initiated removal while a Pro subscription exists and closes on the owner's confirmed deletion", async () => {
+  expect(await db.transaction((tx) => proAccountBlocksAdminDeletion(tx, user))).toBe(false);
   await db.transaction(async (tx) => {
     await recordSubscription(tx, { userId: user, stripeSubscriptionId: "sub_1", status: "active", priceId: "price_pro", currentPeriodStart: start, currentPeriodEnd: end, cancelAtPeriodEnd: false, endedAt: null }, start);
-    await applyPaidSubscriptionInvoice(tx, { userId: user, stripeSubscriptionId: "sub_1", invoiceId: "in_1", periodStart: start, periodEnd: end, now: start });
+    await applyPaidSubscriptionInvoice(tx, { userId: user, stripeSubscriptionId: "sub_1", periodStart: start, periodEnd: end, now: start });
   });
-  expect(await db.transaction((tx) => proAccountBlocksAdminDeletion(tx, user, now))).toBe(true);
+  expect(await db.transaction((tx) => proAccountBlocksAdminDeletion(tx, user))).toBe(true);
+  expect(await db.transaction((tx) => readProDeletionWarning(tx, user))).toEqual({ subscribed: true });
   expect(await db.transaction((tx) => closeProAccountForDeletion(tx, user, now))).toBe(true);
-  expect(await db.transaction((tx) => proAccountBlocksAdminDeletion(tx, user, now))).toBe(false);
+  expect(await db.transaction((tx) => proAccountBlocksAdminDeletion(tx, user))).toBe(false);
+  expect(await db.transaction((tx) => readProDeletionWarning(tx, user))).toBeNull();
+  expect(await db.transaction((tx) => readProIdentityClosure(tx, user))).toEqual({ state: "closed", providerClosurePending: true });
 });
 
 it("does not require provider setup for a missing Pro account or a completed closure", async () => {

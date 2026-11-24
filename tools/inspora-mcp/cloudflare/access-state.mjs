@@ -9,7 +9,13 @@ export const HTTP_LIMITS={minute:30,day:500};
 export const PRO_HTTP_LIMITS={minute:60,day:1000};
 export const TEAM_HTTP_LIMITS=PRO_HTTP_LIMITS;
 export const TOOL_LIMITS={minute:30,day:500};
-export const RECEIPT_TTL_MS=10*60000,RECEIPT_MAX_ENTRIES=32,RECEIPT_MAX_CHARS=64000;
+// Fair use: fresh searches per account per calendar month (UTC). Continuation pages,
+// work details and status do not count. This stops one account being shared by a group.
+export const SEARCH_LIMITS={month:3000};
+// Active Pro is re-checked at most this often per account; a cancellation applies within it.
+export const ACCESS_CACHE_MS=60000;
+const monthKey=now=>new Date(now).toISOString().slice(0,7);
+const nextMonth=now=>{const d=new Date(now);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1);};
 export const CURSOR_MAX_ENTRIES=128,CURSOR_MAX_CHARS=512000,CONTINUATION_MAX_WORKS=1000;
 
 // Continuation stores only what later pages need: the next ranked ids with deduplicated
@@ -63,8 +69,7 @@ export class AccessState {
       }else await this.state.storage.delete('paid_http_until');
       return Response.json({ok:true});
     }
-    // Per-person tool-call limits across all clients of one account, including zero-credit calls.
-    // A refused call is not recorded and never reaches accounting, so it consumes no credits.
+    // Per-person tool-call limits across all clients of one account. A refused call is not recorded.
     if(action==='tools')return this.state.storage.transaction(async storage=>{
       const minute=Math.floor(now/60000),day=Math.floor(now/86400000);
       const current=await storage.get('tools')??{};
@@ -73,19 +78,24 @@ export class AccessState {
       if(limited)return Response.json({ok:false,...limited});
       await storage.put('tools',next);return Response.json({ok:true});
     });
-    // Replay receipts let a retried operation return its original result without a second charge.
-    if(action==='receipt_get'){
-      if(!/^[A-Za-z0-9_-]{43}$/.test(input.key))return fail(400,'RECEIPT_INVALID');
-      const value=await this.state.storage.get('receipt:'+input.key);
-      return Response.json(value&&value.expires>now?{value:value.result,pending:value.pending===true}:{value:null});
+    // Fair-use monthly search count. A refused search is not recorded.
+    if(action==='search')return this.state.storage.transaction(async storage=>{
+      const month=monthKey(now),current=await storage.get('searches'),count=(current?.month===month?current.count:0)+1;
+      if(count>SEARCH_LIMITS.month)return Response.json({ok:false,limit:SEARCH_LIMITS.month,retry_after:Math.ceil((nextMonth(now)-now)/1000),resets_at:new Date(nextMonth(now)).toISOString()});
+      await storage.put('searches',{month,count});return Response.json({ok:true});
+    });
+    if(action==='usage'){
+      const current=await this.state.storage.get('searches');
+      return Response.json({searches_this_month:current?.month===monthKey(now)?current.count:0,monthly_search_limit:SEARCH_LIMITS.month,resets_at:new Date(nextMonth(now)).toISOString()});
     }
-    if(action==='receipt_put'){
-      if(!/^[A-Za-z0-9_-]{43}$/.test(input.key)||JSON.stringify(input.result??null).length>RECEIPT_MAX_CHARS)return fail(400,'RECEIPT_INVALID');
-      await this.state.storage.transaction(async storage=>{
-        if(!await storage.get('receipt:'+input.key))await evictFor(storage,'receipt:',RECEIPT_MAX_ENTRIES,now);
-        await storage.put('receipt:'+input.key,{expires:now+RECEIPT_TTL_MS,result:input.result,pending:input.pending===true});
-        await storage.setAlarm(now+RECEIPT_TTL_MS);
-      });
+    // Short cache of an active Pro answer only; any other answer clears it.
+    if(action==='access_get'){
+      const value=await this.state.storage.get('pro_access');
+      return Response.json(value&&value.until>now?{value:value.access}:{value:null});
+    }
+    if(action==='access_put'){
+      if(input.access?.access==='pro')await this.state.storage.put('pro_access',{until:now+ACCESS_CACHE_MS,access:{access:'pro',manage_url:String(input.access.manage_url??'')}});
+      else await this.state.storage.delete('pro_access');
       return Response.json({ok:true});
     }
     if(action==='put'){

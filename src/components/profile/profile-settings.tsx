@@ -23,7 +23,7 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [requestingDeletion, startDeletion] = useTransition();
   const requestDeletion = useReverification(requestOwnAccountDeletion);
-  const [proWarning, setProWarning] = useState<{ credits: number; purchasedCredits: number; subscribed: boolean } | null>(null);
+  const [proWarning, setProWarning] = useState<{ subscribed: true } | null>(null);
   const rowClass = "flex items-center justify-between gap-4 rounded-[3px] border border-[#e6e6e6] px-4 py-3";
   const buttonClass = "focus-ring shrink-0 cursor-pointer border border-[#e6e6e6] bg-[#fafafa] px-[11px] py-[10px] text-sm leading-[normal] tracking-[0.2px] disabled:cursor-not-allowed";
 
@@ -83,8 +83,7 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
           <div className="grid w-full gap-3">
             {proWarning ? (
               <p role="alert" className="border border-[#febbbb] bg-[#fff7f7] p-3 text-xs text-[#a11]">
-                {proWarning.subscribed ? "Your Inspora Pro subscription will be canceled immediately. " : ""}
-                You have {proWarning.credits.toLocaleString("en")} Inspora credits{proWarning.purchasedCredits ? `, including ${proWarning.purchasedCredits.toLocaleString("en")} purchased credits` : ""}. Permanent deletion removes them all without a refund, except where the law requires one. Purchased credits only carry forward while your account stays open. To keep them, cancel your Pro renewal instead.
+                Your Inspora Pro subscription will be canceled immediately, without a refund for the rest of the paid month except where the law requires one. To keep Pro until the end of the month, cancel your renewal instead.
               </p>
             ) : null}
             <label className="grid gap-2 text-xs text-[#767676]">
@@ -97,7 +96,7 @@ export function ProfileSettings({ onEdit, claimAttentionCount = 0 }: { onEdit: (
                 setDeletionError(null);
                 startDeletion(async () => {
                   try {
-                    const result = await requestDeletion({ acknowledgeProCreditLoss: proWarning !== null });
+                    const result = await requestDeletion({ acknowledgeProCancellation: proWarning !== null });
                     if (!result.ok) {
                       setDeletionError(result.message);
                       return;

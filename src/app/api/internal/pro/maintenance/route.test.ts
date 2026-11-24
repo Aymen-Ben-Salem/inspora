@@ -23,15 +23,12 @@ it("requires dedicated Pro configuration even for authenticated recovery", async
   expect(deps.withTx).not.toHaveBeenCalled();
 });
 
-it("only recovers existing closures when the Pro UI is disabled", async () => {
+it("recovers pending closures whether or not the Pro UI is enabled", async () => {
   deps.enabled = false;
   expect((await GET(request())).status).toBe(200);
-  expect(deps.maintenance).toHaveBeenCalledWith({ closuresOnly: true });
-});
-
-it("retains regular maintenance only when Pro is explicitly enabled", async () => {
+  deps.enabled = true;
   expect((await GET(request())).status).toBe(200);
-  expect(deps.maintenance).toHaveBeenCalledWith({ closuresOnly: false });
+  expect(deps.maintenance).toHaveBeenCalledTimes(2);
 });
 
 it("is a migration-safe recovery no-op before Pro tables exist", async () => {

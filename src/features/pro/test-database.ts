@@ -19,7 +19,7 @@ export async function createProTestDatabase() {
   if (process.env.PRO_TEST_BACKEND === "neon") return createNeonTestDatabase();
   if (process.env.PRO_TEST_BACKEND && process.env.PRO_TEST_BACKEND !== "pglite") throw new Error("Unknown Pro test backend.");
   const client = new PGlite();
-  const migration = readFileSync(fileURLToPath(new URL("../../../drizzle/0046_pro_credits.sql", import.meta.url)), "utf8");
+  const migration = readFileSync(fileURLToPath(new URL("../../../drizzle/0046_pro_subscription.sql", import.meta.url)), "utf8");
   for (const statement of migration.split("--> statement-breakpoint")) if (statement.trim()) await client.exec(statement);
   const db = drizzle(client, { schema });
   let queue = Promise.resolve();
@@ -30,7 +30,7 @@ export async function createProTestDatabase() {
     return run;
   };
   // Starting PGlite is slow; reuse one instance per test file and reset rows between tests.
-  const reset = () => client.exec("truncate pro_credit_ledger, pro_credit_reservations, pro_purchases, pro_disputes, pro_subscriptions, pro_stripe_events, pro_accounts cascade");
+  const reset = () => client.exec("truncate pro_disputes, pro_subscriptions, pro_stripe_events, pro_accounts cascade");
   return { backend: "pglite" as const, db: db as unknown as ProTx, transaction, reset, close: () => client.close(), pool: null };
 }
 
@@ -67,9 +67,9 @@ async function createNeonTestDatabase() {
   }
   const reset = () => transaction(async (tx) => {
     await assertFixture(tx);
-    // These seven isolated Pro tables have no dependencies on existing data.
+    // These four isolated Pro tables have no dependencies on existing data.
     // No CASCADE: a future cross-domain dependency must stop the reset.
-    await tx.execute(sql`truncate pro_credit_ledger, pro_credit_reservations, pro_purchases, pro_disputes, pro_subscriptions, pro_stripe_events, pro_accounts`);
+    await tx.execute(sql`truncate pro_disputes, pro_subscriptions, pro_stripe_events, pro_accounts`);
   });
   return { backend: "neon" as const, db: db as unknown as ProTx, transaction, reset, close: () => pool.end(), pool };
 }

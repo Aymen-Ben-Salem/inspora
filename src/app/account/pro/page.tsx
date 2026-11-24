@@ -24,17 +24,7 @@ async function Content({ searchParams }: { searchParams: Promise<{ checkout?: st
     paidThrough: summary.entitlement.paidThrough?.toISOString() ?? null,
     cancelAtPeriodEnd: current?.cancelAtPeriodEnd ?? false,
     hasCustomer: Boolean(summary.account?.stripeCustomerId),
-    includedResetsAt: summary.account?.includedPeriodEnd?.toISOString() ?? null,
-    balances: summary.balances ?? { included: 0, purchased: 0, available: 0 },
-    autoRecharge: {
-      enabled: summary.account?.autoRechargeEnabled ?? false,
-      capCents: summary.account?.autoRechargeCapCents ?? null,
-      spentCents: summary.capSpentCents,
-      notice: summary.account?.autoRechargeNotice ?? null,
-      consentForCurrent: Boolean(current && summary.account?.autoRechargeSubscriptionId === current.stripeSubscriptionId),
-    },
-    usage: summary.usage.map((u) => ({ id: u.id, credits: u.credits, at: u.at?.toISOString() ?? null, results: u.resultCount ?? 0 })),
-    purchases: summary.purchases.map((p) => ({ id: p.id, kind: p.kind, state: p.state, credits: p.credits, chargedCents: p.chargedAmountCents, refundedCents: p.refundedAmountCents, at: p.createdAt.toISOString() })),
+    subscribed: summary.subscriptions.some((s) => !s.endedAt),
     checkout: (await searchParams).checkout ?? null,
   };
   return <ProAccountPanel view={view} />;

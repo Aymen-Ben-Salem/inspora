@@ -1367,7 +1367,7 @@ export const sponsorDeliveryIntervals = pgTable(
   ],
 );
 
-// Shared Inspora Pro entitlement and credit accounting. Personal ownership by
+// Shared Inspora Pro subscription entitlement. Personal ownership by
 // the signed-in identity; independent of creator profiles and sponsorship.
 export const proAccounts = pgTable(
   "pro_accounts",
@@ -1378,17 +1378,6 @@ export const proAccounts = pgTable(
     subscriptionCheckoutAttemptId: text("subscription_checkout_attempt_id"),
     stripeCheckoutSessionId: text("stripe_checkout_session_id"),
     subscriptionCheckoutAttemptCreatedAt: timestamp("subscription_checkout_attempt_created_at", { withTimezone: true, mode: "date" }),
-    includedBalance: integer("included_balance").default(0).notNull(),
-    includedPeriodKey: text("included_period_key"),
-    includedPeriodStart: timestamp("included_period_start", { withTimezone: true, mode: "date" }),
-    includedPeriodEnd: timestamp("included_period_end", { withTimezone: true, mode: "date" }),
-    purchasedBalance: integer("purchased_balance").default(0).notNull(),
-    autoRechargeEnabled: boolean("auto_recharge_enabled").default(false).notNull(),
-    autoRechargeCapCents: integer("auto_recharge_cap_cents"),
-    autoRechargeConsentedAt: timestamp("auto_recharge_consented_at", { withTimezone: true, mode: "date" }),
-    // Consent applies to the subscription it was given under; a new subscription needs new consent.
-    autoRechargeSubscriptionId: text("auto_recharge_subscription_id"),
-    autoRechargeNotice: text("auto_recharge_notice"),
     closureRequestedAt: timestamp("closure_requested_at", { withTimezone: true, mode: "date" }),
     providerClosurePending: boolean("provider_closure_pending").default(false).notNull(),
     ...timestamps,
@@ -1396,10 +1385,6 @@ export const proAccounts = pgTable(
   (t) => [
     uniqueIndex("pro_accounts_customer_unique").on(t.stripeCustomerId),
     check("pro_accounts_state_valid", sql`${t.state} in ('open','closed')`),
-    check("pro_accounts_balances_valid", sql`${t.includedBalance} >= 0 and ${t.purchasedBalance} >= 0`),
-    check("pro_accounts_cap_valid", sql`${t.autoRechargeCapCents} is null or ${t.autoRechargeCapCents} in (500,1000,2000,5000)`),
-    check("pro_accounts_recharge_consent", sql`not ${t.autoRechargeEnabled} or (${t.autoRechargeCapCents} is not null and ${t.autoRechargeConsentedAt} is not null and ${t.autoRechargeSubscriptionId} is not null)`),
-    check("pro_accounts_notice_valid", sql`${t.autoRechargeNotice} is null or ${t.autoRechargeNotice} in ('cap_insufficient','payment_failed','payment_method_missing')`),
   ],
 );
 
@@ -1421,98 +1406,6 @@ export const proSubscriptions = pgTable(
   (t) => [
     index("pro_subscriptions_user_idx").on(t.userId),
     check("pro_subscriptions_period_valid", sql`${t.currentPeriodEnd} > ${t.currentPeriodStart}`),
-  ],
-);
-
-export const proCreditReservations = pgTable(
-  "pro_credit_reservations",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id").notNull().references(() => proAccounts.userId),
-    operationKey: text("operation_key").notNull(),
-    feature: text("feature").notNull(),
-    credits: integer("credits").notNull(),
-    includedAmount: integer("included_amount").notNull(),
-    purchasedAmount: integer("purchased_amount").notNull(),
-    includedPeriodKey: text("included_period_key"),
-    state: text("state").default("reserved").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
-    resultCount: integer("result_count"),
-    settledAt: timestamp("settled_at", { withTimezone: true, mode: "date" }),
-    releasedAt: timestamp("released_at", { withTimezone: true, mode: "date" }),
-    ...timestamps,
-  },
-  (t) => [
-    uniqueIndex("pro_reservations_operation_unique").on(t.userId, t.operationKey),
-    index("pro_reservations_open_idx").on(t.userId, t.state, t.expiresAt),
-    check("pro_reservations_state_valid", sql`${t.state} in ('reserved','settled','released')`),
-    check("pro_reservations_feature_valid", sql`${t.feature} in ('mcp_search')`),
-    check("pro_reservations_amounts_valid", sql`${t.credits} > 0 and ${t.includedAmount} >= 0 and ${t.purchasedAmount} >= 0 and ${t.includedAmount} + ${t.purchasedAmount} = ${t.credits}`),
-  ],
-);
-
-export const proPurchases = pgTable(
-  "pro_purchases",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id").notNull().references(() => proAccounts.userId),
-    kind: text("kind").notNull(),
-    state: text("state").default("pending").notNull(),
-    credits: integer("credits").notNull(),
-    baseAmountCents: integer("base_amount_cents").notNull(),
-    // Automatic purchases hold their tax-inclusive amount against the monthly cap.
-    reservedAmountCents: integer("reserved_amount_cents"),
-    chargedAmountCents: integer("charged_amount_cents"),
-    refundedAmountCents: integer("refunded_amount_cents").default(0).notNull(),
-    // Records refund coverage even when no unspent credits remain to reverse.
-    refundProcessedCredits: integer("refund_processed_credits").default(0).notNull(),
-    currency: text("currency").default("usd").notNull(),
-    capPeriodStart: timestamp("cap_period_start", { withTimezone: true, mode: "date" }),
-    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
-    stripeInvoiceId: text("stripe_invoice_id"),
-    stripePaymentIntentId: text("stripe_payment_intent_id"),
-    failureCode: text("failure_code"),
-    grantedAt: timestamp("granted_at", { withTimezone: true, mode: "date" }),
-    ...timestamps,
-  },
-  (t) => [
-    index("pro_purchases_user_idx").on(t.userId, t.createdAt),
-    uniqueIndex("pro_purchases_checkout_unique").on(t.stripeCheckoutSessionId),
-    uniqueIndex("pro_purchases_invoice_unique").on(t.stripeInvoiceId),
-    uniqueIndex("pro_purchases_intent_unique").on(t.stripePaymentIntentId),
-    // Serializes automatic purchases: never two overlapping pack charges.
-    uniqueIndex("pro_purchases_one_open_automatic").on(t.userId).where(sql`${t.kind} = 'automatic' and ${t.state} in ('pending','processing')`),
-    check("pro_purchases_kind_valid", sql`${t.kind} in ('manual','automatic')`),
-    check("pro_purchases_state_valid", sql`${t.state} in ('pending','processing','succeeded','failed','canceled','cap_blocked')`),
-    check("pro_purchases_amounts_valid", sql`${t.credits} > 0 and ${t.baseAmountCents} > 0 and (${t.reservedAmountCents} is null or ${t.reservedAmountCents} > 0) and (${t.chargedAmountCents} is null or ${t.chargedAmountCents} > 0) and ${t.refundedAmountCents} >= 0 and (${t.chargedAmountCents} is null or ${t.refundedAmountCents} <= ${t.chargedAmountCents})`),
-    check("pro_purchases_currency_valid", sql`${t.currency} = 'usd'`),
-    check("pro_purchases_refund_processed_valid", sql`${t.refundProcessedCredits} >= 0 and ${t.refundProcessedCredits} <= ${t.credits}`),
-    check("pro_purchases_automatic_cap", sql`${t.kind} <> 'automatic' or (${t.capPeriodStart} is not null and ${t.reservedAmountCents} is not null)`),
-  ],
-);
-
-// Immutable: per-bucket sums always equal the account balances.
-export const proCreditLedger = pgTable(
-  "pro_credit_ledger",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: text("user_id").notNull().references(() => proAccounts.userId),
-    bucket: text("bucket").notNull(),
-    kind: text("kind").notNull(),
-    amount: integer("amount").notNull(),
-    balanceAfter: integer("balance_after").notNull(),
-    reservationId: uuid("reservation_id").references(() => proCreditReservations.id),
-    purchaseId: uuid("purchase_id").references(() => proPurchases.id),
-    sourceRef: text("source_ref"),
-    idempotencyKey: text("idempotency_key").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex("pro_ledger_idempotency_unique").on(t.idempotencyKey),
-    index("pro_ledger_user_idx").on(t.userId, t.createdAt),
-    check("pro_ledger_bucket_valid", sql`${t.bucket} in ('included','purchased')`),
-    check("pro_ledger_kind_valid", sql`${t.kind} in ('monthly_grant','monthly_expiry','pack_grant','usage_hold','usage_release','refund_reversal','closure_forfeit','adjustment')`),
-    check("pro_ledger_amount_valid", sql`${t.amount} <> 0 and ${t.balanceAfter} >= 0`),
   ],
 );
 

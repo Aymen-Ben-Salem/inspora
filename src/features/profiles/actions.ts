@@ -151,14 +151,14 @@ async function proDeletionWarning(userId: string) {
   return withWriteTransaction((tx) => readProDeletionWarning(tx as never, userId));
 }
 
-/** Remaining Inspora Pro credits/subscription to warn about before permanent deletion. */
+/** A live Inspora Pro subscription to warn about before permanent deletion. */
 export async function getOwnProDeletionWarning() {
   const { userId } = await auth();
   if (!userId) return null;
   try { return await proDeletionWarning(userId); } catch { return null; }
 }
 
-export async function requestOwnAccountDeletion(options: { acknowledgeProCreditLoss?: boolean } = {}) {
+export async function requestOwnAccountDeletion(options: { acknowledgeProCancellation?: boolean } = {}) {
   const authentication = await auth();
   if (!authentication.userId) {
     return { ok: false as const, code: "unauthenticated" as const, message: "Sign in to delete your account." };
@@ -169,9 +169,9 @@ export async function requestOwnAccountDeletion(options: { acknowledgeProCreditL
   try {
     if ((await readAccountCapabilities(authentication.userId)).sponsor && (await readSponsorSecurity()).state !== "ready")
       return { ok: false as const, code: "forbidden" as const, message: "Verify your account in Account security before deleting your sponsor account." };
-    // Permanent deletion forfeits Pro credits: the owner must have seen and accepted that warning.
-    if (!options.acknowledgeProCreditLoss && (await proDeletionWarning(authentication.userId)))
-      return { ok: false as const, code: "forbidden" as const, message: "Review the Inspora Pro credit warning, then confirm deletion again." };
+    // Permanent deletion cancels Pro immediately: the owner must have seen and accepted that warning.
+    if (!options.acknowledgeProCancellation && (await proDeletionWarning(authentication.userId)))
+      return { ok: false as const, code: "forbidden" as const, message: "Review the Inspora Pro cancellation warning, then confirm deletion again." };
     return await requestAccountDeletion(authentication.userId);
   } catch (error) {
     console.error("Account deletion request failed", error);

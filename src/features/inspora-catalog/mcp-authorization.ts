@@ -12,9 +12,9 @@ const common = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex,
 const validTicket = (value: string) => /^[A-Za-z0-9_-]{43}$/.test(value);
 
 export function authorizationConfig(values: Record<string, string | undefined>) {
-  // Customer access uses the shared Pro entitlement/credit service: `pro` admits
-  // the team trial plus accounts with current verified Pro. The hosted Worker must
-  // enforce per-call entitlement and credits too; consent alone never grants use.
+  // Customer access uses the shared Pro entitlement service: `pro` admits the team
+  // trial plus accounts with current verified Pro. The hosted Worker must check
+  // entitlement per call too; consent alone never grants use.
   // Any other value fails closed so a flag cannot open a free authenticated service.
   const policy = values.INSPORA_MCP_ACCESS_POLICY ?? "team";
   if (policy !== "team" && policy !== "pro") return null;

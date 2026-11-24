@@ -5,13 +5,13 @@ import {sha} from '../catalog.mjs';
 import {SearchEngine,searchSchema,detailSchema,batchDetailSchema,CURSOR_TTL_MS,SEARCH_REVISION,DEFAULT_COUNT} from '../search.mjs';
 import {createEmbed} from './embeddings.mjs';
 import {createCatalogReader} from './catalog.mjs';
-import {accessStore,packContinuation,unpackContinuation,continuationCursor,CONTINUATION_MAX_WORKS,TOOL_LIMITS} from './access-state.mjs';
+import {accessStore,packContinuation,unpackContinuation,continuationCursor,CONTINUATION_MAX_WORKS,TOOL_LIMITS,SEARCH_LIMITS} from './access-state.mjs';
 import {coordinator} from './synchronization.mjs';
 import {hostedVisuals} from './previews.mjs';
 import {workReply,detailTools,VISUAL_RESPONSE_BYTES} from '../visuals.mjs';
 import {searchInstructions} from '../instructions.mjs';
 import {searchTool,catalogStatusTool} from '../tool-definitions.mjs';
-import {createAccounting,operationKey,accessError,accountView,newAccountingSession,validAccountingSession} from './pro-accounting.mjs';
+import {createAccounting,accessError,accountView} from './pro-accounting.mjs';
 export {AccessState} from './access-state.mjs';
 export {CatalogSync} from './synchronization.mjs';
 
@@ -20,7 +20,7 @@ const annotations={readOnlyHint:true,destructiveHint:false,idempotentHint:false,
 const data=value=>({content:[{type:'text',text:JSON.stringify(value)}]});
 const responseHeaders={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex, nofollow, noarchive'};
 const fail=(status,error)=>Response.json({error},{status,headers:responseHeaders});
-const knownError=/^(?:PRO_REQUIRED|PAYMENT_REVIEW|CREDITS_EXHAUSTED|OPERATION_IN_PROGRESS|TOOL_LIMIT_REACHED|ACCOUNTING_UNAVAILABLE|CURSOR_[A-Z_]+|CATALOG_[A-Z_]+|EMBEDDING_INVALID|RATE_LIMITED|INPUT|QUERY_REWRITE_REQUIRED|CONSTRAINT_CONFLICT|INVALID_REFERENCE|REFERENCE_NOT_ELIGIBLE|WORK_NOT_ELIGIBLE|RESPONSE_BUDGET|DETAIL_BUDGET)(?::[^\r\n]*)?$/;
+const knownError=/^(?:PRO_REQUIRED|PAYMENT_REVIEW|SEARCH_LIMIT_REACHED|TOOL_LIMIT_REACHED|ACCOUNTING_UNAVAILABLE|CURSOR_[A-Z_]+|CATALOG_[A-Z_]+|EMBEDDING_INVALID|RATE_LIMITED|INPUT|QUERY_REWRITE_REQUIRED|CONSTRAINT_CONFLICT|INVALID_REFERENCE|REFERENCE_NOT_ELIGIBLE|WORK_NOT_ELIGIBLE|RESPONSE_BUDGET|DETAIL_BUDGET)(?::[^\r\n]*)?$/;
 const fixInput='Fix the arguments to match the tool schema and retry.';
 // Bare hosted codes gain an explanation and the next step, keeping the CODE prefix.
 const nextSteps={
@@ -146,26 +146,32 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
       let accounting;try{accounting=env.MCP_ACCESS_POLICY==='pro'?createAccounting(env,accountingFetch):null;}catch{return fail(503,'MCP temporarily unavailable');}
       if(env.MCP_ACCESS_POLICY==='pro'&&!accounting)return fail(503,'MCP temporarily unavailable');
       if(env.MCP_ACCESS_POLICY!==undefined&&!['team','pro'].includes(env.MCP_ACCESS_POLICY))return fail(503,'MCP temporarily unavailable');
-      let sessionId;
-      if(accounting){
-        if(body?.method==='initialize')sessionId=newAccountingSession(user,env.PRO_ACCOUNTING_TOKEN);
-        else{
-          sessionId=request.headers.get('mcp-session-id');
-          if(!validAccountingSession(sessionId,user,env.PRO_ACCOUNTING_TOKEN))return fail(sessionId?404:400,'MCP session required; reconnect your client');
-        }
-      }
       const state=accessStore(env.ACCESS_STATE,user);
       // Every request counts toward an HTTP abuse ceiling. The team trial uses the paid
       // ceiling because protocol traffic must not spend its separate per-person tool budget.
       try{await state('budget',{team:!accounting});}catch(error){if(error.message==='RATE_LIMITED')return rateLimited(body,error);throw error;}
-      // Limits and identity are validated before entitlement, credit or search work.
+      // Limits and identity are validated before entitlement or search work.
       const toolLimit=async()=>{
         const limit=await state('tools');
-        if(!limit.ok)throw Object.assign(Error(`TOOL_LIMIT_REACHED: retry after ${limit.retry_after} seconds. The per-person ${limit.window} limit of ${limit.limit} tool calls, shared by all your connected clients, applies.${accounting?' Refused calls use no credits.':''}`),{retryAfter:limit.retry_after,window:limit.window});
+        if(!limit.ok)throw Object.assign(Error(`TOOL_LIMIT_REACHED: retry after ${limit.retry_after} seconds. The per-person ${limit.window} limit of ${limit.limit} tool calls, shared by all your connected clients, applies.`),{retryAfter:limit.retry_after,window:limit.window});
       };
-      // Zero-credit operations still require current entitlement, checked per call rather than from the OAuth grant.
-      const currentAccess=async()=>{if(!accounting)return null;const access=await accounting.access(user);await state('budget_class',{pro:access.access==='pro'});return access;};
+      // Every tool requires current Pro (no free tier), checked per call rather than from the
+      // OAuth grant. An active answer is reused for ACCESS_CACHE_MS; inactive is always re-checked.
+      const currentAccess=async()=>{
+        if(!accounting)return null;
+        const cached=(await state('access_get')).value;
+        if(cached)return cached;
+        const access=await accounting.access(user);
+        await state('access_put',{access});
+        await state('budget_class',{pro:access.access==='pro'});
+        return access;
+      };
       const requireAccess=async()=>{const access=await currentAccess();if(access?.access==='denied')throw Error(accessError(access));return access;};
+      // Fair use: each fresh search counts toward the per-account monthly limit.
+      const searchLimit=async()=>{
+        const limit=await state('search');
+        if(!limit.ok)throw Object.assign(Error(`SEARCH_LIMIT_REACHED: the fair-use limit of ${limit.limit} new searches a month for one account is used up. It resets at ${limit.resets_at}. Continuation pages and work details still work.`),{retryAfter:limit.retry_after});
+      };
       let engine,index,toolHandled=false;
       // Status reads the last complete snapshot in any delivery state; search/details fail closed.
       const getIndex=async()=>index??=await catalog(env.CATALOG,{status:true});
@@ -187,46 +193,17 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
       const structured=(name,fn)=>handleResponse(name,async(args,extra)=>{const value=await fn(args,extra);return {...data(value),structuredContent:value};});
       server.registerTool('search_inspiration',{...searchTool,outputSchema:searchOutput,annotations},structured('search_inspiration',async(args,extra)=>{
         const parsed=searchSchema.parse(args);
-        // Continuation of an existing search is free; only a fresh search is billable.
-        const billable=accounting&&!parsed.cursor;
-        let key,reservation;
-        if(billable){
-          const access=await requireAccess();
-          key=operationKey(user,sessionId,extra?.requestId,parsed);
-          const receipt=await state('receipt_get',{key});
-          if(receipt.value){
-            let replayBalance=access?.balance;
-            // Cached retry results remain subject to current catalog eligibility.
-            const current=await getEngine();
-            if(receipt.value.results.some(work=>!current.byId.has(work.id)))throw Error('WORK_NOT_ELIGIBLE: A cached work is no longer available. Start a new search.');
-            if(receipt.pending){
-              const settled=await accounting.complete(user,key,receipt.value.results.length);
-              replayBalance=settled.balance??replayBalance;
-              if(receipt.value.results.length>0&&settled.state!=='settled')throw Error('ACCOUNTING_UNAVAILABLE: The original hold expired. Start a new search; it was not charged.');
-              receipt.value.account={...receipt.value.account,credits_charged:0,...(settled.balance?{credits_available:settled.balance.available}:{})};
-              await state('receipt_put',{key,result:receipt.value});
-            }
-            return {...receipt.value,account:{...receipt.value.account,credits_charged:0,...(replayBalance?{credits_available:replayBalance.available}:{})},replayed:true};
-          }
-          reservation=await accounting.reserve(user,key);
-          if(reservation.access==='denied'||reservation.state==='in_progress')throw Error(accessError(reservation));
-          if(reservation.state==='replayed')throw Error('OPERATION_IN_PROGRESS: The original result is no longer cached. Start a new search with a new request id; this operation will not be charged again.');
-        }else await requireAccess();
-        const charged=reservation?.access==='pro'&&reservation.state==='reserved';
-        let result,saved;
-        try{
-          const engine=await getEngine();
-          if(parsed.cursor){saved=unpackContinuation(await state('take',{args:parsed,snapshotId:engine.index.snapshotId}));engine.cursors.set(parsed.cursor,saved);}
-          result=await engine.search(parsed);
-          if(result.next_cursor){
-            const value=engine.cursors.get(result.next_cursor);engine.cursors.delete(result.next_cursor);
-            if(parsed.cursor)result.next_cursor=continuationCursor(parsed.cursor,parsed);
-            await state('put',{cursor:result.next_cursor,value:packContinuation(value)});
-          }
-        }catch(error){
-          // Service failures release the reservation; an unreleased hold expires and is returned.
-          if(charged)await accounting.complete(user,key,0).catch(()=>{});
-          throw error;
+        await requireAccess();
+        // Continuation of an existing search does not count toward the monthly limit.
+        if(!parsed.cursor)await searchLimit();
+        let saved;
+        const engine=await getEngine();
+        if(parsed.cursor){saved=unpackContinuation(await state('take',{args:parsed,snapshotId:engine.index.snapshotId}));engine.cursors.set(parsed.cursor,saved);}
+        const result=await engine.search(parsed);
+        if(result.next_cursor){
+          const value=engine.cursors.get(result.next_cursor);engine.cursors.delete(result.next_cursor);
+          if(parsed.cursor)result.next_cursor=continuationCursor(parsed.cursor,parsed);
+          await state('put',{cursor:result.next_cursor,value:packContinuation(value)});
         }
         result.snapshot.live=true;
         // A capped continuation ends before the full ranked match list; that is not a shortage.
@@ -235,22 +212,6 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
         result.notice=capped?`Continuation covers ${CONTINUATION_MAX_WORKS} further ranked works and has ended. For more, refine the query or start a new search with exclude_ids.`:
           // Keep the engine's evidence-count guidance; only the provenance differs.
           result.notice.replace(/^Dated local catalog\. /,'Synchronized catalog. ');
-        if(reservation?.access==='pro'){
-          // Settle once when at least one work is returned; empty results are released (zero credits).
-          result.account={access:'pro',credits_charged:0,manage_url:reservation.manage_url};
-          // Save the computed result before settlement so a lost response from
-          // accounting can be reconciled on retry without another search/charge.
-          await state('receipt_put',{key,result,pending:true});
-          let settled=null;
-          // Do not deliver billable results until accounting confirms settlement.
-          // A timeout leaves the hold intact for a safe retry, rather than returning
-          // unlimited free results while the accounting service is unavailable.
-          if(charged)settled=await accounting.complete(user,key,result.results.length);
-          if(result.results.length>0&&settled?.state!=='settled')throw Error('ACCOUNTING_UNAVAILABLE: The credit hold expired. Start a new search; it was not charged.');
-          const used=settled?.state==='settled';
-          result.account={access:'pro',credits_charged:used?1:0,...(settled?.balance?{credits_available:settled.balance.available}:{}),manage_url:reservation.manage_url};
-          await state('receipt_put',{key,result}).catch(()=>{});
-        }
         return result;
       }));
       const detailsReply=async(ids,args,batch=false)=>{
@@ -263,22 +224,21 @@ export function createWorker({catalog=readCatalog,embedding=createEmbed,authenti
       server.registerTool('get_works',{...details.get_works,annotations:detailAnnotations},handleResponse('get_works',({ids,...args})=>detailsReply(ids,args,true)));
       const inputs={search_inspiration:searchSchema,get_work:details.get_work.inputSchema,get_works:details.get_works.inputSchema,catalog_status:catalogStatusTool.inputSchema};
       server.registerTool('catalog_status',{...catalogStatusTool,outputSchema:statusOutput,annotations:{...annotations,idempotentHint:true}},structured('catalog_status',async()=>{
-        // Status is zero-credit and stays available to inactive accounts so they can see how to restore access.
-        const account=accounting?accountView(await currentAccess()):undefined;
+        // Status stays available to inactive accounts so they can see how to restore access.
+        const account=accounting?{...accountView(await currentAccess()),...await state('usage')}:undefined;
         let current;
         try{current=await getIndex();}catch(error){return {...(account?{account}:{}),search_revision:SEARCH_REVISION,catalog_state:'unavailable',live:false,error:toolError(error)};}
         const catalogState=current.delivery?.state??'ready',rows=(engine??=sharedEngine(current,env)).rows;
         return {...(account?{account}:{}),search_revision:SEARCH_REVISION,catalog_state:catalogState,...(catalogState==='updating'?{retry_after_seconds:current.delivery.retry_after_seconds}:{}),
           captured_at:current.capturedAt,variant:current.variant,live:catalogState==='ready',delivery:current.delivery,
           counts:Object.fromEntries(['design','website','logo','icon'].map(kind=>[kind,rows.filter(row=>row.kind===kind).length])),
-          limits:{default_count:DEFAULT_COUNT,max_count:20,response_chars:12000,inline_image_base64_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:false,cursor_rereadable:true,tool_calls_per_minute:TOOL_LIMITS.minute,tool_calls_per_day:TOOL_LIMITS.day}};
+          limits:{default_count:DEFAULT_COUNT,max_count:20,response_chars:12000,inline_image_base64_bytes:VISUAL_RESPONSE_BYTES,max_detail_batch:6,cursor_minutes:CURSOR_TTL_MS/60000,cursor_single_use:false,cursor_rereadable:true,tool_calls_per_minute:TOOL_LIMITS.minute,tool_calls_per_day:TOOL_LIMITS.day,searches_per_month:SEARCH_LIMITS.month}};
       }));
       const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
       await server.connect(transport);
       try{
         const response=await transport.handleRequest(request,{parsedBody:body});
         const headers=new Headers(response.headers);for(const [name,value] of Object.entries(responseHeaders))headers.set(name,value);
-        if(sessionId&&response.ok)headers.set('Mcp-Session-Id',sessionId);
         // Errors raised by the SDK before a handler runs (input validation, unknown tool)
         // become the same JSON error shape, with a validation summary from the tool schema.
         if(body?.method==='tools/call'&&!toolHandled&&response.ok){

@@ -67,7 +67,7 @@ export async function queueAccountDeletion(tx: WriteTx, userId: string, options:
       if (!account) return null;
 
       await queueSponsorIdentityDeletion(tx, userId);
-      // Confirmed permanent deletion forfeits Pro credits; ordinary cancellation never does.
+      // Confirmed permanent deletion closes Pro immediately; ordinary cancellation keeps the paid period.
       await closeProAccountForDeletion(tx as never, userId);
 
       const now = new Date();

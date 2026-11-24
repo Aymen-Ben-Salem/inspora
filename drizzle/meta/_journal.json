@@ -327,15 +327,15 @@
     {
       "idx": 46,
       "version": "7",
-      "when": 1794931524010,
-      "tag": "0046_pro_subscription",
+      "when": 1795358927509,
+      "tag": "0046_sponsor_promotions",
       "breakpoints": true
     },
     {
       "idx": 47,
       "version": "7",
-      "when": 1795358927509,
-      "tag": "0047_sponsor_promotions",
+      "when": 1795557377872,
+      "tag": "0047_pro_subscription",
       "breakpoints": true
     }
   ]

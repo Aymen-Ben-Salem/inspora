@@ -19,7 +19,7 @@ export async function createProTestDatabase() {
   if (process.env.PRO_TEST_BACKEND === "neon") return createNeonTestDatabase();
   if (process.env.PRO_TEST_BACKEND && process.env.PRO_TEST_BACKEND !== "pglite") throw new Error("Unknown Pro test backend.");
   const client = new PGlite();
-  const migration = readFileSync(fileURLToPath(new URL("../../../drizzle/0046_pro_subscription.sql", import.meta.url)), "utf8");
+  const migration = readFileSync(fileURLToPath(new URL("../../../drizzle/0047_pro_subscription.sql", import.meta.url)), "utf8");
   for (const statement of migration.split("--> statement-breakpoint")) if (statement.trim()) await client.exec(statement);
   const db = drizzle(client, { schema });
   let queue = Promise.resolve();

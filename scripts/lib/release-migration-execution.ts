@@ -32,9 +32,23 @@ export async function releaseLedger(client: ReleaseClient): Promise<ReleaseLedge
   return (await client.query('select id,hash,created_at from drizzle.__drizzle_migrations order by id')).rows as ReleaseLedgerRow[];
 }
 
+/**
+ * Tables written by ordinary site traffic (analytics and the creator view
+ * cache). On a live site they change between plan and apply, so their data is
+ * not compared; their schema still is. Migration locks make writes wait, not fail.
+ */
+export const RELEASE_LIVE_TRAFFIC_TABLES = new Set([
+  "analytics_events",
+  "analytics_occurrences",
+  "analytics_rate_buckets",
+  "analytics_reports",
+  "creator_view_snapshots",
+]);
+
 export async function releaseDataHashes(client: ReleaseClient, columns: Record<string, string[]>) {
   const result: Record<string, unknown> = {};
   for (const [table, names] of Object.entries(columns)) {
+    if (RELEASE_LIVE_TRAFFIC_TABLES.has(table)) continue;
     const projection = names.map(quoteReleaseIdentifier).join(',');
     result[table] = (await client.query(`select count(*)::int as count, encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text)::text,'[]'),'UTF8')),'hex') as sha256 from (select ${projection} from public.${quoteReleaseIdentifier(table)}) t`)).rows[0];
   }

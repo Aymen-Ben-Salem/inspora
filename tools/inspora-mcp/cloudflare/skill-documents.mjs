@@ -2,7 +2,7 @@ import {sha} from '../catalog.mjs';
 
 // Only explicitly bundled skill documents are published. No repository or
 // filesystem lookup happens while serving an installation request.
-export function createSkillDocuments(sources, setupHtml) {
+export function createSkillDocuments(sources, setupHtml, teamBriefHtml) {
   const skills = sources.map(content => {
     const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
     const name = frontmatter.match(/^name: ([a-z0-9-]+)\r?$/m)?.[1];
@@ -18,6 +18,7 @@ export function createSkillDocuments(sources, setupHtml) {
     for (const skill of skills) add(prefix + '/' + skill.name + '/SKILL.md', skill.content, 'text/markdown; charset=utf-8');
   }
   add('/setup', setupHtml, 'text/html; charset=utf-8');
+  if (teamBriefHtml) add('/team-brief', teamBriefHtml, 'text/html; charset=utf-8');
 
   return request => {
     const url = new URL(request.url);

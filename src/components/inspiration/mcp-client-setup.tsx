@@ -78,14 +78,28 @@ export function McpClientSetup() {
                     <button type="button" aria-pressed={mode === "terminal"} onClick={() => { setMode("terminal"); setStatus(""); }}>Terminal</button>
                     <button type="button" aria-pressed={mode === "prompt"} onClick={() => { setMode("prompt"); setStatus(""); }}>Ask your agent</button>
                   </div>
-                  <button type="button" onClick={() => mode === "terminal" ? copy(current.install, "Commands") : copy(current.prompt, "Prompt")}>
-                    {copied(mode === "terminal" ? "Commands" : "Prompt") ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-                    {copied(mode === "terminal" ? "Commands" : "Prompt") ? "Copied" : "Copy"}
-                  </button>
+                  {mode === "prompt" ? (
+                    <button type="button" onClick={() => copy(current.prompt, "Prompt")}>
+                      {copied("Prompt") ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied("Prompt") ? "Copied" : "Copy"}
+                    </button>
+                  ) : null}
                 </div>
-                {mode === "terminal"
-                  ? <pre tabIndex={0} aria-label="Install commands"><code>{current.install}</code></pre>
-                  : <pre tabIndex={0} aria-label={`Prompt for ${current.label}`} data-prose><code>{current.prompt}</code></pre>}
+                {mode === "terminal" ? (
+                  <ul className={styles.commandRows} aria-label="Install commands">
+                    {current.install.split("\n").map((line, index) => {
+                      const label = `Command ${index + 1}`;
+                      return (
+                        <li key={line}>
+                          <span aria-hidden="true">$</span>
+                          <code tabIndex={0}>{line}</code>
+                          <button type="button" onClick={() => copy(line, label)} aria-label={copied(label) ? "Copied" : `Copy command ${index + 1}`} title="Copy">
+                            {copied(label) ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : <pre tabIndex={0} aria-label={`Prompt for ${current.label}`} data-prose><code>{current.prompt}</code></pre>}
               </div>
               {mode === "prompt" ? <p className={styles.modeHint}>Paste it into {current.label}. It runs the commands for you.</p> : null}
             </div>

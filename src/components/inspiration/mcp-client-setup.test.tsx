@@ -17,24 +17,29 @@ const tab = (name: string) => [...element.querySelectorAll<HTMLButtonElement>("[
 it("shows the commands, the agent prompt and sign-in for each app, and copies what is shown", async () => {
   const writeText = vi.fn(async () => undefined);
   vi.stubGlobal("navigator", { clipboard: { writeText } });
-  const button = (name: string) => [...element.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent?.trim() === name)!;
-  const shown = () => element.querySelector("pre")?.textContent ?? "";
+  const button = (name: string) => [...element.querySelectorAll<HTMLButtonElement>("button")].find(item => (item.getAttribute("aria-label") ?? item.textContent?.trim()) === name)!;
+  const commands = () => [...element.querySelectorAll("[aria-label='Install commands'] code")].map(code => code.textContent);
+  const prompt = () => element.querySelector("pre")?.textContent ?? "";
   await act(async () => root.render(<McpClientSetup />));
   expect(tab("Claude Code").getAttribute("aria-selected")).toBe("true");
-  expect(shown()).toBe("claude plugin marketplace add https://github.com/inspora-design/inspora-plugin.git\nclaude plugin install inspora@inspora-team");
+  expect(commands()).toEqual([
+    expect.stringMatching(/^claude plugin marketplace add \S+$/),
+    "claude plugin install inspora@inspora-team",
+  ]);
   expect(element.textContent).toContain("plugin:inspora:inspora");
   expect(element.textContent).not.toContain("mcp remove");
-  await act(async () => button("Copy").click());
-  expect(writeText).toHaveBeenLastCalledWith(shown());
+  // Each command has its own copy button and copies only that command.
+  await act(async () => button("Copy command 2").click());
+  expect(writeText).toHaveBeenLastCalledWith("claude plugin install inspora@inspora-team");
 
   await act(async () => button("Ask your agent").click());
-  expect(shown()).toMatch(/^Install the Inspora plugin[\s\S]*claude plugin install inspora@inspora-team/);
+  expect(prompt()).toMatch(/^Install the Inspora plugin[\s\S]*claude plugin install inspora@inspora-team/);
   await act(async () => button("Copy").click());
-  expect(writeText).toHaveBeenLastCalledWith(shown());
+  expect(writeText).toHaveBeenLastCalledWith(prompt());
 
   await act(async () => tab("Codex").click());
   expect(tab("Codex").getAttribute("aria-selected")).toBe("true");
-  expect(shown()).toContain("codex plugin add inspora@inspora-team");
+  expect(prompt()).toContain("codex plugin add inspora@inspora-team");
   expect(element.textContent).toContain("codex mcp login inspora");
   expect(element.textContent).not.toContain("claude plugin install");
 });

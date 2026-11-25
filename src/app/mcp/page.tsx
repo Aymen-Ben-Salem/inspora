@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowDown, ArrowUpRight, Filter, Link2, ListChecks, PenTool, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Plus } from "lucide-react";
 import { SiteNavbar } from "@/components/site-navbar";
 import { McpClientSetup } from "@/components/inspiration/mcp-client-setup";
 import { McpHeroDemo } from "@/components/inspiration/mcp-hero-demo";
@@ -27,14 +27,6 @@ export const metadata: Metadata = {
 const studyFrames = [["0-3s", "0.3s", "Closed"], ["1-0s", "1.0s", "Opening"], ["1-6s", "1.6s", "Open"]] as const;
 const palette = { background: { hex: "#efefef" }, content: [{ hex: "#38d451", share: 66.4 }, { hex: "#242424", share: 33.6 }] };
 
-const points = [
-  { icon: Link2, title: "An idea or a link", text: "Describe the project, or share an Inspora link to find similar work." },
-  { icon: Filter, title: "Filters that hold", text: "Kind, industry, style, color, website technology or logo shape." },
-  { icon: ListChecks, title: "A real shortlist", text: "Up to ten direct matches, with close ideas labelled as adaptations." },
-  { icon: PenTool, title: "From references to a direction", text: "Compare directions, write a brief or build from what you picked." },
-  { icon: Sparkles, title: "Credit built in", text: "Every reference names its creator and links to the work." },
-  { icon: RefreshCw, title: "Always current", text: "New work reaches the plugin soon after it’s published." },
-];
 
 const questions: { q: string; a: ReactNode }[] = [
   { q: "Which apps does it work with?", a: <p>Claude Code and Codex. Other MCP agents can connect with the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p> },
@@ -69,13 +61,14 @@ export default function McpPage() {
         </section>
 
         <section id="setup" className={`${styles.section} ${styles.setup}`} aria-labelledby="setup-title">
-          <div className={styles.wrap}>
-            <div className={styles.sectionHead} data-reveal>
-              <div><span className={styles.kicker}>Install</span><h2 id="setup-title">Ready in a minute.</h2></div>
+          <div className={`${styles.wrap} ${styles.setupLayout}`}>
+            <div className={styles.setupIntro} data-reveal>
+              <span className={styles.kicker}>Install</span>
+              <h2 id="setup-title">Ready in<br /> a minute.</h2>
               <p>Included with Inspora Pro. During the preview, only the Inspora team can sign in.</p>
+              <p className={styles.setupNote}>Another agent? Use the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p>
             </div>
-            <div className={styles.setupBody} data-reveal><McpClientSetup /></div>
-            <p className={styles.setupNote} data-reveal>Using another agent? Follow the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p>
+            <div data-reveal><McpClientSetup /></div>
           </div>
         </section>
 
@@ -93,11 +86,11 @@ export default function McpPage() {
           <div className={styles.wrap}>
             <div className={styles.sectionHead} data-reveal>
               <div><span className={styles.kicker}>What your agent gets</span><h2 id="capabilities-title">It sees the work,<br /> not just the words.</h2></div>
-              <p>One install adds the Inspora connection and two skills for finding references and shaping a direction.</p>
+              <p>One install adds the Inspora connection and two skills: one finds and curates references, the other turns them into a design direction.</p>
             </div>
             <div className={styles.bento}>
               <article className={styles.feature} data-wide data-stagger>
-                <div><h3>Motion, frame by frame</h3><p>Timestamped frames show how an interaction moves.</p></div>
+                <div><h3>Motion, frame by frame</h3><p>For animated work, your agent gets timestamped frames, so it can see how an interaction moves before it builds one.</p></div>
                 <div>
                   <div className={styles.frames}>
                     {studyFrames.map(([file, time, state]) => (
@@ -112,7 +105,7 @@ export default function McpPage() {
                 </div>
               </article>
               <article className={styles.feature} data-stagger>
-                <div><h3>Exact colors</h3><p>Sampled from the work itself, apart from its background.</p></div>
+                <div><h3>Colors measured from the design</h3><p>Each preview comes with colors sampled from the work itself, kept apart from its background, as exact starting values.</p></div>
                 <div className={styles.palette}>
                   <div className={styles.paletteBar} role="img" aria-label="Measured colors: green #38d451, 66 percent; near-black #242424, 34 percent">
                     {palette.content.map(color => <span key={color.hex} data-share style={{ flex: `0 0 ${color.share}%`, background: color.hex }} />)}
@@ -121,14 +114,9 @@ export default function McpPage() {
                     {palette.content.map(color => <span key={color.hex}><i style={{ background: color.hex }} />{color.hex} · {Math.round(color.share)}%</span>)}
                     <span><i style={{ background: palette.background.hex }} />{palette.background.hex} · background</span>
                   </div>
+                  <p className={styles.featureCredit}>Measured for <Link href="/posts/invite-code-interaction">Invite code interaction</Link> by Nitish Khagwal</p>
                 </div>
               </article>
-              {points.map(({ icon: Icon, title, text }) => (
-                <div key={title} className={styles.point} data-stagger>
-                  <span className={styles.pointIcon}><Icon size={18} aria-hidden="true" /></span>
-                  <h3>{title}</h3><p>{text}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>

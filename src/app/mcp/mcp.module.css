@@ -114,8 +114,8 @@
 .capabilities { background: var(--surface); }
 .bento { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 16px; margin-top: 56px; }
 .feature { grid-column: span 2; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-height: 360px; padding: 28px; border-radius: 12px; background: #fff; border: 1px solid #ebe8e3; }
-.feature h3, .point h3 { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -.01em; }
-.feature p, .point p { margin-top: 8px !important; font-size: 16px; line-height: 1.55; color: #555; max-width: 46ch; }
+.feature h3 { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -.01em; }
+.feature p { margin-top: 8px !important; font-size: 16px; line-height: 1.55; color: #555; max-width: 46ch; }
 .feature[data-wide] { grid-column: span 4; }
 .frames { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .frame { position: relative; margin: 0; border-radius: 8px; overflow: hidden; background: #efefef; border: 1px solid #e6e6e6; }
@@ -129,24 +129,15 @@
 .swatches { display: flex; flex-wrap: wrap; gap: 8px 20px; font: 12px/1.4 var(--font-mono); color: #555; }
 .swatches > span { display: inline-flex; align-items: center; gap: 8px; }
 .swatches i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.12); }
-.point { grid-column: span 2; padding: 24px 4px 8px; border-top: 1px solid #dcd8d1; }
-.pointIcon { display: inline-grid; place-items: center; width: 36px; height: 36px; margin-bottom: 18px; border-radius: 8px; background: #fff; border: 1px solid #e6e2dc; color: var(--accent); }
 
 /* Setup (dark band) */
 .setup { background: var(--dark); color: #fff; }
 .setup .sectionHead > p { color: #c9c9c9; }
 .setup .kicker { color: #8f8f8f; }
-.setupBody { margin-top: 48px; }
-.installGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; }
-.installGrid > div { min-width: 0; padding: 24px; }
-.installGrid > div + div { border-left: 1px solid var(--dark-line); }
-.installGrid h3 { font-size: 17px; line-height: 1.4; font-weight: 500; }
-.installGrid > div > p { margin-top: 2px !important; color: var(--dark-muted); font-size: 14px; }
-.command pre[data-prose] { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
-.page .signIn { padding: 18px 24px 4px; border-top: 1px solid var(--dark-line); color: var(--dark-muted); font-size: 15px; line-height: 1.6; }
-.signIn strong { color: #fff; font-weight: 500; }
-.signIn code { padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.08); color: #fff; }
-.page .setupNote { margin-top: 20px; font-size: 14px; line-height: 1.6; color: #9d9d9d; }
+.setupLayout { display: grid; grid-template-columns: minmax(0,5fr) minmax(0,7fr); gap: 48px; align-items: start; }
+.setupIntro h2 { font: 400 52px/1.04 var(--font-display); letter-spacing: -.04em; }
+.page .setupIntro > p { margin-top: 20px; max-width: 380px; font-size: 17px; line-height: 1.6; color: #c9c9c9; }
+.page .setupIntro > .setupNote { margin-top: 12px; font-size: 14px; color: #9d9d9d; }
 .setupNote a { color: #fff; text-underline-offset: 3px; }
 .client { border: 1px solid var(--dark-line); border-radius: 12px; background: var(--dark-surface); overflow: hidden; }
 .clientTabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--dark-line); }
@@ -160,7 +151,15 @@
 .command pre { margin: 0; padding: 14px; overflow-x: auto; color: #e3e3e3; font: 13px/1.7 var(--font-mono); white-space: pre; }
 .command button { font-family: var(--font-display) !important; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid #3a3a3a; border-radius: 6px; background: #1d1d1d; color: #eee; font-size: 13px; transition: background-color .2s, border-color .2s; }
 .command button:hover { background: #2a2a2a; border-color: #555; }
-.copyStatus { min-height: 20px; padding: 0 24px 12px; font-size: 13px; color: #9a9a9a; }
+.steps { list-style: none; padding: 24px; margin: 0; display: grid; gap: 28px; counter-reset: step; }
+.steps > li { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 16px; }
+.steps > li::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #444; color: #ddd; font: 12px/1 var(--font-mono); }
+.steps h3 { font-size: 17px; line-height: 28px; font-weight: 500; }
+.page .steps p { margin-top: 6px; color: var(--dark-muted); font-size: 15px; line-height: 1.6; }
+.steps p code { padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.08); color: #fff; }
+.promptButton { display: inline-flex; align-items: center; text-align: left; gap: 8px; min-height: 40px; margin-top: 10px; padding: 0; border: 0; background: none; color: #d6d6d6; font-size: 14px; text-decoration: underline; text-decoration-color: #555; text-underline-offset: 4px; transition: color .2s, text-decoration-color .2s; }
+.promptButton:hover { color: #fff; text-decoration-color: #fff; }
+.copyStatus { padding: 0 24px 16px; font-size: 13px; color: #9a9a9a; }
 
 /* Questions */
 .faqGrid { display: grid; grid-template-columns: minmax(0,4fr) minmax(0,8fr); gap: 48px; }
@@ -193,7 +192,7 @@
   .stage { padding: 28px; }
   .demoGrid { gap: 12px; }
   .section { padding: 104px 0; }
-  .sectionHead h2, .faqGrid h2 { font-size: 44px; }
+  .sectionHead h2, .faqGrid h2, .setupIntro h2 { font-size: 44px; }
 }
 @media (max-width: 1023px) {
   .sectionHead { grid-template-columns: 1fr; align-items: start; }
@@ -202,10 +201,8 @@
   .demoGrid > :nth-child(n+4) { display: none; }
   .referenceGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .feature, .feature[data-wide] { grid-column: span 6; min-height: 0; }
-  .point { grid-column: span 3; }
-  .installGrid { grid-template-columns: 1fr; }
-  .installGrid > div + div { border-left: 0; border-top: 1px solid var(--dark-line); }
   .faqGrid { grid-template-columns: 1fr; gap: 32px; }
+  .setupLayout { grid-template-columns: 1fr; gap: 32px; }
 }
 @media (max-width: 639px) {
   .page { --gut: 20px; }
@@ -235,10 +232,10 @@
   .referenceMeta h3 { font-size: 14px; }
   .bento { margin-top: 36px; }
   .feature { padding: 20px; }
-  .point { grid-column: span 6; padding-top: 20px; }
-  .setupBody { margin-top: 32px; }
-  .installGrid > div { padding: 18px 16px; }
-  .page .signIn { padding-inline: 16px; }
+  .setupIntro h2 { font-size: 36px; }
+  .steps { padding: 18px 16px; gap: 24px; }
+  .steps > li { grid-template-columns: 28px minmax(0,1fr); gap: 12px; }
+  .copyStatus { padding-inline: 16px; }
       .command pre { padding: 12px; font-size: 12px; }
     .faq summary { font-size: 17px; min-height: 60px; }
   .answer { padding-right: 0; }

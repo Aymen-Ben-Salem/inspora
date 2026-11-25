@@ -27,21 +27,7 @@ const setup: Record<Client, { label: string; icon: string; install: string; prom
   },
 };
 
-function CopyBox({ value, label, title, onCopy, copied, prose }: { value: string; label: string; title: string; onCopy: (value: string, label: string) => void; copied: boolean; prose?: boolean }) {
-  return (
-    <div className={styles.command}>
-      <div className={styles.commandBar}>
-        <span>{title}</span>
-        <button type="button" onClick={() => onCopy(value, label)}>
-          {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied ? "Copied" : `Copy ${label.toLowerCase()}`}
-        </button>
-      </div>
-      <pre tabIndex={0} aria-label={label} data-prose={prose ? "" : undefined}><code>{value}</code></pre>
-    </div>
-  );
-}
-
-/** Plugin installation for Claude Code and Codex: hand a prompt to the agent, or run the commands. */
+/** Plugin installation for Claude Code and Codex. */
 export function McpClientSetup() {
   const scope = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
@@ -51,7 +37,7 @@ export function McpClientSetup() {
 
   useGSAP(() => {
     if (!mounted.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { mounted.current = true; return; }
-    gsap.fromTo("[data-option]", { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.45, stagger: 0.07, ease: "power3.out", clearProps: "transform,opacity,visibility" });
+    gsap.fromTo("[data-step]", { autoAlpha: 0, x: -10 }, { autoAlpha: 1, x: 0, duration: 0.45, stagger: 0.06, ease: "power3.out", clearProps: "transform,opacity,visibility" });
   }, { scope, dependencies: [client] });
 
   async function copy(value: string, label: string) {
@@ -81,20 +67,29 @@ export function McpClientSetup() {
         ))}
       </div>
       <div role="tabpanel" id="client-panel" aria-labelledby={`client-tab-${client}`}>
-        <div className={styles.installGrid}>
-          <div data-option>
-            <h3>Ask your agent</h3>
-            <p>Paste this into {current.label}.</p>
-            <CopyBox value={current.prompt} label="Prompt" title="Prompt" onCopy={copy} copied={copied("Prompt")} prose />
-          </div>
-          <div data-option>
-            <h3>Or run it yourself</h3>
-            <p>In your terminal.</p>
-            <CopyBox value={current.install} label="Commands" title="Terminal" onCopy={copy} copied={copied("Commands")} />
-          </div>
-        </div>
-        <p className={styles.signIn}><strong>Then sign in.</strong> {current.signIn}</p>
-        <p className={styles.copyStatus} role="status">{status}</p>
+        <ol className={styles.steps}>
+          <li data-step>
+            <div>
+              <h3>Install the plugin</h3>
+              <div className={styles.command}>
+                <div className={styles.commandBar}>
+                  <span>Terminal</span>
+                  <button type="button" onClick={() => copy(current.install, "Commands")}>
+                    {copied("Commands") ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied("Commands") ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <pre tabIndex={0} aria-label="Install commands"><code>{current.install}</code></pre>
+              </div>
+              <button type="button" className={styles.promptButton} onClick={() => copy(current.prompt, "Prompt")}>
+                {copied("Prompt") ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                {copied("Prompt") ? "Prompt copied. Paste it into " + current.label + "." : "Or copy a prompt and let " + current.label + " install it"}
+              </button>
+            </div>
+          </li>
+          <li data-step><div><h3>Sign in to Inspora</h3><p>{current.signIn}</p></div></li>
+          <li data-step><div><h3>Ask for references</h3><p>Try “Find onboarding references for a fintech app.”</p></div></li>
+        </ol>
+        <p className={status.endsWith("copied.") ? styles.srOnly : styles.copyStatus} role="status">{status}</p>
       </div>
     </div>
   );

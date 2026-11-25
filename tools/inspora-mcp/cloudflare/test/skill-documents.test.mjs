@@ -32,8 +32,11 @@ test('document routing never catches MCP, authorization or arbitrary source path
 test('setup guide installs the plugin in Claude Code and Codex and keeps a manual path for other agents',async()=>{
  const response=get('/setup');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/html/);
  const html=await response.text();
- assert.match(html,/claude plugin marketplace add https:\/\/github\.com\/inspora-design\/inspora-plugin\.git/);assert.match(html,/claude plugin install inspora@inspora-team/);
- assert.match(html,/codex plugin marketplace add https:\/\/github\.com\/inspora-design\/inspora-plugin\.git/);assert.match(html,/codex plugin add inspora@inspora-team/);
+ // Short owner/repo form: slash commands inside Claude Code, with the terminal form beside them.
+ assert.match(html,/\/plugin marketplace add inspora-design\/inspora-plugin\n\/plugin install inspora@inspora-team/);
+ assert.match(html,/claude plugin marketplace add inspora-design\/inspora-plugin/);assert.match(html,/claude plugin install inspora@inspora-team/);
+ assert.match(html,/codex plugin marketplace add inspora-design\/inspora-plugin\n/);assert.match(html,/codex plugin add inspora@inspora-team/);
+ assert.doesNotMatch(html,/github\.com\/inspora-design\/inspora-plugin\.git/);
  // The plugin installs from the company organization; no personal GitHub identity appears.
  assert.doesNotMatch(html,/Aymen|github\.com\/Aymen/i);
  for(const client of ['claude-code','codex'])assert.match(html,new RegExp('npx skills remove inspora-discovery inspora-design-direction -g -a '+client+' -y'));

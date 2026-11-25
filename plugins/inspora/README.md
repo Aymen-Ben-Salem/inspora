@@ -6,12 +6,14 @@ Other agents keep the manual setup: add the MCP URL and run `npx skills add http
 
 ## Claude Code
 
-Install, in your shell (inside a session, use `/plugin marketplace add …` and `/plugin install …`):
+Install, inside Claude Code:
 
-```bash
-claude plugin marketplace add https://github.com/inspora-design/inspora-plugin.git
-claude plugin install inspora@inspora-team
 ```
+/plugin marketplace add inspora-design/inspora-plugin
+/plugin install inspora@inspora-team
+```
+
+From a terminal, run `claude plugin marketplace add inspora-design/inspora-plugin` and `claude plugin install inspora@inspora-team`.
 
 From a local checkout, run `claude plugin marketplace add <path-to-repo>` instead.
 
@@ -31,7 +33,7 @@ Update with `claude plugin marketplace update inspora-team` and `claude plugin u
 Install:
 
 ```bash
-codex plugin marketplace add https://github.com/inspora-design/inspora-plugin.git
+codex plugin marketplace add inspora-design/inspora-plugin
 codex plugin add inspora@inspora-team
 ```
 

@@ -1,4 +1,5 @@
 :global(html:has([data-mcp-page])) { scrollbar-gutter: stable; }
+@media (prefers-reduced-motion: no-preference) { :global(html:has([data-mcp-page])) { scroll-behavior: smooth; } }
 .page {
   /* Route-scoped tokens; the archive's own styles stay untouched. */
   --bg: #ffffff; --ink: #111111; --muted: #666666; --soft: #8a8a8a; --line: #e6e6e6;

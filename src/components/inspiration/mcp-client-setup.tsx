@@ -9,18 +9,22 @@ import styles from "@/app/mcp/mcp.module.css";
 gsap.registerPlugin(useGSAP);
 
 type Client = "claude" | "codex";
-const MARKETPLACE = "https://github.com/inspora-design/inspora-plugin.git";
-const setup: Record<Client, { label: string; icon: string; install: string; prompt: string; signIn: ReactNode }> = {
+// GitHub owner/repo shorthand, accepted by both Claude Code and Codex.
+const MARKETPLACE = "inspora-design/inspora-plugin";
+const setup: Record<Client, { label: string; icon: string; where: string; install: string; prompt: string; signIn: ReactNode }> = {
   claude: {
     label: "Claude Code",
     icon: "/mcp/icons/claude-code.svg",
-    install: `claude plugin marketplace add ${MARKETPLACE}\nclaude plugin install inspora@inspora-team`,
+    where: "In Claude Code",
+    install: `/plugin marketplace add ${MARKETPLACE}\n/plugin install inspora@inspora-team`,
+    // An agent runs shell commands, so the prompt uses the CLI form of the same commands.
     prompt: `Install the Inspora plugin by running:\n\nclaude plugin marketplace add ${MARKETPLACE}\nclaude plugin install inspora@inspora-team\n\nThen tell me how to sign in: run /reload-plugins, open /mcp, select plugin:inspora:inspora and choose Authenticate.`,
     signIn: <>Run <code>/reload-plugins</code>, then <code>/mcp</code>, select <code>plugin:inspora:inspora</code> and choose Authenticate.</>,
   },
   codex: {
     label: "Codex",
     icon: "/mcp/icons/codex.svg",
+    where: "Terminal",
     install: `codex plugin marketplace add ${MARKETPLACE}\ncodex plugin add inspora@inspora-team`,
     prompt: `Install the Inspora plugin by running:\n\ncodex plugin marketplace add ${MARKETPLACE}\ncodex plugin add inspora@inspora-team\n\nThen tell me how to sign in: run codex mcp login inspora and start a new session.`,
     signIn: <>Run <code>codex mcp login inspora</code>, then start a new session.</>,
@@ -75,7 +79,7 @@ export function McpClientSetup() {
               <div className={styles.command}>
                 <div className={styles.commandBar}>
                   <div className={styles.modes} role="group" aria-label="How to install">
-                    <button type="button" aria-pressed={mode === "terminal"} onClick={() => { setMode("terminal"); setStatus(""); }}>Terminal</button>
+                    <button type="button" aria-pressed={mode === "terminal"} onClick={() => { setMode("terminal"); setStatus(""); }}>{current.where}</button>
                     <button type="button" aria-pressed={mode === "prompt"} onClick={() => { setMode("prompt"); setStatus(""); }}>Ask your agent</button>
                   </div>
                   {mode === "prompt" ? (

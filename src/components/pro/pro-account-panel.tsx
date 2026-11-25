@@ -23,8 +23,8 @@ const checkoutMessages: Record<string, string> = {
   canceled: "Checkout was canceled. Nothing was charged.",
 };
 const installCommands = {
-  claude: "claude plugin marketplace add https://github.com/inspora-design/inspora-plugin.git\nclaude plugin install inspora@inspora-team",
-  codex: "codex plugin marketplace add https://github.com/inspora-design/inspora-plugin.git\ncodex plugin add inspora@inspora-team",
+  claude: "claude plugin marketplace add inspora-design/inspora-plugin\nclaude plugin install inspora@inspora-team",
+  codex: "codex plugin marketplace add inspora-design/inspora-plugin\ncodex plugin add inspora@inspora-team",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

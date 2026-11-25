@@ -23,17 +23,18 @@ it("shows the commands, the agent prompt and sign-in for each app, and copies wh
   await act(async () => root.render(<McpClientSetup />));
   expect(tab("Claude Code").getAttribute("aria-selected")).toBe("true");
   expect(commands()).toEqual([
-    expect.stringMatching(/^claude plugin marketplace add \S+$/),
-    "claude plugin install inspora@inspora-team",
+    "/plugin marketplace add inspora-design/inspora-plugin",
+    "/plugin install inspora@inspora-team",
   ]);
   expect(element.textContent).toContain("plugin:inspora:inspora");
   expect(element.textContent).not.toContain("mcp remove");
   // Each command has its own copy button and copies only that command.
   await act(async () => button("Copy command 2").click());
-  expect(writeText).toHaveBeenLastCalledWith("claude plugin install inspora@inspora-team");
+  expect(writeText).toHaveBeenLastCalledWith("/plugin install inspora@inspora-team");
 
+  // The agent prompt uses the shell form, since an agent cannot type slash commands.
   await act(async () => button("Ask your agent").click());
-  expect(prompt()).toMatch(/^Install the Inspora plugin[\s\S]*claude plugin install inspora@inspora-team/);
+  expect(prompt()).toMatch(/^Install the Inspora plugin[\s\S]*claude plugin marketplace add inspora-design\/inspora-plugin[\s\S]*claude plugin install inspora@inspora-team/);
   await act(async () => button("Copy").click());
   expect(writeText).toHaveBeenLastCalledWith(prompt());
 
@@ -42,6 +43,8 @@ it("shows the commands, the agent prompt and sign-in for each app, and copies wh
   expect(prompt()).toContain("codex plugin add inspora@inspora-team");
   expect(element.textContent).toContain("codex mcp login inspora");
   expect(element.textContent).not.toContain("claude plugin install");
+  await act(async () => button("Terminal").click());
+  expect(commands()).toEqual(["codex plugin marketplace add inspora-design/inspora-plugin", "codex plugin add inspora@inspora-team"]);
 });
 
 it("credits and links every example reference, design work first", () => {

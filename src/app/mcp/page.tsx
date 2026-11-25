@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowDown, ArrowUpRight, Plus } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Check, Plus } from "lucide-react";
 import { SiteNavbar } from "@/components/site-navbar";
 import { McpClientSetup } from "@/components/inspiration/mcp-client-setup";
 import { McpHeroDemo } from "@/components/inspiration/mcp-hero-demo";
@@ -26,6 +26,14 @@ export const metadata: Metadata = {
 // Measured by the plugin for "Invite code interaction" by Nitish Khagwal (November 25, 2026).
 const studyFrames = [["0-3s", "0.3s", "Closed"], ["1-0s", "1.0s", "Opening"], ["1-6s", "1.6s", "Open"]] as const;
 const palette = { background: { hex: "#efefef" }, content: [{ hex: "#38d451", share: 66.4 }, { hex: "#242424", share: 33.6 }] };
+const extras = [
+  "Start from an idea or an Inspora link",
+  "Filter by kind, industry, style, color or technology",
+  "Up to ten direct matches, adaptations labelled",
+  "Compare directions or write a design brief",
+  "Every reference credited and linked",
+  "New work arrives automatically",
+];
 
 
 const questions: { q: string; a: ReactNode }[] = [
@@ -117,6 +125,9 @@ export default function McpPage() {
                   <p className={styles.featureCredit}>Measured for <Link href="/posts/invite-code-interaction">Invite code interaction</Link> by Nitish Khagwal</p>
                 </div>
               </article>
+              <ul className={styles.extras} data-stagger>
+                {extras.map(text => <li key={text}><Check size={16} aria-hidden="true" />{text}</li>)}
+              </ul>
             </div>
           </div>
         </section>

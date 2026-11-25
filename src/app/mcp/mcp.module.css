@@ -121,6 +121,9 @@
 .frame { position: relative; margin: 0; border-radius: 8px; overflow: hidden; background: #efefef; border: 1px solid #e6e6e6; }
 .frame img { display: block; width: 100%; height: auto; }
 .frame figcaption { position: absolute; left: 6px; bottom: 6px; padding: 2px 6px; border-radius: 4px; background: rgba(17,17,17,.82); color: #fff; font: 11px/1.4 var(--font-mono); }
+.extras { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px 32px; margin: 8px 0 0; padding: 24px 4px 0; list-style: none; border-top: 1px solid #dcd8d1; }
+.extras li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.5; color: #444; }
+.extras svg { flex: none; margin-top: 4px; color: var(--accent); }
 .featureCredit { font-size: 12px; color: #888; margin-top: 10px !important; }
 .featureCredit a { color: inherit; }
 .palette { display: grid; gap: 10px; }
@@ -151,14 +154,19 @@
 .command pre { margin: 0; padding: 14px; overflow-x: auto; color: #e3e3e3; font: 13px/1.7 var(--font-mono); white-space: pre; }
 .command button { font-family: var(--font-display) !important; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid #3a3a3a; border-radius: 6px; background: #1d1d1d; color: #eee; font-size: 13px; transition: background-color .2s, border-color .2s; }
 .command button:hover { background: #2a2a2a; border-color: #555; }
+.command pre[data-prose] { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
+.commandBar:has(.modes) { padding-left: 6px; }
+.modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: #1a1a1a; }
+.command .modes button { white-space: nowrap; min-height: 30px; padding: 4px 10px; border: 0; border-radius: 5px; background: none; color: #9a9a9a; }
+.command .modes button:hover { background: none; color: #fff; }
+.command .modes button[aria-pressed=true] { background: #2e2e2e; color: #fff; }
+.page .modeHint { margin-top: 8px; font-size: 13px; color: #8f8f8f; }
 .steps { list-style: none; padding: 24px; margin: 0; display: grid; gap: 28px; counter-reset: step; }
 .steps > li { display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 16px; }
 .steps > li::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #444; color: #ddd; font: 12px/1 var(--font-mono); }
 .steps h3 { font-size: 17px; line-height: 28px; font-weight: 500; }
 .page .steps p { margin-top: 6px; color: var(--dark-muted); font-size: 15px; line-height: 1.6; }
 .steps p code { padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.08); color: #fff; }
-.promptButton { display: inline-flex; align-items: center; text-align: left; gap: 8px; min-height: 40px; margin-top: 10px; padding: 0; border: 0; background: none; color: #d6d6d6; font-size: 14px; text-decoration: underline; text-decoration-color: #555; text-underline-offset: 4px; transition: color .2s, text-decoration-color .2s; }
-.promptButton:hover { color: #fff; text-decoration-color: #fff; }
 .copyStatus { padding: 0 24px 16px; font-size: 13px; color: #9a9a9a; }
 
 /* Questions */
@@ -201,6 +209,7 @@
   .demoGrid > :nth-child(n+4) { display: none; }
   .referenceGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .feature, .feature[data-wide] { grid-column: span 6; min-height: 0; }
+  .extras { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .faqGrid { grid-template-columns: 1fr; gap: 32px; }
   .setupLayout { grid-template-columns: 1fr; gap: 32px; }
 }
@@ -232,10 +241,12 @@
   .referenceMeta h3 { font-size: 14px; }
   .bento { margin-top: 36px; }
   .feature { padding: 20px; }
+  .extras { grid-template-columns: 1fr; padding-top: 20px; }
   .setupIntro h2 { font-size: 36px; }
   .steps { padding: 18px 16px; gap: 24px; }
   .steps > li { grid-template-columns: 28px minmax(0,1fr); gap: 12px; }
   .copyStatus { padding-inline: 16px; }
+  .command .modes button { padding-inline: 8px; font-size: 12px; }
       .command pre { padding: 12px; font-size: 12px; }
     .faq summary { font-size: 17px; min-height: 60px; }
   .answer { padding-right: 0; }

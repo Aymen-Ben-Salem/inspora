@@ -14,26 +14,29 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); element.remove(); vi.unstubAllGlobals(); });
 const tab = (name: string) => [...element.querySelectorAll<HTMLButtonElement>("[role=tab]")].find(button => button.textContent?.trim() === name)!;
 
-it("shows the commands and sign-in, and copies an install prompt, for each app", async () => {
+it("shows the commands, the agent prompt and sign-in for each app, and copies what is shown", async () => {
   const writeText = vi.fn(async () => undefined);
   vi.stubGlobal("navigator", { clipboard: { writeText } });
-  const promptButton = () => [...element.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent?.startsWith("Or copy a prompt"))!;
+  const button = (name: string) => [...element.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent?.trim() === name)!;
+  const shown = () => element.querySelector("pre")?.textContent ?? "";
   await act(async () => root.render(<McpClientSetup />));
   expect(tab("Claude Code").getAttribute("aria-selected")).toBe("true");
-  expect(element.textContent).toContain("claude plugin marketplace add https://github.com/inspora-design/inspora-plugin.git");
-  expect(element.textContent).toContain("claude plugin install inspora@inspora-team");
+  expect(shown()).toBe("claude plugin marketplace add https://github.com/inspora-design/inspora-plugin.git\nclaude plugin install inspora@inspora-team");
   expect(element.textContent).toContain("plugin:inspora:inspora");
   expect(element.textContent).not.toContain("mcp remove");
-  await act(async () => promptButton().click());
-  expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining("claude plugin install inspora@inspora-team"));
+  await act(async () => button("Copy").click());
+  expect(writeText).toHaveBeenLastCalledWith(shown());
+
+  await act(async () => button("Ask your agent").click());
+  expect(shown()).toMatch(/^Install the Inspora plugin[\s\S]*claude plugin install inspora@inspora-team/);
+  await act(async () => button("Copy").click());
+  expect(writeText).toHaveBeenLastCalledWith(shown());
 
   await act(async () => tab("Codex").click());
   expect(tab("Codex").getAttribute("aria-selected")).toBe("true");
-  expect(element.textContent).toContain("codex plugin add inspora@inspora-team");
+  expect(shown()).toContain("codex plugin add inspora@inspora-team");
   expect(element.textContent).toContain("codex mcp login inspora");
   expect(element.textContent).not.toContain("claude plugin install");
-  await act(async () => promptButton().click());
-  expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining("codex plugin add inspora@inspora-team"));
 });
 
 it("credits and links every example reference, design work first", () => {

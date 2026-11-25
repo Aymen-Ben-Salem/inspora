@@ -32,6 +32,7 @@ export function McpClientSetup() {
   const scope = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   const [client, setClient] = useState<Client>("claude");
+  const [mode, setMode] = useState<"terminal" | "prompt">("terminal");
   const [status, setStatus] = useState("");
   const current = setup[client];
 
@@ -73,17 +74,20 @@ export function McpClientSetup() {
               <h3>Install the plugin</h3>
               <div className={styles.command}>
                 <div className={styles.commandBar}>
-                  <span>Terminal</span>
-                  <button type="button" onClick={() => copy(current.install, "Commands")}>
-                    {copied("Commands") ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied("Commands") ? "Copied" : "Copy"}
+                  <div className={styles.modes} role="group" aria-label="How to install">
+                    <button type="button" aria-pressed={mode === "terminal"} onClick={() => { setMode("terminal"); setStatus(""); }}>Terminal</button>
+                    <button type="button" aria-pressed={mode === "prompt"} onClick={() => { setMode("prompt"); setStatus(""); }}>Ask your agent</button>
+                  </div>
+                  <button type="button" onClick={() => mode === "terminal" ? copy(current.install, "Commands") : copy(current.prompt, "Prompt")}>
+                    {copied(mode === "terminal" ? "Commands" : "Prompt") ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+                    {copied(mode === "terminal" ? "Commands" : "Prompt") ? "Copied" : "Copy"}
                   </button>
                 </div>
-                <pre tabIndex={0} aria-label="Install commands"><code>{current.install}</code></pre>
+                {mode === "terminal"
+                  ? <pre tabIndex={0} aria-label="Install commands"><code>{current.install}</code></pre>
+                  : <pre tabIndex={0} aria-label={`Prompt for ${current.label}`} data-prose><code>{current.prompt}</code></pre>}
               </div>
-              <button type="button" className={styles.promptButton} onClick={() => copy(current.prompt, "Prompt")}>
-                {copied("Prompt") ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
-                {copied("Prompt") ? "Prompt copied. Paste it into " + current.label + "." : "Or copy a prompt and let " + current.label + " install it"}
-              </button>
+              {mode === "prompt" ? <p className={styles.modeHint}>Paste it into {current.label}. It runs the commands for you.</p> : null}
             </div>
           </li>
           <li data-step><div><h3>Sign in to Inspora</h3><p>{current.signIn}</p></div></li>

@@ -1,8 +1,9 @@
 # MCP Preview page assets
 
-- `taste/` contains selected, unmodified runtime files from taste-skill 2.5.1 (MIT; see `taste/LICENSE`). The React adapter manages their lifetime when this route mounts and unmounts. The landscape is paused after its initial render; text remains available without scripts.
-- `icons/` contains the Claude Code and OpenAI marks resolved by the skill's icon tool. Exact sources and licenses are recorded in `icons/icons-credits.json`. These are integration identifiers, not endorsements.
-- `references/` contains resized copies of public Inspora archive artwork, paired with creator credits and working work links in `src/components/inspiration/mcp-examples.json`. The three sequences are recorded hybrid-search results from the November 11, 2026 local pilot evaluation (W03, W04, W06). They are a walkthrough, not a hosted search service. No artwork was generated or redrawn.
+- `references/` contains resized copies (720px and 360px WebP) of public Inspora archive artwork, paired with creator credits and work links in `src/components/inspiration/mcp-examples.json`. The five example sets are searches recorded with the hosted Inspora plugin on November 25, 2026 (first six results each; for "Dashboards", the next result replaces one whose preview was nearly blank). Where a video's poster frame was blank, a representative frame from the same public video is used. No artwork was generated or redrawn.
+- `study/` contains three frames from the public video of "Invite code interaction" by Nitish Khagwal, at 0.3s, 1.0s and 1.6s, illustrating the motion frames the plugin returns. The palette shown beside them is the plugin's measured result for the same work.
+- `icons/` contains the Claude Code and OpenAI marks. Exact sources and licenses are recorded in `icons/icons-credits.json`. These are integration identifiers, not endorsements.
 - Route fonts are self-hosted under `src/assets/fonts/mcp/` with their SIL Open Font Licenses.
+- Page motion uses GSAP (already a site dependency), loaded only by this route's client components, and is skipped for visitors who prefer reduced motion.
 
-This page and its assets are for Preview review. Uploaded reference-image search remains Phase 2.
+This page and its assets are for Preview review.

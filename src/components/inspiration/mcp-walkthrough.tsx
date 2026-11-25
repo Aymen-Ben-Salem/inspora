@@ -1,109 +1,98 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowUpRight, Check, Copy, Terminal } from "lucide-react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ArrowUpRight, Check, Copy } from "lucide-react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import examples from "./mcp-examples.json";
 import styles from "@/app/mcp/mcp.module.css";
 
+gsap.registerPlugin(useGSAP);
+
+const kindLabel: Record<string, string> = { design: "Design", website: "Website", logo: "Logo", icon: "Icon" };
+
+/** Searches recorded with the Inspora plugin, shown as the agent's credited shortlist. */
 export function McpWalkthrough() {
+  const scope = useRef<HTMLDivElement>(null);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const mounted = useRef(false);
   const [selected, setSelected] = useState(0);
-  const [status, setStatus] = useState("");
+  const [copied, setCopied] = useState("");
   const example = examples[selected];
-  const request = `Find ten ${example.prompt} on Inspora. Include creator credits and links.`;
+  const request = `Find ${example.prompt} on Inspora. Show ten with creator credits and links.`;
+
+  useGSAP(() => {
+    const root = scope.current!;
+    const tab = tabs.current[selected];
+    const indicator = root.querySelector<HTMLElement>("[data-indicator]")!;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (tab) gsap.to(indicator, { x: tab.offsetLeft, width: tab.offsetWidth, duration: mounted.current && !reduced ? 0.45 : 0, ease: "power3.out" });
+    if (!mounted.current || reduced) { mounted.current = true; return; }
+    gsap.fromTo("[data-reference]", { autoAlpha: 0, y: 16, scale: 0.97 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.55, stagger: 0.05, ease: "power3.out", clearProps: "transform,opacity,visibility" });
+    gsap.fromTo("[data-quote]", { autoAlpha: 0, y: 6 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power2.out", clearProps: "transform,opacity,visibility" });
+  }, { scope, dependencies: [selected] });
+
+  function choose(next: number) {
+    setSelected(next);
+    setCopied("");
+  }
+  function onKey(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    const target = event.key === "Home" ? 0 : event.key === "End" ? examples.length - 1 : (selected + step + examples.length) % examples.length;
+    if (!step && event.key !== "Home" && event.key !== "End") return;
+    event.preventDefault();
+    choose(target);
+    tabs.current[target]?.focus();
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(request); setCopied("Prompt copied."); }
+    catch { setCopied("Copy isn’t available here. Select the prompt to copy it."); }
+  }
+
   return (
-    <div className={`ui app-frame ${styles.walkthrough}`}>
-      <div className={styles.walkthroughSidebar}>
-        <p className={styles.smallLabel}>Search walkthrough</p>
-        <fieldset className={styles.exampleChoices}>
-          <legend className="sr-only">Choose a recorded search</legend>
-          {examples.map((item, index) => <button key={item.id} type="button" aria-pressed={index === selected} onClick={() => {setSelected(index); setStatus("");}}>
-            <span>{item.label}</span><ArrowUpRight size={16} aria-hidden="true" />
-          </button>)}
-        </fieldset>
-        <div className={styles.promptDetail}>
-          <span className={styles.smallLabel}>Use this prompt</span>
-          <p>{request}</p>
-          <button type="button" className={`btn btn--secondary ${styles.copyPrompt}`} onClick={async () => {
-            try { await navigator.clipboard.writeText(request); setStatus("Prompt copied."); }
-            catch { setStatus("Copy is unavailable. Select the prompt text to copy it."); }
-          }}>{status === "Prompt copied." ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}{status === "Prompt copied." ? "Copied prompt" : "Copy prompt"}</button>
-          <p className={styles.copyStatus} role="status">{status}</p>
-        </div>
-        <p className={styles.walkthroughNote}>Recorded from the local pilot. Search results depend on your catalog; image previews depend on your client.</p>
+    <div ref={scope} className={styles.walkthrough}>
+      <div className={styles.tabs} role="tablist" aria-label="Example searches" onKeyDown={onKey} style={{ position: "relative" }}>
+        <span className={styles.tabIndicator} data-indicator aria-hidden="true" />
+        {examples.map((item, index) => (
+          <button key={item.id} ref={node => { tabs.current[index] = node; }} type="button" role="tab" id={`example-tab-${item.id}`}
+            aria-selected={index === selected} aria-controls="example-panel" tabIndex={index === selected ? 0 : -1} onClick={() => choose(index)}>
+            <span>{item.label}</span>
+          </button>
+        ))}
       </div>
-      <div className={styles.walkthroughContent}>
-        <div className={styles.resultToolbar}><span><Terminal size={16} aria-hidden="true" /> Inspora</span><span>{example.results.length} recorded references <span aria-hidden="true">↗</span></span></div>
-        <div className={styles.referenceGrid} aria-live="polite" aria-atomic="true">
-          {example.results.map(work => <a className={`card ${styles.reference}`} href={work.url} key={work.url}>
-            <div className={styles.referenceHeading}><div><h3>{work.title}</h3><p>{work.creator}</p></div><ArrowUpRight size={16} aria-hidden="true" /></div>
-            <div className="m-zoom">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={work.image} srcSet={`${work.thumbnail} 200w, ${work.image} ${work.width}w`} sizes="(max-width:639px) 112px, (max-width:1023px) calc((100vw - 380px)/2), calc((100vw - 560px)/3)" alt={work.alt} width={work.width} height={work.height} loading="lazy" decoding="async" />
-            </div>
-            {work.match === "alternative" && <span className={styles.alternative}>Alternative · details unverified</span>}
-          </a>)}
+      <div className={styles.panel} role="tabpanel" id="example-panel" aria-labelledby={`example-tab-${example.id}`}>
+        <div className={styles.panelHead}>
+          <div data-quote>
+            <span className={styles.smallLabel}>You ask</span>
+            <p className={styles.promptQuote}>“{request}”</p>
+          </div>
+          <button type="button" className={styles.copyButton} onClick={copy}>
+            {copied === "Prompt copied." ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+            {copied === "Prompt copied." ? "Copied" : "Copy prompt"}
+          </button>
         </div>
+        <p className={styles.srOnly} role="status">{copied}</p>
+        <div className={styles.referenceGrid}>
+          {example.results.map(work => (
+            <a key={work.url} href={work.url} className={styles.reference} data-reference>
+              <span className={styles.thumb} data-fit={work.kind === "logo" || work.kind === "icon" ? "contain" : undefined}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={work.image} srcSet={`${work.thumbnail} ${work.thumbnailWidth}w, ${work.image} ${work.width}w`}
+                  sizes="(max-width:639px) 45vw, (max-width:1023px) 44vw, 400px" alt={work.alt} width={work.width} height={work.height} loading="lazy" decoding="async" />
+                <span className={styles.badges}>
+                  <span className={styles.badge}>{kindLabel[work.kind]}</span>
+                  {"motion" in work && work.motion ? <span className={styles.badge} data-motion>Motion</span> : null}
+                </span>
+              </span>
+              <span className={styles.referenceMeta}>
+                <span><h3>{work.title}</h3><p>{work.creator}</p></span>
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </span>
+            </a>
+          ))}
+        </div>
+        <p className={styles.panelNote}>Recorded with the Inspora plugin on November 25, 2026. The first six references are shown, each linking to the work and its creator on Inspora. Results change as new work is added.</p>
       </div>
     </div>
   );
-}
-
-type MountedMoment = HTMLElement & { __moment?: {destroy?: () => void} };
-type Effect = {destroy: () => void; pause: () => void};
-
-/** The skill modules stay unmodified; this adapter gives them a route-scoped lifecycle. */
-export function McpMotion() {
-  useEffect(() => {
-    let active = true;
-    let effect: Effect | undefined;
-    const html = document.documentElement;
-    const root = document.querySelector<HTMLElement>("[data-mcp-page]");
-    if (!root) return;
-    const keys = {type:"software",radius:"sharp",buttons:"arrow",ground:"sand",motion:""};
-    const previous = Object.fromEntries(Object.keys(keys).map(key => [key, html.getAttribute(`data-${key}`)]));
-    Object.entries(keys).forEach(([key,value]) => html.setAttribute(`data-${key}`,value));
-    html.classList.add("m-enter");
-    const timer = window.setTimeout(() => html.classList.add("m-enter-done"),700);
-    const importModule = (name: string) => import(/* webpackIgnore: true */ `/mcp/taste/${name}`);
-    void (async () => {
-      try {
-        const motion = await importModule("motion/motion.js");
-        if (!active) return;
-        motion.init();
-        const moments = await importModule("moments/moments.js");
-        if (!active) return;
-        const moment = root.querySelector<MountedMoment>("[data-moment]");
-        if (moment) {
-          await moments.mount(moment);
-          if (!active) { moments.unmountAll(root); return; }
-        }
-        const fx = (await importModule("effects/fx.js")).default;
-        if (!active) return;
-        fx.config.maxDpr = 1;
-        const ground = root.querySelector<HTMLElement>("[data-mcp-ground]");
-        if (ground) {
-          effect = await fx.mount(ground, "painterly-landscape", {
-            seed: 17,
-            palette: {bg:"#d9ccb7",surface:"#e9e0d2",ink:"#2a2622",muted:"#756c61",accent:"#a8794a",accentInk:"#ffffff"},
-            params: {drift:0,blur:1,brush:0.35,slope:0,hillY:0.3,horizon:0.62,grain:0},
-          });
-          effect?.pause();
-          if (!active) effect?.destroy();
-        }
-      } catch {
-        // All content and the warm ground are present without enhancement.
-        html.classList.add("m-enter-done", "mo-safe");
-      }
-    })();
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-      effect?.destroy();
-      root.querySelector<MountedMoment>("[data-moment]")?.__moment?.destroy?.();
-      Object.entries(previous).forEach(([key,value]) => value === null ? html.removeAttribute(`data-${key}`) : html.setAttribute(`data-${key}`,value));
-      html.classList.remove("m-enter", "m-enter-done", "mo-js", "mo-safe");
-      delete html.dataset.momentsReady;
-    };
-  }, []);
-  return null;
 }

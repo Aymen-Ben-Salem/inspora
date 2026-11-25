@@ -1,65 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 import { Check, Copy } from "lucide-react";
+import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 import styles from "@/app/mcp/mcp.module.css";
 
-const setupPrompt = "Set up Inspora for me.\n\n1. Connect https://mcp.inspora.design/mcp using Streamable HTTP and OAuth. Reuse an existing correct connection and sign me in if needed.\n2. Install inspora-discovery and inspora-design-direction from https://mcp.inspora.design with npx skills add, using -g -y and an explicit --agent for my current client (codex, claude-code, or its supported installer ID).\n3. Verify both installed skills are available to this agent, then call catalog_status through Inspora. Say \"Inspora is ready\" only when those checks succeed. If a check fails, explain the specific next step.";
-const checkPrompt = "Confirm inspora-discovery and inspora-design-direction are available to you, then call Inspora's catalog_status. Say Inspora is ready only if all checks pass; otherwise tell me the specific next step.";
+gsap.registerPlugin(useGSAP);
 
-export function McpClientSetup() {
-  const [client, setClient] = useState<"claude" | "codex">("claude");
-  const [status, setStatus] = useState("");
-  const endpoint = "https://mcp.inspora.design/mcp";
-  const agent = client === "claude" ? "claude-code" : "codex";
-  const connectCommand = client === "claude"
-    ? "claude mcp add --transport http --scope user inspora " + endpoint
-    : "codex mcp add inspora --url " + endpoint;
-  const skillsCommand = "npx skills add https://mcp.inspora.design -g --agent " + agent + " -y";
-  const verifyCommand = "npx skills list -g --agent " + agent;
-  async function copy(value: string, label: string) {
-    try { await navigator.clipboard.writeText(value); setStatus(label + " copied."); }
-    catch { setStatus("Copy is unavailable. Select the text to copy it."); }
-  }
+type Client = "claude" | "codex";
+const MARKETPLACE = "https://github.com/inspora-design/inspora-plugin.git";
+const setup: Record<Client, { label: string; icon: string; install: string; prompt: string; signIn: ReactNode }> = {
+  claude: {
+    label: "Claude Code",
+    icon: "/mcp/icons/claude-code.svg",
+    install: `claude plugin marketplace add ${MARKETPLACE}\nclaude plugin install inspora@inspora-team`,
+    prompt: `Install the Inspora plugin by running:\n\nclaude plugin marketplace add ${MARKETPLACE}\nclaude plugin install inspora@inspora-team\n\nThen tell me how to sign in: run /reload-plugins, open /mcp, select plugin:inspora:inspora and choose Authenticate.`,
+    signIn: <>Run <code>/reload-plugins</code>, then <code>/mcp</code>, select <code>plugin:inspora:inspora</code> and choose Authenticate.</>,
+  },
+  codex: {
+    label: "Codex",
+    icon: "/mcp/icons/codex.svg",
+    install: `codex plugin marketplace add ${MARKETPLACE}\ncodex plugin add inspora@inspora-team`,
+    prompt: `Install the Inspora plugin by running:\n\ncodex plugin marketplace add ${MARKETPLACE}\ncodex plugin add inspora@inspora-team\n\nThen tell me how to sign in: run codex mcp login inspora and start a new session.`,
+    signIn: <>Run <code>codex mcp login inspora</code>, then start a new session.</>,
+  },
+};
+
+function CopyBox({ value, label, title, onCopy, copied, prose }: { value: string; label: string; title: string; onCopy: (value: string, label: string) => void; copied: boolean; prose?: boolean }) {
   return (
-    <div className={`ui app-frame ${styles.clientSetup}`}>
-      <details className={styles.configBox}><summary className={styles.configToolbar}>Let your agent set it up</summary>
-        <div className={styles.configToolbar}><span>Works with your current agent</span><button type="button" onClick={() => copy(setupPrompt, "Setup prompt")}><Copy size={15} aria-hidden="true" />Copy prompt</button></div>
-        <pre tabIndex={0} aria-label="Agent setup prompt"><code>{setupPrompt}</code></pre>
-      </details>
-      <fieldset className={styles.clientChoices}><legend className="sr-only">Choose your AI client for manual setup</legend>
-        {([["claude", "Claude Code"], ["codex", "Codex"]] as const).map(([value, label]) => (
-          <button key={value} type="button" aria-pressed={client === value} onClick={() => { setClient(value); setStatus(""); }}>
+    <div className={styles.command}>
+      <div className={styles.commandBar}>
+        <span>{title}</span>
+        <button type="button" onClick={() => onCopy(value, label)}>
+          {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied ? "Copied" : `Copy ${label.toLowerCase()}`}
+        </button>
+      </div>
+      <pre tabIndex={0} aria-label={label} data-prose={prose ? "" : undefined}><code>{value}</code></pre>
+    </div>
+  );
+}
+
+/** Plugin installation for Claude Code and Codex: hand a prompt to the agent, or run the commands. */
+export function McpClientSetup() {
+  const scope = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
+  const [client, setClient] = useState<Client>("claude");
+  const [status, setStatus] = useState("");
+  const current = setup[client];
+
+  useGSAP(() => {
+    if (!mounted.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { mounted.current = true; return; }
+    gsap.fromTo("[data-option]", { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.45, stagger: 0.07, ease: "power3.out", clearProps: "transform,opacity,visibility" });
+  }, { scope, dependencies: [client] });
+
+  async function copy(value: string, label: string) {
+    try { await navigator.clipboard.writeText(value); setStatus(`${label} copied.`); }
+    catch { setStatus("Copy isn’t available here. Select the text to copy it."); }
+  }
+  function choose(next: Client) { setClient(next); setStatus(""); }
+  function onKey(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const next: Client = client === "claude" ? "codex" : "claude";
+    choose(next);
+    scope.current?.querySelector<HTMLButtonElement>(`#client-tab-${next}`)?.focus();
+  }
+  const copied = (label: string) => status === `${label} copied.`;
+
+  return (
+    <div ref={scope} className={styles.client}>
+      <div className={styles.clientTabs} role="tablist" aria-label="Choose your app" onKeyDown={onKey}>
+        {(Object.keys(setup) as Client[]).map(value => (
+          <button key={value} id={`client-tab-${value}`} type="button" role="tab" aria-selected={client === value} aria-controls="client-panel"
+            tabIndex={client === value ? 0 : -1} onClick={() => choose(value)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value === "claude" ? "/mcp/icons/claude-code.svg" : "/mcp/icons/openai.svg"} alt="" width={24} height={24} data-openai={value === "codex" ? "" : undefined} loading="lazy" />
-            {label}
+            <img src={setup[value].icon} alt="" width={20} height={20} loading="lazy" />
+            {setup[value].label}
           </button>
         ))}
-      </fieldset>
-      <div className={styles.configBox}>
-        <div className={styles.configToolbar}><label htmlFor="mcp-server-url">1. Connect Inspora</label><button type="button" onClick={() => copy(endpoint, "URL")}>{status === "URL copied." ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}{status === "URL copied." ? "Copied URL" : "Copy URL"}</button></div>
-        <input id="mcp-server-url" className={styles.pathInput} value={endpoint} readOnly spellCheck={false} aria-describedby="mcp-config-help" />
       </div>
-      <p id="mcp-config-help" className={styles.configHelp}>Add this URL in your client’s MCP settings, then sign in to Inspora and allow the connection. If it is already connected, continue.</p>
-      <details className={styles.configBox}><summary className={styles.configToolbar}>Connect through the terminal</summary>
-        <div className={styles.configToolbar}><span>{client === "claude" ? "Claude Code" : "Codex"}</span><button type="button" onClick={() => copy(connectCommand, "Connection command")}><Copy size={15} aria-hidden="true" />Copy command</button></div>
-        <pre tabIndex={0} aria-label="Connection command"><code>{connectCommand}</code></pre>
-        <p className={styles.configHelp}>If sign-in is still needed, run <code>{client === "claude" ? "claude" : "codex"} mcp login inspora</code>, then choose Allow connection in your browser.</p>
-      </details>
-      <div className={styles.configBox}>
-        <div className={styles.configToolbar}><span>2. Add the skills</span><button type="button" onClick={() => copy(skillsCommand, "Skills command")}><Copy size={15} aria-hidden="true" />Copy command</button></div>
-        <pre tabIndex={0} aria-label="Skills installation command"><code>{skillsCommand}</code></pre>
+      <div role="tabpanel" id="client-panel" aria-labelledby={`client-tab-${client}`}>
+        <div className={styles.installGrid}>
+          <div data-option>
+            <h3>Ask your agent</h3>
+            <p>Paste this into {current.label}.</p>
+            <CopyBox value={current.prompt} label="Prompt" title="Prompt" onCopy={copy} copied={copied("Prompt")} prose />
+          </div>
+          <div data-option>
+            <h3>Or run it yourself</h3>
+            <p>In your terminal.</p>
+            <CopyBox value={current.install} label="Commands" title="Terminal" onCopy={copy} copied={copied("Commands")} />
+          </div>
+        </div>
+        <p className={styles.signIn}><strong>Then sign in.</strong> {current.signIn}</p>
+        <p className={styles.copyStatus} role="status">{status}</p>
       </div>
-      <p className={styles.configHelp}>Run this once in your terminal with Node.js 22.20 or newer. It installs both skills for your selected agent, across projects.</p>
-      <details className={styles.configBox}><summary className={styles.configToolbar}>3. Check you are ready</summary>
-        <div className={styles.configToolbar}><span>Ask your agent to check</span><button type="button" onClick={() => copy(checkPrompt, "Check prompt")}><Copy size={15} aria-hidden="true" />Copy check</button></div>
-        <p className={styles.configHelp}>{checkPrompt}</p>
-        <p className={styles.configHelp}>Or run <code>{verifyCommand}</code> and look for inspora-discovery and inspora-design-direction. Confirm both skills are available in your agent and Inspora is connected in its MCP settings, then try a search.</p>
-        <p className={styles.configHelp}>Start a fresh conversation if skills or tools are missing. Restart the agent or extension if needed.</p>
-      </details>
-      <p className={styles.configHelp}><a href="https://mcp.inspora.design/setup">Other agents, updates and setup help</a></p>
-      <p className={styles.configHelp}>Team trial. Customer access will be part of Inspora Pro. Your client’s normal model usage applies.</p>
-      <p role="status" className={styles.copyStatus}>{status}</p>
     </div>
   );
 }

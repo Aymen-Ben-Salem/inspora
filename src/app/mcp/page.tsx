@@ -51,8 +51,8 @@ export default function McpPage() {
           <div className={styles.stage} data-hero-stage><McpHeroDemo /></div>
         </section>
 
-        <section id="setup" className={`${styles.section} ${styles.band}`} aria-labelledby="setup-title">
-          <h2 id="setup-title" className={styles.intro} data-reveal><span>Ready in a minute.</span> Included with Inspora Pro, team-only during the preview.</h2>
+        <section id="setup" className={styles.section} aria-labelledby="setup-title">
+          <h2 id="setup-title" className={styles.intro} data-wide data-reveal><span>Ready in a minute.</span> Included with Inspora Pro, team-only during the preview.</h2>
           <div className={styles.section} data-reveal><McpClientSetup /></div>
         </section>
 
@@ -89,7 +89,7 @@ export default function McpPage() {
           </article>
         </section>
 
-        <section className={`${styles.section} ${styles.band}`} aria-labelledby="points-title">
+        <section className={styles.section} aria-labelledby="points-title">
           <h2 id="points-title" className={styles.intro} data-reveal><span>From a first idea to a design brief.</span> Your agent does the searching.</h2>
           <McpBenefits />
         </section>

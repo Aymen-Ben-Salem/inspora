@@ -19,6 +19,7 @@
 .section { display: flex; flex-direction: column; align-items: center; gap: 24px; width: 100%; scroll-margin-top: 24px; }
 .intro { max-width: 520px; text-wrap: pretty; text-align: center; font-size: 16px; font-weight: 400; line-height: 20px; letter-spacing: -.32px; color: var(--muted); }
 .intro > span { color: var(--ink); }
+.intro[data-wide] { max-width: 662px; }
 .small { font-size: 12px; line-height: 20px; color: var(--muted); text-align: center; }
 .small a { color: inherit; }
 
@@ -65,14 +66,10 @@
 .demoTabs button[aria-pressed=true], .demoTabs button:hover { color: var(--ink); border-color: #cfcfcf; }
 .progress { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--ink); transform: scaleX(0); transform-origin: left; }
 
-/* Dark bands (install, what it does): content width, the dark card colors of the earlier page */
-.band { padding: 72px 24px; border-radius: 6px; background: #111; color: #fff; }
-.band .intro { max-width: 662px; color: #9a9a9a; }
-.band .intro > span { color: #fff; }
-.band :focus-visible { outline-color: #fff; }
 
 /* Install card */
-.client { width: 100%; max-width: 662px; border: 1px solid #333; border-radius: 6px; background: #1b1b1b; overflow: hidden; text-align: left; }
+.client { width: 100%; max-width: 662px; border: 1px solid #333; border-radius: 6px; background: #1b1b1b; color: #fff; overflow: hidden; text-align: left; }
+.page .client :focus-visible { outline-color: #fff; }
 .clientTabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #333; }
 .clientTabs button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 6px; background: none; color: #bdbdbd; font-size: 14px; transition: background-color .2s, color .2s; }
 .clientTabs button[aria-selected=true] { background: #fff; color: #111; }
@@ -123,25 +120,25 @@
 .swatches > span { display: inline-flex; align-items: center; gap: 6px; }
 .swatches i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.12); }
 
-/* What it does: six points joined to the Inspora mark by drawn lines */
-.flow { display: grid; grid-template-columns: minmax(0,1fr) 120px 72px 120px minmax(0,1fr); align-items: center; width: 100%; max-width: 880px; }
-.flowHub { position: relative; z-index: 1; grid-column: 3; grid-row: 1; display: grid; place-items: center; width: 72px; height: 72px; border: 1px solid #333; border-radius: 50%; background: #1b1b1b; color: #fff; box-shadow: 0 0 0 8px rgba(255,255,255,.03), 0 0 56px rgba(255,255,255,.08); }
-.flowHub::after { content: ""; position: absolute; inset: -1px; border: 1px solid rgba(255,255,255,.22); border-radius: 50%; animation: hubRing 3.2s ease-out infinite; }
+/* What it does: six equal labels joined to the Inspora mark by drawn lines */
+.flow { display: grid; grid-template-columns: minmax(0,1fr) 72px 72px 72px minmax(0,1fr); align-items: center; width: 100%; max-width: 662px; }
+.flowHub { position: relative; z-index: 1; grid-column: 3; grid-row: 1; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: #1b1b1b; color: #fff; box-shadow: 0 0 0 8px rgba(38,38,38,.05), 0 10px 28px rgba(38,38,38,.18); }
+.flowHub::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(38,38,38,.35); border-radius: 50%; animation: hubRing 3.2s ease-out infinite; }
 @keyframes hubRing { from { transform: scale(1); opacity: .7; } to { transform: scale(1.6); opacity: 0; } }
 .flow > svg { grid-row: 1; display: block; overflow: visible; }
 .flow > svg:nth-of-type(1) { grid-column: 2; }
 .flow > svg:nth-of-type(2) { grid-column: 4; }
-.flowLine { fill: none; stroke: #3a3a3a; stroke-width: 1; }
-.flowPulse, .flowGlow { fill: none; stroke: #fff; stroke-linecap: round; stroke-dasharray: 18 320; stroke-dashoffset: -160px; animation: flowPulse 4.2s ease-in-out infinite; }
+.flowLine { fill: none; stroke: #d4d4d4; stroke-width: 1; }
+.flowPulse, .flowGlow { fill: none; stroke: #262626; stroke-linecap: round; stroke-dasharray: 16 300; stroke-dashoffset: -130px; animation: flowPulse 4.2s ease-in-out infinite; }
 .flowPulse { stroke-width: 1.5; }
-.flowGlow { stroke-width: 6; opacity: .14; }
-/* The light leaves the mark and runs out to each point (paths are at most ~150px long). */
-@keyframes flowPulse { 0% { stroke-dashoffset: -160px; } 50%, 100% { stroke-dashoffset: 18px; } }
-.flowDot { fill: #111; stroke: #8a8a8a; stroke-width: 1; }
-.flowList { display: grid; grid-row: 1; grid-template-rows: repeat(3,88px); align-items: center; margin: 0; padding: 0; list-style: none; font-size: 15px; line-height: 20px; letter-spacing: -.2px; color: #9a9a9a; text-wrap: pretty; }
-.flowList b { font-weight: 500; color: #fff; }
-.flowList[data-side=left] { grid-column: 1; padding-right: 10px; text-align: right; }
-.flowList[data-side=right] { grid-column: 5; padding-left: 10px; text-align: left; }
+.flowGlow { stroke-width: 6; opacity: .1; }
+/* The light leaves the mark and runs out to each label (paths are at most ~115px long). */
+@keyframes flowPulse { 0% { stroke-dashoffset: -130px; } 50%, 100% { stroke-dashoffset: 16px; } }
+.flowDot { fill: #fff; stroke: #a3a3a3; stroke-width: 1; }
+.flowList { display: grid; grid-row: 1; grid-template-rows: repeat(3,72px); align-items: center; margin: 0; padding: 0; list-style: none; }
+.flowList li { display: flex; align-items: center; height: 56px; padding: 0 14px; border: 1px solid #333; border-radius: 6px; background: #1b1b1b; color: #fff; font-size: 14px; line-height: 18px; letter-spacing: -.2px; text-wrap: pretty; }
+.flowList[data-side=left] { grid-column: 1; }
+.flowList[data-side=right] { grid-column: 5; }
 
 /* Questions */
 .faq { width: 100%; max-width: 662px; border-top: 1px solid var(--line); text-align: left; }
@@ -168,19 +165,18 @@
   .demoGrid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .demoGrid > :nth-child(n+7) { display: none; }
 }
-@media (max-width: 899px) {
-  .flow { grid-template-columns: minmax(0,1fr); max-width: 340px; }
+@media (max-width: 699px) {
+  .flow { grid-template-columns: minmax(0,1fr); max-width: 400px; }
   .flow > svg { display: none; }
   .flowHub { grid-column: 1; width: 64px; height: 64px; }
-  .flowList[data-side] { grid-column: 1; grid-template-rows: none; gap: 18px; margin-left: 31.5px; padding: 24px 0 0 24px; border-left: 1px solid #333; text-align: left; }
+  .flowList[data-side] { grid-column: 1; grid-template-rows: none; gap: 10px; margin-left: 31.5px; padding: 20px 0 0 20px; border-left: 1px solid #d4d4d4; }
   .flowList[data-side=left] { grid-row: 2; }
-  .flowList[data-side=right] { grid-row: 3; padding-top: 18px; }
-  .flowList li { position: relative; }
-  .flowList li::before { content: ""; position: absolute; left: -29.5px; top: 5px; width: 8px; height: 8px; border: 1px solid #8a8a8a; border-radius: 50%; background: #111; }
+  .flowList[data-side=right] { grid-row: 3; padding-top: 10px; }
+  .flowList li { position: relative; height: auto; min-height: 48px; padding-block: 10px; }
+  .flowList li::before { content: ""; position: absolute; left: -26.5px; top: 50%; width: 8px; height: 8px; margin-top: -5px; border: 1px solid #a3a3a3; border-radius: 50%; background: #fff; }
 }
 @media (max-width: 639px) {
   .main { gap: 80px; }
-  .band { padding: 48px 12px; }
   .page .hero h1 { font-size: 36px; }
   .demoBar > span:last-child, .demoMeta { display: none; }
   .demoBody { padding: 12px; }

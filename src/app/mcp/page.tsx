@@ -23,12 +23,10 @@ export const metadata: Metadata = {
 const studyFrames = [["0-3s", "0.3s", "Closed"], ["1-0s", "1.0s", "Opening"], ["1-6s", "1.6s", "Open"]] as const;
 const palette = { background: { hex: "#efefef" }, content: [{ hex: "#38d451", share: 66.4 }, { hex: "#242424", share: 33.6 }] };
 const extras = [
-  "Start from an idea or an Inspora link.",
-  "Filter by kind, industry, style, color or technology.",
-  "Up to ten direct matches, adaptations labelled.",
-  "Compare directions or write a design brief.",
-  "Every reference credited and linked.",
-  "New work arrives automatically.",
+  "Start from an idea or an Inspora link, then filter by style, color and more.",
+  "Up to ten direct matches, with adaptations labelled.",
+  "Compare directions or turn them into a design brief.",
+  "Every reference credited, with new work added automatically.",
 ];
 
 const questions: { q: string; a: ReactNode }[] = [
@@ -61,12 +59,12 @@ export default function McpPage() {
         </section>
 
         <section id="setup" className={`${styles.section} ${styles.band}`} aria-labelledby="setup-title">
-          <h2 id="setup-title" className={styles.intro} data-reveal><span>Ready in a minute.</span> Included with Inspora Pro. During the preview, only the Inspora team can sign in.</h2>
+          <h2 id="setup-title" className={styles.intro} data-reveal><span>Ready in a minute.</span> Included with Inspora Pro, team-only during the preview.</h2>
           <div className={styles.section} data-reveal><McpClientSetup /></div>
         </section>
 
         <section className={styles.section} aria-labelledby="capabilities-title">
-          <h2 id="capabilities-title" className={styles.intro} data-reveal><span>It sees the work, not just the words.</span> One install adds the Inspora connection and two skills: one finds and curates references, the other turns them into a design direction.</h2>
+          <h2 id="capabilities-title" className={styles.intro} data-reveal><span>It sees the work, not just the words.</span> Your agent looks at previews, motion frames and colors, not only descriptions.</h2>
           <div className={styles.features}>
             <article className={styles.feature} data-stagger>
               <div><h3>Motion, frame by frame</h3><p>For animated work, your agent gets timestamped frames, so it can see how an interaction moves before it builds one.</p></div>

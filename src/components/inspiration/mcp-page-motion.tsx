@@ -45,14 +45,6 @@ export function McpPageMotion() {
     if (frames.length) gsap.from(frames, { autoAlpha: 0, x: -24, duration: 0.7, stagger: 0.18, ease: "power3.out", clearProps: "transform,opacity,visibility", scrollTrigger: { trigger: frames[0], start: "top 85%", once: true } });
     const shares = q("[data-share]");
     if (shares.length) gsap.from(shares, { flexBasis: "0%", duration: 1.1, stagger: 0.12, ease: "power3.inOut", scrollTrigger: { trigger: shares[0], start: "top 85%", once: true } });
-
-    // The closing wordmark assembles letter by letter.
-    const wordmark = root.querySelector<HTMLElement>("[data-wordmark]");
-    if (wordmark) {
-      const split = SplitText.create(wordmark, { type: "chars", mask: "chars", aria: "auto" });
-      roomForDescenders(split.masks);
-      gsap.from(split.chars, { yPercent: 115, duration: 1, stagger: 0.05, ease: "power4.out", onComplete: () => split.revert(), scrollTrigger: { trigger: wordmark, start: "top 92%", once: true } });
-    }
   }, []);
   return null;
 }

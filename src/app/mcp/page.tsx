@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import localFont from "next/font/local";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowDown, ArrowUpRight, Check, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { SiteNavbar } from "@/components/site-navbar";
 import { McpClientSetup } from "@/components/inspiration/mcp-client-setup";
 import { McpHeroDemo } from "@/components/inspiration/mcp-hero-demo";
@@ -12,9 +12,6 @@ import { McpTryWith } from "@/components/inspiration/mcp-try-with";
 import { McpWalkthrough } from "@/components/inspiration/mcp-walkthrough";
 import { isMcpPreviewEnabled } from "@/features/inspiration/preview";
 import styles from "./mcp.module.css";
-
-const display = localFont({ src: "../../assets/fonts/mcp/schibsted.woff2", variable: "--mcp-display", display: "swap", weight: "400 700" });
-const mono = localFont({ src: "../../assets/fonts/mcp/jetbrains-mono.woff2", variable: "--mcp-mono", display: "swap", weight: "400 500" });
 
 export const metadata: Metadata = {
   title: "Inspora plugin for Claude Code and Codex — Preview",
@@ -27,14 +24,13 @@ export const metadata: Metadata = {
 const studyFrames = [["0-3s", "0.3s", "Closed"], ["1-0s", "1.0s", "Opening"], ["1-6s", "1.6s", "Open"]] as const;
 const palette = { background: { hex: "#efefef" }, content: [{ hex: "#38d451", share: 66.4 }, { hex: "#242424", share: 33.6 }] };
 const extras = [
-  "Start from an idea or an Inspora link",
-  "Filter by kind, industry, style, color or technology",
-  "Up to ten direct matches, adaptations labelled",
-  "Compare directions or write a design brief",
-  "Every reference credited and linked",
-  "New work arrives automatically",
+  "Start from an idea or an Inspora link.",
+  "Filter by kind, industry, style, color or technology.",
+  "Up to ten direct matches, adaptations labelled.",
+  "Compare directions or write a design brief.",
+  "Every reference credited and linked.",
+  "New work arrives automatically.",
 ];
-
 
 const questions: { q: string; a: ReactNode }[] = [
   { q: "Which apps does it work with?", a: <p>Claude Code and Codex. Other MCP agents can connect with the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p> },
@@ -48,120 +44,97 @@ const questions: { q: string; a: ReactNode }[] = [
 export default function McpPage() {
   if (!isMcpPreviewEnabled()) notFound();
   return (
-    <div className={`${styles.page} ${display.variable} ${mono.variable}`} data-mcp-page>
+    <div className={styles.page} data-mcp-page>
       <a className={styles.skip} href="#mcp-content">Skip to content</a>
       <SiteNavbar page="mcp" />
       <McpPageMotion />
-      <main id="mcp-content">
+      <main id="mcp-content" className={styles.main}>
         <section className={styles.hero} aria-labelledby="mcp-title">
-          <div className={styles.wrap}>
-            <div className={styles.heroCopy}>
-              <div data-hero-fade><McpTryWith /></div>
-              <h1 id="mcp-title" data-hero-title>Design references<br /> for your agent.</h1>
-              <p className={styles.heroLead} data-hero-fade>Your agent searches Inspora’s curated design work, websites, logos and icons, and brings back credited references.</p>
-              <div className={styles.actions} data-hero-fade>
-                <a href="#setup" className={styles.primary}>Install the plugin <ArrowUpRight size={18} aria-hidden="true" /></a>
-                <a href="#examples" className={styles.secondary}>See example searches <ArrowDown size={17} aria-hidden="true" /></a>
-              </div>
-            </div>
-            <div className={styles.stage} data-hero-stage><McpHeroDemo /></div>
+          <div className={styles.heroCopy}>
+            <div data-hero-fade><McpTryWith /></div>
+            <h1 id="mcp-title" data-hero-title>Design references<br /> for your agent.</h1>
+            <p className={styles.heroLead} data-hero-fade>Your agent searches Inspora’s curated design work, websites, logos and icons, and brings back credited references.</p>
           </div>
+          <div className={styles.actions} data-hero-fade>
+            <a href="#setup" className={styles.primary}>Install the plugin</a>
+            <a href="#examples" className={styles.textLink}>See example searches</a>
+          </div>
+          <div className={styles.stage} data-hero-stage><McpHeroDemo /></div>
         </section>
 
-        <section id="setup" className={`${styles.section} ${styles.setup}`} aria-labelledby="setup-title">
-          <div className={`${styles.wrap} ${styles.setupLayout}`}>
-            <div className={styles.setupIntro} data-reveal>
-              <span className={styles.kicker}>Install</span>
-              <h2 id="setup-title">Ready in<br /> a minute.</h2>
-              <p>Included with Inspora Pro. During the preview, only the Inspora team can sign in.</p>
-              <p className={styles.setupNote}>Another agent? Use the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p>
-            </div>
-            <div data-reveal><McpClientSetup /></div>
-          </div>
+        <section id="setup" className={styles.section} aria-labelledby="setup-title">
+          <h2 id="setup-title" className={styles.intro} data-reveal><span>Ready in a minute.</span> Included with Inspora Pro. During the preview, only the Inspora team can sign in.</h2>
+          <div className={styles.section} data-reveal><McpClientSetup /></div>
+          <p className={styles.small} data-reveal>Using another agent? Follow the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p>
         </section>
 
         <section id="examples" className={styles.section} aria-labelledby="examples-title">
-          <div className={styles.wrap}>
-            <div className={styles.sectionHead} data-reveal>
-              <div><span className={styles.kicker}>Example searches</span><h2 id="examples-title">Ask the way you’d<br /> ask a designer.</h2></div>
-              <p>Your agent checks the previews and comes back with a shortlist, every work credited and linked.</p>
-            </div>
-            <div data-reveal><McpWalkthrough /></div>
-          </div>
+          <h2 id="examples-title" className={styles.intro} data-reveal><span>Ask the way you’d ask a designer.</span> Your agent checks the previews and comes back with a shortlist, every work credited and linked.</h2>
+          <div className={styles.section} data-reveal><McpWalkthrough /></div>
         </section>
 
-        <section className={`${styles.section} ${styles.capabilities}`} aria-labelledby="capabilities-title">
-          <div className={styles.wrap}>
-            <div className={styles.sectionHead} data-reveal>
-              <div><span className={styles.kicker}>What your agent gets</span><h2 id="capabilities-title">It sees the work,<br /> not just the words.</h2></div>
-              <p>One install adds the Inspora connection and two skills: one finds and curates references, the other turns them into a design direction.</p>
-            </div>
-            <div className={styles.bento}>
-              <article className={styles.feature} data-wide data-stagger>
-                <div><h3>Motion, frame by frame</h3><p>For animated work, your agent gets timestamped frames, so it can see how an interaction moves before it builds one.</p></div>
-                <div>
-                  <div className={styles.frames}>
-                    {studyFrames.map(([file, time, state]) => (
-                      <figure key={file} className={styles.frame} data-frame>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`/mcp/study/invite-code-${file}.webp`} alt={`Invite code interaction, ${state.toLowerCase()} at ${time}`} width={480} height={200} loading="lazy" decoding="async" />
-                        <figcaption>{time}</figcaption>
-                      </figure>
-                    ))}
-                  </div>
-                  <p className={styles.featureCredit}><Link href="/posts/invite-code-interaction">Invite code interaction</Link> by Nitish Khagwal</p>
+        <section className={styles.section} aria-labelledby="capabilities-title">
+          <h2 id="capabilities-title" className={styles.intro} data-reveal><span>It sees the work, not just the words.</span> One install adds the Inspora connection and two skills: one finds and curates references, the other turns them into a design direction.</h2>
+          <div className={styles.features}>
+            <article className={styles.feature} data-stagger>
+              <div><h3>Motion, frame by frame</h3><p>For animated work, your agent gets timestamped frames, so it can see how an interaction moves before it builds one.</p></div>
+              <div>
+                <div className={styles.frames}>
+                  {studyFrames.map(([file, time, state]) => (
+                    <figure key={file} className={styles.frame} data-frame>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/mcp/study/invite-code-${file}.webp`} alt={`Invite code interaction, ${state.toLowerCase()} at ${time}`} width={480} height={200} loading="lazy" decoding="async" />
+                      <figcaption>{time}</figcaption>
+                    </figure>
+                  ))}
                 </div>
-              </article>
-              <article className={styles.feature} data-stagger>
-                <div><h3>Colors measured from the design</h3><p>Each preview comes with colors sampled from the work itself, kept apart from its background, as exact starting values.</p></div>
-                <div className={styles.palette}>
-                  <div className={styles.paletteBar} role="img" aria-label="Measured colors: green #38d451, 66 percent; near-black #242424, 34 percent">
-                    {palette.content.map(color => <span key={color.hex} data-share style={{ flex: `0 0 ${color.share}%`, background: color.hex }} />)}
-                  </div>
-                  <div className={styles.swatches}>
-                    {palette.content.map(color => <span key={color.hex}><i style={{ background: color.hex }} />{color.hex} · {Math.round(color.share)}%</span>)}
-                    <span><i style={{ background: palette.background.hex }} />{palette.background.hex} · background</span>
-                  </div>
-                  <p className={styles.featureCredit}>Measured for <Link href="/posts/invite-code-interaction">Invite code interaction</Link> by Nitish Khagwal</p>
+                <p className={styles.featureCredit}><Link href="/posts/invite-code-interaction">Invite code interaction</Link> by Nitish Khagwal</p>
+              </div>
+            </article>
+            <article className={styles.feature} data-stagger>
+              <div><h3>Colors measured from the design</h3><p>Each preview comes with colors sampled from the work itself, kept apart from its background.</p></div>
+              <div className={styles.palette}>
+                <div className={styles.paletteBar} role="img" aria-label="Measured colors: green #38d451, 66 percent; near-black #242424, 34 percent">
+                  {palette.content.map(color => <span key={color.hex} data-share style={{ flex: `0 0 ${color.share}%`, background: color.hex }} />)}
                 </div>
-              </article>
-              <ul className={styles.extras} data-stagger>
-                {extras.map(text => <li key={text}><Check size={16} aria-hidden="true" />{text}</li>)}
-              </ul>
-            </div>
+                <div className={styles.swatches}>
+                  {palette.content.map(color => <span key={color.hex}><i style={{ background: color.hex }} />{color.hex} · {Math.round(color.share)}%</span>)}
+                  <span><i style={{ background: palette.background.hex }} />{palette.background.hex} · background</span>
+                </div>
+              </div>
+            </article>
           </div>
+          <ul className={styles.benefits} data-stagger>
+            {extras.map(text => <li key={text}><Image src="/sponsorship/star.svg" alt="" width={20} height={20} />{text}</li>)}
+          </ul>
         </section>
 
         <section className={styles.section} aria-labelledby="questions-title">
-          <div className={`${styles.wrap} ${styles.faqGrid}`}>
-            <div data-reveal><span className={styles.kicker}>Questions</span><h2 id="questions-title">Good to know.</h2></div>
-            <div className={styles.faq} data-reveal>
-              {questions.map(({ q, a }) => (
-                <details key={q}>
-                  <summary>{q}<Plus size={20} aria-hidden="true" /></summary>
-                  <div className={styles.answer}>{a}</div>
-                </details>
-              ))}
-            </div>
+          <h2 id="questions-title" className={styles.intro} data-reveal><span>Good to know.</span></h2>
+          <div className={styles.faq} data-reveal>
+            {questions.map(({ q, a }) => (
+              <details key={q}>
+                <summary>{q}<Plus size={18} aria-hidden="true" /></summary>
+                <div className={styles.answer}>{a}</div>
+              </details>
+            ))}
           </div>
         </section>
-      </main>
 
-      <footer className={styles.closing} aria-labelledby="closing-title">
-        <div className={styles.wrap}>
-          <div className={styles.closingTop} data-reveal>
-            <h2 id="closing-title">Start your next project with references.</h2>
-            <a href="#setup" className={styles.primary}>Install the plugin <ArrowUpRight size={18} aria-hidden="true" /></a>
+        <footer className={styles.closing} aria-labelledby="closing-title" data-reveal>
+          <div className={styles.closingCopy}>
+            <p className={styles.intro}>Included with <span>Inspora Pro.</span></p>
+            <h2 id="closing-title" className={styles.closingTitle}>Start your next project with references.</h2>
           </div>
-          <Link className={styles.wordmark} href="/" data-wordmark>Inspora</Link>
-          <div className={styles.legal}>
-            <span>Inspora plugin · Preview for team review</span>
-            <span>Claude Code and Codex are trademarks of their owners.</span>
+          <a href="#setup" className={styles.primary}>Install the plugin</a>
+          <div className={styles.links}>
+            <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">Setup guide</a>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
           </div>
-        </div>
-      </footer>
+          <p className={styles.small}>Preview for team review. Claude Code and Codex are trademarks of their owners.</p>
+        </footer>
+      </main>
     </div>
   );
 }

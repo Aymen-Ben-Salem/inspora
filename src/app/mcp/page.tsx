@@ -89,8 +89,7 @@ export default function McpPage() {
           </article>
         </section>
 
-        <section className={styles.section} aria-labelledby="points-title">
-          <h2 id="points-title" className={styles.intro} data-reveal><span>From a first idea to a design brief.</span> Your agent does the searching.</h2>
+        <section className={styles.section} aria-label="What the plugin does">
           <McpBenefits />
         </section>
 

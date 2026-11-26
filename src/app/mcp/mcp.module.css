@@ -136,9 +136,9 @@
 @keyframes flowPulse { 0% { stroke-dashoffset: -130px; } 50%, 100% { stroke-dashoffset: 16px; } }
 .flowDot { fill: #fff; stroke: #a3a3a3; stroke-width: 1; }
 .flowList { display: grid; grid-row: 1; grid-template-rows: repeat(3,72px); align-items: center; margin: 0; padding: 0; list-style: none; }
-.flowList li { font-size: 15px; line-height: 20px; letter-spacing: -.2px; color: var(--ink); text-wrap: pretty; }
-.flowList[data-side=left] { grid-column: 1; padding-right: 8px; text-align: right; }
-.flowList[data-side=right] { grid-column: 5; padding-left: 8px; }
+.flowList li { font-size: 15px; line-height: 20px; letter-spacing: -.2px; color: var(--ink); text-wrap: balance; }
+.flowList[data-side=left] { grid-column: 1; padding-right: 8px; text-align: left; }
+.flowList[data-side=right] { grid-column: 5; padding-left: 8px; text-align: right; }
 
 /* Questions */
 .faq { width: 100%; max-width: 662px; border-top: 1px solid var(--line); text-align: left; }

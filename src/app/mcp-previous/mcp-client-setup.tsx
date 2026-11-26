@@ -1,0 +1,118 @@
+"use client";
+
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { Check, Copy } from "lucide-react";
+import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import styles from "./previous.module.css";
+
+gsap.registerPlugin(useGSAP);
+
+type Client = "claude" | "codex";
+// GitHub owner/repo shorthand, accepted by both Claude Code and Codex.
+const MARKETPLACE = "inspora-design/inspora-plugin";
+const setup: Record<Client, { label: string; icon: string; where: string; install: string; prompt: string; signIn: ReactNode }> = {
+  claude: {
+    label: "Claude Code",
+    icon: "/mcp/icons/claude-code.svg",
+    where: "In Claude Code",
+    install: `/plugin marketplace add ${MARKETPLACE}\n/plugin install inspora@inspora-team`,
+    // An agent runs shell commands, so the prompt uses the CLI form of the same commands.
+    prompt: `Install the Inspora plugin by running:\n\nclaude plugin marketplace add ${MARKETPLACE}\nclaude plugin install inspora@inspora-team\n\nThen tell me how to sign in: run /reload-plugins, open /mcp, select plugin:inspora:inspora and choose Authenticate.`,
+    signIn: <>Run <code>/reload-plugins</code>, then <code>/mcp</code>, select <code>plugin:inspora:inspora</code> and choose Authenticate.</>,
+  },
+  codex: {
+    label: "Codex",
+    icon: "/mcp/icons/codex.svg",
+    where: "Terminal",
+    install: `codex plugin marketplace add ${MARKETPLACE}\ncodex plugin add inspora@inspora-team`,
+    prompt: `Install the Inspora plugin by running:\n\ncodex plugin marketplace add ${MARKETPLACE}\ncodex plugin add inspora@inspora-team\n\nThen tell me how to sign in: run codex mcp login inspora and start a new session.`,
+    signIn: <>Run <code>codex mcp login inspora</code>, then start a new session.</>,
+  },
+};
+
+/** Plugin installation for Claude Code and Codex. */
+export function McpClientSetup() {
+  const scope = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
+  const [client, setClient] = useState<Client>("claude");
+  const [mode, setMode] = useState<"terminal" | "prompt">("terminal");
+  const [status, setStatus] = useState("");
+  const current = setup[client];
+
+  useGSAP(() => {
+    if (!mounted.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { mounted.current = true; return; }
+    gsap.fromTo("[data-step]", { autoAlpha: 0, x: -10 }, { autoAlpha: 1, x: 0, duration: 0.45, stagger: 0.06, ease: "power3.out", clearProps: "transform,opacity,visibility" });
+  }, { scope, dependencies: [client] });
+
+  async function copy(value: string, label: string) {
+    try { await navigator.clipboard.writeText(value); setStatus(`${label} copied.`); }
+    catch { setStatus("Copy isn’t available here. Select the text to copy it."); }
+  }
+  function choose(next: Client) { setClient(next); setStatus(""); }
+  function onKey(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const next: Client = client === "claude" ? "codex" : "claude";
+    choose(next);
+    scope.current?.querySelector<HTMLButtonElement>(`#client-tab-${next}`)?.focus();
+  }
+  const copied = (label: string) => status === `${label} copied.`;
+
+  return (
+    <div ref={scope} className={styles.client}>
+      <div className={styles.clientTabs} role="tablist" aria-label="Choose your app" onKeyDown={onKey}>
+        {(Object.keys(setup) as Client[]).map(value => (
+          <button key={value} id={`client-tab-${value}`} type="button" role="tab" aria-selected={client === value} aria-controls="client-panel"
+            tabIndex={client === value ? 0 : -1} onClick={() => choose(value)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={setup[value].icon} alt="" width={20} height={20} loading="lazy" />
+            {setup[value].label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id="client-panel" aria-labelledby={`client-tab-${client}`}>
+        <ol className={styles.steps}>
+          <li data-step>
+            <div>
+              <h3>Install the plugin</h3>
+              <div className={styles.command}>
+                <div className={styles.commandBar}>
+                  <div className={styles.modes} role="group" aria-label="How to install">
+                    <button type="button" aria-pressed={mode === "terminal"} onClick={() => { setMode("terminal"); setStatus(""); }}>{current.where}</button>
+                    <button type="button" aria-pressed={mode === "prompt"} onClick={() => { setMode("prompt"); setStatus(""); }}>Ask your agent</button>
+                  </div>
+                  {mode === "prompt" ? (
+                    <button type="button" onClick={() => copy(current.prompt, "Prompt")}>
+                      {copied("Prompt") ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied("Prompt") ? "Copied" : "Copy"}
+                    </button>
+                  ) : null}
+                </div>
+                {mode === "terminal" ? (
+                  <ul className={styles.commandRows} aria-label="Install commands">
+                    {current.install.split("\n").map((line, index) => {
+                      const label = `Command ${index + 1}`;
+                      return (
+                        <li key={line}>
+                          <span aria-hidden="true">$</span>
+                          <code tabIndex={0}>{line}</code>
+                          <button type="button" onClick={() => copy(line, label)} aria-label={copied(label) ? "Copied" : `Copy command ${index + 1}`} title="Copy">
+                            {copied(label) ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : <pre tabIndex={0} aria-label={`Prompt for ${current.label}`} data-prose><code>{current.prompt}</code></pre>}
+              </div>
+              {mode === "prompt" ? <p className={styles.modeHint}>Paste it into {current.label}. It runs the commands for you.</p> : null}
+            </div>
+          </li>
+          <li data-step><div><h3>Sign in to Inspora</h3><p>{current.signIn}</p></div></li>
+          <li data-step><div><h3>Ask for references</h3><p>Try “Find onboarding references for a fintech app.”</p></div></li>
+        </ol>
+        <p className={status.endsWith("copied.") ? styles.srOnly : styles.copyStatus} role="status">{status}</p>
+      </div>
+    </div>
+  );
+}

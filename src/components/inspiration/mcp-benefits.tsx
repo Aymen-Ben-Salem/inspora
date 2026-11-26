@@ -3,14 +3,14 @@ import styles from "@/app/mcp/mcp.module.css";
 
 // What the plugin does: six one-line points joined to the Inspora mark by equal lines
 // (on phones, one vertical line under the mark). The wording is chosen so every point
-// is about the same width (181–189px at 15px Inter), which keeps both sides even.
+// is about the same width (182–192px at 15px Inter; columns are 194px), which keeps both sides even.
 const left = ["Start from an idea or a link", "Filter by kind, style or color", "Up to ten direct references"];
-const right = ["Compare, then write a brief", "Every reference is credited", "Always includes new work"];
+const right = ["Compare, then write a brief", "Every reference is credited", "Ask for more references too"];
 
 const ROW = 72;
 const HEIGHT = ROW * 3;
 const MIDDLE = HEIGHT / 2;
-const WIDTH = 105;
+const WIDTH = 101;
 const rows = [ROW / 2, ROW * 1.5, ROW * 2.5];
 
 // Each curve starts at a dot beside its point and ends at the mark.

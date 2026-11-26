@@ -121,7 +121,7 @@
 .swatches i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.12); }
 
 /* What it does: six equal labels joined to the Inspora mark by drawn lines */
-.flow { display: grid; grid-template-columns: 190px 105px 72px 105px 190px; justify-content: center; align-items: center; width: 100%; max-width: 662px; }
+.flow { display: grid; grid-template-columns: 194px 101px 72px 101px 194px; justify-content: center; align-items: center; width: 100%; max-width: 662px; }
 .flowHub { position: relative; z-index: 1; grid-column: 3; grid-row: 1; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: #1b1b1b; color: #fff; box-shadow: 0 0 0 8px rgba(38,38,38,.05), 0 10px 28px rgba(38,38,38,.18); }
 .flowHub::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(38,38,38,.35); border-radius: 50%; animation: hubRing 3.2s ease-out infinite; }
 @keyframes hubRing { from { transform: scale(1); opacity: .7; } to { transform: scale(1.6); opacity: 0; } }

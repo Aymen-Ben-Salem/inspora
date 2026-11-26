@@ -121,7 +121,7 @@
 .swatches i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.12); }
 
 /* What it does: six equal labels joined to the Inspora mark by drawn lines */
-.flow { display: grid; grid-template-columns: minmax(0,1fr) 64px 72px 64px minmax(0,1fr); align-items: center; width: 100%; max-width: 662px; }
+.flow { display: grid; grid-template-columns: 190px 105px 72px 105px 190px; justify-content: center; align-items: center; width: 100%; max-width: 662px; }
 .flowHub { position: relative; z-index: 1; grid-column: 3; grid-row: 1; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: #1b1b1b; color: #fff; box-shadow: 0 0 0 8px rgba(38,38,38,.05), 0 10px 28px rgba(38,38,38,.18); }
 .flowHub::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(38,38,38,.35); border-radius: 50%; animation: hubRing 3.2s ease-out infinite; }
 @keyframes hubRing { from { transform: scale(1); opacity: .7; } to { transform: scale(1.6); opacity: 0; } }
@@ -135,16 +135,10 @@
 /* The light leaves the mark and runs out to each label (paths are at most ~150px long). */
 @keyframes flowPulse { 0% { stroke-dashoffset: -160px; } 50%, 100% { stroke-dashoffset: 16px; } }
 .flowList { display: grid; grid-row: 1; grid-template-rows: repeat(3,72px); align-items: center; margin: 0; padding: 0; list-style: none; }
-.flowList li { display: flex; align-items: center; font-size: 15px; line-height: 20px; letter-spacing: -.2px; color: var(--ink); }
-.flowList li > span { flex: none; white-space: nowrap; }
-/* A straight line from the end of each point's text to the curve; the dot sits at the text. */
-.flowTail { position: relative; flex: 1; min-width: 16px; height: 1px; margin-left: 12px; background: #d4d4d4; }
-.flowTail::before { content: ""; position: absolute; top: -4px; left: -4px; width: 7px; height: 7px; border: 1px solid #a3a3a3; border-radius: 50%; background: #fff; }
-.flowList[data-side=left] { grid-column: 1; text-align: left; }
-.flowList[data-side=right] { grid-column: 5; text-align: right; }
-.flowList[data-side=right] li { flex-direction: row-reverse; }
-.flowList[data-side=right] .flowTail { margin: 0 12px 0 0; }
-.flowList[data-side=right] .flowTail::before { left: auto; right: -4px; }
+.flowList li { font-size: 15px; line-height: 20px; letter-spacing: -.2px; color: var(--ink); white-space: nowrap; }
+.flowDot { fill: #fff; stroke: #a3a3a3; stroke-width: 1; }
+.flowList[data-side=left] { grid-column: 1; text-align: right; }
+.flowList[data-side=right] { grid-column: 5; text-align: left; }
 
 /* Questions */
 .faq { width: 100%; max-width: 662px; border-top: 1px solid var(--line); text-align: left; }
@@ -178,9 +172,7 @@
   .flowList[data-side] { grid-column: 1; grid-template-rows: none; gap: 18px; text-align: left; margin-left: 31.5px; padding: 20px 0 0 20px; border-left: 1px solid #d4d4d4; }
   .flowList[data-side=left] { grid-row: 2; }
   .flowList[data-side=right] { grid-row: 3; padding-top: 18px; }
-  .flowList li { position: relative; display: block; }
-  .flowList li > span { white-space: normal; text-wrap: balance; }
-  .flowList br, .flowTail { display: none; }
+  .flowList li { position: relative; white-space: normal; }
   .flowList li::before { content: ""; position: absolute; left: -25.5px; top: 5px; width: 8px; height: 8px; border: 1px solid #a3a3a3; border-radius: 50%; background: #fff; }
 }
 @media (max-width: 639px) {

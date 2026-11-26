@@ -1,21 +1,21 @@
 import type { CSSProperties } from "react";
 import styles from "@/app/mcp/mcp.module.css";
 
-// What the plugin does: six points at the section's outer edges, each joined to the Inspora mark
-// by a line that runs from the end of its text (on phones, one vertical line under the mark).
-// Each point is written as its two display lines so the text box ends exactly where the line starts.
-const left = [["Start from an idea", "or an Inspora link"], ["Filter by kind,", "industry, style or color"], ["Up to ten direct matches,", "adaptations labelled"]];
-const right = [["Compare directions", "or write a design brief"], ["Every reference", "credited and linked"], ["New work", "arrives automatically"]];
+// What the plugin does: six one-line points joined to the Inspora mark by equal lines
+// (on phones, one vertical line under the mark). The wording is chosen so every point
+// is about the same width (181–189px at 15px Inter), which keeps both sides even.
+const left = ["Start from an idea or a link", "Filter by kind, style or color", "Up to ten direct references"];
+const right = ["Compare, then write a brief", "Every reference is credited", "Always includes new work"];
 
 const ROW = 72;
 const HEIGHT = ROW * 3;
 const MIDDLE = HEIGHT / 2;
-const WIDTH = 64;
+const WIDTH = 105;
 const rows = [ROW / 2, ROW * 1.5, ROW * 2.5];
 
-// Curves continue each point's straight line into the mark.
+// Each curve starts at a dot beside its point and ends at the mark.
 function Links({ side }: { side: "left" | "right" }) {
-  const outer = side === "left" ? 0 : WIDTH;
+  const outer = side === "left" ? 10 : WIDTH - 10;
   const inner = side === "left" ? WIDTH : 0;
   const bend = (outer + inner) / 2;
   return (
@@ -28,6 +28,7 @@ function Links({ side }: { side: "left" | "right" }) {
             <path d={d} className={styles.flowLine} data-line />
             <path d={d} className={styles.flowGlow} style={delay} />
             <path d={d} className={styles.flowPulse} style={delay} />
+            <circle cx={outer} cy={y} r={3.5} className={styles.flowDot} data-dot />
           </g>
         );
       })}
@@ -35,14 +36,9 @@ function Links({ side }: { side: "left" | "right" }) {
   );
 }
 
-const Points = ({ items, side }: { items: string[][]; side: "left" | "right" }) => (
+const Points = ({ items, side }: { items: string[]; side: "left" | "right" }) => (
   <ul className={styles.flowList} data-side={side}>
-    {items.map(([first, second]) => (
-      <li key={first} data-flow-item>
-        <span>{first}{" "}<br />{second}</span>
-        <i className={styles.flowTail} aria-hidden="true" data-tail />
-      </li>
-    ))}
+    {items.map(text => <li key={text} data-flow-item>{text}</li>)}
   </ul>
 );
 

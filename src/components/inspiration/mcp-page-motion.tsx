@@ -53,7 +53,7 @@ export function McpPageMotion() {
         .from(inFlow("[data-hub]"), { autoAlpha: 0, scale: 0.6, duration: 0.7, ease: "back.out(1.7)", clearProps: "transform,opacity,visibility" })
         .fromTo(lines, { strokeDasharray: (_: number, line: SVGPathElement) => length(line), strokeDashoffset: (_: number, line: SVGPathElement) => -length(line) },
           { strokeDashoffset: 0, duration: 0.9, stagger: 0.07, ease: "power2.inOut", clearProps: "strokeDasharray,strokeDashoffset" }, "-=0.35")
-        .from(inFlow("[data-tail]"), { scaleX: 0, transformOrigin: (_: number, tail: Element) => tail.closest("[data-side=left]") ? "right center" : "left center", duration: 0.5, stagger: 0.05, ease: "power2.out", clearProps: "transform" }, "-=0.4")
+        .from(inFlow("[data-dot]"), { autoAlpha: 0, duration: 0.3, stagger: 0.05 }, "-=0.45")
         .from(inFlow("[data-flow-item]"), { autoAlpha: 0, y: 6, duration: 0.5, stagger: 0.06, ease: "power3.out", clearProps: "transform,opacity,visibility" }, "-=0.5");
     }
     const shares = q("[data-share]");

@@ -60,7 +60,7 @@ export default function McpPage() {
           <h2 id="capabilities-title" className={styles.intro} data-reveal><span>It sees the work, not just the words.</span> Your agent looks at previews, motion frames and colors, not only descriptions.</h2>
           <article className={styles.feature} data-reveal>
             <div className={styles.featurePart}>
-              <div><h3>Motion, frame by frame</h3><p>For animated work, your agent gets timestamped frames, so it can see how an interaction moves before it builds one.</p></div>
+              <div><h3>Motion, frame by frame</h3><p>Timestamped frames show your agent how an interaction moves.</p></div>
               <div>
                 <div className={styles.frames}>
                   {studyFrames.map(([file, time, state]) => (
@@ -75,7 +75,7 @@ export default function McpPage() {
               </div>
             </div>
             <div className={styles.featurePart}>
-              <div><h3>Colors measured from the design</h3><p>Each preview comes with colors sampled from the work itself, kept apart from its background.</p></div>
+              <div><h3>Colors measured from the design</h3><p>Colors sampled from each work, kept apart from its background.</p></div>
               <div className={styles.palette}>
                 <div className={styles.paletteBar} role="img" aria-label="Measured colors: green #38d451, 66 percent; near-black #242424, 34 percent">
                   {palette.content.map(color => <span key={color.hex} data-share style={{ flex: `0 0 ${color.share}%`, background: color.hex }} />)}

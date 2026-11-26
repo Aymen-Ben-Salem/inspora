@@ -9,7 +9,7 @@ const right = ["Compare directions or write a design brief", "Every reference cr
 const ROW = 72;
 const HEIGHT = ROW * 3;
 const MIDDLE = HEIGHT / 2;
-const WIDTH = 72;
+const WIDTH = 104;
 const rows = [ROW / 2, ROW * 1.5, ROW * 2.5];
 
 // Curves run from each label (outer edge) to the mark (inner edge).

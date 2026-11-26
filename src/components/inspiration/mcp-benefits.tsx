@@ -1,91 +1,62 @@
-import { ArrowRight, ArrowUpRight, Check, Link2 } from "lucide-react";
+import type { CSSProperties } from "react";
 import styles from "@/app/mcp/mcp.module.css";
 
-// Small drawn scenes for what the plugin does. Decorative: each tile's heading and text carry the meaning.
-function StartAnywhere() {
+// What the plugin does, as six points joined to Inspora by drawn lines (on phones, one vertical line).
+const left = [
+  ["Start from an idea", " or an Inspora link."],
+  ["Filter", " by kind, industry, style, color or technology."],
+  ["Up to ten direct matches,", " adaptations labelled."],
+] as const;
+const right = [
+  ["Compare directions", " or write a design brief."],
+  ["Every reference credited", " and linked."],
+  ["New work arrives", " automatically."],
+] as const;
+
+const ROW = 88;
+const HEIGHT = ROW * 3;
+const MIDDLE = HEIGHT / 2;
+const WIDTH = 120;
+const rows = [ROW / 2, ROW * 1.5, ROW * 2.5];
+
+// Curves run from each point (outer edge) to the mark (inner edge).
+function Links({ side }: { side: "left" | "right" }) {
+  const outer = side === "left" ? 4 : WIDTH - 4;
+  const inner = side === "left" ? WIDTH : 0;
   return (
-    <div className={styles.artStack}>
-      <span className={styles.artInput} data-pop><span className={styles.artCaret}>›</span>Onboarding for a fintech app</span>
-      <span className={styles.artOr} data-pop>or</span>
-      <span className={styles.artInput} data-pop><Link2 size={13} />inspora.design/posts/onboarding-flow</span>
-      <span className={styles.artChips}>
-        <span data-pop data-on>Design</span>
-        <span data-pop data-on>Minimal</span>
-        <span data-pop><i style={{ background: "#38d451" }} />Green</span>
-        <span data-pop>Fintech</span>
-      </span>
-    </div>
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width={WIDTH} height={HEIGHT} aria-hidden="true">
+      {rows.map((y, n) => {
+        const d = `M${outer} ${y} C ${(outer + inner) / 2} ${y}, ${(outer + inner) / 2} ${MIDDLE}, ${inner} ${MIDDLE}`;
+        const delay = { animationDelay: `${(side === "left" ? 0 : 0.7) + n * 1.4}s` } as CSSProperties;
+        return (
+          <g key={y}>
+            <path d={d} className={styles.flowLine} data-line />
+            <path d={d} className={styles.flowGlow} style={delay} />
+            <path d={d} className={styles.flowPulse} style={delay} />
+            <circle cx={outer} cy={y} r={3.5} className={styles.flowDot} data-dot />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
-function DirectMatches() {
-  return (
-    <div className={styles.artStack}>
-      <span className={styles.artCount} data-pop><strong>10</strong> direct matches</span>
-      <span className={styles.artMatches}>
-        {Array.from({ length: 10 }, (_, n) => <span key={n} data-pop><Check size={9} strokeWidth={3} /></span>)}
-      </span>
-      <span className={styles.artAdapt} data-pop>
-        <span /><span />
-        <em>Adaptations, labelled</em>
-      </span>
-    </div>
-  );
-}
-
-function CompareBrief() {
-  return (
-    <div className={styles.artCompare}>
-      <span className={styles.artOptions}>
-        {[["A", ["#e8e3d9", "#1f3b2d", "#c7a45a"]], ["B", ["#f2f2f2", "#262626", "#4f7cff"]]].map(([label, colors]) => (
-          <span key={label as string} className={styles.artOption} data-pop>
-            <b>Direction {label as string}</b>
-            <span className={styles.artSwatches}>{(colors as string[]).map(color => <i key={color} style={{ background: color }} />)}</span>
-            <span className={styles.artLine} /><span className={styles.artLine} data-short />
-          </span>
-        ))}
-      </span>
-      <ArrowRight size={16} className={styles.artArrow} />
-      <span className={styles.artBrief} data-pop>
-        <b>Design brief</b>
-        <span className={styles.artLine} data-grow /><span className={styles.artLine} data-grow /><span className={styles.artLine} data-grow data-short />
-        <span className={styles.artTags}><span>Layout</span><span>Type</span><span>Color</span></span>
-      </span>
-    </div>
-  );
-}
-
-function CreditedCurrent() {
-  return (
-    <div className={styles.artStack}>
-      <span className={styles.artCredit} data-pop>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/mcp/study/invite-code-1-0s.webp" alt="" width={480} height={200} loading="lazy" decoding="async" />
-        <span><b>Invite code interaction</b><small>by Nitish Khagwal</small></span>
-        <ArrowUpRight size={14} />
-      </span>
-      <span className={styles.artSync} data-pop><i />New work synced automatically</span>
-    </div>
-  );
-}
-
-const points = [
-  { title: "Start anywhere", text: "From an idea or an Inspora link, then filter by kind, style, color and more.", Art: StartAnywhere },
-  { title: "Direct matches first", text: "Up to ten references that fit, with adaptations labelled separately.", Art: DirectMatches },
-  { title: "Compare, then brief", text: "Weigh directions side by side and turn the one you like into a design brief.", Art: CompareBrief },
-  { title: "Credited and current", text: "Every reference credited and linked. New work arrives automatically.", Art: CreditedCurrent },
-];
+const Points = ({ items, side }: { items: typeof left | typeof right; side: "left" | "right" }) => (
+  <ul className={styles.flowList} data-side={side}>
+    {items.map(([lead, rest]) => <li key={lead} data-flow-item><b>{lead}</b>{rest}</li>)}
+  </ul>
+);
 
 export function McpBenefits() {
   return (
-    <ul className={styles.points}>
-      {points.map(({ title, text, Art }) => (
-        <li key={title} className={styles.point} data-stagger>
-          <div className={styles.art} aria-hidden="true" data-art><Art /></div>
-          <h3>{title}</h3>
-          <p>{text}</p>
-        </li>
-      ))}
-    </ul>
+    <div className={styles.flow} data-flow>
+      <div className={styles.flowHub} aria-hidden="true" data-hub>
+        <svg viewBox="8 10 48 44" width={26} height={24}><path fill="currentColor" d="M8 54V10h27.5C46.82 10 56 19.18 56 30.5V54H41.5V32c0-4.14-3.36-7.5-7.5-7.5H22.5V54H8Z" /></svg>
+      </div>
+      <Points items={left} side="left" />
+      <Links side="left" />
+      <Links side="right" />
+      <Points items={right} side="right" />
+    </div>
   );
 }

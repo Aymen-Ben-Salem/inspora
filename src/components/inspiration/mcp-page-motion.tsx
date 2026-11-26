@@ -43,13 +43,19 @@ export function McpPageMotion() {
     // Motion study frames arrive in time order; the palette bar fills to its measured shares.
     const frames = q("[data-frame]");
     if (frames.length) gsap.from(frames, { autoAlpha: 0, x: -24, duration: 0.7, stagger: 0.18, ease: "power3.out", clearProps: "transform,opacity,visibility", scrollTrigger: { trigger: frames[0], start: "top 85%", once: true } });
-    // Each "what it does" scene assembles as it enters; the brief's lines draw in.
-    q("[data-art]").forEach(art => {
-      const timeline = gsap.timeline({ scrollTrigger: { trigger: art, start: "top 85%", once: true } });
-      timeline.from(gsap.utils.toArray("[data-pop]", art), { autoAlpha: 0, y: 8, scale: 0.96, duration: 0.5, stagger: 0.05, ease: "power3.out", clearProps: "transform,opacity,visibility" }, 0.15);
-      const lines = gsap.utils.toArray("[data-grow]", art);
-      if (lines.length) timeline.from(lines, { scaleX: 0, transformOrigin: "left center", duration: 0.6, stagger: 0.1, ease: "power3.out", clearProps: "transform" }, ">-0.2");
-    });
+    // "What it does": the Inspora mark appears, lines draw out to each point, then the points arrive.
+    const flow = root.querySelector<HTMLElement>("[data-flow]");
+    if (flow) {
+      const inFlow = (selector: string) => gsap.utils.toArray<Element>(selector, flow);
+      const lines = inFlow("[data-line]") as SVGPathElement[];
+      const length = (line: SVGPathElement) => { try { return line.getTotalLength(); } catch { return 160; } };
+      gsap.timeline({ scrollTrigger: { trigger: flow, start: "top 80%", once: true } })
+        .from(inFlow("[data-hub]"), { autoAlpha: 0, scale: 0.6, duration: 0.7, ease: "back.out(1.7)", clearProps: "transform,opacity,visibility" })
+        .fromTo(lines, { strokeDasharray: (_: number, line: SVGPathElement) => length(line), strokeDashoffset: (_: number, line: SVGPathElement) => -length(line) },
+          { strokeDashoffset: 0, duration: 0.9, stagger: 0.07, ease: "power2.inOut", clearProps: "strokeDasharray,strokeDashoffset" }, "-=0.35")
+        .from(inFlow("[data-dot]"), { autoAlpha: 0, duration: 0.3, stagger: 0.05 }, "-=0.45")
+        .from(inFlow("[data-flow-item]"), { autoAlpha: 0, y: 6, duration: 0.5, stagger: 0.06, ease: "power3.out", clearProps: "transform,opacity,visibility" }, "-=0.5");
+    }
     const shares = q("[data-share]");
     if (shares.length) gsap.from(shares, { flexBasis: "0%", duration: 1.1, stagger: 0.12, ease: "power3.inOut", scrollTrigger: { trigger: shares[0], start: "top 85%", once: true } });
   }, []);

@@ -136,9 +136,9 @@
 @keyframes flowPulse { 0% { stroke-dashoffset: -130px; } 50%, 100% { stroke-dashoffset: 16px; } }
 .flowDot { fill: #fff; stroke: #a3a3a3; stroke-width: 1; }
 .flowList { display: grid; grid-row: 1; grid-template-rows: repeat(3,72px); align-items: center; margin: 0; padding: 0; list-style: none; }
-.flowList li { display: flex; align-items: center; height: 56px; padding: 0 14px; border: 1px solid #333; border-radius: 6px; background: #1b1b1b; color: #fff; font-size: 14px; line-height: 18px; letter-spacing: -.2px; text-wrap: pretty; }
-.flowList[data-side=left] { grid-column: 1; }
-.flowList[data-side=right] { grid-column: 5; }
+.flowList li { font-size: 15px; line-height: 20px; letter-spacing: -.2px; color: var(--ink); text-wrap: pretty; }
+.flowList[data-side=left] { grid-column: 1; padding-right: 8px; text-align: right; }
+.flowList[data-side=right] { grid-column: 5; padding-left: 8px; }
 
 /* Questions */
 .faq { width: 100%; max-width: 662px; border-top: 1px solid var(--line); text-align: left; }
@@ -169,11 +169,11 @@
   .flow { grid-template-columns: minmax(0,1fr); max-width: 400px; }
   .flow > svg { display: none; }
   .flowHub { grid-column: 1; width: 64px; height: 64px; }
-  .flowList[data-side] { grid-column: 1; grid-template-rows: none; gap: 10px; margin-left: 31.5px; padding: 20px 0 0 20px; border-left: 1px solid #d4d4d4; }
+  .flowList[data-side] { grid-column: 1; grid-template-rows: none; gap: 18px; text-align: left; margin-left: 31.5px; padding: 20px 0 0 20px; border-left: 1px solid #d4d4d4; }
   .flowList[data-side=left] { grid-row: 2; }
-  .flowList[data-side=right] { grid-row: 3; padding-top: 10px; }
-  .flowList li { position: relative; height: auto; min-height: 48px; padding-block: 10px; }
-  .flowList li::before { content: ""; position: absolute; left: -26.5px; top: 50%; width: 8px; height: 8px; margin-top: -5px; border: 1px solid #a3a3a3; border-radius: 50%; background: #fff; }
+  .flowList[data-side=right] { grid-row: 3; padding-top: 18px; }
+  .flowList li { position: relative; }
+  .flowList li::before { content: ""; position: absolute; left: -25.5px; top: 5px; width: 8px; height: 8px; border: 1px solid #a3a3a3; border-radius: 50%; background: #fff; }
 }
 @media (max-width: 639px) {
   .main { gap: 80px; }

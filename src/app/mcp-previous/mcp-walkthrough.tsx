@@ -73,7 +73,7 @@ export function McpWalkthrough() {
         </div>
         <p className={styles.srOnly} role="status">{copied}</p>
         <div className={styles.referenceGrid}>
-          {example.results.map(work => (
+          {example.results.slice(0, 6).map(work => (
             <a key={work.url} href={work.url} className={styles.reference} data-reference>
               <span className={styles.thumb} data-fit={work.kind === "logo" || work.kind === "icon" ? "contain" : undefined}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -43,6 +43,13 @@ export function McpPageMotion() {
     // Motion study frames arrive in time order; the palette bar fills to its measured shares.
     const frames = q("[data-frame]");
     if (frames.length) gsap.from(frames, { autoAlpha: 0, x: -24, duration: 0.7, stagger: 0.18, ease: "power3.out", clearProps: "transform,opacity,visibility", scrollTrigger: { trigger: frames[0], start: "top 85%", once: true } });
+    // Each "what it does" scene assembles as it enters; the brief's lines draw in.
+    q("[data-art]").forEach(art => {
+      const timeline = gsap.timeline({ scrollTrigger: { trigger: art, start: "top 85%", once: true } });
+      timeline.from(gsap.utils.toArray("[data-pop]", art), { autoAlpha: 0, y: 8, scale: 0.96, duration: 0.5, stagger: 0.05, ease: "power3.out", clearProps: "transform,opacity,visibility" }, 0.15);
+      const lines = gsap.utils.toArray("[data-grow]", art);
+      if (lines.length) timeline.from(lines, { scaleX: 0, transformOrigin: "left center", duration: 0.6, stagger: 0.1, ease: "power3.out", clearProps: "transform" }, ">-0.2");
+    });
     const shares = q("[data-share]");
     if (shares.length) gsap.from(shares, { flexBasis: "0%", duration: 1.1, stagger: 0.12, ease: "power3.inOut", scrollTrigger: { trigger: shares[0], start: "top 85%", once: true } });
   }, []);

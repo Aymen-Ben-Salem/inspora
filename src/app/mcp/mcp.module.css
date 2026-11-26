@@ -17,7 +17,7 @@
 /* Column */
 .main { display: flex; flex-direction: column; align-items: center; gap: 104px; width: 100%; max-width: 1046px; margin: 0 auto; padding: 12px 16px 20px; }
 .section { display: flex; flex-direction: column; align-items: center; gap: 24px; width: 100%; scroll-margin-top: 24px; }
-.intro { max-width: 662px; text-wrap: pretty; text-align: center; font-size: 16px; font-weight: 400; line-height: 20px; letter-spacing: -.32px; color: var(--muted); }
+.intro { max-width: 520px; text-wrap: pretty; text-align: center; font-size: 16px; font-weight: 400; line-height: 20px; letter-spacing: -.32px; color: var(--muted); }
 .intro > span { color: var(--ink); }
 .small { font-size: 12px; line-height: 20px; color: var(--muted); text-align: center; }
 .small a { color: inherit; }
@@ -54,7 +54,7 @@
 @keyframes blink { 50% { opacity: 0; } }
 .page .demoStatus { display: flex; align-items: center; gap: 6px; margin: 8px 0 14px; font-size: 12px; line-height: 16px; color: var(--muted); }
 .demoStatus svg { color: #22a447; }
-.demoGrid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 10px; }
+.demoGrid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 14px 10px; }
 .demoCard { display: block; min-width: 0; color: inherit; text-decoration: none; }
 .thumb { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 6px; background: #f3f3f3; }
 .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -65,9 +65,9 @@
 .demoTabs button[aria-pressed=true], .demoTabs button:hover { color: var(--ink); border-color: #cfcfcf; }
 .progress { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--ink); transform: scaleX(0); transform-origin: left; }
 
-/* Install band: full-bleed black with the dark card colors of the earlier page */
+/* Dark bands (install, what it does): content width, the dark card colors of the earlier page */
 .band { padding: 72px 24px; border-radius: 6px; background: #111; color: #fff; }
-.band .intro { color: #9a9a9a; }
+.band .intro { max-width: 662px; color: #9a9a9a; }
 .band .intro > span { color: #fff; }
 .band :focus-visible { outline-color: #fff; }
 
@@ -104,26 +104,74 @@
 .page .modeHint { margin-top: 6px; font-size: 12px; color: #8f8f8f; }
 .copyStatus { padding: 0 16px 12px; font-size: 12px; color: #9a9a9a; }
 
-/* What your agent gets */
-.features { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; width: 100%; max-width: 662px; }
-.feature { display: flex; flex-direction: column; gap: 14px; padding: 15px; border: 1px solid var(--line); border-radius: 6px; text-align: left; }
+/* What your agent gets: one box, two parts */
+.feature { width: 100%; max-width: 662px; padding: 15px; border: 1px solid var(--line); border-radius: 6px; text-align: left; }
+.featurePart { display: flex; flex-direction: column; gap: 14px; }
+.featurePart + .featurePart { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .feature h3 { font-size: 18px; font-weight: 500; line-height: 22px; letter-spacing: .2px; }
 .page .feature p { margin-top: 6px; font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: .2px; color: var(--muted); max-width: 46ch; }
-.frames { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: auto; }
+.frames { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
 .frame { position: relative; border-radius: 6px; overflow: hidden; background: #efefef; border: 1px solid var(--line); }
 .frame img { display: block; width: 100%; height: auto; }
 .frame figcaption { position: absolute; left: 5px; bottom: 5px; padding: 1px 5px; border-radius: 3px; background: rgba(38,38,38,.85); color: #fff; font: 11px/1.4 var(--mono); }
 .page .featureCredit { margin-top: 8px; font-size: 12px; color: var(--muted); }
 .featureCredit a { color: inherit; }
-.palette { display: grid; gap: 8px; margin-top: auto; }
+.palette { display: grid; gap: 8px; }
 .paletteBar { display: flex; height: 56px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
 .paletteBar > span { display: block; height: 100%; }
 .swatches { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 11px/1.5 var(--mono); color: var(--muted); }
 .swatches > span { display: inline-flex; align-items: center; gap: 6px; }
 .swatches i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.12); }
-.benefits { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; max-width: 100%; list-style: none; padding: 0; font-size: 16px; line-height: 1.2; letter-spacing: -.32px; color: var(--muted); }
-.benefits li { display: flex; align-items: center; gap: 10px; }
-.benefits img { flex: none; }
+
+/* What it does: four tiles, each with a small drawn scene */
+.points { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; width: 100%; max-width: 860px; margin: 0; padding: 0; list-style: none; text-align: left; }
+.point { display: flex; flex-direction: column; padding: 8px 8px 16px; border: 1px solid #2a2a2a; border-radius: 6px; background: #1b1b1b; }
+.point h3 { margin-top: 14px; padding: 0 8px; font-size: 16px; font-weight: 500; line-height: 20px; letter-spacing: -.32px; color: #fff; }
+.page .point p { margin-top: 4px; padding: 0 8px; font-size: 14px; line-height: 20px; color: #9a9a9a; text-wrap: pretty; }
+.art { display: grid; place-items: center; height: 184px; padding: 16px; overflow: hidden; border: 1px solid #262626; border-radius: 4px; background: radial-gradient(70% 60% at 50% 0%, rgba(255,255,255,.06), transparent 70%), radial-gradient(#262626 1px, transparent 1px) 0 0 / 14px 14px, #141414; }
+.artStack { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 300px; }
+.artInput { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 0 10px; overflow: hidden; border: 1px solid #333; border-radius: 6px; background: #1d1d1d; color: #e8e8e8; font-size: 12px; white-space: nowrap; }
+.artInput svg { flex: none; color: #8d8d8d; }
+.artCaret { color: #6f6f6f; font-family: var(--mono); }
+.artOr { font-size: 11px; line-height: 1; color: #6f6f6f; }
+.artChips { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 4px; }
+.artChips > span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid #333; border-radius: 4px; color: #9a9a9a; font-size: 11px; line-height: 14px; }
+.artChips > span[data-on] { background: #fff; border-color: #fff; color: #111; }
+.artChips i { width: 8px; height: 8px; border-radius: 50%; }
+.artCount { font-size: 12px; color: #9a9a9a; }
+.artCount strong { margin-right: 4px; color: #fff; font-weight: 600; }
+.artMatches { display: grid; grid-template-columns: repeat(5,40px); gap: 6px; }
+.artMatches > span { position: relative; height: 30px; border: 1px solid #333; border-radius: 4px; background: linear-gradient(135deg,#2e2e2e,#202020); }
+.artMatches > span::before { content: ""; position: absolute; left: 5px; right: 16px; bottom: 6px; height: 3px; border-radius: 2px; background: #424242; }
+.artMatches > span:nth-child(3n+2) { background: linear-gradient(135deg,#3a3a3a,#262626); }
+.artMatches svg { position: absolute; top: 3px; right: 3px; width: 12px; height: 12px; padding: 1.5px; border-radius: 50%; background: #38d451; color: #0f0f0f; }
+.artAdapt { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.artAdapt > span { width: 40px; height: 30px; border: 1px dashed #4a4a4a; border-radius: 4px; }
+.artAdapt em { margin-left: 4px; font-size: 11px; font-style: normal; color: #8d8d8d; }
+.artCompare { display: flex; align-items: center; gap: 10px; }
+.artOptions { display: flex; flex-direction: column; gap: 8px; }
+.artOption { display: flex; flex-direction: column; gap: 5px; width: 112px; padding: 8px; border: 1px solid #333; border-radius: 6px; background: #1d1d1d; }
+.artOption b, .artBrief b { font-size: 11px; font-weight: 500; line-height: 14px; color: #e8e8e8; }
+.artSwatches { display: flex; gap: 3px; }
+.artSwatches i { flex: 1; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.artLine { display: block; height: 3px; border-radius: 2px; background: #333; }
+.artLine[data-short] { width: 60%; }
+.artArrow { flex: none; color: #6f6f6f; }
+.artBrief { display: flex; flex-direction: column; gap: 7px; width: 132px; padding: 10px; border-radius: 6px; background: #fff; }
+.artBrief b { font-size: 12px; color: #111; }
+.artBrief .artLine { background: #e3e3e3; }
+.artTags { display: flex; gap: 3px; margin-top: 3px; }
+.artTags span { padding: 1px 4px; border-radius: 3px; background: #f0f0f0; color: #555; font-size: 9px; line-height: 12px; }
+.artCredit { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid #333; border-radius: 6px; background: #1d1d1d; }
+.artCredit img { flex: none; width: 64px; height: 44px; object-fit: cover; border-radius: 4px; }
+.artCredit > span { display: grid; flex: 1; min-width: 0; }
+.artCredit b { overflow: hidden; font-size: 12px; font-weight: 500; color: #fff; text-overflow: ellipsis; white-space: nowrap; }
+.artCredit small { font-size: 11px; color: #9a9a9a; }
+.artCredit svg { flex: none; color: #9a9a9a; }
+.artSync { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border: 1px solid #2a2a2a; border-radius: 4px; font-size: 11px; color: #b4b4b4; }
+.artSync i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #38d451; }
+.artSync i::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #38d451; animation: ping 2s cubic-bezier(0,0,.2,1) infinite; }
+@keyframes ping { 75%, 100% { transform: scale(2.6); opacity: 0; } }
 
 /* Questions */
 .faq { width: 100%; max-width: 662px; border-top: 1px solid var(--line); text-align: left; }
@@ -148,8 +196,9 @@
 @media (min-width: 1024px) { .main { padding: 11px 45px 20px; } }
 @media (max-width: 1023px) {
   .demoGrid { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  .demoGrid > :nth-child(n+4) { display: none; }
+  .demoGrid > :nth-child(n+7) { display: none; }
 }
+@media (max-width: 767px) { .points { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 639px) {
   .main { gap: 80px; }
   .band { padding: 48px 12px; }
@@ -160,9 +209,9 @@
   .demoGrid { gap: 6px; }
   .steps { padding: 14px 12px; }
   .command .modes button { padding-inline: 8px; }
-  .benefits { font-size: 15px; }
+  .art { height: 172px; padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .demo[data-typing] [data-typed]::after { animation: none; }
+  .demo[data-typing] [data-typed]::after, .artSync i::after { animation: none; }
   .primary { transition: none; }
 }

@@ -91,8 +91,8 @@ export function McpHeroDemo() {
                 <span className={styles.thumb} data-fit={work.kind === "logo" || work.kind === "icon" ? "contain" : undefined}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={work.thumbnail} srcSet={`${work.thumbnail} ${work.thumbnailWidth}w, ${work.image} ${work.width}w`}
-                    sizes="(max-width:639px) 30vw, (max-width:1023px) 28vw, 180px" alt={work.alt} width={work.width} height={work.height}
-                    loading={index === 0 && position < 6 ? "eager" : "lazy"} fetchPriority={index === 0 && position < 3 ? "high" : undefined} decoding="async" />
+                    sizes="(max-width:1023px) 30vw, 180px" alt={work.alt} width={work.width} height={work.height}
+                    loading={index === 0 ? "eager" : "lazy"} fetchPriority={index === 0 && position < 3 ? "high" : undefined} decoding="async" />
                 </span>
                 <span className={styles.demoMeta}>{work.title}</span>
               </div>

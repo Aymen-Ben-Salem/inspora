@@ -84,9 +84,9 @@ export function McpHeroDemo() {
             <span aria-hidden="true">›</span>
             <span className={styles.promptText}><span data-full>{prompt}</span><span data-typed aria-hidden="true" /></span>
           </p>
-          <p className={styles.demoStatus} data-status><CircleCheck size={14} aria-hidden="true" />Searched Inspora · showing {search.results.length} references with credits</p>
+          <p className={styles.demoStatus} data-status><CircleCheck size={14} aria-hidden="true" />Searched Inspora · showing 6 references with credits</p>
           <div className={styles.demoGrid} aria-live="polite">
-            {search.results.map((work, position) => (
+            {search.results.slice(0, 6).map((work, position) => (
               <a key={work.url} href={work.url} className={styles.demoCard} data-card>
                 <span className={styles.thumb} data-fit={work.kind === "logo" || work.kind === "icon" ? "contain" : undefined}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}

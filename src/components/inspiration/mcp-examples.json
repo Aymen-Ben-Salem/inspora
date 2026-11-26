@@ -3,7 +3,7 @@
     "id": "dashboards",
     "label": "Dashboards",
     "prompt": "analytics dashboard UI with charts",
-    "recordedAt": "2026-11-25",
+    "recordedAt": "2026-11-26",
     "results": [
       {
         "kind": "design",
@@ -19,15 +19,15 @@
       },
       {
         "kind": "design",
-        "title": "Agent dashboard",
-        "creator": "Jessy Barret",
-        "url": "/posts/agent-dashboard",
-        "image": "/mcp/references/agent-dashboard.webp",
-        "thumbnail": "/mcp/references/agent-dashboard-360.webp",
+        "title": "Support analytics",
+        "creator": "Maxim Kuznetsov",
+        "url": "/posts/support-analytics",
+        "image": "/mcp/references/support-analytics.webp",
+        "thumbnail": "/mcp/references/support-analytics-360.webp",
         "width": 720,
-        "height": 864,
+        "height": 451,
         "thumbnailWidth": 360,
-        "alt": "Rounded dark task and agent cards over a warm blurred background.",
+        "alt": "A narrow dark support dashboard with a ticket-volume chart, channel filters and service metrics.",
         "motion": true
       },
       {
@@ -79,6 +79,57 @@
         "height": 611,
         "thumbnailWidth": 360,
         "alt": "A widget picker drawer over a dotted orange landscape in an AI dashboard."
+      },
+      {
+        "kind": "design",
+        "title": "Agent dashboard",
+        "creator": "Jessy Barret",
+        "url": "/posts/agent-dashboard",
+        "image": "/mcp/references/agent-dashboard.webp",
+        "thumbnail": "/mcp/references/agent-dashboard-360.webp",
+        "width": 720,
+        "height": 864,
+        "thumbnailWidth": 360,
+        "alt": "Rounded dark task and agent cards over a warm blurred background.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Product comps",
+        "creator": "Swaraj",
+        "url": "/posts/product-comps",
+        "image": "/mcp/references/product-comps.webp",
+        "thumbnail": "/mcp/references/product-comps-360.webp",
+        "width": 720,
+        "height": 630,
+        "thumbnailWidth": 360,
+        "alt": "A dark signal panel with two large percentages and a yellow meter over blurred green scenery."
+      },
+      {
+        "kind": "design",
+        "title": "One-tap menu bypass",
+        "creator": "Sonia Tkachuk",
+        "url": "/posts/one-tap-menu-bypass",
+        "image": "/mcp/references/one-tap-menu-bypass.webp",
+        "thumbnail": "/mcp/references/one-tap-menu-bypass-360.webp",
+        "width": 720,
+        "height": 720,
+        "thumbnailWidth": 360,
+        "alt": "A soft payments dashboard with rounded cards, a plus button and a row of payment dots.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Data Collect",
+        "creator": "Slava",
+        "url": "/posts/data-collect",
+        "image": "/mcp/references/data-collect.webp",
+        "thumbnail": "/mcp/references/data-collect-360.webp",
+        "width": 720,
+        "height": 720,
+        "thumbnailWidth": 360,
+        "alt": "Mobile screens with bright gradient tiles for weather, alarms and activity values.",
+        "motion": true
       }
     ]
   },
@@ -86,7 +137,7 @@
     "id": "interactions",
     "label": "Micro-interactions",
     "prompt": "button and toggle micro-interaction animations",
-    "recordedAt": "2026-11-25",
+    "recordedAt": "2026-11-26",
     "results": [
       {
         "kind": "design",
@@ -165,6 +216,58 @@
         "thumbnailWidth": 360,
         "alt": "A glossy pill toggle containing a miniature pixel-art landscape.",
         "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Dark mode toggle",
+        "creator": "Camden",
+        "url": "/posts/1-16",
+        "image": "/mcp/references/dark-mode-toggle.webp",
+        "thumbnail": "/mcp/references/dark-mode-toggle-360.webp",
+        "width": 720,
+        "height": 695,
+        "thumbnailWidth": 360,
+        "alt": "A glassy round toggle gliding along a curved track beside a raised slate panel.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Realistic button",
+        "creator": "Adam",
+        "url": "/posts/realistic-button",
+        "image": "/mcp/references/realistic-button.webp",
+        "thumbnail": "/mcp/references/realistic-button-360.webp",
+        "width": 720,
+        "height": 534,
+        "thumbnailWidth": 360,
+        "alt": "A glossy raised purple button with a thick lower rim on a pale background.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Multi-action button",
+        "creator": "Nick Pyl",
+        "url": "/posts/multi-action-button",
+        "image": "/mcp/references/multi-action-button.webp",
+        "thumbnail": "/mcp/references/multi-action-button-360.webp",
+        "width": 720,
+        "height": 720,
+        "thumbnailWidth": 360,
+        "alt": "A phone corner with Receive, Send and Swap actions fanned out from a plus button.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "A brick button",
+        "creator": "Camden",
+        "url": "/posts/3-9",
+        "image": "/mcp/references/brick-button.webp",
+        "thumbnail": "/mcp/references/brick-button-360.webp",
+        "width": 720,
+        "height": 395,
+        "thumbnailWidth": 360,
+        "alt": "A blue toy-brick button with a yellow arrow tab and a soft reflection below.",
+        "motion": true
       }
     ]
   },
@@ -172,19 +275,19 @@
     "id": "onboarding",
     "label": "Onboarding",
     "prompt": "mobile app onboarding screens",
-    "recordedAt": "2026-11-25",
+    "recordedAt": "2026-11-26",
     "results": [
       {
         "kind": "design",
-        "title": "Onboarding flow",
-        "creator": "Nick Pyl",
-        "url": "/posts/onboarding-flow",
-        "image": "/mcp/references/onboarding-flow.webp",
-        "thumbnail": "/mcp/references/onboarding-flow-360.webp",
+        "title": "Onboarding screen",
+        "creator": "Farzad Godarz",
+        "url": "/posts/onboarding-screen",
+        "image": "/mcp/references/onboarding-screen.webp",
+        "thumbnail": "/mcp/references/onboarding-screen-360.webp",
         "width": 720,
-        "height": 720,
+        "height": 900,
         "thumbnailWidth": 360,
-        "alt": "A wallet onboarding flow with blue, orange and purple gradient steps.",
+        "alt": "A learning app onboarding screen with golden flashcards and a step indicator.",
         "motion": true
       },
       {
@@ -202,19 +305,6 @@
       },
       {
         "kind": "design",
-        "title": "Onboarding screen",
-        "creator": "Farzad Godarz",
-        "url": "/posts/onboarding-screen",
-        "image": "/mcp/references/onboarding-screen.webp",
-        "thumbnail": "/mcp/references/onboarding-screen-360.webp",
-        "width": 720,
-        "height": 900,
-        "thumbnailWidth": 360,
-        "alt": "A learning app onboarding screen with golden flashcards and a step indicator.",
-        "motion": true
-      },
-      {
-        "kind": "design",
         "title": "Onboarding",
         "creator": "三秋十李 Sergio",
         "url": "/posts/onboarding",
@@ -224,6 +314,32 @@
         "height": 1280,
         "thumbnailWidth": 360,
         "alt": "A black cat stretching across a bright blue onboarding screen.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Artistic fintech UI",
+        "creator": "Moiz Arshi",
+        "url": "/posts/artistic-fintech",
+        "image": "/mcp/references/artistic-fintech.webp",
+        "thumbnail": "/mcp/references/artistic-fintech-360.webp",
+        "width": 720,
+        "height": 477,
+        "thumbnailWidth": 360,
+        "alt": "A fintech onboarding screen over a painterly green landscape with a white get-started button.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Onboarding flow",
+        "creator": "Nick Pyl",
+        "url": "/posts/onboarding-flow",
+        "image": "/mcp/references/onboarding-flow.webp",
+        "thumbnail": "/mcp/references/onboarding-flow-360.webp",
+        "width": 720,
+        "height": 720,
+        "thumbnailWidth": 360,
+        "alt": "A wallet onboarding flow with blue, orange and purple gradient steps.",
         "motion": true
       },
       {
@@ -251,6 +367,45 @@
         "thumbnailWidth": 360,
         "alt": "A mobile sign-in screen with a dimensional white door above the phone-number field.",
         "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Pro membership card",
+        "creator": "Craftwork",
+        "url": "/posts/pro-membership-card",
+        "image": "/mcp/references/pro-membership-card.webp",
+        "thumbnail": "/mcp/references/pro-membership-card-360.webp",
+        "width": 720,
+        "height": 540,
+        "thumbnailWidth": 360,
+        "alt": "A holographic membership card rising from a slot inside a dark welcome modal.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Mobile Gradient UI",
+        "creator": "Basit A. Khan",
+        "url": "/posts/mobile-gradient",
+        "image": "/mcp/references/mobile-gradient.webp",
+        "thumbnail": "/mcp/references/mobile-gradient-360.webp",
+        "width": 720,
+        "height": 519,
+        "thumbnailWidth": 360,
+        "alt": "Three phone layouts presenting vivid gradient artwork in light and dark themes.",
+        "motion": true
+      },
+      {
+        "kind": "design",
+        "title": "Playful animated paywall",
+        "creator": "Ali Çorak",
+        "url": "/posts/playful-animated-paywall",
+        "image": "/mcp/references/playful-animated-paywall.webp",
+        "thumbnail": "/mcp/references/playful-animated-paywall-360.webp",
+        "width": 720,
+        "height": 900,
+        "thumbnailWidth": 360,
+        "alt": "A pale mobile paywall with a hand-drawn cocktail illustration above a plan card.",
+        "motion": true
       }
     ]
   },
@@ -258,7 +413,7 @@
     "id": "landing-pages",
     "label": "Landing pages",
     "prompt": "SaaS landing pages with product screenshots",
-    "recordedAt": "2026-11-25",
+    "recordedAt": "2026-11-26",
     "results": [
       {
         "kind": "website",
@@ -331,6 +486,54 @@
         "height": 451,
         "thumbnailWidth": 360,
         "alt": "A blue sky gradient hero with a translucent clipboard panel over green hills."
+      },
+      {
+        "kind": "website",
+        "title": "Couro Azul",
+        "creator": "burocratik",
+        "url": "/websites?website=couro-azul",
+        "image": "/mcp/references/couro-azul.webp",
+        "thumbnail": "/mcp/references/couro-azul-360.webp",
+        "width": 720,
+        "height": 452,
+        "thumbnailWidth": 360,
+        "alt": "Couro Azul's split hero pairing a red car seat on cream with dark leather texture."
+      },
+      {
+        "kind": "website",
+        "title": "Floema",
+        "creator": "burocratik",
+        "url": "/websites?website=floema",
+        "image": "/mcp/references/floema.webp",
+        "thumbnail": "/mcp/references/floema-360.webp",
+        "width": 720,
+        "height": 451,
+        "thumbnailWidth": 360,
+        "alt": "Floema's pale hero with floating product photos around a large sans-serif statement."
+      },
+      {
+        "kind": "website",
+        "title": "Butter",
+        "creator": "ToyFight",
+        "url": "/websites?website=butter",
+        "image": "/mcp/references/butter.webp",
+        "thumbnail": "/mcp/references/butter-360.webp",
+        "width": 720,
+        "height": 451,
+        "thumbnailWidth": 360,
+        "alt": "Butter's light hero with a cluster of 3D keyrings above a large headline."
+      },
+      {
+        "kind": "website",
+        "title": "Oryzo AI",
+        "creator": "Lusion™",
+        "url": "/websites?website=oryzo-ai",
+        "image": "/mcp/references/oryzo-ai.webp",
+        "thumbnail": "/mcp/references/oryzo-ai-360.webp",
+        "width": 720,
+        "height": 451,
+        "thumbnailWidth": 360,
+        "alt": "Oryzo's cork coaster on a green cutting mat under oversized cream lettering."
       }
     ]
   },

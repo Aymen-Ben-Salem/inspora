@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plus } from "lucide-react";
 import { SiteNavbar } from "@/components/site-navbar";
+import { McpBenefits } from "@/components/inspiration/mcp-benefits";
 import { McpClientSetup } from "@/components/inspiration/mcp-client-setup";
 import { McpHeroDemo } from "@/components/inspiration/mcp-hero-demo";
 import { McpPageMotion } from "@/components/inspiration/mcp-page-motion";
@@ -22,13 +22,6 @@ export const metadata: Metadata = {
 // Measured by the plugin for "Invite code interaction" by Nitish Khagwal (November 25, 2026).
 const studyFrames = [["0-3s", "0.3s", "Closed"], ["1-0s", "1.0s", "Opening"], ["1-6s", "1.6s", "Open"]] as const;
 const palette = { background: { hex: "#efefef" }, content: [{ hex: "#38d451", share: 66.4 }, { hex: "#242424", share: 33.6 }] };
-const extras = [
-  "Start from an idea or an Inspora link, then filter by style, color and more.",
-  "Up to ten direct matches, with adaptations labelled.",
-  "Compare directions or turn them into a design brief.",
-  "Every reference credited, with new work added automatically.",
-];
-
 const questions: { q: string; a: ReactNode }[] = [
   { q: "Which apps does it work with?", a: <p>Claude Code and Codex.</p> },
   { q: "Who can use it?", a: <p>It’s included with Inspora Pro. During the preview, only the Inspora team can sign in.</p> },
@@ -65,8 +58,8 @@ export default function McpPage() {
 
         <section className={styles.section} aria-labelledby="capabilities-title">
           <h2 id="capabilities-title" className={styles.intro} data-reveal><span>It sees the work, not just the words.</span> Your agent looks at previews, motion frames and colors, not only descriptions.</h2>
-          <div className={styles.features}>
-            <article className={styles.feature} data-stagger>
+          <article className={styles.feature} data-reveal>
+            <div className={styles.featurePart}>
               <div><h3>Motion, frame by frame</h3><p>For animated work, your agent gets timestamped frames, so it can see how an interaction moves before it builds one.</p></div>
               <div>
                 <div className={styles.frames}>
@@ -80,8 +73,8 @@ export default function McpPage() {
                 </div>
                 <p className={styles.featureCredit}><Link href="/posts/invite-code-interaction">Invite code interaction</Link> by Nitish Khagwal</p>
               </div>
-            </article>
-            <article className={styles.feature} data-stagger>
+            </div>
+            <div className={styles.featurePart}>
               <div><h3>Colors measured from the design</h3><p>Each preview comes with colors sampled from the work itself, kept apart from its background.</p></div>
               <div className={styles.palette}>
                 <div className={styles.paletteBar} role="img" aria-label="Measured colors: green #38d451, 66 percent; near-black #242424, 34 percent">
@@ -92,11 +85,13 @@ export default function McpPage() {
                   <span><i style={{ background: palette.background.hex }} />{palette.background.hex} · background</span>
                 </div>
               </div>
-            </article>
-          </div>
-          <ul className={styles.benefits} data-stagger>
-            {extras.map(text => <li key={text}><Image src="/sponsorship/star.svg" alt="" width={20} height={20} />{text}</li>)}
-          </ul>
+            </div>
+          </article>
+        </section>
+
+        <section className={`${styles.section} ${styles.band}`} aria-labelledby="points-title">
+          <h2 id="points-title" className={styles.intro} data-reveal><span>From a first idea to a design brief.</span> Your agent does the searching.</h2>
+          <McpBenefits />
         </section>
 
         <section className={styles.section} aria-labelledby="questions-title">

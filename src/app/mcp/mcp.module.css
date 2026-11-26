@@ -27,7 +27,8 @@
 .primary:hover { background: #000; border-color: #000; }
 
 /* Hero */
-.hero { display: flex; flex-direction: column; align-items: center; gap: 32px; text-align: center; }
+.hero { display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; }
+.hero > .stage { margin-top: 24px; }
 .heroCopy { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 3px; font-size: 12px; font-weight: 700; line-height: 16px; letter-spacing: -.24px; color: var(--muted); }
 .trySlot { position: relative; display: inline-block; height: 16px; overflow: hidden; vertical-align: top; }
@@ -64,44 +65,44 @@
 .demoTabs button[aria-pressed=true], .demoTabs button:hover { color: var(--ink); border-color: #cfcfcf; }
 .progress { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--ink); transform: scaleX(0); transform-origin: left; }
 
-/* Install band: full-bleed black, the card stays as it is */
-.band { padding: 72px 0; background: #111; box-shadow: 0 0 0 100vmax #111; clip-path: inset(0 -100vmax); }
+/* Install band: full-bleed black with the dark card colors of the earlier page */
+.band { padding: 72px 0; background: #111; color: #fff; box-shadow: 0 0 0 100vmax #111; clip-path: inset(0 -100vmax); }
 .band .intro { color: #9a9a9a; }
 .band .intro > span { color: #fff; }
 .band :focus-visible { outline-color: #fff; }
-.band .client :focus-visible { outline-color: var(--ink); }
 
 /* Install card */
-.client { width: 100%; max-width: 640px; border: 1px solid var(--line); border-radius: 6px; background: #fff; overflow: hidden; text-align: left; }
-.clientTabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
-.clientTabs button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font-size: 14px; transition: background-color .2s, color .2s, border-color .2s; }
-.clientTabs button[aria-selected=true] { background: var(--ink); border-color: var(--ink); color: #fff; }
-.clientTabs button:not([aria-selected=true]):hover { border-color: var(--ink); }
+.client { width: 100%; max-width: 662px; border: 1px solid #333; border-radius: 6px; background: #1b1b1b; overflow: hidden; text-align: left; }
+.clientTabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #333; }
+.clientTabs button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 6px; background: none; color: #bdbdbd; font-size: 14px; transition: background-color .2s, color .2s; }
+.clientTabs button[aria-selected=true] { background: #fff; color: #111; }
+.clientTabs button:not([aria-selected=true]):hover { background: #262626; color: #fff; }
 .clientTabs img { width: 18px; height: 18px; object-fit: contain; }
 .steps { list-style: none; padding: 16px; margin: 0; display: grid; gap: 20px; counter-reset: step; }
 .steps > li { display: grid; grid-template-columns: 24px minmax(0,1fr); gap: 12px; }
-.steps > li::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 600; }
-.steps h3 { font-size: 16px; font-weight: 500; line-height: 24px; letter-spacing: -.32px; }
-.page .steps p { margin-top: 4px; color: var(--muted); font-size: 14px; line-height: 20px; }
-.steps p code { padding: 1px 5px; border-radius: 4px; background: #f3f3f3; color: var(--ink); font-size: 12.5px; }
-.command { margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
-.commandBar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px; border-bottom: 1px solid var(--line); }
-.modes { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: #f0f0f0; }
-.command .modes button { min-height: 28px; padding: 4px 10px; border: 0; border-radius: 4px; background: none; color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
-.command .modes button[aria-pressed=true] { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-.command button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); font-size: 12px; transition: border-color .2s, background-color .2s, color .2s; }
-.command button:hover { border-color: var(--ink); }
-.command pre { margin: 0; padding: 12px; overflow-x: auto; color: var(--ink); font: 12.5px/1.65 var(--mono); white-space: pre; }
+.steps > li::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; border: 1px solid #444; color: #ddd; font-size: 12px; font-weight: 600; }
+.steps h3 { font-size: 16px; font-weight: 500; line-height: 24px; letter-spacing: -.32px; color: #fff; }
+.page .steps p { margin-top: 4px; color: #b4b4b4; font-size: 14px; line-height: 20px; }
+.steps p code { padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.08); color: #fff; font-size: 12.5px; }
+.command { margin-top: 10px; border: 1px solid #383838; border-radius: 6px; background: #0f0f0f; overflow: hidden; }
+.commandBar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px; border-bottom: 1px solid #262626; color: #8d8d8d; }
+.modes { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: #1a1a1a; }
+.command .modes button { min-height: 28px; padding: 4px 10px; border: 0; border-radius: 4px; background: none; color: #9a9a9a; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.command .modes button:hover { background: none; color: #fff; }
+.command .modes button[aria-pressed=true] { background: #2e2e2e; color: #fff; }
+.command button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 10px; border: 1px solid #3a3a3a; border-radius: 6px; background: #1d1d1d; color: #eee; font-size: 12px; transition: border-color .2s, background-color .2s, color .2s; }
+.command button:hover { background: #2a2a2a; border-color: #555; }
+.command pre { margin: 0; padding: 12px; overflow-x: auto; color: #e3e3e3; font: 12.5px/1.65 var(--mono); white-space: pre; }
 .command pre[data-prose] { white-space: pre-wrap; overflow-wrap: anywhere; }
 .commandRows { list-style: none; margin: 0; padding: 6px; display: grid; gap: 6px; }
-.commandRows li { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 2px 2px 2px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
-.commandRows li > span { flex: none; color: #b0b0b0; font: 13px/1 var(--mono); }
-.commandRows code { flex: 1; min-width: 0; padding: 9px 0; overflow-x: auto; white-space: nowrap; color: var(--ink); font-size: 13px; font-weight: 500; line-height: 1.4; scrollbar-width: none; }
+.commandRows li { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 2px 2px 2px 10px; border-radius: 6px; background: #161616; }
+.commandRows li > span { flex: none; color: #6f6f6f; font: 13px/1 var(--mono); }
+.commandRows code { flex: 1; min-width: 0; padding: 9px 0; overflow-x: auto; white-space: nowrap; color: #e8e8e8; font-size: 13px; font-weight: 500; line-height: 1.4; scrollbar-width: none; }
 .commandRows code::-webkit-scrollbar { display: none; }
-.command .commandRows button { flex: none; justify-content: center; width: 32px; min-height: 32px; padding: 0; border-color: transparent; background: none; color: var(--muted); }
-.command .commandRows button:hover { color: var(--ink); background: #f3f3f3; }
-.page .modeHint { margin-top: 6px; font-size: 12px; color: var(--muted); }
-.copyStatus { padding: 0 16px 12px; font-size: 12px; color: var(--muted); }
+.command .commandRows button { flex: none; justify-content: center; width: 32px; min-height: 32px; padding: 0; border-color: #303030; background: #222; color: #bdbdbd; }
+.command .commandRows button:hover { color: #fff; background: #2a2a2a; border-color: #555; }
+.page .modeHint { margin-top: 6px; font-size: 12px; color: #8f8f8f; }
+.copyStatus { padding: 0 16px 12px; font-size: 12px; color: #9a9a9a; }
 
 /* What your agent gets */
 .features { display: grid; grid-template-columns: minmax(0,3fr) minmax(0,2fr); gap: 18px; width: 100%; }
@@ -137,7 +138,8 @@
 .answer code { padding: 1px 5px; border-radius: 4px; background: #f3f3f3; color: var(--ink); font-size: 12.5px; }
 
 /* Closing */
-.closing { display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; }
+.closing { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.closing > .primary { margin-top: 4px; }
 .closingCopy { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .page .closingTitle { max-width: 460px; text-wrap: balance; font-size: 32px; font-weight: 700; line-height: 1.2; letter-spacing: -.8px; }
 .links { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; font-size: 12px; line-height: 20px; color: var(--muted); }

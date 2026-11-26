@@ -84,18 +84,18 @@ export function McpHeroDemo() {
             <span aria-hidden="true">›</span>
             <span className={styles.promptText}><span data-full>{prompt}</span><span data-typed aria-hidden="true" /></span>
           </p>
-          <p className={styles.demoStatus} data-status><CircleCheck size={14} aria-hidden="true" />Searched Inspora · showing {search.results.length} references with credits</p>
+          <p className={styles.demoStatus} data-status><CircleCheck size={14} aria-hidden="true" />Searched Inspora · showing {search.results.length} references</p>
           <div className={styles.demoGrid} aria-live="polite">
             {search.results.map((work, position) => (
-              <a key={work.url} href={work.url} className={styles.demoCard} data-card>
+              <div key={work.url} className={styles.demoCard} data-card>
                 <span className={styles.thumb} data-fit={work.kind === "logo" || work.kind === "icon" ? "contain" : undefined}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={work.thumbnail} srcSet={`${work.thumbnail} ${work.thumbnailWidth}w, ${work.image} ${work.width}w`}
                     sizes="(max-width:639px) 30vw, (max-width:1023px) 28vw, 180px" alt={work.alt} width={work.width} height={work.height}
                     loading={index === 0 && position < 6 ? "eager" : "lazy"} fetchPriority={index === 0 && position < 3 ? "high" : undefined} decoding="async" />
                 </span>
-                <span className={styles.demoMeta}><strong>{work.title}</strong><span>{work.creator}</span></span>
-              </a>
+                <span className={styles.demoMeta}>{work.title}</span>
+              </div>
             ))}
           </div>
         </div>

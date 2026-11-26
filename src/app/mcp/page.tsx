@@ -9,7 +9,6 @@ import { McpClientSetup } from "@/components/inspiration/mcp-client-setup";
 import { McpHeroDemo } from "@/components/inspiration/mcp-hero-demo";
 import { McpPageMotion } from "@/components/inspiration/mcp-page-motion";
 import { McpTryWith } from "@/components/inspiration/mcp-try-with";
-import { McpWalkthrough } from "@/components/inspiration/mcp-walkthrough";
 import { isMcpPreviewEnabled } from "@/features/inspiration/preview";
 import styles from "./mcp.module.css";
 
@@ -33,7 +32,7 @@ const extras = [
 ];
 
 const questions: { q: string; a: ReactNode }[] = [
-  { q: "Which apps does it work with?", a: <p>Claude Code and Codex. Other MCP agents can connect with the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p> },
+  { q: "Which apps does it work with?", a: <p>Claude Code and Codex.</p> },
   { q: "Who can use it?", a: <p>It’s included with Inspora Pro. During the preview, only the Inspora team can sign in.</p> },
   { q: "Are there usage limits?", a: <p>Per account: 30 tool calls a minute, 500 a day and 3,000 new searches a month. If you hit one, your agent is told when to try again.</p> },
   { q: "What does Inspora receive?", a: <p>Only the searches your agent sends. It can’t read your files, code, conversations or saved collections.</p> },
@@ -57,20 +56,13 @@ export default function McpPage() {
           </div>
           <div className={styles.actions} data-hero-fade>
             <a href="#setup" className={styles.primary}>Install the plugin</a>
-            <a href="#examples" className={styles.textLink}>See example searches</a>
           </div>
           <div className={styles.stage} data-hero-stage><McpHeroDemo /></div>
         </section>
 
-        <section id="setup" className={styles.section} aria-labelledby="setup-title">
+        <section id="setup" className={`${styles.section} ${styles.band}`} aria-labelledby="setup-title">
           <h2 id="setup-title" className={styles.intro} data-reveal><span>Ready in a minute.</span> Included with Inspora Pro. During the preview, only the Inspora team can sign in.</h2>
           <div className={styles.section} data-reveal><McpClientSetup /></div>
-          <p className={styles.small} data-reveal>Using another agent? Follow the <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">setup guide</a>.</p>
-        </section>
-
-        <section id="examples" className={styles.section} aria-labelledby="examples-title">
-          <h2 id="examples-title" className={styles.intro} data-reveal><span>Ask the way you’d ask a designer.</span> Your agent checks the previews and comes back with a shortlist, every work credited and linked.</h2>
-          <div className={styles.section} data-reveal><McpWalkthrough /></div>
         </section>
 
         <section className={styles.section} aria-labelledby="capabilities-title">
@@ -128,7 +120,6 @@ export default function McpPage() {
           </div>
           <a href="#setup" className={styles.primary}>Install the plugin</a>
           <div className={styles.links}>
-            <a href="https://mcp.inspora.design/setup" target="_blank" rel="noreferrer">Setup guide</a>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
           </div>
